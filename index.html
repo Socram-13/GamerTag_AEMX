@@ -5047,7 +5047,7 @@
           const ang = gr.angleAlong[j];
           arr[j * 3]     = Math.cos(ang) * rr;
           arr[j * 3 + 1] = Math.sin(ang) * rr;
-          arr[j * 3 + 2] = z;
+          arr[j * 3 + 2] = z + gr.zLag[j];
         }
         posAttr.needsUpdate = true;
       });
@@ -5059,7 +5059,7 @@
   }
 
   function _donutParticleSpeed(segVal) {
-    if      (segVal === 0)    return 60;
+    if      (segVal === 0)    return 20;
     else if (segVal <= 10)    return 50;
     else if (segVal <= 25)    return 40;
     else if (segVal <= 50)    return 30;
@@ -5155,6 +5155,7 @@
           const radialAmpArr  = new Float32Array(count);
           const zAmpArr       = new Float32Array(count);
           const crossA0Arr    = new Float32Array(count);
+          const zLagArr       = new Float32Array(count);
 
           // cantidades pequeñas → más partículas concentradas en la cabeza (brillo) y más extensión angular extra
           const headFrac = Math.min(0.6, 0.25 + 60 / (count + 40)); // fracción de partículas con sesgo hacia la punta (solo densidad/brillo)
@@ -5177,11 +5178,16 @@
             const t = u > 0.85 ? (u - 0.85) / 0.15 : 0;
             const headFade = u > 0.85 ? Math.sqrt(Math.max(0, 1 - t * t)) : 1;
             const crossR = Math.sqrt(Math.random()) * 0.5;
-            const crossA = Math.random() * 2 * Math.PI;
+            const TWIST_RATE = 8; // rad de torsión a lo largo de toda la cola, forma la espiral
+            const crossA = Math.random() * 2 * Math.PI + TWIST_RATE * u; // aleatorio + torsión según posición → espiral continua sin hebras
             const radialAmp = crossR * band * taper * headFade;
             const zAmp = crossR * (2 + u * 9) * headFade;
             const rr = radius + Math.cos(crossA) * radialAmp;
-            const z  = Math.sin(crossA) * zAmp;
+            let z  = Math.sin(crossA) * zAmp;
+
+            // la cola se retrasa (se inclina) al lado contrario del giro vertical, como si se quedara atrás al girar
+            const zLag = -Math.sign(TILT_SPEED[i]) * (1 - u) * band * 0.8;
+            z += zLag;
 
             positions[j*3]   = Math.cos(a) * rr;
             positions[j*3+1] = Math.sin(a) * rr;
@@ -5192,6 +5198,7 @@
             radialAmpArr[j]  = radialAmp;
             zAmpArr[j]       = zAmp;
             crossA0Arr[j]    = crossA;
+            zLagArr[j]       = zLag;
 
             // mismo brillo en toda la cola, sin oscurecerse
             colorsAttr[j*3]   = baseColor.r;
@@ -5204,7 +5211,7 @@
           geo.setAttribute('color', new THREE.BufferAttribute(colorsAttr, 3));
 
           // tamaño adaptativo: con muchas partículas se reducen para que no se saturen ni se empasten
-          const dotSize = Math.max(2.8, Math.min(5.5, 1400 / count));
+          const dotSize = Math.max(3.4, Math.min(6.6, 1680 / count));
 
           const mat = new THREE.PointsMaterial({
             size: dotSize,
@@ -5223,7 +5230,7 @@
             points, speed: _donutParticleSpeed(val), dir: SPIN_DIR[i],
             tiltAxis: TILT_AXIS[i], tiltSpeed: TILT_SPEED[i],
             radius, angleAlong: angleAlongArr, radialAmp: radialAmpArr,
-            zAmp: zAmpArr, crossA0: crossA0Arr,
+            zAmp: zAmpArr, crossA0: crossA0Arr, zLag: zLagArr,
             spinPhase: 0, spinSpeed: SPIN_TUBE_SPEED[i],
           });
         }
