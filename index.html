@@ -198,7 +198,7 @@
     .profile-name-input { min-width: 0; width: 100% !important; font-size: 18px; text-align: center; }
     .profile-info > div { justify-content: center; }
     .donut-wrap { width: 90px; height: 90px; overflow: hidden; }
-    .donut-wrap svg { width: 100% !important; height: 100% !important; }
+    .donut-wrap canvas { width: 100% !important; height: 100% !important; }
     .card { padding: 10px; }
     .card-title { font-size: 11px; letter-spacing: 2px; }
     .parcel-row { gap: 6px; }
@@ -1417,22 +1417,13 @@
     overflow: hidden;
   }
 
-  .donut-wrap svg {
-    transform: rotate(-90deg);
-  }
-
-  @keyframes segSpinFwd {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(-360deg); }
-  }
-  @keyframes segSpinRev {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+  .donut-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
   }
 
   .donut-center {
-    position: absolute;
-    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2525,6 +2516,7 @@
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <!-- ===== FIREBASE SDK ===== -->
   <script type="module">
@@ -3369,11 +3361,10 @@
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
         <div class="donut-wrap">
-          <svg width="100%" height="100%" viewBox="-10 -10 120 120" id="donut-svg">
-            <circle id="donut-bg-circle" cx="50" cy="50" r="28" fill="none" stroke="#1a3a5c" stroke-width="30"/>
-          </svg>
-          <div class="donut-center" id="donut-center">—</div>
+          <canvas id="donut-canvas"></canvas>
+          <div id="donut-bg-circle" style="display:none" data-stroke="#1a3a5c"></div>
         </div>
+        <div class="donut-center" id="donut-center">—</div>
         <div class="donut-crel">
           <span style="color:#2d7a25">C.</span>
           <span style="color:#1565C0">R.</span>
@@ -4905,7 +4896,7 @@
       });
     }
     autoSave();
-    drawDonut(c, r, e, l, total);
+    try { drawDonut(c, r, e, l, total); } catch (err) { console.error('[donut3D] fallo general en drawDonut:', err); }
 
     const startDateVal = document.getElementById('start-date').value;
     const ppdCircle = document.getElementById('ppd-circle');
@@ -4933,17 +4924,131 @@
     }
   }
 
+  // ---- Motor de partículas 3D del donut (Three.js) ----
+  let _donutScene, _donutCamera, _donutRenderer, _donutCanvasEl, _donutBgMesh, _donutClock;
+  let _donutGroups = []; // { points, speed(seg/vuelta), dir(+1/-1) }
+  let _donutParticleTexture = null;
+
+  function _donutMakeParticleTexture() {
+    if (_donutParticleTexture) return _donutParticleTexture;
+    const size = 64;
+    const cnv = document.createElement('canvas');
+    cnv.width = size; cnv.height = size;
+    const ctx = cnv.getContext('2d');
+    const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+    grad.addColorStop(0,   'rgba(255,255,255,1)');
+    grad.addColorStop(0.4, 'rgba(255,255,255,0.85)');
+    grad.addColorStop(1,   'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    _donutParticleTexture = new THREE.CanvasTexture(cnv);
+    return _donutParticleTexture;
+  }
+
+  function _donutParseColorAlpha(str) {
+    if (!str) return { color: '#1a3a5c', alpha: 0.3 };
+    const m = str.match(/rgba?\(([^)]+)\)/);
+    if (m) {
+      const parts = m[1].split(',').map(s => parseFloat(s.trim()));
+      const [rr, gg, bb, aa] = parts;
+      return { color: `rgb(${rr},${gg},${bb})`, alpha: (aa === undefined ? 1 : aa) };
+    }
+    return { color: str, alpha: 1 };
+  }
+
+  let _donut3DFailed = false;
+
+  function initDonut3D() {
+    if (_donutRenderer || _donut3DFailed) return;
+    try {
+      _donutCanvasEl = document.getElementById('donut-canvas');
+      if (!_donutCanvasEl || typeof THREE === 'undefined') { _donut3DFailed = true; return; }
+
+      _donutScene = new THREE.Scene();
+      _donutCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
+      _donutCamera.position.set(0, -102, 76);
+      _donutCamera.up.set(0, 0, 1);
+      _donutCamera.lookAt(0, 0, 0);
+
+      _donutRenderer = new THREE.WebGLRenderer({ canvas: _donutCanvasEl, alpha: true, antialias: true });
+      _donutRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+      _donutClock = new THREE.Clock();
+      requestAnimationFrame(_donutAnimate);
+    } catch (err) {
+      _donut3DFailed = true;
+      console.error('[donut3D] fallo al inicializar Three.js:', err);
+    }
+  }
+
+  function _donutUpdateBg() {
+    // fondo eliminado por preferencia del usuario; sin operación
+  }
+
+  function _donutAnimate() {
+    requestAnimationFrame(_donutAnimate);
+    try {
+      if (!_donutRenderer || !_donutCanvasEl) return;
+
+      const w = _donutCanvasEl.clientWidth || 1;
+      const h = _donutCanvasEl.clientHeight || 1;
+      const ratio = _donutRenderer.getPixelRatio();
+      if (_donutCanvasEl.width !== Math.round(w * ratio) || _donutCanvasEl.height !== Math.round(h * ratio)) {
+        _donutRenderer.setSize(w, h, false);
+        _donutCamera.aspect = w / h;
+        _donutCamera.updateProjectionMatrix();
+      }
+
+      const dt = _donutClock.getDelta();
+      _donutGroups.forEach(gr => {
+        gr.points.rotation.z += gr.dir * (2 * Math.PI / gr.speed) * dt;
+        gr.points.rotation[gr.tiltAxis] += gr.tiltSpeed * dt;
+      });
+
+      _donutRenderer.render(_donutScene, _donutCamera);
+    } catch (err) {
+      console.error('[donut3D] fallo al animar/renderizar:', err);
+    }
+  }
+
+  function _donutParticleSpeed(segVal) {
+    if      (segVal === 0)    return 60;
+    else if (segVal <= 10)    return 50;
+    else if (segVal <= 25)    return 40;
+    else if (segVal <= 50)    return 30;
+    else if (segVal <= 100)   return 20;
+    else if (segVal <= 200)   return 12;
+    else if (segVal <= 400)   return 7;
+    else if (segVal <= 700)   return 4;
+    else if (segVal <= 1000)  return 2.5;
+    else if (segVal <= 2000)  return 1.5;
+    else if (segVal <= 4000)  return 1;
+    else                      return 0.5;
+  }
+
   function drawDonut(c, r, e, l, total) {
-    const svg = document.getElementById('donut-svg');
     const center = document.getElementById('donut-center');
-    const cx = 50, cy = 50, strokeW = 5;
     const GAP_DEG = 6;
 
-    svg.querySelectorAll('.seg').forEach(el => el.remove());
+    initDonut3D();
 
     const vals = [c, r, e, l];
     const pctIds = ['donut-pct-c','donut-pct-r','donut-pct-e','donut-pct-l'];
     const colors = ['#4ade80','#60a5fa','#c084fc','#facc15'];
+
+    // limpiar grupos de partículas de la actualización anterior
+    try {
+      if (_donutScene) {
+        _donutGroups.forEach(gr => {
+          _donutScene.remove(gr.points);
+          gr.points.geometry.dispose();
+          gr.points.material.dispose();
+        });
+      }
+    } catch (err) {
+      console.error('[donut3D] fallo al limpiar partículas previas:', err);
+    }
+    _donutGroups = [];
 
     if (total === 0) {
       center.textContent = '—';
@@ -4967,90 +5072,95 @@
         _donutBg.setAttribute('stroke', 'rgba(200,169,110,0.3)');
       }
     }
+    _donutUpdateBg();
 
     const activeCount = vals.filter(v => v > 0).length;
     const GAP_RAD = (GAP_DEG * Math.PI) / 180;
     const totalGap = activeCount > 1 ? GAP_RAD * activeCount : 0;
     const available = 2 * Math.PI - totalGap;
 
-    function arcPath(cx, cy, r, startAngle, endAngle) {
-      const arcLen   = endAngle - startAngle;
-      const numTeeth = Math.max(2, Math.round(arcLen / 0.40));
-      const period   = arcLen / numTeeth;
-      const toothH   = 6;
-      const rOuter   = r + toothH;
-
-      // Diente recto: valle plano | subida vertical | punta plana estrecha | bajada vertical | valle
-      const valFrac  = 0.50;  // 50% valle
-      const topFrac  = 0.50;  // 50% diente (flancos casi verticales, punta plana)
-
-      const p = (angle, radius) => `${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`;
-
-      let d = `M ${p(startAngle, r)}`;
-      for (let t = 0; t < numTeeth; t++) {
-        const a0 = startAngle + t * period;          // inicio valle
-        const a1 = a0 + valFrac * period;            // fin valle / pie izq diente
-        const a2 = a1 + topFrac * period * 0.08;     // flanco izq (casi vertical)
-        const a3 = a2 + topFrac * period * 0.84;     // punta plana
-        const a4 = a3 + topFrac * period * 0.08;     // flanco der (casi vertical)
-
-        d += ` A ${r} ${r} 0 0 1 ${p(a1, r)}`;      // arco valle
-        d += ` L ${p(a2, rOuter)}`;                  // sube vertical izq
-        d += ` L ${p(a3, rOuter)}`;                  // punta plana
-        d += ` L ${p(a4, r)}`;                       // baja vertical der
-      }
-      d += ` A ${r} ${r} 0 0 1 ${p(endAngle, r)}`;
-      return d;
-    }
-
-    const RADIOS = [38, 30, 22, 14];
-    const SPIN_DIR = ['segSpinFwd', 'segSpinRev', 'segSpinFwd', 'segSpinRev'];
+    const RADIOS = [38, 30, 22, 14];   // radio de cada anillo (igual que antes)
+    const BAND   = [7, 6, 5, 4];       // grosor de la nube de partículas por anillo
+    const SPIN_DIR = [-1, 1, -1, 1];   // mismos sentidos que segSpinFwd/segSpinRev
+    const TILT_AXIS  = ['x', 'y', 'x', 'y'];        // eje de precesión tipo giroscopio
+    const TILT_SPEED = [0.16, -0.22, 0.27, -0.19];  // rad/seg, distinto por anillo
 
     let angleOffset = -Math.PI / 2;
 
     vals.forEach((val, i) => {
       if (val === 0) return;
-      const pct = val / total;
-      const segAngle = pct * available;
-      const startAngle = angleOffset;
-      const endAngle = angleOffset + segAngle;
-      const midAngle = (startAngle + endAngle) / 2;
-      const radius = RADIOS[i];
+      try {
+        const pct = val / total;
+        const segAngle = pct * available;
+        const startAngle = angleOffset;
+        const radius = RADIOS[i];
+        const band = BAND[i];
+        const count = val; // una partícula por parcela, sin límite
 
-      const EXPLODE = 2;
-      const ex = cx + Math.cos(midAngle) * EXPLODE;
-      const ey = cy + Math.sin(midAngle) * EXPLODE;
+        if (_donutScene) {
+          const texture = _donutMakeParticleTexture();
+          const dir = SPIN_DIR[i];
+          const positions = new Float32Array(count * 3);
+          const colorsAttr = new Float32Array(count * 3);
+          const baseColor = new THREE.Color(colors[i]);
 
-      const seg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      seg.setAttribute('d', arcPath(ex, ey, radius, startAngle, endAngle));
-      seg.setAttribute('fill', 'none');
-      seg.setAttribute('stroke', colors[i]);
-      seg.setAttribute('stroke-width', strokeW);
-      seg.setAttribute('stroke-linecap', 'round');
-      seg.setAttribute('filter', `drop-shadow(0 0 3px ${colors[i]})`);
+          // cantidades pequeñas → exponente más alto (más densidad repartida) y más extensión angular extra
+          const tailExp = Math.min(0.95, 0.32 + 75 / (count + 12));
+          const tailExtra = Math.min(1.15, 150 / (count + 18)); // rad extra que la cola se escapa más allá del arco proporcional
+          const totalSpan = segAngle + tailExtra;
 
-      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      g.setAttribute('class', 'seg');
-      g.style.transformOrigin = '50px 50px';
-      const segVal = vals[i];
-      let segSpeed;
-      if      (segVal === 0)    segSpeed = 60;
-      else if (segVal <= 10)    segSpeed = 50;
-      else if (segVal <= 25)    segSpeed = 40;
-      else if (segVal <= 50)    segSpeed = 30;
-      else if (segVal <= 100)   segSpeed = 20;
-      else if (segVal <= 200)   segSpeed = 12;
-      else if (segVal <= 400)   segSpeed = 7;
-      else if (segVal <= 700)   segSpeed = 4;
-      else if (segVal <= 1000)  segSpeed = 2.5;
-      else if (segVal <= 2000)  segSpeed = 1.5;
-      else if (segVal <= 4000)  segSpeed = 1;
-      else                      segSpeed = 0.5;
-      g.style.animation = `${SPIN_DIR[i]} ${segSpeed.toFixed(2)}s linear infinite`;
-      g.appendChild(seg);
-      svg.appendChild(g);
+          for (let j = 0; j < count; j++) {
+            // u=1 → cabeza del cometa (posición real, lado de avance), u=0 → cola (se extiende más allá del arco)
+            const u = Math.pow(Math.random(), tailExp);
+            const posFromTail = u * totalSpan;
+            const a = (dir === 1)
+              ? (startAngle - tailExtra) + posFromTail                 // cabeza en startAngle+segAngle, cola se escapa antes de startAngle
+              : (startAngle + segAngle + tailExtra) - posFromTail;     // cabeza en startAngle, cola se escapa después de startAngle+segAngle
 
-      angleOffset = endAngle + GAP_RAD;
+            const taper = 0.22 + u * 0.9;              // la cola se adelgaza (menos dispersión en radio y profundidad)
+            const rr = radius + (Math.random() - 0.5) * band * taper;
+            const z  = (Math.random() - 0.5) * (1 + u * 4.5);
+
+            positions[j*3]   = Math.cos(a) * rr;
+            positions[j*3+1] = Math.sin(a) * rr;
+            positions[j*3+2] = z;
+
+            // mismo brillo en toda la cola, sin oscurecerse
+            colorsAttr[j*3]   = baseColor.r;
+            colorsAttr[j*3+1] = baseColor.g;
+            colorsAttr[j*3+2] = baseColor.b;
+          }
+
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+          geo.setAttribute('color', new THREE.BufferAttribute(colorsAttr, 3));
+
+          // tamaño adaptativo: con muchas partículas se reducen para que no se saturen ni se empasten
+          const dotSize = Math.max(1.8, Math.min(5.5, 1400 / count));
+
+          const mat = new THREE.PointsMaterial({
+            size: dotSize,
+            map: texture,
+            vertexColors: true,
+            transparent: true,
+            opacity: 1,
+            alphaTest: 0.05,
+            depthWrite: false,
+            sizeAttenuation: true,
+          });
+
+          const points = new THREE.Points(geo, mat);
+          _donutScene.add(points);
+          _donutGroups.push({
+            points, speed: _donutParticleSpeed(val), dir: SPIN_DIR[i],
+            tiltAxis: TILT_AXIS[i], tiltSpeed: TILT_SPEED[i],
+          });
+        }
+
+        angleOffset = startAngle + segAngle + GAP_RAD;
+      } catch (err) {
+        console.error('[donut3D] fallo al construir segmento', i, err);
+      }
     });
 
     function updateArrow(divId, arrowId, parcelas, base) {
@@ -5283,6 +5393,7 @@
       if (donutCenter) donutCenter.style.color = `rgb(${lightR},${lightG},${lightB})`;
       const donutBg = document.getElementById('donut-bg-circle');
       if (donutBg) donutBg.setAttribute('stroke', `rgba(${rgb},0.15)`);
+      if (typeof _donutUpdateBg === 'function') _donutUpdateBg();
       window._userThemeRgb = rgb;
       document.querySelectorAll('.card, .medals-card').forEach(el => { el.style.borderColor = `rgba(${rgb},0.5)`; });
       document.querySelectorAll('.card-title').forEach(el => { el.style.color = color; });
@@ -5327,6 +5438,7 @@
       });
       const donutBg = document.getElementById('donut-bg-circle');
       if (donutBg) donutBg.setAttribute('stroke', 'rgba(200,169,110,0.3)');
+      if (typeof _donutUpdateBg === 'function') _donutUpdateBg();
       const donutCenter = document.getElementById('donut-center');
       if (donutCenter) donutCenter.style.removeProperty('color');
       document.querySelectorAll('.divider').forEach(el => {
