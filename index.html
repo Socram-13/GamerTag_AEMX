@@ -4931,7 +4931,7 @@
 
   function _donutMakeParticleTexture() {
     if (_donutParticleTexture) return _donutParticleTexture;
-    const size = 64;
+    const size = 128;
     const cnv = document.createElement('canvas');
     cnv.width = size; cnv.height = size;
     const ctx = cnv.getContext('2d');
@@ -4957,6 +4957,22 @@
   }
 
   let _donut3DFailed = false;
+  let _donutEmojiSprite = null;
+  let _donutEmojiTexture = null;
+
+  function _donutMakeEmojiTexture(emoji) {
+    if (_donutEmojiTexture) return _donutEmojiTexture;
+    const size = 128;
+    const cnv = document.createElement('canvas');
+    cnv.width = size; cnv.height = size;
+    const ctx = cnv.getContext('2d');
+    ctx.font = `${Math.floor(size * 0.8)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, size / 2, size / 2 + size * 0.05);
+    _donutEmojiTexture = new THREE.CanvasTexture(cnv);
+    return _donutEmojiTexture;
+  }
 
   function initDonut3D() {
     if (_donutRenderer || _donut3DFailed) return;
@@ -4969,6 +4985,21 @@
       _donutCamera.position.set(0, -102, 76);
       _donutCamera.up.set(0, 0, 1);
       _donutCamera.lookAt(0, 0, 0);
+
+      // planeta central: las partículas deben poder pasar delante y detrás de él
+      const emojiTexture = _donutMakeEmojiTexture('🌎');
+      const emojiMat = new THREE.SpriteMaterial({
+        map: emojiTexture,
+        transparent: true,
+        alphaTest: 0.3,
+        depthWrite: true,
+        depthTest: true,
+        sizeAttenuation: true,
+      });
+      _donutEmojiSprite = new THREE.Sprite(emojiMat);
+      _donutEmojiSprite.scale.set(14, 14, 1);
+      _donutEmojiSprite.position.set(0, 0, 0);
+      _donutScene.add(_donutEmojiSprite);
 
       _donutRenderer = new THREE.WebGLRenderer({ canvas: _donutCanvasEl, alpha: true, antialias: true });
       _donutRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -5001,8 +5032,24 @@
 
       const dt = _donutClock.getDelta();
       _donutGroups.forEach(gr => {
-        gr.points.rotation.z += gr.dir * (2 * Math.PI / gr.speed) * dt;
-        gr.points.rotation[gr.tiltAxis] += gr.tiltSpeed * dt;
+        gr.points.rotation.z += gr.dir * (2 * Math.PI / gr.speed) * dt * 2;
+        gr.points.rotation[gr.tiltAxis] += gr.tiltSpeed * dt * 2;
+
+        // giro propio del cometa sobre su eje central (efecto espiral/barrena)
+        gr.spinPhase += gr.spinSpeed * dt;
+        const posAttr = gr.points.geometry.attributes.position;
+        const arr = posAttr.array;
+        const n = gr.angleAlong.length;
+        for (let j = 0; j < n; j++) {
+          const crossAT = gr.crossA0[j] + gr.spinPhase;
+          const rr = gr.radius + Math.cos(crossAT) * gr.radialAmp[j];
+          const z  = Math.sin(crossAT) * gr.zAmp[j];
+          const ang = gr.angleAlong[j];
+          arr[j * 3]     = Math.cos(ang) * rr;
+          arr[j * 3 + 1] = Math.sin(ang) * rr;
+          arr[j * 3 + 2] = z;
+        }
+        posAttr.needsUpdate = true;
       });
 
       _donutRenderer.render(_donutScene, _donutCamera);
@@ -5084,6 +5131,7 @@
     const SPIN_DIR = [-1, 1, -1, 1];   // mismos sentidos que segSpinFwd/segSpinRev
     const TILT_AXIS  = ['x', 'y', 'x', 'y'];        // eje de precesión tipo giroscopio
     const TILT_SPEED = [0.16, -0.22, 0.27, -0.19];  // rad/seg, distinto por anillo
+    const SPIN_TUBE_SPEED = [2.4, -3.0, 3.6, -2.7]; // rad/seg, giro propio de cada cometa sobre su eje (espiral)
 
     let angleOffset = -Math.PI / 2;
 
@@ -5103,6 +5151,10 @@
           const positions = new Float32Array(count * 3);
           const colorsAttr = new Float32Array(count * 3);
           const baseColor = new THREE.Color(colors[i]);
+          const angleAlongArr = new Float32Array(count);
+          const radialAmpArr  = new Float32Array(count);
+          const zAmpArr       = new Float32Array(count);
+          const crossA0Arr    = new Float32Array(count);
 
           // cantidades pequeñas → exponente más alto (más densidad repartida) y más extensión angular extra
           const tailExp = Math.min(0.95, 0.32 + 75 / (count + 12));
@@ -5118,12 +5170,25 @@
               : (startAngle + segAngle + tailExtra) - posFromTail;     // cabeza en startAngle, cola se escapa después de startAngle+segAngle
 
             const taper = 0.22 + u * 0.9;              // la cola se adelgaza (menos dispersión en radio y profundidad)
-            const rr = radius + (Math.random() - 0.5) * band * taper;
-            const z  = (Math.random() - 0.5) * (1 + u * 4.5);
+            // domo en la cabeza: el ancho vuelve a 0 justo en la punta (u=1) en vez de cortar en seco
+            const headFade = u > 0.85 ? Math.cos((u - 0.85) / 0.15 * Math.PI / 2) : 1;
+            // muestreo en disco (coords polares) para sección transversal redonda, no cuadrada
+            const crossR = Math.sqrt(Math.random()) * 0.5;   // 0..0.5, densidad uniforme en área
+            const crossA = Math.random() * 2 * Math.PI;
+            const radialAmp = crossR * band * taper * headFade;
+            const zAmp = crossR * (2 + u * 9) * headFade;
+            const rr = radius + Math.cos(crossA) * radialAmp;
+            const z  = Math.sin(crossA) * zAmp;
 
             positions[j*3]   = Math.cos(a) * rr;
             positions[j*3+1] = Math.sin(a) * rr;
             positions[j*3+2] = z;
+
+            // datos guardados para animar el giro propio del cometa sobre su eje (espiral)
+            angleAlongArr[j] = a;
+            radialAmpArr[j]  = radialAmp;
+            zAmpArr[j]       = zAmp;
+            crossA0Arr[j]    = crossA;
 
             // mismo brillo en toda la cola, sin oscurecerse
             colorsAttr[j*3]   = baseColor.r;
@@ -5136,7 +5201,7 @@
           geo.setAttribute('color', new THREE.BufferAttribute(colorsAttr, 3));
 
           // tamaño adaptativo: con muchas partículas se reducen para que no se saturen ni se empasten
-          const dotSize = Math.max(1.8, Math.min(5.5, 1400 / count));
+          const dotSize = Math.max(2.8, Math.min(5.5, 1400 / count));
 
           const mat = new THREE.PointsMaterial({
             size: dotSize,
@@ -5145,7 +5210,7 @@
             transparent: true,
             opacity: 1,
             alphaTest: 0.05,
-            depthWrite: false,
+            depthWrite: true,
             sizeAttenuation: true,
           });
 
@@ -5154,6 +5219,9 @@
           _donutGroups.push({
             points, speed: _donutParticleSpeed(val), dir: SPIN_DIR[i],
             tiltAxis: TILT_AXIS[i], tiltSpeed: TILT_SPEED[i],
+            radius, angleAlong: angleAlongArr, radialAmp: radialAmpArr,
+            zAmp: zAmpArr, crossA0: crossA0Arr,
+            spinPhase: 0, spinSpeed: SPIN_TUBE_SPEED[i],
           });
         }
 
