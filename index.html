@@ -5032,7 +5032,7 @@
 
       const dt = _donutClock.getDelta();
       _donutGroups.forEach(gr => {
-        gr.points.rotation.z += gr.dir * (2 * Math.PI / gr.speed) * dt * 2;
+        gr.points.rotation.z += gr.dir * (2 * Math.PI / gr.speed) * dt * (2 / 3 - 0.5);
         gr.points.rotation[gr.tiltAxis] += gr.tiltSpeed * dt * 2;
 
         // giro propio del cometa sobre su eje central (efecto espiral/barrena)
@@ -5127,7 +5127,7 @@
     const available = 2 * Math.PI - totalGap;
 
     const RADIOS = [38, 30, 22, 14];   // radio de cada anillo (igual que antes)
-    const BAND   = [7, 6, 5, 4];       // grosor de la nube de partículas por anillo
+    const BAND   = [10.5, 9, 7.5, 6];  // grosor de la nube de partículas por anillo (+50%)
     const SPIN_DIR = [-1, 1, -1, 1];   // mismos sentidos que segSpinFwd/segSpinRev
     const TILT_AXIS  = ['x', 'y', 'x', 'y'];        // eje de precesión tipo giroscopio
     const TILT_SPEED = [0.16, -0.22, 0.27, -0.19];  // rad/seg, distinto por anillo
@@ -5150,30 +5150,33 @@
           const dir = SPIN_DIR[i];
           const positions = new Float32Array(count * 3);
           const colorsAttr = new Float32Array(count * 3);
-          const baseColor = new THREE.Color(colors[i]);
+          const baseColor = new THREE.Color(colors[i]).lerp(new THREE.Color(0xffffff), 0.3);
           const angleAlongArr = new Float32Array(count);
           const radialAmpArr  = new Float32Array(count);
           const zAmpArr       = new Float32Array(count);
           const crossA0Arr    = new Float32Array(count);
 
-          // cantidades pequeñas → exponente más alto (más densidad repartida) y más extensión angular extra
-          const tailExp = Math.min(0.95, 0.32 + 75 / (count + 12));
-          const tailExtra = Math.min(1.15, 150 / (count + 18)); // rad extra que la cola se escapa más allá del arco proporcional
+          // cantidades pequeñas → más partículas concentradas en la cabeza (brillo) y más extensión angular extra
+          const headFrac = Math.min(0.6, 0.25 + 60 / (count + 40)); // fracción de partículas con sesgo hacia la punta (solo densidad/brillo)
+          const headExp = 0.35; // sesgo suave hacia la punta para esa fracción
+          const tailExtra = Math.min(4.5, 500 / (count + 18)) + segAngle * 0.6; // rad extra: cola extrema, muy dispersa hacia el final
           const totalSpan = segAngle + tailExtra;
 
           for (let j = 0; j < count; j++) {
-            // u=1 → cabeza del cometa (posición real, lado de avance), u=0 → cola (se extiende más allá del arco)
-            const u = Math.pow(Math.random(), tailExp);
+            // mezcla: fracción con sesgo hacia la punta (brillo), resto uniforme en toda la cola
+            const u = (Math.random() < headFrac)
+              ? Math.pow(Math.random(), headExp)
+              : Math.random();
             const posFromTail = u * totalSpan;
             const a = (dir === 1)
-              ? (startAngle - tailExtra) + posFromTail                 // cabeza en startAngle+segAngle, cola se escapa antes de startAngle
-              : (startAngle + segAngle + tailExtra) - posFromTail;     // cabeza en startAngle, cola se escapa después de startAngle+segAngle
+              ? (startAngle - tailExtra) + posFromTail
+              : (startAngle + segAngle + tailExtra) - posFromTail;
 
-            const taper = 0.22 + u * 0.9;              // la cola se adelgaza (menos dispersión en radio y profundidad)
-            // domo en la cabeza: el ancho vuelve a 0 justo en la punta (u=1) en vez de cortar en seco
-            const headFade = u > 0.85 ? Math.cos((u - 0.85) / 0.15 * Math.PI / 2) : 1;
-            // muestreo en disco (coords polares) para sección transversal redonda, no cuadrada
-            const crossR = Math.sqrt(Math.random()) * 0.5;   // 0..0.5, densidad uniforme en área
+            const taper = 0.22 + u * 0.9;
+            // perfil circular (semicírculo) en la punta: el ancho sigue una curva de esfera real, no un corte coseno
+            const t = u > 0.85 ? (u - 0.85) / 0.15 : 0;
+            const headFade = u > 0.85 ? Math.sqrt(Math.max(0, 1 - t * t)) : 1;
+            const crossR = Math.sqrt(Math.random()) * 0.5;
             const crossA = Math.random() * 2 * Math.PI;
             const radialAmp = crossR * band * taper * headFade;
             const zAmp = crossR * (2 + u * 9) * headFade;
