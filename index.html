@@ -4926,6 +4926,7 @@
 
   // ---- Motor de partículas 3D del donut (Three.js) ----
   let _donutScene, _donutCamera, _donutRenderer, _donutCanvasEl, _donutBgMesh, _donutClock;
+  let _donutElapsed = 0;
   let _donutGroups = []; // { points, speed(seg/vuelta), dir(+1/-1) }
   let _donutParticleTexture = null;
 
@@ -5091,12 +5092,18 @@
       }
 
       const dt = _donutClock.getDelta();
+      _donutElapsed += dt;
+      const attenScale = h / (2 * Math.tan((_donutCamera.fov * Math.PI / 180) / 2));
 
       if (_donutPlanetMesh) {
         _donutPlanetMesh.rotation.z += 0.35 * dt; // giro propio del planeta
       }
 
       _donutGroups.forEach(gr => {
+        if (gr.points.material.uniforms) {
+          gr.points.material.uniforms.uTime.value = _donutElapsed;
+          gr.points.material.uniforms.uAtten.value = attenScale;
+        }
         gr.points.rotation.z += gr.dir * (2 * Math.PI / gr.speed) * dt * 1.5;
         gr.points.rotation[gr.tiltAxis] += gr.tiltSpeed * dt;
 
@@ -5221,11 +5228,12 @@
           const zAmpArr       = new Float32Array(count);
           const crossA0Arr    = new Float32Array(count);
           const zLagArr       = new Float32Array(count);
+          const phaseArr      = new Float32Array(count);
 
           // cantidades pequeñas → más partículas concentradas en la cabeza (brillo) y más extensión angular extra
           const headFrac = Math.min(0.6, 0.25 + 60 / (count + 40)); // fracción de partículas con sesgo hacia la punta (solo densidad/brillo)
           const headExp = 0.35; // sesgo suave hacia la punta para esa fracción
-          const tailExtra = Math.min(4.5, 500 / (count + 18)) + segAngle * 0.6; // rad extra: cola extrema, muy dispersa hacia el final
+          const tailExtra = (pct + 0.25) * (2 * Math.PI) - segAngle; // total = (%+25%) de la circunferencia completa
           const totalSpan = segAngle + tailExtra;
 
           for (let j = 0; j < count; j++) {
@@ -5264,6 +5272,7 @@
             zAmpArr[j]       = zAmp;
             crossA0Arr[j]    = crossA;
             zLagArr[j]       = zLag;
+            phaseArr[j]      = Math.random();
 
             // mismo brillo en toda la cola, sin oscurecerse
             colorsAttr[j*3]   = baseColor.r;
@@ -5274,19 +5283,66 @@
           const geo = new THREE.BufferGeometry();
           geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
           geo.setAttribute('color', new THREE.BufferAttribute(colorsAttr, 3));
+          geo.setAttribute('aPhase', new THREE.BufferAttribute(phaseArr, 1));
 
           // tamaño adaptativo: con muchas partículas se reducen para que no se saturen ni se empasten
-          const dotSize = Math.max(4.6, Math.min(8.5, 2200 / count));
+          const dotSize = Math.max(2.0, Math.min(3.8, 1000 / count));
+          const minDotSize = Math.max(0.5, dotSize * 0.12);
+          const cycleDuration = 2.4 + i * 0.35; // seg, distinto por anillo para que no todos pulsen igual
 
-          const mat = new THREE.PointsMaterial({
-            size: dotSize,
-            map: texture,
-            vertexColors: true,
+          const mat = new THREE.ShaderMaterial({
+            uniforms: {
+              map: { value: texture },
+              uTime: { value: 0 },
+              uCycle: { value: cycleDuration },
+              uMinSize: { value: minDotSize },
+              uMaxSize: { value: dotSize },
+              uAtten: { value: 500 },
+            },
+            vertexShader: `
+              attribute float aPhase;
+              attribute vec3 color;
+              uniform float uTime;
+              uniform float uCycle;
+              uniform float uMinSize;
+              uniform float uMaxSize;
+              uniform float uAtten;
+              varying float vAlpha;
+              varying vec3 vColor;
+              void main() {
+                float t = fract(uTime / uCycle + aPhase);
+                float growEnd = 0.85;
+                float size, alpha;
+                if (t < growEnd) {
+                  float g = t / growEnd;
+                  size = mix(uMinSize, uMaxSize, g);
+                  alpha = 1.0;
+                } else {
+                  float f = (t - growEnd) / (1.0 - growEnd);
+                  size = uMaxSize;
+                  alpha = 1.0 - f;
+                }
+                vAlpha = alpha;
+                vColor = color;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = size * (uAtten / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+              }
+            `,
+            fragmentShader: `
+              uniform sampler2D map;
+              varying float vAlpha;
+              varying vec3 vColor;
+              void main() {
+                vec4 tex = texture2D(map, gl_PointCoord);
+                float a = tex.a * vAlpha;
+                if (a < 0.05) discard;
+                gl_FragColor = vec4(vColor * tex.rgb, a);
+              }
+            `,
             transparent: true,
-            opacity: 1,
-            alphaTest: 0.05,
             depthWrite: true,
-            sizeAttenuation: true,
+            depthTest: true,
           });
 
           const points = new THREE.Points(geo, mat);
