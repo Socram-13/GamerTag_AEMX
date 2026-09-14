@@ -1359,10 +1359,10 @@
     transition: color 0.3s;
     opacity: 0.4;
   }
-  .common .parcel-pct.active  { color: #2d7a25; opacity: 1; }
-  .rare .parcel-pct.active    { color: #1565C0; opacity: 1; }
-  .epic .parcel-pct.active    { color: #6A1B9A; opacity: 1; }
-  .legendary .parcel-pct.active { color: #c8851a; opacity: 1; }
+  .common .parcel-pct.active  { color: #4ade80; opacity: 1; }
+  .rare .parcel-pct.active    { color: #60a5fa; opacity: 1; }
+  .epic .parcel-pct.active    { color: #c084fc; opacity: 1; }
+  .legendary .parcel-pct.active { color: #facc15; opacity: 1; }
 
   .profile-chart {
     flex-shrink: 0;
@@ -3354,10 +3354,10 @@
 
     <div class="profile-chart">
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;font-weight:700;color:#2d7a25;" id="donut-pct-c"><span class="donut-arrow" id="donut-arrow-c"></span>0%</div>
-        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;font-weight:700;color:#1565C0;" id="donut-pct-r"><span class="donut-arrow" id="donut-arrow-r"></span>0%</div>
-        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;font-weight:700;color:#6A1B9A;" id="donut-pct-e"><span class="donut-arrow" id="donut-arrow-e"></span>0%</div>
-        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;font-weight:700;color:#c8851a;" id="donut-pct-l"><span class="donut-arrow" id="donut-arrow-l"></span>0%</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;font-weight:700;color:#4ade80;" id="donut-pct-c"><span class="donut-arrow" id="donut-arrow-c"></span>0%</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;font-weight:700;color:#60a5fa;" id="donut-pct-r"><span class="donut-arrow" id="donut-arrow-r"></span>0%</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;font-weight:700;color:#c084fc;" id="donut-pct-e"><span class="donut-arrow" id="donut-arrow-e"></span>0%</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:22px;font-weight:700;color:#facc15;" id="donut-pct-l"><span class="donut-arrow" id="donut-arrow-l"></span>0%</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
         <div class="donut-wrap">
@@ -3366,10 +3366,10 @@
         </div>
         <div class="donut-center" id="donut-center">—</div>
         <div class="donut-crel">
-          <span style="color:#2d7a25">C.</span>
-          <span style="color:#1565C0">R.</span>
-          <span style="color:#6A1B9A">E.</span>
-          <span style="color:#c8851a">L.</span>
+          <span style="color:#4ade80">C.</span>
+          <span style="color:#60a5fa">R.</span>
+          <span style="color:#c084fc">E.</span>
+          <span style="color:#facc15">L.</span>
         </div>
       </div>
     </div>
@@ -4937,11 +4937,26 @@
     const ctx = cnv.getContext('2d');
     const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
     grad.addColorStop(0,   'rgba(255,255,255,1)');
-    grad.addColorStop(0.4, 'rgba(255,255,255,0.85)');
+    grad.addColorStop(0.65,'rgba(255,255,255,1)');
+    grad.addColorStop(0.85,'rgba(255,255,255,0.9)');
     grad.addColorStop(1,   'rgba(255,255,255,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, size, size);
+
+    // sombreado tipo esfera: luz arriba-izquierda, sombra abajo-derecha (respeta el alfa ya dibujado)
+    ctx.globalCompositeOperation = 'source-atop';
+    const shade = ctx.createLinearGradient(size * 0.18, size * 0.18, size * 0.85, size * 0.85);
+    shade.addColorStop(0,   'rgba(255,255,255,0.85)');
+    shade.addColorStop(0.45,'rgba(255,255,255,0)');
+    shade.addColorStop(1,   'rgba(0,0,0,0.55)');
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, size, size);
+    ctx.globalCompositeOperation = 'source-over';
+
     _donutParticleTexture = new THREE.CanvasTexture(cnv);
+    _donutParticleTexture.generateMipmaps = false;
+    _donutParticleTexture.minFilter = THREE.LinearFilter;
+    _donutParticleTexture.magFilter = THREE.LinearFilter;
     return _donutParticleTexture;
   }
 
@@ -5200,7 +5215,7 @@
           const dir = SPIN_DIR[i];
           const positions = new Float32Array(count * 3);
           const colorsAttr = new Float32Array(count * 3);
-          const baseColor = new THREE.Color(colors[i]).lerp(new THREE.Color(0xffffff), 0.3);
+          const baseColor = new THREE.Color(colors[i]);
           const angleAlongArr = new Float32Array(count);
           const radialAmpArr  = new Float32Array(count);
           const zAmpArr       = new Float32Array(count);
@@ -5261,7 +5276,7 @@
           geo.setAttribute('color', new THREE.BufferAttribute(colorsAttr, 3));
 
           // tamaño adaptativo: con muchas partículas se reducen para que no se saturen ni se empasten
-          const dotSize = Math.max(3.4, Math.min(6.6, 1680 / count));
+          const dotSize = Math.max(4.6, Math.min(8.5, 2200 / count));
 
           const mat = new THREE.PointsMaterial({
             size: dotSize,
