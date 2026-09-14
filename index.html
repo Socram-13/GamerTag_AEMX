@@ -5286,7 +5286,7 @@
           geo.setAttribute('aPhase', new THREE.BufferAttribute(phaseArr, 1));
 
           // tamaño adaptativo: con muchas partículas se reducen para que no se saturen ni se empasten
-          const dotSize = Math.max(2.0, Math.min(3.8, 1000 / count));
+          const dotSize = Math.max(2.6, Math.min(4.6, 1250 / count));
           const minDotSize = Math.max(0.5, dotSize * 0.12);
           const cycleDuration = 2.4 + i * 0.35; // seg, distinto por anillo para que no todos pulsen igual
 
