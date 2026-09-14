@@ -5288,7 +5288,7 @@
           // tamaño adaptativo: con muchas partículas se reducen para que no se saturen ni se empasten
           const dotSize = Math.max(3.2, Math.min(5.4, 1500 / count));
           const minDotSize = Math.max(0.5, dotSize * 0.12);
-          const cycleDuration = 2.4 + i * 0.35; // seg, distinto por anillo para que no todos pulsen igual
+          const cycleDuration = 9 + i * 1.4; // seg, distinto por anillo para que no todos pulsen igual
 
           const mat = new THREE.ShaderMaterial({
             uniforms: {
