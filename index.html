@@ -5032,8 +5032,8 @@
 
       const dt = _donutClock.getDelta();
       _donutGroups.forEach(gr => {
-        gr.points.rotation.z += gr.dir * (2 * Math.PI / gr.speed) * dt * (2 / 3 - 0.5);
-        gr.points.rotation[gr.tiltAxis] += gr.tiltSpeed * dt * 2;
+        gr.points.rotation.z += gr.dir * (2 * Math.PI / gr.speed) * dt * 1.5;
+        gr.points.rotation[gr.tiltAxis] += gr.tiltSpeed * dt;
 
         // giro propio del cometa sobre su eje central (efecto espiral/barrena)
         gr.spinPhase += gr.spinSpeed * dt;
