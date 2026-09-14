@@ -4957,21 +4957,63 @@
   }
 
   let _donut3DFailed = false;
-  let _donutEmojiSprite = null;
-  let _donutEmojiTexture = null;
+  let _donutPlanetMesh = null;
+  let _donutEarthTexture = null;
 
-  function _donutMakeEmojiTexture(emoji) {
-    if (_donutEmojiTexture) return _donutEmojiTexture;
-    const size = 128;
+  function _donutMakeEarthTexture() {
+    if (_donutEarthTexture) return _donutEarthTexture;
+    const w = 512, h = 256;
     const cnv = document.createElement('canvas');
-    cnv.width = size; cnv.height = size;
+    cnv.width = w; cnv.height = h;
     const ctx = cnv.getContext('2d');
-    ctx.font = `${Math.floor(size * 0.8)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(emoji, size / 2, size / 2 + size * 0.05);
-    _donutEmojiTexture = new THREE.CanvasTexture(cnv);
-    return _donutEmojiTexture;
+
+    // océano
+    const oceanGrad = ctx.createLinearGradient(0, 0, 0, h);
+    oceanGrad.addColorStop(0, '#1a5f8a');
+    oceanGrad.addColorStop(0.5, '#2a7fb0');
+    oceanGrad.addColorStop(1, '#1a5f8a');
+    ctx.fillStyle = oceanGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // continentes (manchas irregulares verdes/marrones)
+    function blob(cx, cy, r, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      const points = 10;
+      for (let k = 0; k <= points; k++) {
+        const ang = (k / points) * Math.PI * 2;
+        const rad = r * (0.7 + Math.random() * 0.5);
+        const x = cx + Math.cos(ang) * rad;
+        const y = cy + Math.sin(ang) * rad * 0.6;
+        if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    const spots = [
+      [90, 90, 55], [130, 150, 40], [260, 80, 60], [300, 140, 45],
+      [380, 100, 50], [420, 170, 35], [60, 180, 30], [220, 190, 25],
+    ];
+    spots.forEach(([x, y, r]) => blob(x, y, r, '#4a8f4a'));
+    spots.forEach(([x, y, r]) => blob(x + r * 0.3, y + r * 0.2, r * 0.4, '#6b7a3f'));
+
+    // casquetes polares
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillRect(0, 0, w, h * 0.08);
+    ctx.fillRect(0, h * 0.92, w, h * 0.08);
+
+    // nubes sutiles
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    for (let k = 0; k < 14; k++) {
+      const x = Math.random() * w, y = Math.random() * h * 0.8 + h * 0.1, r = 20 + Math.random() * 40;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    _donutEarthTexture = new THREE.CanvasTexture(cnv);
+    _donutEarthTexture.wrapS = THREE.RepeatWrapping;
+    return _donutEarthTexture;
   }
 
   function initDonut3D() {
@@ -4987,19 +5029,22 @@
       _donutCamera.lookAt(0, 0, 0);
 
       // planeta central: las partículas deben poder pasar delante y detrás de él
-      const emojiTexture = _donutMakeEmojiTexture('🌎');
-      const emojiMat = new THREE.SpriteMaterial({
-        map: emojiTexture,
-        transparent: true,
-        alphaTest: 0.3,
-        depthWrite: true,
-        depthTest: true,
-        sizeAttenuation: true,
+      _donutScene.add(new THREE.AmbientLight(0xffffff, 0.55));
+      const _donutSunLight = new THREE.DirectionalLight(0xffffff, 0.9);
+      _donutSunLight.position.set(-40, -120, 90);
+      _donutScene.add(_donutSunLight);
+
+      const earthTexture = _donutMakeEarthTexture();
+      const planetGeo = new THREE.SphereGeometry(7, 32, 32);
+      planetGeo.rotateX(Math.PI / 2); // alinea los polos de la textura con el eje Z (arriba real de la escena)
+      const planetMat = new THREE.MeshStandardMaterial({
+        map: earthTexture,
+        roughness: 0.9,
+        metalness: 0,
       });
-      _donutEmojiSprite = new THREE.Sprite(emojiMat);
-      _donutEmojiSprite.scale.set(14, 14, 1);
-      _donutEmojiSprite.position.set(0, 0, 0);
-      _donutScene.add(_donutEmojiSprite);
+      _donutPlanetMesh = new THREE.Mesh(planetGeo, planetMat);
+      _donutPlanetMesh.position.set(0, 0, 0);
+      _donutScene.add(_donutPlanetMesh);
 
       _donutRenderer = new THREE.WebGLRenderer({ canvas: _donutCanvasEl, alpha: true, antialias: true });
       _donutRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -5031,6 +5076,11 @@
       }
 
       const dt = _donutClock.getDelta();
+
+      if (_donutPlanetMesh) {
+        _donutPlanetMesh.rotation.z += 0.35 * dt; // giro propio del planeta
+      }
+
       _donutGroups.forEach(gr => {
         gr.points.rotation.z += gr.dir * (2 * Math.PI / gr.speed) * dt * 1.5;
         gr.points.rotation[gr.tiltAxis] += gr.tiltSpeed * dt;
