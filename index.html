@@ -5035,7 +5035,7 @@
       _donutScene.add(_donutSunLight);
 
       const earthTexture = _donutMakeEarthTexture();
-      const planetGeo = new THREE.SphereGeometry(7, 32, 32);
+      const planetGeo = new THREE.SphereGeometry(12.35, 32, 32);
       planetGeo.rotateX(Math.PI / 2); // alinea los polos de la textura con el eje Z (arriba real de la escena)
       const planetMat = new THREE.MeshStandardMaterial({
         map: earthTexture,
