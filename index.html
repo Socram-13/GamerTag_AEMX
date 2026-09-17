@@ -3174,39 +3174,51 @@
     const card = document.getElementById('share-card');
     const btn = document.getElementById('share-action-btn');
     const originalLabel = btn.textContent;
+
+    if (typeof html2canvas === 'undefined') {
+      alert('No se pudo cargar la herramienta para generar la imagen. Verifica tu conexión e intenta de nuevo.');
+      return;
+    }
+
     btn.textContent = 'Generando...';
     btn.disabled = true;
     try {
-      const canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true });
-      canvas.toBlob(async (blob) => {
-        const file = new File([blob], 'mi-resumen-aemx.png', { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], title: 'Mi resumen Atlas Earth México' });
-          } catch (err) { /* usuario canceló */ }
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'mi-resumen-aemx.png';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+      const canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true, logging: true });
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('No se pudo generar la imagen. Intenta de nuevo.');
+          btn.textContent = originalLabel;
+          btn.disabled = false;
+          return;
         }
-        btn.textContent = originalLabel;
-        btn.disabled = false;
+        const file = new File([blob], 'mi-resumen-aemx.png', { type: 'image/png' });
+        (async () => {
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({ files: [file], title: 'Mi resumen Atlas Earth México' });
+            } catch (err) { /* usuario canceló */ }
+          } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mi-resumen-aemx.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+          btn.textContent = originalLabel;
+          btn.disabled = false;
+        })();
       }, 'image/png');
     } catch (err) {
       console.error('[shareCard] error generando imagen:', err);
+      alert('Ocurrió un error generando la imagen: ' + (err?.message || err));
       btn.textContent = originalLabel;
       btn.disabled = false;
     }
   }
 </script>
-
-<!-- html2canvas para exportar el resumen como imagen -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <!-- ══ MODAL: RESUMEN COMPARTIBLE ══ -->
 <div class="settings-modal-overlay" id="shareModalOverlay" onclick="closeShareModal()"></div>
@@ -3230,28 +3242,28 @@
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
-      <div style="background:color-mix(in srgb, var(--common) 15%, transparent);border-radius:8px;padding:6px 8px;">
+      <div style="background:var(--panel2);border:1px solid var(--common);border-radius:8px;padding:6px 8px;">
         <div style="font-size:9px;color:var(--common);font-weight:800;">COMUNES</div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
           <span id="share-c-count" style="font-size:14px;font-weight:800;color:var(--text);">0</span>
           <span id="share-c-pct" style="font-size:10px;color:var(--common);">0%</span>
         </div>
       </div>
-      <div style="background:color-mix(in srgb, var(--rare) 15%, transparent);border-radius:8px;padding:6px 8px;">
+      <div style="background:var(--panel2);border:1px solid var(--rare);border-radius:8px;padding:6px 8px;">
         <div style="font-size:9px;color:var(--rare);font-weight:800;">RARAS</div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
           <span id="share-r-count" style="font-size:14px;font-weight:800;color:var(--text);">0</span>
           <span id="share-r-pct" style="font-size:10px;color:var(--rare);">0%</span>
         </div>
       </div>
-      <div style="background:color-mix(in srgb, var(--epic) 15%, transparent);border-radius:8px;padding:6px 8px;">
+      <div style="background:var(--panel2);border:1px solid var(--epic);border-radius:8px;padding:6px 8px;">
         <div style="font-size:9px;color:var(--epic);font-weight:800;">ÉPICAS</div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
           <span id="share-e-count" style="font-size:14px;font-weight:800;color:var(--text);">0</span>
           <span id="share-e-pct" style="font-size:10px;color:var(--epic);">0%</span>
         </div>
       </div>
-      <div style="background:color-mix(in srgb, var(--legendary) 15%, transparent);border-radius:8px;padding:6px 8px;">
+      <div style="background:var(--panel2);border:1px solid var(--legendary);border-radius:8px;padding:6px 8px;">
         <div style="font-size:9px;color:var(--legendary);font-weight:800;">LEGENDARIAS</div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;">
           <span id="share-l-count" style="font-size:14px;font-weight:800;color:var(--text);">0</span>
