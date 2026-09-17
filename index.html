@@ -3154,10 +3154,8 @@
     $('share-month-val').textContent = val('r-month', '$0.00');
     $('share-srb-val').textContent   = val('r-single-event', '$0.00');
 
-    const monthNum = parseFloat(val('r-month', '0').replace(/[^0-9.\-]/g, '')) || 0;
-    const srbNum   = parseFloat(val('r-single-event', '0').replace(/[^0-9.\-]/g, '')) || 0;
-    const monthTotal = monthNum + (srbNum * 2);
-    $('share-month-total-val').textContent = '$' + monthTotal.toFixed(4);
+    const monthTotalTxt = val('r-event', val('b-event-total', '$0.00'));
+    $('share-month-total-val').textContent = monthTotalTxt;
   }
 
   function openShareModal() {
