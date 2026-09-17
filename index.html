@@ -1108,6 +1108,23 @@
     z-index: 2;
   }
 
+  .avatar-bow {
+    display: none;
+    position: absolute;
+    top: -4px;
+    right: -6px;
+    font-size: 55px;
+    line-height: 1;
+    transform: rotate(-15deg);
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  body.theme-kawaii .avatar-bow {
+    display: block;
+  }
+
   .profile-avatar-placeholder {
     width: 130px;
     height: 130px;
@@ -2242,6 +2259,123 @@
     background: linear-gradient(90deg, #00c8ff, #4ade80, #facc15, #c084fc, #00c8ff) !important;
   }
 
+  /* ══ Tema Kawaii (rosa pastel / lavanda) ══ */
+  body.theme-kawaii {
+    background-image: none !important;
+    --auth-btn-bg: linear-gradient(135deg, #FFE1F0, #FFF0F7);
+    --auth-btn-color: #C2308A;
+    --auth-btn-hover-text: #fff;
+    --location-color: #C2308A;
+    --bg: #FFD6EC;
+    --panel: #FFF5FA;
+    --panel2: #FFE7F3;
+    --border: #FFB6D9;
+    --glow: #FF6FB5;
+    --glow2: #B388FF;
+    --gold: #FFC94D;
+    --epic: #C77DFF;
+    --rare: #7FD1FF;
+    --common: #8FE3A6;
+    --legendary: #FFD166;
+    --mythic: #FF6F91;
+    --text: #6B3F5B;
+    --text2: #A66DA0;
+    --accent: #FF6FB5;
+    --sand: #FFF0F7;
+    --sand-dark: #FFCBE6;
+    font-family: 'Nunito', sans-serif !important;
+  }
+
+  body.theme-kawaii,
+  body.theme-kawaii html {
+    background: linear-gradient(160deg, #FFE1F0 0%, #F3E1FF 50%, #E1F0FF 100%) !important;
+  }
+
+  body.theme-kawaii .card,
+  body.theme-kawaii .profile-section,
+  body.theme-kawaii .results-card,
+  body.theme-kawaii .medals-card,
+  body.theme-kawaii .coins-bar,
+  body.theme-kawaii .medal-modal {
+    background: var(--panel) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 0 20px rgba(255,111,181,0.15) !important;
+  }
+
+  body.theme-kawaii .header-bar {
+    background: linear-gradient(135deg, #FFE7F3 0%, #F3E1FF 100%) !important;
+    border-color: var(--border) !important;
+    box-shadow: none !important;
+  }
+
+  body.theme-kawaii .results-card {
+    background: linear-gradient(135deg, #FFE7F3 0%, #FFF5FA 100%) !important;
+    border-color: var(--glow) !important;
+  }
+
+  body.theme-kawaii .btn-save {
+    background: linear-gradient(135deg, #FF6FB5, #B388FF) !important;
+    border-color: transparent !important;
+    color: #fff !important;
+    box-shadow: 0 0 20px rgba(255,111,181,0.35) !important;
+  }
+
+  body.theme-kawaii .btn-checkin {
+    background: linear-gradient(135deg, rgba(255,201,77,0.3), rgba(255,182,217,0.2)) !important;
+    border-color: #FFC94D !important;
+    color: #C2308A !important;
+    box-shadow: 0 0 12px rgba(255,201,77,0.2) !important;
+  }
+
+  body.theme-kawaii .coins-bar {
+    background: linear-gradient(135deg, #FFF0F7 0%, #FFE7F3 100%) !important;
+    border-color: rgba(255,111,181,0.35) !important;
+    box-shadow: none !important;
+  }
+
+  body.theme-kawaii input[type="number"] {
+    background: #FFF5FA !important;
+    border-color: var(--border) !important;
+    color: #6B3F5B !important;
+    box-shadow: none !important;
+  }
+
+  body.theme-kawaii .counter-btn {
+    background: var(--panel2, #FFE7F3) !important;
+    border-color: var(--border) !important;
+    color: #C2308A !important;
+    box-shadow: none !important;
+  }
+
+  body.theme-kawaii .counter-btn:hover {
+    background: #FFD6EC !important;
+    border-color: #FF6FB5 !important;
+  }
+
+  body.theme-kawaii .card-title,
+  body.theme-kawaii .results-title,
+  body.theme-kawaii .medals-title {
+    color: #C2308A !important;
+    font-family: 'Fredoka One', cursive !important;
+  }
+
+  body.theme-kawaii .header-title .atlas,
+  body.theme-kawaii .header-title .earth {
+    color: #FF6FB5 !important;
+  }
+
+  body.theme-kawaii .header-bar::before {
+    background: linear-gradient(90deg, #FF6FB5, #B388FF, #7FD1FF, #FFC94D, #FF6FB5) !important;
+  }
+
+  body.theme-kawaii .share-player-block {
+    background: linear-gradient(180deg, #FFB6D9 0%, #FF8FC7 100%);
+    border: 2px solid #FF6FB5;
+  }
+  body.theme-kawaii .share-player-block #share-username,
+  body.theme-kawaii .share-player-block #share-title { color: #fff; }
+  body.theme-kawaii .share-player-block #share-days { color: #FFF0B3; }
+
   /* ══ Modal de configuración (reusa look del bottom-sheet de medallas) ══ */
   .settings-modal-overlay {
     position: fixed;
@@ -2402,6 +2536,7 @@
   .theme-btn-group {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
   }
   .theme-option-btn {
     flex: 1;
@@ -2436,6 +2571,12 @@
     background: linear-gradient(135deg, rgba(0,200,255,0.2), rgba(74,222,128,0.2));
     box-shadow: 0 0 0 2px #00c8ff, 0 0 14px rgba(0,200,255,0.6);
     color: #007a99;
+  }
+  body.theme-kawaii .theme-option-btn.active {
+    border-color: #FF6FB5;
+    background: linear-gradient(135deg, rgba(255,111,181,0.25), rgba(179,136,255,0.25));
+    box-shadow: 0 0 0 2px #FF6FB5, 0 0 14px rgba(255,111,181,0.6);
+    color: #C2308A;
   }
 
   /* Tooltips para enlaces de redes sociales */
@@ -3071,6 +3212,9 @@
       <button type="button" class="theme-option-btn" id="theme-btn-original" onclick="setTheme('original')">
         <span class="theme-option-icon">🎨</span> Personalizado
       </button>
+      <button type="button" class="theme-option-btn" id="theme-btn-kawaii" onclick="setTheme('kawaii')">
+        <span class="theme-option-icon">🎀</span> Kawaii
+      </button>
     </div>
   </div>
 
@@ -3411,24 +3555,32 @@
 <script>
   (function() {
     const saved = localStorage.getItem('aemx-theme');
-    if (saved === 'original') document.body.classList.add('theme-original');
+    if (saved === 'original' || saved === 'kawaii') document.body.classList.add('theme-' + saved);
     updateThemeButtonsUI();
   })();
 
+  function getCurrentTheme() {
+    if (document.body.classList.contains('theme-original')) return 'original';
+    if (document.body.classList.contains('theme-kawaii')) return 'kawaii';
+    return 'atlas';
+  }
+
   function updateThemeButtonsUI() {
-    const isOriginal = document.body.classList.contains('theme-original');
+    const current = getCurrentTheme();
     const btnAtlas = document.getElementById('theme-btn-atlas');
     const btnOriginal = document.getElementById('theme-btn-original');
-    if (btnAtlas)    btnAtlas.classList.toggle('active', !isOriginal);
-    if (btnOriginal) btnOriginal.classList.toggle('active', isOriginal);
+    const btnKawaii = document.getElementById('theme-btn-kawaii');
+    if (btnAtlas)    btnAtlas.classList.toggle('active', current === 'atlas');
+    if (btnOriginal) btnOriginal.classList.toggle('active', current === 'original');
+    if (btnKawaii)   btnKawaii.classList.toggle('active', current === 'kawaii');
   }
 
   function setTheme(theme) {
-    const wantOriginal = theme === 'original';
-    const isCurrentlyOriginal = document.body.classList.contains('theme-original');
-    if (wantOriginal === isCurrentlyOriginal) return; // ya está en ese tema
-    document.body.classList.toggle('theme-original', wantOriginal);
-    localStorage.setItem('aemx-theme', wantOriginal ? 'original' : 'atlas');
+    const current = getCurrentTheme();
+    if (theme === current) return; // ya está en ese tema
+    document.body.classList.remove('theme-original', 'theme-kawaii');
+    if (theme === 'original' || theme === 'kawaii') document.body.classList.add('theme-' + theme);
+    localStorage.setItem('aemx-theme', theme);
     updateThemeButtonsUI();
     ['--body-bg','--panel','--panel2','--border','--glow','--accent',
      '--ppd-bg','--ppd-color','--ppd-shadow','--input-bg','--input-border'
@@ -3546,6 +3698,7 @@
         <span class="upload-label">Foto de<br>perfil</span>
       </div>
       <img id="avatar-img" class="profile-avatar" src="" alt="avatar" style="display:none;">
+      <span class="avatar-bow">🎀</span>
     </div>
     <div class="profile-info">
       <div class="profile-name-label">Nombre de usuario</div>
