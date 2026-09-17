@@ -2303,9 +2303,7 @@
     border: 2px solid #3d9932;
   }
   .share-player-block #share-username,
-  .share-player-block #share-title,
-  .share-player-block #share-title-sep,
-  .share-player-block #share-location { color: #fff; }
+  .share-player-block #share-title { color: #fff; }
   .share-player-block #share-days { color: #FFD060; }
 
   body.theme-original .share-player-block {
@@ -2313,9 +2311,7 @@
     border: 1px solid var(--border);
   }
   body.theme-original .share-player-block #share-username { color: var(--text); }
-  body.theme-original .share-player-block #share-title,
-  body.theme-original .share-player-block #share-title-sep,
-  body.theme-original .share-player-block #share-location { color: var(--text2); }
+  body.theme-original .share-player-block #share-title { color: var(--text2); }
   body.theme-original .share-player-block #share-days { color: var(--gold); }
   .settings-row {
     display: flex;
@@ -3112,10 +3108,11 @@
     $('share-username').textContent = uname;
     const tituloWrap = $('titulo-juego-wrap');
     const tieneTitulo = tituloWrap && tituloWrap.style.display !== 'none';
-    $('share-title').textContent = tieneTitulo ? val('titulo-juego', '') : '';
-    $('share-title-sep').style.display = tieneTitulo ? 'inline' : 'none';
-    $('share-location').textContent = val('user-location', '—');
-    $('share-days').textContent = (val('days-playing', '0')) + ' días jugando';
+    const shareTitleEl = $('share-title');
+    shareTitleEl.textContent = tieneTitulo ? val('titulo-juego', '') : '';
+    shareTitleEl.style.display = tieneTitulo ? 'block' : 'none';
+    const daysNum = parseInt(val('days-playing', '0')) || 0;
+    $('share-days').textContent = daysNum + (daysNum === 1 ? ' día jugando' : ' días jugando');
 
     const avatarImg = $('avatar-img');
     const shareAvatar = $('share-avatar');
@@ -3141,8 +3138,6 @@
     $('share-e-pct').textContent   = pct(e) + '%';
     $('share-l-count').textContent = l.toLocaleString('en-US');
     $('share-l-pct').textContent   = pct(l) + '%';
-
-    $('share-ppd').textContent = val('ppd-card', '—');
 
     const badgesCount = parseInt($('badges')?.value) || 0;
     $('share-badges-count').textContent = badgesCount.toLocaleString('en-US');
@@ -3226,12 +3221,10 @@
 
   <div id="share-card" style="background:linear-gradient(160deg,var(--panel),var(--panel2));border-radius:16px;padding:14px;color:var(--text);font-family:'Nunito',sans-serif;border:1px solid var(--border);">
     <div class="share-player-block" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px 10px;">
-      <div id="share-avatar" style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👤</div>
+      <div id="share-avatar" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">👤</div>
       <div style="min-width:0;">
         <div id="share-username" style="font-family:'Fredoka One',cursive;font-size:14px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">JUGADOR</div>
-        <div style="font-size:10px;opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          <span id="share-title">—</span><span id="share-title-sep"> · </span><span id="share-location">—</span>
-        </div>
+        <div id="share-title" style="font-size:10px;opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
         <div id="share-days" style="font-size:10px;">0 días jugando</div>
       </div>
     </div>
@@ -3270,11 +3263,6 @@
           <span id="share-l-pct" style="font-size:10px;color:var(--legendary);">0%</span>
         </div>
       </div>
-    </div>
-
-    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
-      <span style="font-size:9px;letter-spacing:1px;opacity:0.75;text-transform:uppercase;color:var(--text2);">Parcelas/día</span>
-      <span id="share-ppd" style="font-family:'Fredoka One',cursive;font-size:14px;color:var(--gold);">—</span>
     </div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
