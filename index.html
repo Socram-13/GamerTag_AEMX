@@ -2295,6 +2295,28 @@
     text-align: center;
     margin-bottom: 20px;
   }
+
+  .share-player-block {
+    border-radius: 14px;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, #7dd86a 0%, #55b845 100%);
+    border: 2px solid #3d9932;
+  }
+  .share-player-block #share-username,
+  .share-player-block #share-title,
+  .share-player-block #share-title-sep,
+  .share-player-block #share-location { color: #fff; }
+  .share-player-block #share-days { color: #FFD060; }
+
+  body.theme-original .share-player-block {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+  }
+  body.theme-original .share-player-block #share-username { color: var(--text); }
+  body.theme-original .share-player-block #share-title,
+  body.theme-original .share-player-block #share-title-sep,
+  body.theme-original .share-player-block #share-location { color: var(--text2); }
+  body.theme-original .share-player-block #share-days { color: var(--gold); }
   .settings-row {
     display: flex;
     align-items: center;
@@ -3080,9 +3102,214 @@
     document.getElementById('settingsModalOverlay').classList.remove('open');
     document.getElementById('settingsModal').classList.remove('open');
   }
+
+  // ===== Resumen compartible =====
+  function fillShareCard() {
+    const $ = id => document.getElementById(id);
+    const val = (id, fallback) => { const el = $(id); return el ? (el.textContent || fallback) : fallback; };
+
+    const uname = $('username')?.value || 'JUGADOR';
+    $('share-username').textContent = uname;
+    const tituloWrap = $('titulo-juego-wrap');
+    const tieneTitulo = tituloWrap && tituloWrap.style.display !== 'none';
+    $('share-title').textContent = tieneTitulo ? val('titulo-juego', '') : '';
+    $('share-title-sep').style.display = tieneTitulo ? 'inline' : 'none';
+    $('share-location').textContent = val('user-location', '—');
+    $('share-days').textContent = (val('days-playing', '0')) + ' días jugando';
+
+    const avatarImg = $('avatar-img');
+    const shareAvatar = $('share-avatar');
+    if (avatarImg && avatarImg.style.display !== 'none' && avatarImg.src) {
+      shareAvatar.innerHTML = `<img src="${avatarImg.src}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    } else {
+      shareAvatar.innerHTML = '👤';
+    }
+
+    const c = parseInt($('common')?.value)    || 0;
+    const r = parseInt($('rare')?.value)      || 0;
+    const e = parseInt($('epic')?.value)      || 0;
+    const l = parseInt($('legendary')?.value) || 0;
+    const total = c + r + e + l;
+    const pct = n => total > 0 ? ((n / total) * 100).toFixed(1) : '0.0';
+
+    $('share-total').textContent = total.toLocaleString('en-US');
+    $('share-c-count').textContent = c.toLocaleString('en-US');
+    $('share-c-pct').textContent   = pct(c) + '%';
+    $('share-r-count').textContent = r.toLocaleString('en-US');
+    $('share-r-pct').textContent   = pct(r) + '%';
+    $('share-e-count').textContent = e.toLocaleString('en-US');
+    $('share-e-pct').textContent   = pct(e) + '%';
+    $('share-l-count').textContent = l.toLocaleString('en-US');
+    $('share-l-pct').textContent   = pct(l) + '%';
+
+    $('share-ppd').textContent = val('ppd-card', '—');
+
+    const badgesCount = parseInt($('badges')?.value) || 0;
+    $('share-badges-count').textContent = badgesCount.toLocaleString('en-US');
+    $('share-badges-pct').textContent = val('b-badge-pct', '+0%');
+
+    const days  = val('t1-days', '—');
+    const hours = val('t1-hours', '—');
+    const mins  = val('t1-mins', '—');
+    const secs  = val('t1-secs', '—');
+    $('share-t1').textContent = `${days}d ${hours}h ${mins}m ${secs}s`;
+
+    $('share-day-val').textContent   = val('r-day', '$0.00');
+    $('share-week-val').textContent  = val('r-week', '$0.00');
+    $('share-month-val').textContent = val('r-month', '$0.00');
+    $('share-srb-val').textContent   = val('r-single-event', '$0.00');
+  }
+
+  function openShareModal() {
+    fillShareCard();
+    document.getElementById('shareModalOverlay').classList.add('open');
+    document.getElementById('shareModal').classList.add('open');
+  }
+  function closeShareModal() {
+    document.getElementById('shareModalOverlay').classList.remove('open');
+    document.getElementById('shareModal').classList.remove('open');
+  }
+
+  async function shareCardImage() {
+    const card = document.getElementById('share-card');
+    const btn = document.getElementById('share-action-btn');
+    const originalLabel = btn.textContent;
+    btn.textContent = 'Generando...';
+    btn.disabled = true;
+    try {
+      const canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true });
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], 'mi-resumen-aemx.png', { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'Mi resumen Atlas Earth México' });
+          } catch (err) { /* usuario canceló */ }
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'mi-resumen-aemx.png';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+        btn.textContent = originalLabel;
+        btn.disabled = false;
+      }, 'image/png');
+    } catch (err) {
+      console.error('[shareCard] error generando imagen:', err);
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+    }
+  }
 </script>
 
-<!-- ══ NOTIFICACIÓN DE CHECK-IN (local, vía Service Worker) ══ -->
+<!-- html2canvas para exportar el resumen como imagen -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- ══ MODAL: RESUMEN COMPARTIBLE ══ -->
+<div class="settings-modal-overlay" id="shareModalOverlay" onclick="closeShareModal()"></div>
+<div class="settings-modal" id="shareModal" style="max-width:380px;padding-top:16px;padding-bottom:16px;">
+
+  <div id="share-card" style="background:linear-gradient(160deg,var(--panel),var(--panel2));border-radius:16px;padding:14px;color:var(--text);font-family:'Nunito',sans-serif;border:1px solid var(--border);">
+    <div class="share-player-block" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px 10px;">
+      <div id="share-avatar" style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👤</div>
+      <div style="min-width:0;">
+        <div id="share-username" style="font-family:'Fredoka One',cursive;font-size:14px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">JUGADOR</div>
+        <div style="font-size:10px;opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          <span id="share-title">—</span><span id="share-title-sep"> · </span><span id="share-location">—</span>
+        </div>
+        <div id="share-days" style="font-size:10px;">0 días jugando</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin:6px 0 8px;">
+      <div id="share-total" style="font-family:'Fredoka One',cursive;font-size:24px;color:var(--text);line-height:1.1;">0</div>
+      <div style="font-size:9px;letter-spacing:2px;opacity:0.7;text-transform:uppercase;color:var(--text2);">Parcelas totales</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+      <div style="background:color-mix(in srgb, var(--common) 15%, transparent);border-radius:8px;padding:6px 8px;">
+        <div style="font-size:9px;color:var(--common);font-weight:800;">COMUNES</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <span id="share-c-count" style="font-size:14px;font-weight:800;color:var(--text);">0</span>
+          <span id="share-c-pct" style="font-size:10px;color:var(--common);">0%</span>
+        </div>
+      </div>
+      <div style="background:color-mix(in srgb, var(--rare) 15%, transparent);border-radius:8px;padding:6px 8px;">
+        <div style="font-size:9px;color:var(--rare);font-weight:800;">RARAS</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <span id="share-r-count" style="font-size:14px;font-weight:800;color:var(--text);">0</span>
+          <span id="share-r-pct" style="font-size:10px;color:var(--rare);">0%</span>
+        </div>
+      </div>
+      <div style="background:color-mix(in srgb, var(--epic) 15%, transparent);border-radius:8px;padding:6px 8px;">
+        <div style="font-size:9px;color:var(--epic);font-weight:800;">ÉPICAS</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <span id="share-e-count" style="font-size:14px;font-weight:800;color:var(--text);">0</span>
+          <span id="share-e-pct" style="font-size:10px;color:var(--epic);">0%</span>
+        </div>
+      </div>
+      <div style="background:color-mix(in srgb, var(--legendary) 15%, transparent);border-radius:8px;padding:6px 8px;">
+        <div style="font-size:9px;color:var(--legendary);font-weight:800;">LEGENDARIAS</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+          <span id="share-l-count" style="font-size:14px;font-weight:800;color:var(--text);">0</span>
+          <span id="share-l-pct" style="font-size:10px;color:var(--legendary);">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
+      <span style="font-size:9px;letter-spacing:1px;opacity:0.75;text-transform:uppercase;color:var(--text2);">Parcelas/día</span>
+      <span id="share-ppd" style="font-family:'Fredoka One',cursive;font-size:14px;color:var(--gold);">—</span>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
+      <span style="font-size:9px;letter-spacing:1px;opacity:0.75;text-transform:uppercase;color:var(--text2);">🏅 Insignias</span>
+      <span style="display:flex;align-items:baseline;gap:6px;">
+        <span id="share-badges-count" style="font-family:'Fredoka One',cursive;font-size:14px;color:#dc2626;">0</span>
+        <span id="share-badges-pct" style="font-size:10px;color:#dc2626;">+0%</span>
+      </span>
+    </div>
+
+    <div style="background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
+      <div style="font-size:9px;letter-spacing:1px;opacity:0.75;text-transform:uppercase;margin-bottom:2px;color:var(--text2);">Tiempo para generar $1 USD</div>
+      <div id="share-t1" style="font-family:'Fredoka One',cursive;font-size:14px;color:var(--glow2);">—</div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
+      <span style="font-size:9px;letter-spacing:1px;opacity:0.75;text-transform:uppercase;color:var(--text2);">🚀 Renta SRB (evento 32h)</span>
+      <span id="share-srb-val" style="font-family:'Fredoka One',cursive;font-size:13px;color:#c8851a;">$0.00000000</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+      <div style="background:var(--panel2);border-radius:8px;padding:6px;text-align:center;">
+        <div style="font-size:8px;opacity:0.75;color:var(--text2);">DÍA</div>
+        <div id="share-day-val" style="font-size:12px;font-weight:800;color:var(--glow2);">$0.00</div>
+      </div>
+      <div style="background:var(--panel2);border-radius:8px;padding:6px;text-align:center;">
+        <div style="font-size:8px;opacity:0.75;color:var(--text2);">SEMANA</div>
+        <div id="share-week-val" style="font-size:12px;font-weight:800;color:var(--glow2);">$0.00</div>
+      </div>
+      <div style="background:var(--panel2);border-radius:8px;padding:6px;text-align:center;">
+        <div style="font-size:8px;opacity:0.75;color:var(--text2);">MES</div>
+        <div id="share-month-val" style="font-size:12px;font-weight:800;color:var(--glow2);">$0.00</div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;">
+      <img src="imagen_2.png" alt="AEMX" style="width:16px;height:16px;object-fit:contain;border-radius:50%;">
+      <span style="font-size:10px;opacity:0.6;letter-spacing:1px;color:var(--text2);">GamerTag AEMX</span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:10px;justify-content:center;">
+    <button type="button" onclick="closeShareModal()" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">Cerrar</button>
+    <button type="button" id="share-action-btn" onclick="shareCardImage()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#0056A5;color:#fff;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">📤 Compartir</button>
+  </div>
+</div>
+
 <script>
   const CHECKIN_NOTIF_KEY = 'aemx-checkin-notif';   // 'on' | 'off'
   const CHECKIN_NOTIFIED_KEY = 'aemx-checkin-notified-date';
@@ -3283,6 +3510,24 @@
               transition:transform 0.2s;"
        onmouseover="this.style.transform='scale(1.15) rotate(20deg)'"
        onmouseout="this.style.transform='scale(1) rotate(0deg)'">⚙️</button>
+    <button type="button" onclick="openShareModal()"
+       title="Compartir resumen"
+       style="position:absolute;bottom:10px;right:10px;z-index:10;
+              background:none;border:none;padding:0;margin:0;
+              display:flex;align-items:center;justify-content:center;
+              width:20px;height:20px;cursor:pointer;
+              filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+              transition:transform 0.2s;"
+       onmouseover="this.style.transform='scale(1.15)'"
+       onmouseout="this.style.transform='scale(1)'">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#0056A5;">
+        <circle cx="18" cy="5" r="3"></circle>
+        <circle cx="6" cy="12" r="3"></circle>
+        <circle cx="18" cy="19" r="3"></circle>
+        <line x1="8.6" y1="10.6" x2="15.4" y2="6.4"></line>
+        <line x1="8.6" y1="13.4" x2="15.4" y2="17.6"></line>
+      </svg>
+    </button>
     <label for="avatar-input" style="display:none;" id="avatar-label"></label>
     <input type="file" id="avatar-input" accept="image/*" onchange="loadAvatar(event)" style="display:none;">
     <input type="color" id="avatar-border-color" value="#00c8ff" oninput="changeAvatarBorder(this.value)" style="display:none;">
