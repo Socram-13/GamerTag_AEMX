@@ -3153,6 +3153,11 @@
     $('share-week-val').textContent  = val('r-week', '$0.00');
     $('share-month-val').textContent = val('r-month', '$0.00');
     $('share-srb-val').textContent   = val('r-single-event', '$0.00');
+
+    const monthNum = parseFloat(val('r-month', '0').replace(/[^0-9.\-]/g, '')) || 0;
+    const srbNum   = parseFloat(val('r-single-event', '0').replace(/[^0-9.\-]/g, '')) || 0;
+    const monthTotal = monthNum + (srbNum * 2);
+    $('share-month-total-val').textContent = '$' + monthTotal.toFixed(4);
   }
 
   function openShareModal() {
@@ -3269,14 +3274,14 @@
     <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
       <span style="font-size:9px;letter-spacing:1px;opacity:0.75;text-transform:uppercase;color:var(--text2);">🏅 Insignias</span>
       <span style="display:flex;align-items:baseline;gap:6px;">
-        <span id="share-badges-count" style="font-family:'Fredoka One',cursive;font-size:14px;color:#dc2626;">0</span>
-        <span id="share-badges-pct" style="font-size:10px;color:#dc2626;">+0%</span>
+        <span id="share-badges-count" style="font-family:'Fredoka One',cursive;font-size:12px;color:#dc2626;">0</span>
+        <span id="share-badges-pct" style="font-size:17px;font-weight:900;color:#dc2626;">+0%</span>
       </span>
     </div>
 
-    <div style="background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
+    <div style="background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;text-align:center;">
       <div style="font-size:9px;letter-spacing:1px;opacity:0.75;text-transform:uppercase;margin-bottom:2px;color:var(--text2);">Tiempo para generar $1 USD</div>
-      <div id="share-t1" style="font-family:'Fredoka One',cursive;font-size:14px;color:var(--glow2);">—</div>
+      <div id="share-t1" style="font-family:'Fredoka One',cursive;font-size:20px;color:var(--glow2);text-align:center;">—</div>
     </div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel2);border-radius:8px;padding:6px 10px;margin-bottom:6px;">
@@ -3297,6 +3302,11 @@
         <div style="font-size:8px;opacity:0.75;color:var(--text2);">MES</div>
         <div id="share-month-val" style="font-size:12px;font-weight:800;color:var(--glow2);">$0.00</div>
       </div>
+    </div>
+
+    <div style="background:var(--panel2);border:1px solid var(--gold);border-radius:8px;padding:6px 10px;margin-top:6px;text-align:center;">
+      <div style="font-size:8px;letter-spacing:1px;opacity:0.75;text-transform:uppercase;color:var(--text2);">Renta total mensual (mes + 2 SRB)</div>
+      <div id="share-month-total-val" style="font-family:'Fredoka One',cursive;font-size:15px;font-weight:900;color:var(--gold);">$0.00</div>
     </div>
 
     <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;">
