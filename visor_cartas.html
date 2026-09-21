@@ -40,6 +40,14 @@
     justify-content:center;
     touch-action:none;
     min-height:80vh;
+    -webkit-user-select:none;
+    user-select:none;
+    -webkit-touch-callout:none; /* evita el menú "Guardar imagen" al mantener presionado en iOS */
+  }
+  .face img{
+    -webkit-user-drag:none;
+    user-drag:none;
+    pointer-events:none; /* evita clic derecho / arrastre directo sobre la imagen */
   }
   .navRow{
     display:flex;
@@ -66,6 +74,7 @@
     text-align:center;
   }
   .stage{
+    position:relative;
     perspective:2400px;
     width:min(94vw, 66vh * 0.6667);
     aspect-ratio:2/3;
@@ -146,8 +155,8 @@
     <div class="stage">
       <div id="spinner"></div>
       <div class="card3d" id="card3d">
-        <div class="face front"><img id="frontImg" src="" alt="carta"></div>
-        <div class="face back"><img id="backImg" src="" alt="reverso"></div>
+        <div class="face front"><img id="frontImg" src="" alt="carta" draggable="false"></div>
+        <div class="face back"><img id="backImg" src="" alt="reverso" draggable="false"></div>
         <div id="edges"></div>
       </div>
     </div>
@@ -173,6 +182,15 @@
   const statusEl = document.getElementById('status');
   const counterEl = document.getElementById('counter');
   const viewer = document.getElementById('viewer');
+
+  // ---- PROTECCIÓN BÁSICA CONTRA DESCARGA DIRECTA ----
+  // No es infalible (siempre se puede hacer una captura de pantalla),
+  // pero bloquea los métodos más comunes: clic derecho, arrastrar la
+  // imagen al escritorio, seleccionarla, o el menú "Guardar imagen"
+  // al mantener presionado en móvil.
+  viewer.addEventListener('contextmenu', e => e.preventDefault());
+  viewer.addEventListener('dragstart', e => e.preventDefault());
+  viewer.addEventListener('selectstart', e => e.preventDefault());
 
   const IMG_EXT = /\.(png|jpe?g|webp)$/i;
 
@@ -309,8 +327,66 @@
     });
   }
 
-  document.getElementById('prevBtn').addEventListener('click', () => showCard(currentIndex - 1));
-  document.getElementById('nextBtn').addEventListener('click', () => showCard(currentIndex + 1));
+  const NAV_MS = 320; // duración de cada mitad (salida / entrada)
+  let navAnimating = false;
+
+  function navigate(dir){
+    if(navAnimating || cardFiles.length <= 1) return;
+    navAnimating = true;
+    dragging = false;
+    card3d.style.pointerEvents = 'none';
+    card3d.classList.remove('snap');
+
+    // La navegación siempre parte de la carta en reposo (de frente)
+    rotX = 0; rotY = 0;
+
+    const nextIndex = (currentIndex + dir + cardFiles.length) % cardFiles.length;
+    const nextUrl = rawBase + encodeURIComponent(cardFiles[nextIndex].name);
+
+    // dir > 0 (siguiente): la carta sale por la izquierda y la nueva entra por la derecha
+    const EXIT_X  = dir > 0 ? -130 : 130;
+    const EXIT_ROT = dir > 0 ? -30 : 30;
+    const ENTER_X  = -EXIT_X;
+    const ENTER_ROT = -EXIT_ROT;
+
+    // Fase 1: la carta real se desliza y gira levemente en Y hacia afuera,
+    // dejando ver su borde/profundidad real mientras se va de perfil.
+    card3d.style.transition = `transform ${NAV_MS}ms cubic-bezier(.45,0,.2,1)`;
+    requestAnimationFrame(() => {
+      card3d.style.transform = `translateX(${EXIT_X}%) rotateY(${EXIT_ROT}deg)`;
+    });
+
+    setTimeout(() => {
+      // Está fuera de vista (de perfil): cambiamos la imagen y la reubicamos
+      // del otro lado, también de perfil, sin transición (instantáneo).
+      frontImg.src = nextUrl;
+      card3d.style.transition = 'none';
+      card3d.style.transform = `translateX(${ENTER_X}%) rotateY(${ENTER_ROT}deg)`;
+      void card3d.offsetWidth; // forzar reflow
+
+      // Fase 2: entra deslizándose y se endereza hasta quedar plana.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          card3d.style.transition = `transform ${NAV_MS}ms cubic-bezier(.2,0,.3,1)`;
+          card3d.style.transform = 'translateX(0%) rotateY(0deg)';
+        });
+      });
+
+      setTimeout(() => {
+        currentIndex = nextIndex;
+        counterEl.textContent = `${currentIndex + 1} / ${cardFiles.length} — ${cardFiles[currentIndex].name.replace(IMG_EXT,'')}`;
+        preloadNeighbors();
+
+        card3d.style.transition = '';
+        card3d.style.transform = '';
+        card3d.style.pointerEvents = '';
+        navAnimating = false;
+      }, NAV_MS);
+    }, NAV_MS);
+  }
+
+  document.getElementById('prevBtn').addEventListener('click', () => navigate(-1));
+  document.getElementById('nextBtn').addEventListener('click', () => navigate(1));
 
   function applyRotation(snap){
     card3d.classList.toggle('snap', snap);
