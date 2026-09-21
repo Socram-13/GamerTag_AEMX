@@ -302,6 +302,7 @@
             .btn-leaderboard { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
             .btn-marco { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
             .btn-visor { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
+            .btn-visor-cartas { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
             .btn-transacciones { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
             .btn-presencia .pr-text { display:inline;font-size:8px;letter-spacing:1px; }
             .btn-presencia { padding:6px 10px;font-size:13px;flex-shrink:0;background:rgba(0,255,157,.12);box-shadow:0 0 10px rgba(0,255,157,.25); }
@@ -327,6 +328,9 @@
         .btn-visor { display:flex;align-items:center;justify-content:center;background:none;border:1px solid #00c8ff;border-radius:8px;color:#00c8ff;font-size:16px;width:32px;height:32px;cursor:pointer;transition:all .2s;flex-shrink:0; }
         .btn-visor:hover { background:#00c8ff;color:#060b14;box-shadow:0 0 16px rgba(0,200,255,.4); }
         .btn-visor.hidden { display:none; }
+        .btn-visor-cartas { display:flex;align-items:center;justify-content:center;background:none;border:1px solid #ff6ec7;border-radius:8px;color:#ff6ec7;font-size:16px;width:32px;height:32px;cursor:pointer;transition:all .2s;flex-shrink:0; }
+        .btn-visor-cartas:hover { background:#ff6ec7;color:#060b14;box-shadow:0 0 16px rgba(255,110,199,.4); }
+        .btn-visor-cartas.hidden { display:none; }
         .denied-modal { display:none;position:fixed;inset:0;background:rgba(10,14,26,.92);z-index:3000;align-items:center;justify-content:center; }
         .denied-modal.active { display:flex; }
         .denied-box { background:#0f1419;border:1px solid #ff0066;border-radius:16px;padding:36px 32px;max-width:340px;width:90%;text-align:center;box-shadow:0 0 40px rgba(255,0,102,.2); }
@@ -512,6 +516,7 @@
                 <div class="chat-header-content">
                     <a class="btn-guias" href="https://atlasreality.helpshift.com/hc/es/3-atlas-earth/" target="_blank" title="Soporte técnico">🎧</a>
                     <button class="btn-visor hidden" id="btnVisor" onclick="abrirVisor()" title="Visor HUD">👁</button>
+                    <button class="btn-visor-cartas hidden" id="btnVisorCartas" onclick="abrirVisorCartas()" title="Visor de Cartas">🃏</button>
                     <a class="btn-leaderboard" href="leaderboard.html" target="_blank">🏆</a>
                     <a class="btn-guias" href="guias.html" target="_top">📚</a>
                     <a class="btn-transacciones hidden" id="btnTransacciones" href="transactions.html" target="_top">🪙</a>
@@ -645,6 +650,7 @@
                     window._userEsClan = esClan;
                     actualizarBtnTransacciones();
                     document.getElementById('btnVisor')?.classList.toggle('hidden', !esClan);
+                    document.getElementById('btnVisorCartas')?.classList.toggle('hidden', !esClan);
 
                     authOverlay.classList.remove('visible');
                     initChat(user, data.role === 'moderator');
@@ -652,6 +658,7 @@
                     window._userEsClan = false;
                     actualizarBtnTransacciones();
                     document.getElementById('btnVisor')?.classList.add('hidden');
+                    document.getElementById('btnVisorCartas')?.classList.add('hidden');
                     authOverlay.classList.remove('visible');
                     initChat(user, false);
                 });
@@ -660,6 +667,7 @@
                 window._userEsClan = false;
                 actualizarBtnTransacciones();
                 document.getElementById('btnVisor')?.classList.add('hidden');
+                document.getElementById('btnVisorCartas')?.classList.add('hidden');
                 authOverlay.classList.add('visible');
             }
         });
@@ -1026,6 +1034,30 @@ const userRef = ref(database, 'chat_presence/' + userId);
                 const esMiembro = data.clanMember === true || data.role === 'admin' || data.role === 'moderator';
                 if (esMiembro) {
                     ventana.location.href = 'visor_hud_aemx.html';
+                } else {
+                    ventana.close();
+                    setTimeout(() => document.getElementById('deniedModal').classList.add('active'), 100);
+                }
+            } catch(e) {
+                console.error('Error verificando membresía:', e);
+                ventana.close();
+            }
+        };
+
+        // ── Botón Visor de Cartas ──
+        // El botón ya está oculto por CSS si el usuario no es del clan (ver
+        // toggle junto a btnVisor en onAuthStateChanged), pero se revalida
+        // aquí también por seguridad antes de abrir el archivo.
+        window.abrirVisorCartas = async function() {
+            const user = auth.currentUser;
+            if (!user) { document.getElementById('deniedModal').classList.add('active'); return; }
+            const ventana = window.open('', '_blank');
+            try {
+                const snap = await get(ref(database, 'users/' + user.uid));
+                const data = snap.exists() ? snap.val() : {};
+                const esMiembro = data.clanMember === true || data.role === 'admin' || data.role === 'moderator';
+                if (esMiembro) {
+                    ventana.location.href = 'visor_cartas.html';
                 } else {
                     ventana.close();
                     setTimeout(() => document.getElementById('deniedModal').classList.add('active'), 100);
@@ -3341,10 +3373,12 @@ const userRef = ref(database, 'chat_presence/' + userId);
     const TOUR = [
         { selector: 'a.btn-guias[href*="helpshift"]', text: 'Soporte técnico' },
         { selector: '#btnVisor',                       text: 'Visor HUD' },
+        { selector: '#btnVisorCartas',                  text: 'Visor de Cartas' },
         { selector: 'a.btn-leaderboard',               text: 'Ranking' },
         { selector: 'a.btn-guias[href="guias.html"]',  text: 'Guías' },
         { selector: '#btnTransacciones',               text: 'Coins' },
         { selector: '#btnMarco',                       text: 'Marco AEMX' },
+        { selector: '#btnNotifications',                text: 'Notificaciones' },
         { selector: '#btnMute',                        text: 'Sonido' },
         { selector: '.btn-close-chat',                 text: 'Cerrar' },
     ];

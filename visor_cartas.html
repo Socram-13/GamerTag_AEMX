@@ -144,9 +144,31 @@
     opacity:0.6;
     text-align:center;
   }
+  #backBtn{
+    position:fixed;
+    top:14px;
+    left:14px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:var(--panel);
+    border:1px solid #24304a;
+    color:var(--accent);
+    font-family:'Segoe UI', Arial, sans-serif;
+    font-size:0.85rem;
+    padding:8px 14px;
+    border-radius:8px;
+    cursor:pointer;
+    z-index:20;
+    transition:all .2s ease;
+  }
+  #backBtn:hover{ background:#1a2438; box-shadow:0 0 12px rgba(79,209,255,0.35); }
+  #backBtn:active{ transform:scale(0.95); }
 </style>
 </head>
 <body>
+
+  <button id="backBtn" onclick="regresar()">&#8592; Regresar</button>
 
   <h1>CARTAS AEMX</h1>
   <div id="status">Cargando cartas desde GitHub...</div>
@@ -182,6 +204,17 @@
   const statusEl = document.getElementById('status');
   const counterEl = document.getElementById('counter');
   const viewer = document.getElementById('viewer');
+
+  // ---- BOTÓN REGRESAR ----
+  // Esta página se abre con window.open() desde el chat, así que primero
+  // intentamos cerrar la pestaña. Si el navegador lo bloquea (por ejemplo
+  // si la pestaña no fue abierta por script, o el usuario ya navegó dentro
+  // de ella), navegamos de vuelta a index.html como respaldo.
+  function regresar(){
+    window.close();
+    setTimeout(() => { window.location.href = 'index.html'; }, 150);
+  }
+  window.regresar = regresar;
 
   // ---- PROTECCIÓN BÁSICA CONTRA DESCARGA DIRECTA ----
   // No es infalible (siempre se puede hacer una captura de pantalla),
