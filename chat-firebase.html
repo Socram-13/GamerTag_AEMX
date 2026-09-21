@@ -515,8 +515,8 @@
             <div class="chat-header">
                 <div class="chat-header-content">
                     <a class="btn-guias" href="https://atlasreality.helpshift.com/hc/es/3-atlas-earth/" target="_top" title="Soporte técnico">🎧</a>
-                    <button class="btn-visor hidden" id="btnVisor" onclick="abrirVisor()" title="Visor HUD">👁</button>
-                    <button class="btn-visor-cartas hidden" id="btnVisorCartas" onclick="abrirVisorCartas()" title="Visor de Cartas">🃏</button>
+                    <button class="btn-visor" id="btnVisor" onclick="abrirVisor()" title="Visor HUD">👁</button>
+                    <button class="btn-visor-cartas" id="btnVisorCartas" onclick="abrirVisorCartas()" title="Visor de Cartas">🃏</button>
                     <a class="btn-leaderboard" href="leaderboard.html" target="_top">🏆</a>
                     <a class="btn-guias" href="guias.html" target="_top">📚</a>
                     <a class="btn-transacciones hidden" id="btnTransacciones" href="transactions.html" target="_top">🪙</a>
@@ -649,16 +649,12 @@
                     const esClan = data.clanMember === true || data.role === 'admin' || data.role === 'moderator';
                     window._userEsClan = esClan;
                     actualizarBtnTransacciones();
-                    document.getElementById('btnVisor')?.classList.toggle('hidden', !esClan);
-                    document.getElementById('btnVisorCartas')?.classList.toggle('hidden', !esClan);
 
                     authOverlay.classList.remove('visible');
                     initChat(user, data.role === 'moderator');
                 }).catch(() => {
                     window._userEsClan = false;
                     actualizarBtnTransacciones();
-                    document.getElementById('btnVisor')?.classList.add('hidden');
-                    document.getElementById('btnVisorCartas')?.classList.add('hidden');
                     authOverlay.classList.remove('visible');
                     initChat(user, false);
                 });
@@ -666,8 +662,6 @@
                 // Sin sesión: ocultar botón
                 window._userEsClan = false;
                 actualizarBtnTransacciones();
-                document.getElementById('btnVisor')?.classList.add('hidden');
-                document.getElementById('btnVisorCartas')?.classList.add('hidden');
                 authOverlay.classList.add('visible');
             }
         });
@@ -1042,9 +1036,8 @@ const userRef = ref(database, 'chat_presence/' + userId);
         };
 
         // ── Botón Visor de Cartas ──
-        // El botón ya está oculto por CSS si el usuario no es del clan (ver
-        // toggle junto a btnVisor en onAuthStateChanged), pero se revalida
-        // aquí también por seguridad antes de abrir el archivo.
+        // El botón es siempre visible (igual que Marco): la membresía del clan
+        // se valida al hacer clic y, si no es miembro, se muestra deniedModal.
         window.abrirVisorCartas = async function() {
             const user = auth.currentUser;
             if (!user) { document.getElementById('deniedModal').classList.add('active'); return; }
