@@ -514,10 +514,10 @@
 
             <div class="chat-header">
                 <div class="chat-header-content">
-                    <a class="btn-guias" href="https://atlasreality.helpshift.com/hc/es/3-atlas-earth/" target="_blank" title="Soporte técnico">🎧</a>
+                    <a class="btn-guias" href="https://atlasreality.helpshift.com/hc/es/3-atlas-earth/" target="_top" title="Soporte técnico">🎧</a>
                     <button class="btn-visor hidden" id="btnVisor" onclick="abrirVisor()" title="Visor HUD">👁</button>
                     <button class="btn-visor-cartas hidden" id="btnVisorCartas" onclick="abrirVisorCartas()" title="Visor de Cartas">🃏</button>
-                    <a class="btn-leaderboard" href="leaderboard.html" target="_blank">🏆</a>
+                    <a class="btn-leaderboard" href="leaderboard.html" target="_top">🏆</a>
                     <a class="btn-guias" href="guias.html" target="_top">📚</a>
                     <a class="btn-transacciones hidden" id="btnTransacciones" href="transactions.html" target="_top">🪙</a>
                     
@@ -1027,20 +1027,17 @@ const userRef = ref(database, 'chat_presence/' + userId);
         window.abrirVisor = async function() {
             const user = auth.currentUser;
             if (!user) { document.getElementById('deniedModal').classList.add('active'); return; }
-            const ventana = window.open('', '_blank');
             try {
                 const snap = await get(ref(database, 'users/' + user.uid));
                 const data = snap.exists() ? snap.val() : {};
                 const esMiembro = data.clanMember === true || data.role === 'admin' || data.role === 'moderator';
                 if (esMiembro) {
-                    ventana.location.href = 'visor_hud_aemx.html';
+                    window.top.location.href = new URL('visor_hud_aemx.html', window.location.href).href;
                 } else {
-                    ventana.close();
-                    setTimeout(() => document.getElementById('deniedModal').classList.add('active'), 100);
+                    document.getElementById('deniedModal').classList.add('active');
                 }
             } catch(e) {
                 console.error('Error verificando membresía:', e);
-                ventana.close();
             }
         };
 
@@ -1051,20 +1048,17 @@ const userRef = ref(database, 'chat_presence/' + userId);
         window.abrirVisorCartas = async function() {
             const user = auth.currentUser;
             if (!user) { document.getElementById('deniedModal').classList.add('active'); return; }
-            const ventana = window.open('', '_blank');
             try {
                 const snap = await get(ref(database, 'users/' + user.uid));
                 const data = snap.exists() ? snap.val() : {};
                 const esMiembro = data.clanMember === true || data.role === 'admin' || data.role === 'moderator';
                 if (esMiembro) {
-                    ventana.location.href = 'visor_cartas.html';
+                    window.top.location.href = new URL('visor_cartas.html', window.location.href).href;
                 } else {
-                    ventana.close();
-                    setTimeout(() => document.getElementById('deniedModal').classList.add('active'), 100);
+                    document.getElementById('deniedModal').classList.add('active');
                 }
             } catch(e) {
                 console.error('Error verificando membresía:', e);
-                ventana.close();
             }
         };
 
