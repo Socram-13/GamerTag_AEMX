@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visor de Cartas AEMX</title>
+<style>
+  :root{
+    --bg:#0a0d14;
+    --panel:#131a26;
+    --accent:#4fd1ff;
+    --text:#e8f1ff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Arial, sans-serif;
+    background:radial-gradient(circle at 50% 0%, #182233 0%, var(--bg) 70%);
+    color:var(--text);
+    min-height:100vh;
+    padding:20px;
+  }
+  h1{
+    text-align:center;
+    font-size:1.4rem;
+    letter-spacing:2px;
+    color:var(--accent);
+    margin-bottom:4px;
+  }
+  #status{
+    text-align:center;
+    font-size:0.85rem;
+    opacity:0.7;
+    margin-bottom:20px;
+  }
+  #grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+    gap:16px;
+    max-width:1100px;
+    margin:0 auto;
+  }
+  .thumb{
+    background:var(--panel);
+    border-radius:10px;
+    padding:8px;
+    cursor:pointer;
+    border:1px solid #24304a;
+    transition:transform .15s, border-color .15s;
+    text-align:center;
+  }
+  .thumb:hover{ transform:translateY(-4px); border-color:var(--accent); }
+  .thumb img{
+    width:100%;
+    border-radius:6px;
+    display:block;
+  }
+  .thumb span{
+    display:block;
+    font-size:0.75rem;
+    margin-top:6px;
+    opacity:0.8;
+    word-break:break-word;
+  }
+
+  /* Visor 3D */
+  #viewer{
+    position:fixed;
+    inset:0;
+    background:rgba(5,7,12,0.92);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    flex-direction:column;
+    touch-action:none;
+  }
+  #viewer.open{ display:flex; }
+  #closeBtn{
+    position:absolute;
+    top:18px; right:22px;
+    font-size:1.8rem;
+    background:none;
+    border:none;
+    color:var(--text);
+    cursor:pointer;
+  }
+  .stage{
+    perspective:1200px;
+    width:min(80vw,320px);
+    height:min(80vw,480px);
+    max-height:70vh;
+  }
+  .card3d{
+    width:100%;
+    height:100%;
+    position:relative;
+    transform-style:preserve-3d;
+    transition:transform 0.05s linear;
+    cursor:grab;
+  }
+  .card3d.snap{ transition:transform 0.4s ease; }
+  .face{
+    position:absolute;
+    inset:0;
+    backface-visibility:hidden;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 10px 40px rgba(0,0,0,0.6);
+  }
+  .face img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .back{ transform:rotateY(180deg); }
+  #hint{
+    margin-top:16px;
+    font-size:0.8rem;
+    opacity:0.6;
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+
+  <h1>CARTAS AEMX</h1>
+  <div id="status">Cargando cartas desde GitHub...</div>
+  <div id="grid"></div>
+
+  <div id="viewer">
+    <button id="closeBtn">&times;</button>
+    <div class="stage">
+      <div class="card3d" id="card3d">
+        <div class="face front"><img id="frontImg" src="" alt="carta"></div>
+        <div class="face back"><img id="backImg" src="" alt="reverso"></div>
+      </div>
+    </div>
+    <div id="hint">Arrastra para rotar · toca para voltear</div>
+  </div>
+
+<script>
+  // ---- CONFIGURACIÓN ----
+  const GH_USER   = "Socram-13";
+  const GH_REPO   = "GamerTag_AEMX";
+  const GH_BRANCH = "main";
+  const GH_FOLDER = "cartas";
+  const BACK_FILENAME = "reverso.png"; // imagen fija de reverso
+
+  const apiUrl = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FOLDER}?ref=${GH_BRANCH}`;
+  const rawBase = `https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}/${GH_FOLDER}/`;
+
+  const grid = document.getElementById('grid');
+  const statusEl = document.getElementById('status');
+
+  const IMG_EXT = /\.(png|jpe?g|webp)$/i;
+
+  fetch(apiUrl)
+    .then(r => {
+      if(!r.ok) throw new Error('No se pudo leer la carpeta (¿existe "cartas/" y es pública?)');
+      return r.json();
+    })
+    .then(files => {
+      const cards = files.filter(f =>
+        f.type === 'file' &&
+        IMG_EXT.test(f.name) &&
+        f.name.toLowerCase() !== BACK_FILENAME.toLowerCase()
+      );
+
+      if(cards.length === 0){
+        statusEl.textContent = 'No se encontraron cartas en la carpeta "cartas/".';
+        return;
+      }
+
+      statusEl.textContent = `${cards.length} carta(s) encontrada(s)`;
+
+      cards.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'thumb';
+        div.innerHTML = `<img src="${rawBase}${encodeURIComponent(f.name)}" loading="lazy"><span>${f.name.replace(IMG_EXT,'')}</span>`;
+        div.addEventListener('click', () => openViewer(rawBase + encodeURIComponent(f.name)));
+        grid.appendChild(div);
+      });
+    })
+    .catch(err => {
+      statusEl.textContent = 'Error: ' + err.message;
+    });
+
+  // ---- VISOR 3D ----
+  const viewer = document.getElementById('viewer');
+  const card3d = document.getElementById('card3d');
+  const frontImg = document.getElementById('frontImg');
+  const backImg = document.getElementById('backImg');
+  backImg.src = rawBase + encodeURIComponent(BACK_FILENAME);
+
+  let rotX = 0, rotY = 0;
+  let dragging = false, moved = false;
+  let lastX = 0, lastY = 0;
+
+  function openViewer(src){
+    frontImg.src = src;
+    rotX = 0; rotY = 0;
+    applyRotation(false);
+    viewer.classList.add('open');
+  }
+
+  function applyRotation(snap){
+    card3d.classList.toggle('snap', snap);
+    card3d.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  }
+
+  document.getElementById('closeBtn').addEventListener('click', () => {
+    viewer.classList.remove('open');
+  });
+
+  function pointerDown(x,y){
+    dragging = true; moved = false;
+    lastX = x; lastY = y;
+    card3d.classList.remove('snap');
+  }
+  function pointerMove(x,y){
+    if(!dragging) return;
+    const dx = x - lastX, dy = y - lastY;
+    if(Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+    rotY += dx * 0.4;
+    rotX -= dy * 0.4;
+    rotX = Math.max(-60, Math.min(60, rotX));
+    lastX = x; lastY = y;
+    applyRotation(false);
+  }
+  function pointerUp(){
+    if(!dragging) return;
+    dragging = false;
+    if(!moved){
+      // toque simple = voltear
+      rotY += 180;
+    }
+    applyRotation(true);
+  }
+
+  card3d.addEventListener('mousedown', e => pointerDown(e.clientX, e.clientY));
+  window.addEventListener('mousemove', e => pointerMove(e.clientX, e.clientY));
+  window.addEventListener('mouseup', pointerUp);
+
+  card3d.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    pointerDown(t.clientX, t.clientY);
+  }, {passive:true});
+  card3d.addEventListener('touchmove', e => {
+    const t = e.touches[0];
+    pointerMove(t.clientX, t.clientY);
+  }, {passive:true});
+  card3d.addEventListener('touchend', pointerUp);
+</script>
+</body>
+</html>
