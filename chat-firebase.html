@@ -560,8 +560,8 @@
 
     <div class="denied-modal" id="deniedModal">
         <div class="denied-box">
-            <h3>⛔ ACCESO DENEGADO</h3>
-            <p>Solo los miembros del clan AEMX pueden acceder al editor de marco.</p>
+            <h3 id="deniedTitle">⛔ ACCESO DENEGADO</h3>
+            <p id="deniedText">Solo los miembros del clan AEMX pueden acceder al editor de marco.</p>
             <button onclick="document.getElementById('deniedModal').classList.remove('active')">CERRAR</button>
         </div>
     </div>
@@ -1017,10 +1017,37 @@ const userRef = ref(database, 'chat_presence/' + userId);
 
         } // fin initChat
 
-        // ── Botón Marco ──
+        // ── Avisos del modal de acceso (título y texto según el botón) ──
+        function mostrarAviso(titulo, texto) {
+            document.getElementById('deniedTitle').textContent = titulo;
+            document.getElementById('deniedText').textContent = texto;
+            document.getElementById('deniedModal').classList.add('active');
+        }
+        function avisoDenegado(destino) {
+            mostrarAviso('⛔ ACCESO DENEGADO', 'Solo los miembros del clan AEMX pueden acceder ' + destino + '.');
+        }
+        function avisoSinSesion() {
+            mostrarAviso('🔒 INICIA SESIÓN', 'Debes iniciar sesión para acceder.');
+        }
+        function avisoErrorVerificacion() {
+            mostrarAviso('⚠️ NO SE PUDO VERIFICAR', 'No se pudo verificar tu acceso. Inténtalo de nuevo en unos segundos.');
+        }
+
+        // Espera a que Firebase termine de restaurar la sesión: si se pulsa un botón
+        // justo al abrir el chat, auth.currentUser puede estar vacío todavía.
+        function esperarSesion() {
+            if (auth.currentUser) return Promise.resolve(auth.currentUser);
+            const espera = (typeof auth.authStateReady === 'function')
+                ? auth.authStateReady().then(() => auth.currentUser)
+                : new Promise(res => { const off = onAuthStateChanged(auth, u => { off(); res(u); }); });
+            const limite = new Promise(res => setTimeout(() => res(auth.currentUser), 5000));
+            return Promise.race([espera, limite]).catch(() => auth.currentUser);
+        }
+
+        // ── Botón Visor HUD ──
         window.abrirVisor = async function() {
-            const user = auth.currentUser;
-            if (!user) { document.getElementById('deniedModal').classList.add('active'); return; }
+            const user = await esperarSesion();
+            if (!user) { avisoSinSesion(); return; }
             try {
                 const snap = await get(ref(database, 'users/' + user.uid));
                 const data = snap.exists() ? snap.val() : {};
@@ -1028,19 +1055,20 @@ const userRef = ref(database, 'chat_presence/' + userId);
                 if (esMiembro) {
                     window.top.location.href = new URL('visor_hud_aemx.html', window.location.href).href;
                 } else {
-                    document.getElementById('deniedModal').classList.add('active');
+                    avisoDenegado('al visor HUD');
                 }
             } catch(e) {
                 console.error('Error verificando membresía:', e);
+                avisoErrorVerificacion();
             }
         };
 
         // ── Botón Visor de Cartas ──
         // El botón es siempre visible (igual que Marco): la membresía del clan
-        // se valida al hacer clic y, si no es miembro, se muestra deniedModal.
+        // se valida al hacer clic y, si no es miembro, se muestra el aviso.
         window.abrirVisorCartas = async function() {
-            const user = auth.currentUser;
-            if (!user) { document.getElementById('deniedModal').classList.add('active'); return; }
+            const user = await esperarSesion();
+            if (!user) { avisoSinSesion(); return; }
             try {
                 const snap = await get(ref(database, 'users/' + user.uid));
                 const data = snap.exists() ? snap.val() : {};
@@ -1048,16 +1076,18 @@ const userRef = ref(database, 'chat_presence/' + userId);
                 if (esMiembro) {
                     window.top.location.href = new URL('visor_cartas.html', window.location.href).href;
                 } else {
-                    document.getElementById('deniedModal').classList.add('active');
+                    avisoDenegado('al visor de cartas');
                 }
             } catch(e) {
                 console.error('Error verificando membresía:', e);
+                avisoErrorVerificacion();
             }
         };
 
+        // ── Botón Marco (comportamiento sin cambios; solo fija su propio texto) ──
         window.abrirMarco = async function() {
             const user = auth.currentUser;
-            if (!user) { document.getElementById('deniedModal').classList.add('active'); return; }
+            if (!user) { avisoDenegado('al editor de marco'); return; }
             const ventana = window.open('', '_top');
             try {
                 const snap = await get(ref(database, 'users/' + user.uid));
@@ -1067,7 +1097,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
                     ventana.location.href = 'editor_marco.html';
                 } else {
                     ventana.location.href = window.location.href;
-                    setTimeout(() => document.getElementById('deniedModal').classList.add('active'), 300);
+                    setTimeout(() => avisoDenegado('al editor de marco'), 300);
                 }
             } catch(e) {
                 console.error('Error verificando membresía:', e);
