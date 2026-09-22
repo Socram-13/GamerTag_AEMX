@@ -6,6 +6,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🪪 Atlas Earth AEMX - GAMERTAG V2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -40,7 +42,6 @@
 
   body {
     background-color: var(--body-bg, #7bc96a);
-    background-image: url('outdoor-bg.webp');
     background-position: center top;
     background-size: cover;
     background-attachment: scroll;
@@ -54,7 +55,8 @@
     overflow-x: hidden;
   }
 
-  /* fondo tomado de outdoor-bg.webp */
+  /* fondo (outdoor-bg.webp) se aplica por JS tras cargar la página, para que esa
+     imagen no forme parte de la carga inicial bloqueante (splash de la PWA) */
 
   .container {
     position: relative;
@@ -2793,7 +2795,7 @@
         btn.textContent = 'Cerrar sesión';
         btn.title = `Sesión: ${user.displayName}`;
         if (info) {
-          info.innerHTML = `<img src="${user.photoURL}" style="width:22px;height:22px;border-radius:50%;vertical-align:middle;margin-right:6px;">${user.displayName.split(' ')[0]}`;
+          info.innerHTML = `<img loading="lazy" src="${user.photoURL}" style="width:22px;height:22px;border-radius:50%;vertical-align:middle;margin-right:6px;">${user.displayName.split(' ')[0]}`;
           info.style.display = 'flex';
         }
       } else {
@@ -3282,7 +3284,7 @@
     const avatarImg = $('avatar-img');
     const shareAvatar = $('share-avatar');
     if (avatarImg && avatarImg.style.display !== 'none' && avatarImg.src) {
-      shareAvatar.innerHTML = `<img src="${avatarImg.src}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      shareAvatar.innerHTML = `<img loading="lazy" src="${avatarImg.src}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     } else {
       shareAvatar.innerHTML = '👤';
     }
@@ -3396,7 +3398,7 @@
 <div class="settings-modal" id="shareModal" style="max-width:380px;padding-top:16px;padding-bottom:16px;">
 
   <div id="share-card" style="position:relative;background:linear-gradient(160deg,var(--panel),var(--panel2));border-radius:16px;padding:14px;color:var(--text);font-family:'Nunito',sans-serif;border:1px solid var(--border);">
-    <img src="S13.png" alt="S13" style="position:absolute;bottom:8px;left:10px;width:15px;height:15px;object-fit:contain;opacity:0.8;">
+    <img loading="lazy" src="S13.png" alt="S13" style="position:absolute;bottom:8px;left:10px;width:15px;height:15px;object-fit:contain;opacity:0.8;">
     <div class="share-player-block" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px 10px;">
       <div style="position:relative;flex-shrink:0;">
         <div id="share-avatar" style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:28px;">👤</div>
@@ -3484,7 +3486,7 @@
     </div>
 
     <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;">
-      <img src="imagen_2.png" alt="AEMX" style="width:26px;height:26px;object-fit:contain;">
+      <img loading="lazy" src="imagen_2.png" alt="AEMX" style="width:26px;height:26px;object-fit:contain;">
       <span style="font-size:10px;opacity:0.6;letter-spacing:1px;color:var(--text2);">GamerTag AEMX</span>
     </div>
   </div>
@@ -3651,7 +3653,7 @@
     <div class="header-bar">
       <div class="header-left" style="position:relative;">
         <a href="https://www.facebook.com/groups/atlasearthmexicoaemx" target="_blank" rel="noopener noreferrer" style="display:block;line-height:0;">
-          <img src="imagen_2.png" alt="AEMX" class="aemx-logo-img">
+          <img loading="lazy" src="imagen_2.png" alt="AEMX" class="aemx-logo-img">
         </a>
         <div class="tooltip-bubble" id="tooltip-facebook">
           Visita nuestro Facebook
@@ -3670,7 +3672,7 @@
 
       <div class="header-right" style="position:relative;">
         <a href="https://chat.whatsapp.com/HYPouduuDQsCRGI9apqSK9" target="_blank" rel="noopener noreferrer" style="display:block;line-height:0;">
-          <img src="imagen_3.png" alt="Atlas Earth México" class="atlas-logo-img">
+          <img loading="lazy" src="imagen_3.png" alt="Atlas Earth México" class="atlas-logo-img">
         </a>
         <div class="tooltip-bubble" id="tooltip-whatsapp">
           Únete al WhatsApp
@@ -3729,7 +3731,7 @@
         <span class="upload-icon">👤</span>
         <span class="upload-label">Foto de<br>perfil</span>
       </div>
-      <img id="avatar-img" class="profile-avatar" src="" alt="avatar" style="display:none;">
+      <img loading="lazy" id="avatar-img" class="profile-avatar" src="" alt="avatar" style="display:none;">
       <span class="avatar-bow">🎀</span>
     </div>
     <div class="profile-info">
@@ -3862,28 +3864,28 @@
         <div class="medals-section-label">🟢 COMUNES</div>
 
         <div class="mbadge m-common" data-medal-id="explorador">
-          <div class="mbadge-icon"><img src="explorador.png" alt="Explorador" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="explorador.png" alt="Explorador" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">EXPLORADOR</div><div class="mbadge-tooltip-desc">Diste el primer paso: obtén 1 parcela.</div></div>
           </div>
           <div class="mbadge-name">Explorador</div>
         </div>
 
         <div class="mbadge m-common" data-medal-id="sembrador">
-          <div class="mbadge-icon"><img src="sembrador.png" alt="Sembrador" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="sembrador.png" alt="Sembrador" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">SEMBRADOR</div><div class="mbadge-tooltip-desc">Empiezas a construir tu imperio: 25 parcelas.</div></div>
           </div>
           <div class="mbadge-name">Sembrador</div>
         </div>
 
         <div class="mbadge m-common" data-medal-id="colono">
-          <div class="mbadge-icon"><img src="colono.png" alt="Colono" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="colono.png" alt="Colono" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">COLONO</div><div class="mbadge-tooltip-desc">Tu territorio ya se nota: 50 parcelas.</div></div>
           </div>
           <div class="mbadge-name">Colono</div>
         </div>
 
         <div class="mbadge m-common" data-medal-id="ubicado">
-          <div class="mbadge-icon"><img src="ubicado.png" alt="Ubicado" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="ubicado.png" alt="Ubicado" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">UBICADO</div><div class="mbadge-tooltip-desc">Comparte tu ubicación para aparecer en el mapa.</div></div>
           </div>
           <div class="mbadge-name">Ubicado</div>
@@ -3908,28 +3910,28 @@
         <div class="medals-section-label">🔵 RARAS</div>
 
         <div class="mbadge m-rare" data-medal-id="terrateniente">
-          <div class="mbadge-icon"><img src="terrateniente.png" alt="Terrateniente" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="terrateniente.png" alt="Terrateniente" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">TERRATENIENTE</div><div class="mbadge-tooltip-desc">Expande tu territorio: 100 parcelas.</div></div>
           </div>
           <div class="mbadge-name">Terrateniente</div>
         </div>
 
         <div class="mbadge m-rare" data-medal-id="urbanista">
-          <div class="mbadge-icon"><img src="urbanista.png" alt="Urbanista" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="urbanista.png" alt="Urbanista" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">URBANISTA</div><div class="mbadge-tooltip-desc">Crecimiento serio: 250 parcelas.</div></div>
           </div>
           <div class="mbadge-name">Urbanista</div>
         </div>
 
         <div class="mbadge m-rare" data-medal-id="constructor">
-          <div class="mbadge-icon"><img src="constructor.png" alt="Constructor" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="constructor.png" alt="Constructor" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">CONSTRUCTOR</div><div class="mbadge-tooltip-desc">Construcción masiva: 500 parcelas.</div></div>
           </div>
           <div class="mbadge-name">Constructor</div>
         </div>
 
         <div class="mbadge m-rare" data-medal-id="magnate">
-          <div class="mbadge-icon"><img src="magnate.png" alt="Magnate" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="magnate.png" alt="Magnate" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">MAGNATE</div><div class="mbadge-tooltip-desc">Imperio en crecimiento: 750 parcelas.</div></div>
           </div>
           <div class="mbadge-name">Magnate</div>
@@ -3945,7 +3947,7 @@
         </div>
 
         <div class="mbadge m-rare" data-medal-id="visionario">
-          <div class="mbadge-icon"><img src="visionario.png" alt="Visionario" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="visionario.png" alt="Visionario" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">VISIONARIO</div><div class="mbadge-tooltip-desc">1000 parcelas totales.</div></div>
           </div>
           <div class="mbadge-name">Visionario</div>
@@ -3984,7 +3986,7 @@
         <div class="medals-section-label">🟡 LEGENDARIAS</div>
 
         <div class="mbadge m-legendary" data-medal-id="fundador">
-          <div class="mbadge-icon"><img src="oldaemx.png" alt="Fundador" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="oldaemx.png" alt="Fundador" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">FUNDADOR</div><div class="mbadge-tooltip-desc">Cuenta iniciada el 26-sep-2024 o antes.</div></div>
           </div>
           <div class="mbadge-name">Fundador</div>
@@ -3992,21 +3994,21 @@
 
         <div class="mbadge m-legendary" data-medal-id="clan_aemx">
           <div class="mbadge-icon" style="overflow:hidden;padding:0;">
-            <img src="imagen_2.png" alt="AEMX" style="width:100%;height:100%;object-fit:contain;display:block;border-radius:8px;">
+            <img loading="lazy" src="imagen_2.png" alt="AEMX" style="width:100%;height:100%;object-fit:contain;display:block;border-radius:8px;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">MIEMBRO AEMX</div><div class="mbadge-tooltip-desc">Formas parte del clan oficial Atlas Earth México.</div></div>
           </div>
           <div class="mbadge-name">AEMX</div>
         </div>
 
         <div class="mbadge m-legendary" data-medal-id="artemis2">
-          <div class="mbadge-icon"><img src="artemis2.png" alt="Artemis II" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="artemis2.png" alt="Artemis II" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">ARTEMIS II</div><div class="mbadge-tooltip-desc">Tu nombre viajó a la Luna. Participaste en la convocatoria NASA 2025-2026.</div></div>
           </div>
           <div class="mbadge-name">Artemis II</div>
         </div>
 
         <div class="mbadge m-legendary" data-medal-id="titan">
-          <div class="mbadge-icon"><img src="titan.png" alt="Titan" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="titan.png" alt="Titan" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">TITÁN</div><div class="mbadge-tooltip-desc">Nivel élite: 3000 parcelas.</div></div>
           </div>
           <div class="mbadge-name">Titán</div>
@@ -4064,7 +4066,7 @@
         <div class="medals-section-label" id="medalMythicSection">🔴 MÍTICAS</div>
 
         <div class="mbadge m-mythic" data-medal-id="chuck_norris_mythic" style="display:none;">
-          <div class="mbadge-icon"><img src="chuck.png" alt="Chuck Norris" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="chuck.png" alt="Chuck Norris" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">CHUCK NORRIS</div><div class="mbadge-tooltip-desc">En conmemoración a la leyenda (1940-2026). Chuck Norris no ve anuncios… los anuncios se activan al verlo.</div></div>
           </div>
           <div class="mbadge-name">Chuck Norris</div>
@@ -4073,7 +4075,7 @@
         <div class="medals-section-label" id="medalShopSection">💰 SHOP (COINS)</div>
 
         <div class="mbadge m-coins" data-medal-id="aura_fan" data-price="10">
-          <div class="mbadge-icon"><img src="coin.png" alt="Aura Fan" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="coin.png" alt="Aura Fan" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">AURA FAN</div><div class="mbadge-tooltip-desc">Para los fans de las guías AURA.</div><div class="mbadge-tooltip-cost">🪙 10 coins</div></div>
           </div>
           <div class="mbadge-name">Aura Fan</div>
@@ -4081,7 +4083,7 @@
         </div>
 
         <div class="mbadge m-coins" data-medal-id="orgullo_mx" data-price="50">
-          <div class="mbadge-icon"><img src="orgullomx.png" alt="Orgullo MX" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="orgullomx.png" alt="Orgullo MX" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">ORGULLO MX</div><div class="mbadge-tooltip-desc">Medalla patriótica mexicana.</div><div class="mbadge-tooltip-cost">🪙 50 coins</div></div>
           </div>
           <div class="mbadge-name">Orgullo MX</div>
@@ -4089,7 +4091,7 @@
         </div>
 
         <div class="mbadge m-coins" data-medal-id="pikachu" data-price="75">
-          <div class="mbadge-icon"><img src="pikachu.png" alt="Pikachu" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="pikachu.png" alt="Pikachu" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">PIKACHU</div><div class="mbadge-tooltip-desc">El ratón eléctrico favorito de todos.</div><div class="mbadge-tooltip-cost">🪙 75 coins</div></div>
           </div>
           <div class="mbadge-name">Pikachu</div>
@@ -4097,7 +4099,7 @@
         </div>
 
         <div class="mbadge m-coins" data-medal-id="charmander" data-price="75">
-          <div class="mbadge-icon"><img src="charmander.png" alt="Charmander" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="charmander.png" alt="Charmander" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">CHARMANDER</div><div class="mbadge-tooltip-desc">La llama en su cola nunca se apaga.</div><div class="mbadge-tooltip-cost">🪙 75 coins</div></div>
           </div>
           <div class="mbadge-name">Charmander</div>
@@ -4105,7 +4107,7 @@
         </div>
 
         <div class="mbadge m-coins" data-medal-id="bulbasaur" data-price="75">
-          <div class="mbadge-icon"><img src="bulbasaur.png" alt="Bulbasaur" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="bulbasaur.png" alt="Bulbasaur" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">BULBASAUR</div><div class="mbadge-tooltip-desc">La semilla en su lomo crece con el tiempo.</div><div class="mbadge-tooltip-cost">🪙 75 coins</div></div>
           </div>
           <div class="mbadge-name">Bulbasaur</div>
@@ -4113,7 +4115,7 @@
         </div>
 
         <div class="mbadge m-coins" data-medal-id="squirtle" data-price="75">
-          <div class="mbadge-icon"><img src="squirtle.png" alt="Squirtle" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="squirtle.png" alt="Squirtle" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">SQUIRTLE</div><div class="mbadge-tooltip-desc">Domina el agua desde su caparazón.</div><div class="mbadge-tooltip-cost">🪙 75 coins</div></div>
           </div>
           <div class="mbadge-name">Squirtle</div>
@@ -4121,7 +4123,7 @@
         </div>
 
         <div class="mbadge m-coins" data-medal-id="eevee" data-price="75">
-          <div class="mbadge-icon"><img src="eevee.png" alt="Eevee" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="eevee.png" alt="Eevee" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">EEVEE</div><div class="mbadge-tooltip-desc">Su ADN inestable esconde infinitas posibilidades.</div><div class="mbadge-tooltip-cost">🪙 75 coins</div></div>
           </div>
           <div class="mbadge-name">Eevee</div>
@@ -4177,7 +4179,7 @@
         </div>
 
         <div class="mbadge m-coins m-mythic" data-medal-id="chuck_norris" data-price="-10">
-          <div class="mbadge-icon"><img src="chuck.png" alt="Chuck Norris" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
+          <div class="mbadge-icon"><img loading="lazy" src="chuck.png" alt="Chuck Norris" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">
             <div class="mbadge-tooltip"><div class="mbadge-tooltip-name">CHUCK NORRIS</div><div class="mbadge-tooltip-desc">En conmemoración a la leyenda (1940-2026). Chuck Norris no ve anuncios… los anuncios se activan al verlo.</div><div class="mbadge-tooltip-cost">∞ VALOR INCALCULABLE</div></div>
           </div>
           <div class="mbadge-name">Chuck Norris</div>
@@ -4319,7 +4321,7 @@
       </div>
 
       <div class="booster-row">
-        <div class="booster-icon"><img src="passport.png" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 4px #dc2626) drop-shadow(0 0 8px #dc2626);"></div>
+        <div class="booster-icon"><img loading="lazy" src="passport.png" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 4px #dc2626) drop-shadow(0 0 8px #dc2626);"></div>
         <div class="booster-info">
           <div class="booster-name" style="color:#dc2626">Insignias <span id="b-badge-pct" class="boost-badge" style="display:none;">+0%</span></div>
         </div>
@@ -4333,7 +4335,7 @@
       <div class="divider"></div>
 
       <div class="booster-row">
-        <div class="booster-icon"><img src="diamont.png" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 4px #0891b2) drop-shadow(0 0 8px #0891b2);"></div>
+        <div class="booster-icon"><img loading="lazy" src="diamont.png" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 4px #0891b2) drop-shadow(0 0 8px #0891b2);"></div>
         <div class="booster-info">
           <div class="booster-name" style="color:#0891b2">Diamantes</div>
         </div>
@@ -4347,7 +4349,7 @@
       <div class="divider"></div>
 
       <div class="booster-row">
-        <div class="booster-icon"><img src="ficha.png" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 4px #7c3aed) drop-shadow(0 0 8px #7c3aed);"></div>
+        <div class="booster-icon"><img loading="lazy" src="ficha.png" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 4px #7c3aed) drop-shadow(0 0 8px #7c3aed);"></div>
         <div class="booster-info">
           <div class="booster-name" style="color:#7c3aed">Fichas de Puja</div>
         </div>
@@ -4361,7 +4363,7 @@
       <div class="divider"></div>
 
       <div class="booster-row">
-        <div class="booster-icon"><img src="atlasbuck.png" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 4px #16a34a) drop-shadow(0 0 8px #16a34a);"></div>
+        <div class="booster-icon"><img loading="lazy" src="atlasbuck.png" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 4px #16a34a) drop-shadow(0 0 8px #16a34a);"></div>
         <div class="booster-info">
           <div class="booster-name" style="color:#16a34a">Atlas Bucks (AB)</div>
         </div>
@@ -4584,7 +4586,7 @@
 
   <!-- COINS COUNTER -->
   <div class="coins-bar" id="coins-bar" style="margin-top:16px;margin-bottom:0;display:none;">
-    <div class="coins-icon"><img src="coin.png" alt="coin" style="width:36px;height:36px;object-fit:contain;"></div>
+    <div class="coins-icon"><img loading="lazy" src="coin.png" alt="coin" style="width:36px;height:36px;object-fit:contain;"></div>
     <div class="coins-info">
       <div class="coins-label">AEMX Coins</div>
       <div class="coins-value" id="coins-display">—</div>
@@ -6539,7 +6541,7 @@
         const iconEl = b.querySelector('.mbadge-icon');
         const img    = iconEl ? iconEl.querySelector('img') : null;
         const iconHTML = img
-          ? `<img src="${img.src}" alt="" style="width:100%;height:100%;object-fit:contain;display:block;border-radius:5px;">`
+          ? `<img loading="lazy" src="${img.src}" alt="" style="width:100%;height:100%;object-fit:contain;display:block;border-radius:5px;">`
           : (iconEl ? (iconEl.childNodes[0]?.textContent?.trim() || '🏅') : '🏅');
 
         const nameEl = b.querySelector('.mbadge-name');
@@ -6869,7 +6871,7 @@
       const mmIcon = document.getElementById('mmIcon');
       const imgEl = badge.querySelector('.mbadge-icon img');
       if (imgEl) {
-        mmIcon.innerHTML = `<img src="${imgEl.src}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">`;
+        mmIcon.innerHTML = `<img loading="lazy" src="${imgEl.src}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:11px;display:block;">`;
       } else {
         const icon = badge.querySelector('.mbadge-icon')?.childNodes[0]?.textContent?.trim() || '🏅';
         mmIcon.textContent = icon;
@@ -7934,6 +7936,20 @@
     }
     // Ejecutar tras Firebase (que tarda ~1-2s) con margen seguro
     window.addEventListener('load', () => setTimeout(intentarCarga, 2500));
+  })();
+</script>
+<script>
+  // Fondo (outdoor-bg.webp) fuera de la carga crítica: se pide después de que la
+  // página ya terminó de cargar (o de inmediato si ya cargó), así no cuenta para
+  // el evento "load" ni retrasa que desaparezca el splash de la PWA en móvil.
+  (function() {
+    function loadBg() {
+      const img = new Image();
+      img.onload = () => { document.body.style.backgroundImage = "url('outdoor-bg.webp')"; };
+      img.src = 'outdoor-bg.webp';
+    }
+    if (document.readyState === 'complete') loadBg();
+    else window.addEventListener('load', loadBg);
   })();
 </script>
 </body>
