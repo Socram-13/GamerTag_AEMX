@@ -168,7 +168,9 @@
     max-height:78vh;
   }
   .card3d{
-    --depth:6px;
+    --depth:3px;
+    --light-bright:0;
+    --light-dark:0;
     width:100%;
     height:100%;
     position:relative;
@@ -198,6 +200,19 @@
     object-fit:contain;
     background:#000;
     display:block;
+  }
+  #lightLayer, #shadowLayer, #lightLayerBack, #shadowLayerBack{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    z-index:2;
+    opacity:0;
+  }
+  #lightLayer, #lightLayerBack{
+    background:linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, transparent 100%);
+  }
+  #shadowLayer, #shadowLayerBack{
+    background:linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.25) 100%);
   }
   #edges{
     position:absolute;
@@ -307,8 +322,8 @@
     <div class="stage">
       <div id="spinner"></div>
       <div class="card3d" id="card3d">
-        <div class="face front"><img id="frontImg" src="" alt="carta" draggable="false"></div>
-        <div class="face back"><img id="backImg" src="" alt="reverso" draggable="false"></div>
+        <div class="face front"><img id="frontImg" src="" alt="carta" draggable="false"><div id="lightLayer"></div><div id="shadowLayer"></div></div>
+        <div class="face back"><img id="backImg" src="" alt="reverso" draggable="false"><div id="lightLayerBack"></div><div id="shadowLayerBack"></div></div>
         <div id="edges"></div>
       </div>
     </div>
@@ -364,7 +379,14 @@
   let cardFiles = [];
   let currentIndex = 0;
 
-  fetch(manifestUrl, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
+  function fetchWithTimeout(url, opts, ms){
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    return fetch(url, { ...opts, signal: controller.signal })
+      .finally(() => clearTimeout(timer));
+  }
+
+  fetchWithTimeout(manifestUrl, { cache: 'no-store' }, 8000)
     .then(r => {
       if(!r.ok) throw new Error('No se pudo leer cartas.json (¿existe en la raíz del repo?)');
       return r.json();
@@ -398,7 +420,7 @@
   frontImg.addEventListener('load', () => spinnerEl.classList.remove('show'));
   frontImg.addEventListener('error', () => spinnerEl.classList.remove('show'));
 
-  const DEPTH_PX = 6;   // debe coincidir con --depth en CSS
+  const DEPTH_PX = 3;   // debe coincidir con --depth en CSS
   const CORNER_R = 16;  // debe coincidir con el border-radius de .face
   const CORNER_SEGMENTS = 6;
 
@@ -553,9 +575,25 @@
   document.getElementById('prevBtn').addEventListener('click', () => navigate(-1));
   document.getElementById('nextBtn').addEventListener('click', () => navigate(1));
 
+  const lightLayer = document.getElementById('lightLayer');
+  const shadowLayer = document.getElementById('shadowLayer');
+  const lightLayerBack = document.getElementById('lightLayerBack');
+  const shadowLayerBack = document.getElementById('shadowLayerBack');
+
+  function updateLight(){
+    const t = Math.max(-1, Math.min(1, rotX / 60)); // -1..1
+    const bright = Math.max(0, t).toFixed(3);
+    const dark = Math.max(0, -t).toFixed(3);
+    lightLayer.style.opacity = bright;
+    shadowLayer.style.opacity = dark;
+    lightLayerBack.style.opacity = bright;
+    shadowLayerBack.style.opacity = dark;
+  }
+
   function applyRotation(snap){
     card3d.classList.toggle('snap', snap);
     card3d.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+    updateLight();
   }
 
   function pointerDown(x,y){
