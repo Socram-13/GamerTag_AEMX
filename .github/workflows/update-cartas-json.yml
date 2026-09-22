@@ -1,1 +1,58 @@
+name: Actualizar cartas.json
 
+# Se ejecuta automáticamente cada vez que se sube, borra o renombra algo
+# dentro de la carpeta cartas/. También se puede lanzar a mano desde la
+# pestaña "Actions" de GitHub con "Run workflow".
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cartas/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  actualizar-manifiesto:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repo
+        uses: actions/checkout@v4
+
+      - name: Generar cartas.json
+        run: |
+          cd cartas
+          # Lista todas las imágenes (png/jpg/jpeg/webp) excepto el reverso,
+          # ordenadas alfabéticamente, y arma el JSON.
+          python3 - << 'EOF'
+          import json, os, re
+
+          BACK_FILENAME = "reverso.png"
+          IMG_EXT = re.compile(r"\.(png|jpe?g|webp)$", re.IGNORECASE)
+
+          archivos = sorted(
+              f for f in os.listdir(".")
+              if os.path.isfile(f)
+              and IMG_EXT.search(f)
+              and f.lower() != BACK_FILENAME.lower()
+          )
+
+          with open("../cartas.json", "w", encoding="utf-8") as fh:
+              json.dump(archivos, fh, ensure_ascii=False, indent=2)
+              fh.write("\n")
+
+          print(f"{len(archivos)} carta(s) escritas en cartas.json")
+          EOF
+
+      - name: Commitear cartas.json si cambió
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- cartas.json; then
+            echo "cartas.json sin cambios, nada que commitear."
+          else
+            git add cartas.json
+            git commit -m "chore: actualizar cartas.json [skip ci]"
+            git push
+          fi
