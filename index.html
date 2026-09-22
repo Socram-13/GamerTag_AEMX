@@ -2683,18 +2683,25 @@
 
 </style>
 <script>
-  // Carga bajo demanda de librerías pesadas (html2canvas, three.js), para que no
-  // formen parte de la carga inicial obligatoria de la página (evita que el splash
-  // de la PWA se quede esperando en redes móviles lentas). Mismo patrón que Chart.js.
+  // Carga bajo demanda de librerías pesadas (html2canvas, three.js, Chart.js), para
+  // que NUNCA formen parte de la carga inicial obligatoria de la página (evita que
+  // el splash de la PWA se quede esperando en redes móviles lentas). Sin importar
+  // qué función dispare la carga (aunque sea automática, poco después del arranque),
+  // el script real no se inserta hasta que la página ya disparó su propio evento
+  // "load" — así jamás retrasa ese evento.
   window._loadExternalScript = function(url) {
     window._extScriptPromises = window._extScriptPromises || {};
     if (window._extScriptPromises[url]) return window._extScriptPromises[url];
     window._extScriptPromises[url] = new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = url;
-      s.onload = () => resolve();
-      s.onerror = () => { delete window._extScriptPromises[url]; reject(new Error('No se pudo cargar ' + url)); };
-      document.head.appendChild(s);
+      function inject() {
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = () => resolve();
+        s.onerror = () => { delete window._extScriptPromises[url]; reject(new Error('No se pudo cargar ' + url)); };
+        document.head.appendChild(s);
+      }
+      if (document.readyState === 'complete') inject();
+      else window.addEventListener('load', inject, { once: true });
     });
     return window._extScriptPromises[url];
   };
@@ -7132,12 +7139,7 @@
 
 <!-- ════════ JS HISTORIAL DE PARCELAS ════════ -->
 <script>
-  (function() {
-    if (window.Chart) return;
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
-    document.head.appendChild(s);
-  })();
+  window._loadExternalScript('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js');
 
   let _historialChart = null;
   let _historialYAxisChart = null;
