@@ -134,31 +134,121 @@
     pointer-events:none; /* evita clic derecho / arrastre directo sobre la imagen */
   }
   .navRow{
+    position:relative;
     display:flex;
     align-items:center;
     justify-content:center;
     gap:14px;
-    margin-top:14px;
+    margin-top:18px;
+  }
+  #arcFX{
+    position:absolute;
+    left:0; right:0; top:50%;
+    transform:translateY(-50%);
+    width:100%; height:60px;
+    pointer-events:none;
+    overflow:visible;
+    z-index:2;
+  }
+  #arcFX line, #arcFX path{
+    fill:none;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+  #arcFX .core{
+    stroke:#f4feff;
+    stroke-width:1.3;
+    filter:drop-shadow(0 0 3px #fff) drop-shadow(0 0 6px var(--accent));
+  }
+  #arcFX .glow1{
+    stroke:var(--accent);
+    stroke-width:2.6;
+    opacity:0.75;
+    filter:blur(1px) drop-shadow(0 0 6px var(--accent));
+  }
+  #arcFX .glow2{
+    stroke:var(--accent-2);
+    stroke-width:2;
+    opacity:0.45;
+    filter:blur(1.4px) drop-shadow(0 0 6px var(--accent-2));
+  }
+  #arcFX{ animation:arcFlicker 1.8s steps(1) infinite; }
+  @keyframes arcFlicker{
+    0%,100%{ opacity:1; }
+    6%{ opacity:0.3; }
+    9%{ opacity:1; }
+    37%{ opacity:1; }
+    40%{ opacity:0.25; }
+    43%{ opacity:0.95; }
+    68%{ opacity:0.5; }
+    71%{ opacity:1; }
   }
   .navBtn{
-    background:var(--panel);
-    border:1px solid #24304a;
-    color:var(--accent);
+    position:relative;
+    z-index:3;
+    background:
+      radial-gradient(circle at 30% 25%, rgba(255,255,255,0.25) 0%, transparent 40%),
+      linear-gradient(150deg, #4a5670 0%, #232c40 45%, #10141f 100%);
+    border:1px solid #5c6c8c;
+    color:#eaf6ff;
     font-family:'Segoe UI', system-ui, sans-serif;
-    font-size:1.4rem;
-    width:38px; height:38px;
-    border-radius:50%;
+    font-size:2.6rem;
+    font-weight:700;
+    line-height:1;
+    width:56px; height:56px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    clip-path:polygon(22% 0%, 100% 0%, 100% 78%, 78% 100%, 0% 100%, 0% 22%);
     cursor:pointer;
     flex:none;
+    box-shadow:
+      0 2px 0 rgba(0,0,0,0.6),
+      0 4px 10px rgba(0,0,0,0.55),
+      inset 1px 1px 0 rgba(255,255,255,0.35),
+      inset -2px -2px 4px rgba(0,0,0,0.6),
+      0 0 10px rgba(79,209,255,0.35);
+    transition:box-shadow .15s ease, transform .1s ease, color .15s ease;
   }
-  .navBtn:active{ transform:scale(0.92); }
+  .navBtn::after{
+    content:"";
+    position:absolute;
+    top:5px; right:6px;
+    width:4px; height:4px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #dff6ff, #4a5670 70%);
+    box-shadow:0 0 3px rgba(79,209,255,0.6);
+  }
+  .navBtn:hover{
+    color:#fff;
+    box-shadow:
+      0 2px 0 rgba(0,0,0,0.6),
+      0 4px 12px rgba(0,0,0,0.55),
+      inset 1px 1px 0 rgba(255,255,255,0.45),
+      inset -2px -2px 4px rgba(0,0,0,0.6),
+      0 0 18px rgba(79,209,255,0.65);
+  }
+  .navBtn:active{
+    transform:translateY(2px) scale(0.95);
+    color:var(--accent-2);
+    box-shadow:
+      0 0 0 rgba(0,0,0,0.6),
+      inset 2px 2px 6px rgba(0,0,0,0.8),
+      inset -1px -1px 0 rgba(255,255,255,0.15),
+      0 0 10px rgba(255,43,214,0.55);
+  }
   #counter{
+    position:relative;
+    z-index:1;
     font-family:var(--font-body);
     font-size:0.85rem;
     letter-spacing:0.06em;
-    opacity:0.9;
     min-width:160px;
     text-align:center;
+    color:#5ad4ff;
+    text-shadow:0 0 4px rgba(90,212,255,0.9), 0 0 12px rgba(79,209,255,0.6);
+    background:rgba(10,16,28,0.5);
+    padding:2px 8px;
   }
   .stage{
     position:relative;
@@ -328,6 +418,11 @@
       </div>
     </div>
     <div class="navRow">
+      <svg id="arcFX" viewBox="0 0 240 60" preserveAspectRatio="none">
+        <path class="glow2" id="boltGlow2"/>
+        <path class="glow1" id="boltGlow1"/>
+        <path class="core"  id="boltCore"/>
+      </svg>
       <button class="navBtn" id="prevBtn">&#8249;</button>
       <div id="counter"></div>
       <button class="navBtn" id="nextBtn">&#8250;</button>
@@ -574,6 +669,30 @@
 
   document.getElementById('prevBtn').addEventListener('click', () => navigate(-1));
   document.getElementById('nextBtn').addEventListener('click', () => navigate(1));
+
+  // ---- EFECTO DE ELECTRICIDAD ENTRE BOTONES ----
+  const boltCore = document.getElementById('boltCore');
+  const boltGlow1 = document.getElementById('boltGlow1');
+  const boltGlow2 = document.getElementById('boltGlow2');
+  const BOLT_X1 = 25, BOLT_X2 = 215, BOLT_Y = 30, BOLT_SEGMENTS = 10;
+
+  function genBoltPath(jitterAmt){
+    let d = '';
+    for(let i = 0; i <= BOLT_SEGMENTS; i++){
+      const x = BOLT_X1 + (BOLT_X2 - BOLT_X1) * i / BOLT_SEGMENTS;
+      const j = (i === 0 || i === BOLT_SEGMENTS) ? 0 : (Math.random() - 0.5) * jitterAmt;
+      d += (i === 0 ? 'M' : ' L') + x.toFixed(1) + ',' + (BOLT_Y + j).toFixed(1);
+    }
+    return d;
+  }
+
+  function updateBolt(){
+    boltCore.setAttribute('d', genBoltPath(20));
+    boltGlow1.setAttribute('d', genBoltPath(24));
+    boltGlow2.setAttribute('d', genBoltPath(28));
+  }
+  updateBolt();
+  setInterval(updateBolt, 70);
 
   const lightLayer = document.getElementById('lightLayer');
   const shadowLayer = document.getElementById('shadowLayer');
