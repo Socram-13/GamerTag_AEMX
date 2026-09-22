@@ -2680,8 +2680,8 @@
   }
 
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
 
   <!-- ===== FIREBASE SDK ===== -->
   <script type="module">
@@ -4646,7 +4646,7 @@
 
     async function fechaCDMX() {
       try {
-        const res  = await fetch('https://worldtimeapi.org/api/timezone/America/Mexico_City');
+        const res  = await fetch('https://worldtimeapi.org/api/timezone/America/Mexico_City', { signal: AbortSignal.timeout(8000) });
         const data = await res.json();
         return data.datetime.split('T')[0];
       } catch(e) {
@@ -4917,14 +4917,14 @@
 
       if (!window.userCountry) {
         try {
-          const res  = await fetch('https://get.geojs.io/v1/ip/geo.json');
+          const res  = await fetch('https://get.geojs.io/v1/ip/geo.json', { signal: AbortSignal.timeout(6000) });
           const data = await res.json();
           if (data.country && typeof normalizarPais === 'function') {
             window.userCountry = normalizarPais(data.country);
           }
         } catch(e) {
           try {
-            const res2  = await fetch('https://api.ip.sb/geoip');
+            const res2  = await fetch('https://api.ip.sb/geoip', { signal: AbortSignal.timeout(6000) });
             const data2 = await res2.json();
             if (data2.country && typeof normalizarPais === 'function') {
               window.userCountry = normalizarPais(data2.country);
@@ -6244,19 +6244,19 @@
 
   async function ubicacionPorIP() {
     try {
-      var r1 = await fetch("https://get.geojs.io/v1/ip/geo.json");
+      var r1 = await fetch("https://get.geojs.io/v1/ip/geo.json", { signal: AbortSignal.timeout(6000) });
       var d1 = await r1.json();
       if (d1.country) actualizarPais(d1.country);
       if (d1.city && d1.region) { actualizarCiudad(d1.city, d1.region); return; }
     } catch(e) {}
     try {
-      var r2 = await fetch("https://api.ip.sb/geoip");
+      var r2 = await fetch("https://api.ip.sb/geoip", { signal: AbortSignal.timeout(6000) });
       var d2 = await r2.json();
       if (d2.country) actualizarPais(d2.country);
       if (d2.city && d2.region) { actualizarCiudad(d2.city, d2.region); return; }
     } catch(e) {}
     try {
-      var r3 = await fetch("https://ipapi.co/json/", { headers: { "Accept": "application/json" } });
+      var r3 = await fetch("https://ipapi.co/json/", { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(6000) });
       var d3 = await r3.json();
       if (d3.country_name) actualizarPais(d3.country_name);
       if (d3.city && d3.region) { actualizarCiudad(d3.city, d3.region); return; }
@@ -6270,7 +6270,7 @@
 
     // 1. Intentar por IP
     try {
-      var r1 = await fetch("https://get.geojs.io/v1/ip/geo.json");
+      var r1 = await fetch("https://get.geojs.io/v1/ip/geo.json", { signal: AbortSignal.timeout(6000) });
       var d1 = await r1.json();
       if (d1.country) actualizarPais(d1.country);
       if (d1.city && d1.region) { actualizarCiudad(d1.city, d1.region); ciudadObtenida = true; }
@@ -6278,7 +6278,7 @@
 
     if (!ciudadObtenida) {
       try {
-        var r2 = await fetch("https://api.ip.sb/geoip");
+        var r2 = await fetch("https://api.ip.sb/geoip", { signal: AbortSignal.timeout(6000) });
         var d2 = await r2.json();
         if (d2.country) actualizarPais(d2.country);
         if (d2.city && d2.region) { actualizarCiudad(d2.city, d2.region); ciudadObtenida = true; }
@@ -6287,7 +6287,7 @@
 
     if (!ciudadObtenida) {
       try {
-        var r3 = await fetch("https://ipapi.co/json/", { headers: { "Accept": "application/json" } });
+        var r3 = await fetch("https://ipapi.co/json/", { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(6000) });
         var d3 = await r3.json();
         if (d3.country_name) actualizarPais(d3.country_name);
         if (d3.city && d3.region) { actualizarCiudad(d3.city, d3.region); ciudadObtenida = true; }
@@ -6300,7 +6300,7 @@
         function(pos) {
           var lat = pos.coords.latitude;
           var lon = pos.coords.longitude;
-          fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=es")
+          fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=es", { signal: AbortSignal.timeout(6000) })
             .then(function(res) { return res.json(); })
             .then(function(data) {
               var ciudad = data.city || data.locality || "";
@@ -6309,7 +6309,7 @@
               if (data.countryName) actualizarPais(data.countryName);
             })
             .catch(function() {
-              fetch("https://nominatim.openstreetmap.org/reverse?lat=" + lat + "&lon=" + lon + "&format=json&accept-language=es")
+              fetch("https://nominatim.openstreetmap.org/reverse?lat=" + lat + "&lon=" + lon + "&format=json&accept-language=es", { signal: AbortSignal.timeout(6000) })
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
                   var ciudad = d.address && (d.address.city || d.address.town || d.address.village || "");
