@@ -2680,8 +2680,23 @@
   }
 
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+<script>
+  // Carga bajo demanda de librerías pesadas (html2canvas, three.js), para que no
+  // formen parte de la carga inicial obligatoria de la página (evita que el splash
+  // de la PWA se quede esperando en redes móviles lentas). Mismo patrón que Chart.js.
+  window._loadExternalScript = function(url) {
+    window._extScriptPromises = window._extScriptPromises || {};
+    if (window._extScriptPromises[url]) return window._extScriptPromises[url];
+    window._extScriptPromises[url] = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = () => resolve();
+      s.onerror = () => { delete window._extScriptPromises[url]; reject(new Error('No se pudo cargar ' + url)); };
+      document.head.appendChild(s);
+    });
+    return window._extScriptPromises[url];
+  };
+</script>
 
   <!-- ===== FIREBASE SDK ===== -->
   <script type="module">
@@ -3324,8 +3339,16 @@
     const originalLabel = btn.textContent;
 
     if (typeof html2canvas === 'undefined') {
-      alert('No se pudo cargar la herramienta para generar la imagen. Verifica tu conexión e intenta de nuevo.');
-      return;
+      btn.textContent = 'Cargando...';
+      btn.disabled = true;
+      try {
+        await window._loadExternalScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      } catch (e) {
+        alert('No se pudo cargar la herramienta para generar la imagen. Verifica tu conexión e intenta de nuevo.');
+        btn.textContent = originalLabel;
+        btn.disabled = false;
+        return;
+      }
     }
 
     btn.textContent = 'Generando...';
@@ -5448,7 +5471,6 @@
     return _donutEarthTexture;
   }
 
-  let _donutInitRetries = 0;
   let _donutWaitingForThree = false;
   function initDonut3D() {
     if (_donutRenderer || _donut3DFailed) return;
@@ -5456,18 +5478,18 @@
       _donutCanvasEl = document.getElementById('donut-canvas');
       if (!_donutCanvasEl) { _donut3DFailed = true; return; }
       if (typeof THREE === 'undefined') {
-        // three.js (defer) puede tardar en cargar en redes móviles lentas: reintentar
-        // en vez de rendirse permanentemente. Se evita disparar varias cadenas de
-        // reintento en paralelo (drawDonut se llama muchas veces seguidas).
+        // three.js ya no se carga automáticamente en la página: se pide bajo demanda
+        // aquí. Se evita disparar varias cargas/cadenas en paralelo (drawDonut se
+        // llama muchas veces seguidas).
         if (_donutWaitingForThree) return;
-        if (_donutInitRetries < 40) { // ~8s máximo (40 * 200ms)
-          _donutWaitingForThree = true;
-          _donutInitRetries++;
-          setTimeout(() => { _donutWaitingForThree = false; initDonut3D(); }, 200);
-        } else {
-          _donut3DFailed = true;
-          console.error('[donut3D] THREE.js no cargó a tiempo tras varios reintentos.');
-        }
+        _donutWaitingForThree = true;
+        window._loadExternalScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js')
+          .then(() => { _donutWaitingForThree = false; initDonut3D(); })
+          .catch((err) => {
+            _donutWaitingForThree = false;
+            _donut3DFailed = true;
+            console.error('[donut3D] No se pudo cargar three.js:', err);
+          });
         return;
       }
 
