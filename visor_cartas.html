@@ -4,118 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Visor de Cartas AEMX</title>
-<meta name="theme-color" content="#070a12">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#070a12;
+    --bg:#0a0d14;
     --panel:#131a26;
     --accent:#4fd1ff;
-    --accent-2:#ff2bd6;
     --text:#e8f1ff;
-    --muted:#8fa3c4;
-    --font-display:'Orbitron', 'Segoe UI', system-ui, sans-serif;
-    --font-body:'Share Tech Mono', 'Courier New', ui-monospace, monospace;
-    color-scheme:dark;
   }
   *{box-sizing:border-box;}
-  html{ background:var(--bg); }
   body{
     margin:0;
-    font-family:var(--font-body);
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
+    font-family:'Segoe UI', Arial, sans-serif;
+    background:radial-gradient(circle at 50% 0%, #182233 0%, var(--bg) 70%);
     color:var(--text);
     min-height:100vh;
     padding:20px;
   }
-  /* Fondo cyberpunk, 4 capas detrás del contenido (solo transform = ligero):
-     html::before  brillos cian/magenta que derivan
-     body::before  malla de hexágonos que avanza en bucle
-     body::after   líneas de escaneo + viñeteado (estáticos)
-     html::after   haz de escaneo que recorre la pantalla */
-  body::before{
-    content:"";
-    position:fixed;
-    left:0; right:0; top:-49px; bottom:0; /* margen >= alto del mosaico (48.5px) para el bucle */
-    z-index:-1;
-    pointer-events:none;
-    background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyOCIgaGVpZ2h0PSI0OC40OTc0IiB2aWV3Qm94PSIwIDAgMjggNDguNDk3NCI+PHBhdGggZD0iTTE0IC04LjA4MjlWOC4wODI5TDAgMTYuMTY1OEwtMTQgOC4wODI5TTQyIC04LjA4MjlWOC4wODI5TDI4IDE2LjE2NThMMTQgOC4wODI5TTE0IDQwLjQxNDVWNTYuNTgwM0wwIDY0LjY2MzJMLTE0IDU2LjU4MDNNNDIgNDAuNDE0NVY1Ni41ODAzTDI4IDY0LjY2MzJMMTQgNTYuNTgwM00yOCAxNi4xNjU4VjMyLjMzMTZMMTQgNDAuNDE0NUwwIDMyLjMzMTYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzRmZDFmZiIgc3Ryb2tlLW9wYWNpdHk9IjAuMTYiIHN0cm9rZS13aWR0aD0iMSIvPjwvc3ZnPg==");
-    background-size:28px 48.4974px;
-    -webkit-mask-image:radial-gradient(ellipse at 50% 40%, #000 0%, transparent 78%);
-    mask-image:radial-gradient(ellipse at 50% 40%, #000 0%, transparent 78%);
-    animation:hexMove 4s linear infinite;
-    will-change:transform;
-  }
-  body::after{
-    content:"";
-    position:fixed;
-    inset:0;
-    z-index:-1;
-    pointer-events:none;
-    background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,0.14) 0 1px, transparent 1px 3px),
-      radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,0.65) 100%);
-  }
-  html::before{
-    content:"";
-    position:fixed;
-    inset:-25%;
-    z-index:-1;
-    pointer-events:none;
-    background:
-      radial-gradient(45% 40% at 20% 15%, rgba(79,209,255,0.26) 0%, transparent 70%),
-      radial-gradient(45% 45% at 85% 85%, rgba(255,43,214,0.22) 0%, transparent 70%),
-      radial-gradient(35% 35% at 70% 25%, rgba(139,123,255,0.14) 0%, transparent 70%),
-      linear-gradient(180deg, #0b1020 0%, var(--bg) 100%);
-    animation:drift 22s ease-in-out infinite alternate;
-    will-change:transform;
-  }
-  html::after{
-    content:"";
-    position:fixed;
-    left:0; right:0; top:0;
-    height:140px;
-    z-index:-1;
-    pointer-events:none;
-    background:linear-gradient(180deg, transparent 0%, rgba(79,209,255,0.08) 85%, rgba(120,235,255,0.55) 99%, rgba(120,235,255,0.15) 100%);
-    transform:translate3d(0,-140px,0);
-    animation:beam 10s linear infinite;
-    will-change:transform;
-  }
   h1{
     text-align:center;
-    font-family:var(--font-display);
-    font-weight:900;
-    font-size:clamp(1.2rem, 5vw, 2.1rem);
-    letter-spacing:0.14em;
-    white-space:nowrap;
-    width:fit-content;
-    margin-left:auto;
-    margin-right:auto;
+    font-size:1.4rem;
+    letter-spacing:2px;
+    color:var(--accent);
     margin-bottom:4px;
-    color:#e6fbff; /* respaldo */
-    background:linear-gradient(90deg, #ff1744, #ff9100, #ffea00, #00e676, #00e5ff, #2979ff, #d500f9, #ff1744);
-    background-size:200% 100%;
-    -webkit-background-clip:text;
-    background-clip:text;
-    -webkit-text-fill-color:transparent;
-    filter:blur(0) drop-shadow(0 0 6px rgba(255,255,255,0.30)) drop-shadow(0 0 18px rgba(139,123,255,0.55));
-    animation:
-      titleIn 1.3s cubic-bezier(.2,.7,.2,1) backwards,
-      rainbow 4s linear infinite,
-      flicker 6s linear 1.8s infinite,
-      glitch 7s linear 2.4s infinite;
   }
   #status{
     text-align:center;
-    font-size:0.9rem;
-    letter-spacing:0.04em;
-    color:var(--muted);
+    font-size:0.85rem;
+    opacity:0.7;
     margin-bottom:10px;
-    animation:fadeIn 0.8s ease-out 0.8s backwards;
   }
   #viewer{
     display:flex;
@@ -144,7 +60,6 @@
     background:var(--panel);
     border:1px solid #24304a;
     color:var(--accent);
-    font-family:'Segoe UI', system-ui, sans-serif;
     font-size:1.4rem;
     width:38px; height:38px;
     border-radius:50%;
@@ -153,10 +68,8 @@
   }
   .navBtn:active{ transform:scale(0.92); }
   #counter{
-    font-family:var(--font-body);
-    font-size:0.85rem;
-    letter-spacing:0.06em;
-    opacity:0.9;
+    font-size:0.8rem;
+    opacity:0.8;
     min-width:160px;
     text-align:center;
   }
@@ -227,78 +140,13 @@
   @keyframes spin{ to{ transform:rotate(360deg); } }
   #hint{
     margin-top:16px;
-    font-size:0.85rem;
-    letter-spacing:0.04em;
-    color:var(--muted);
-    opacity:0.85;
+    font-size:0.8rem;
+    opacity:0.6;
     text-align:center;
-    animation:fadeIn 0.8s ease-out 1s backwards;
-  }
-  #backBtn{
-    position:fixed;
-    top:14px;
-    left:14px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background:var(--panel);
-    border:1px solid #24304a;
-    color:var(--accent);
-    font-family:'Segoe UI', system-ui, sans-serif;
-    font-size:1.2rem;
-    line-height:1;
-    width:38px;
-    height:38px;
-    padding:0;
-    border-radius:8px;
-    cursor:pointer;
-    z-index:20;
-    transition:all .2s ease;
-  }
-  #backBtn:hover{ background:#1a2438; box-shadow:0 0 12px rgba(79,209,255,0.35); }
-  #backBtn:active{ transform:scale(0.95); }
-  /* Animaciones */
-  @keyframes titleIn{
-    from{ letter-spacing:0.28em; opacity:0; filter:blur(8px) drop-shadow(0 0 0 rgba(255,255,255,0)) drop-shadow(0 0 0 rgba(139,123,255,0)); }
-  }
-  @keyframes rainbow{
-    to{ background-position:200% 0; }
-  }
-  @keyframes fadeIn{
-    from{ opacity:0; }
-  }
-  @keyframes flicker{
-    0%,19%,21%,23%,60%,62%,100%{ opacity:1; }
-    20%,22%{ opacity:0.45; }
-    61%{ opacity:0.7; }
-  }
-  @keyframes glitch{
-    0%,90%,97%,100%{ transform:none; }
-    91%{ transform:translate(-3px,0) skewX(-8deg); }
-    93%{ transform:translate(3px,1px) skewX(6deg); }
-    95%{ transform:translate(-1px,-1px); }
-  }
-  @keyframes drift{
-    0%{ transform:translate3d(-4%,-3%,0) rotate(0deg) scale(1); }
-    50%{ transform:translate3d(3%,4%,0) rotate(4deg) scale(1.08); }
-    100%{ transform:translate3d(5%,-2%,0) rotate(-3deg) scale(1.02); }
-  }
-  @keyframes hexMove{
-    from{ transform:translate3d(0,0,0); }
-    to{ transform:translate3d(0,48.4974px,0); }
-  }
-  @keyframes beam{
-    from{ transform:translate3d(0,-140px,0); }
-    85%,100%{ transform:translate3d(0,100vh,0); }
-  }
-  @media (prefers-reduced-motion: reduce){
-    h1, #status, #hint, html::before, html::after, body::before{ animation:none; }
   }
 </style>
 </head>
 <body>
-
-  <button id="backBtn" onclick="regresar()" aria-label="Regresar" title="Regresar">&#8592;</button>
 
   <h1>CARTAS AEMX</h1>
   <div id="status">Cargando cartas desde GitHub...</div>
@@ -328,23 +176,16 @@
   const GH_FOLDER = "cartas";
   const BACK_FILENAME = "reverso.png"; // imagen fija de reverso
 
-  const apiUrl = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FOLDER}?ref=${GH_BRANCH}`;
+  // cartas.json lo genera y mantiene actualizado un GitHub Action cada vez que
+  // cambia la carpeta cartas/ (ver .github/workflows/update-cartas-json.yml).
+  // Se lee vía raw.githubusercontent.com para evitar la caché agresiva de
+  // jsDelivr y el límite de 60 solicitudes/hora de api.github.com.
+  const manifestUrl = `https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}/cartas.json`;
   const rawBase = `https://cdn.jsdelivr.net/gh/${GH_USER}/${GH_REPO}@${GH_BRANCH}/${GH_FOLDER}/`;
 
   const statusEl = document.getElementById('status');
   const counterEl = document.getElementById('counter');
   const viewer = document.getElementById('viewer');
-
-  // ---- BOTÓN REGRESAR ----
-  // Esta página se abre con window.open() desde el chat, así que primero
-  // intentamos cerrar la pestaña. Si el navegador lo bloquea (por ejemplo
-  // si la pestaña no fue abierta por script, o el usuario ya navegó dentro
-  // de ella), navegamos de vuelta a index.html como respaldo.
-  function regresar(){
-    window.close();
-    setTimeout(() => { window.location.href = 'index.html'; }, 150);
-  }
-  window.regresar = regresar;
 
   // ---- PROTECCIÓN BÁSICA CONTRA DESCARGA DIRECTA ----
   // No es infalible (siempre se puede hacer una captura de pantalla),
@@ -360,20 +201,18 @@
   let cardFiles = [];
   let currentIndex = 0;
 
-  fetch(apiUrl)
+  fetch(manifestUrl, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
     .then(r => {
-      if(!r.ok) throw new Error('No se pudo leer la carpeta (¿existe "cartas/" y es pública?)');
+      if(!r.ok) throw new Error('No se pudo leer cartas.json (¿existe en la raíz del repo?)');
       return r.json();
     })
-    .then(files => {
-      cardFiles = files.filter(f =>
-        f.type === 'file' &&
-        IMG_EXT.test(f.name) &&
-        f.name.toLowerCase() !== BACK_FILENAME.toLowerCase()
-      );
+    .then(nombres => {
+      cardFiles = nombres
+        .filter(name => IMG_EXT.test(name) && name.toLowerCase() !== BACK_FILENAME.toLowerCase())
+        .map(name => ({ name }));
 
       if(cardFiles.length === 0){
-        statusEl.textContent = 'No se encontraron cartas en la carpeta "cartas/".';
+        statusEl.textContent = 'No se encontraron cartas en cartas.json.';
         viewer.style.display = 'none';
         return;
       }
