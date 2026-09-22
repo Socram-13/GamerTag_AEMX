@@ -181,7 +181,7 @@
   // Se lee vía raw.githubusercontent.com para evitar la caché agresiva de
   // jsDelivr y el límite de 60 solicitudes/hora de api.github.com.
   const manifestUrl = `https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}/cartas.json`;
-  const rawBase = `https://cdn.jsdelivr.net/gh/${GH_USER}/${GH_REPO}@${GH_BRANCH}/${GH_FOLDER}/`;
+  const rawBase = `https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}/${GH_FOLDER}/`;
 
   const statusEl = document.getElementById('status');
   const counterEl = document.getElementById('counter');
