@@ -524,8 +524,8 @@
     card3d.style.pointerEvents = 'none';
     card3d.classList.remove('snap');
 
-    // La navegación siempre parte de la carta en reposo (de frente)
-    rotX = 0; rotY = 0;
+    // Se conserva el ángulo actual: la carta nueva aparece con la misma inclinación
+    const baseRotX = rotX, baseRotY = rotY;
 
     const nextIndex = (currentIndex + dir + cardFiles.length) % cardFiles.length;
     const nextUrl = rawBase + encodeURIComponent(cardFiles[nextIndex].name);
@@ -540,7 +540,7 @@
     // dejando ver su borde/profundidad real mientras se va de perfil.
     card3d.style.transition = `transform ${NAV_MS}ms cubic-bezier(.45,0,.2,1)`;
     requestAnimationFrame(() => {
-      card3d.style.transform = `translateX(${EXIT_X}%) rotateY(${EXIT_ROT}deg)`;
+      card3d.style.transform = `translateX(${EXIT_X}%) rotateX(${baseRotX}deg) rotateY(${baseRotY + EXIT_ROT}deg)`;
     });
 
     setTimeout(() => {
@@ -548,14 +548,14 @@
       // del otro lado, también de perfil, sin transición (instantáneo).
       frontImg.src = nextUrl;
       card3d.style.transition = 'none';
-      card3d.style.transform = `translateX(${ENTER_X}%) rotateY(${ENTER_ROT}deg)`;
+      card3d.style.transform = `translateX(${ENTER_X}%) rotateX(${baseRotX}deg) rotateY(${baseRotY + ENTER_ROT}deg)`;
       void card3d.offsetWidth; // forzar reflow
 
-      // Fase 2: entra deslizándose y se endereza hasta quedar plana.
+      // Fase 2: entra deslizándose y se endereza hasta la misma inclinación de antes.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           card3d.style.transition = `transform ${NAV_MS}ms cubic-bezier(.2,0,.3,1)`;
-          card3d.style.transform = 'translateX(0%) rotateY(0deg)';
+          card3d.style.transform = `translateX(0%) rotateX(${baseRotX}deg) rotateY(${baseRotY}deg)`;
         });
       });
 
@@ -565,9 +565,9 @@
         preloadNeighbors();
 
         card3d.style.transition = '';
-        card3d.style.transform = '';
         card3d.style.pointerEvents = '';
         navAnimating = false;
+        applyRotation(true);
       }, NAV_MS);
     }, NAV_MS);
   }
