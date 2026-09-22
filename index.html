@@ -8,7 +8,8 @@
 <title>🪪 Atlas Earth AEMX - GAMERTAG V2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet"></noscript>
 <style>
   :root {
     --bg: #7bc96a;
@@ -2707,14 +2708,47 @@
   };
 </script>
 
-  <!-- ===== FIREBASE SDK ===== -->
+  <!-- ===== FIREBASE SDK =====
+       Se cambia de "import" estático (bloqueante) a "import()" dinámico con
+       timeout, para que en redes móviles lentas/con filtrado la app NUNCA se
+       quede esperando a gstatic.com para disparar el evento "load" (y por
+       tanto para que el splash de la PWA desaparezca). Si Firebase no
+       responde en 5s, la app sigue funcionando sin funciones en línea. -->
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-    import { getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged, browserLocalPersistence, setPersistence }
-      from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-    import { getDatabase, ref, set, get, update, onValue, push, serverTimestamp, remove }
-      from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+    let initializeApp, getAuth, signInWithPopup, signOut, GoogleAuthProvider,
+        onAuthStateChanged, browserLocalPersistence, setPersistence,
+        getDatabase, ref, set, get, update, onValue, push, serverTimestamp, remove;
 
+    function _withTimeout(promise, ms, label) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout cargando ' + label)), ms))
+      ]);
+    }
+
+    window._fbReady = false;
+    window._fbLoadFailed = false;
+
+    _withTimeout(
+      Promise.all([
+        import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js'),
+        import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js'),
+        import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js'),
+      ]),
+      5000,
+      'Firebase'
+    ).then(([appMod, authMod, dbMod]) => {
+      ({ initializeApp } = appMod);
+      ({ getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged, browserLocalPersistence, setPersistence } = authMod);
+      ({ getDatabase, ref, set, get, update, onValue, push, serverTimestamp, remove } = dbMod);
+      _initFirebaseApp();
+    }).catch((e) => {
+      console.warn('⚠️ Firebase no cargó a tiempo (posible red móvil lenta/filtrada). La app sigue sin funciones en línea:', e);
+      window._fbLoadFailed = true;
+      document.dispatchEvent(new CustomEvent('fb-load-failed'));
+    });
+
+    function _initFirebaseApp() {
     const firebaseConfig = {
       apiKey: "AIzaSyB-xx2PlBjvnHe0K7Bf1MspVqUlfjky0mk",
       authDomain: "aemx-chat.firebaseapp.com",
@@ -3201,12 +3235,23 @@
       } catch(e) { console.warn('Firebase country error:', e); }
     };
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function _wireAutoSaveFields() {
       ['common','rare','epic','legendary','badges','diamonds','atlasbucks','horas-calculo','start-date','username'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', () => { if(window._fbUser) window._fbSaveAll(); });
       });
-    });
+    }
+    // _initFirebaseApp() corre de forma asíncrona (tras el import() con timeout), así
+    // que "DOMContentLoaded" pudo haber disparado ya antes de llegar aquí.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _wireAutoSaveFields);
+    } else {
+      _wireAutoSaveFields();
+    }
+
+    window._fbReady = true;
+    document.dispatchEvent(new CustomEvent('fb-ready'));
+    } // fin _initFirebaseApp()
   </script>
   <!-- ===== FIN FIREBASE SDK ===== -->
 </head>
