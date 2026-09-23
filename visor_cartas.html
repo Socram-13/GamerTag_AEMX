@@ -305,9 +305,9 @@
         #ff9a5f 64%,
         #c05fff 80%,
         #ff5fd8 100%);
-    background-size:11px 19px, 11px 19px, 11px 19px, 11px 19px, 11px 19px, 11px 19px, 420% 420%;
+    background-size:22px 38px, 22px 38px, 22px 38px, 22px 38px, 22px 38px, 22px 38px, 420% 420%;
     background-repeat:repeat, repeat, repeat, repeat, repeat, repeat, no-repeat;
-    background-position:0 0, 0 0, 5.5px 9.5px, 5.5px 9.5px, 0 0, 5.5px 9.5px, 50% 50%;
+    background-position:0 0, 0 0, 11px 19px, 11px 19px, 0 0, 11px 19px, 50% 50%;
     mix-blend-mode:color-dodge;
   }
   #shadowLayer, #shadowLayerBack{
@@ -722,7 +722,7 @@
 
     const posX = Math.max(0, Math.min(100, 50 - Math.max(-60, Math.min(60, rotY)) * 1.1)).toFixed(1) + '%';
     const posY = Math.max(0, Math.min(100, 50 - rotX * 1.1)).toFixed(1) + '%';
-    const holoPos = '0 0, 0 0, 5.5px 9.5px, 5.5px 9.5px, 0 0, 5.5px 9.5px, ' + posX + ' ' + posY;
+    const holoPos = '0 0, 0 0, 11px 19px, 11px 19px, 0 0, 11px 19px, ' + posX + ' ' + posY;
     lightLayer.style.backgroundPosition = holoPos;
     lightLayerBack.style.backgroundPosition = holoPos;
 
