@@ -43,13 +43,27 @@
 
   body {
     background-color: var(--body-bg, #7bc96a);
-    background-position: center top;
-    background-size: cover;
-    background-attachment: scroll;
     color: var(--text);
     font-family: 'Nunito', sans-serif;
     font-weight: 700;
     min-height: 100vh;
+    position: relative;
+    z-index: 0;
+  }
+
+  /* Capa fija solo para la imagen de fondo, detrás de todo el contenido.
+     Usa una variable propia (--bg-image) que ningún script de temas toca,
+     así el color verde de arriba solo se ve como respaldo si la imagen
+     no cargó, y nunca puede quedar "encima" de la imagen. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image: var(--bg-image, none);
+    background-position: center top;
+    background-size: cover;
+    background-repeat: no-repeat;
   }
 
   html {
@@ -2166,8 +2180,10 @@
   /* ══════════════════════════════════
      TEMA ORIGINAL (CYBERPUNK/SCI-FI)
   ══════════════════════════════════ */
-  body.theme-original {
+  body.theme-original::before {
     background-image: none !important;
+  }
+  body.theme-original {
     --auth-btn-bg: linear-gradient(135deg, #1a3a5c, #0b1626);
     --auth-btn-color: var(--gold);
     --auth-btn-hover-text: #060b14;
@@ -2269,8 +2285,10 @@
   }
 
   /* ══ Tema Kawaii (rosa pastel / lavanda) ══ */
-  body.theme-kawaii {
+  body.theme-kawaii::before {
     background-image: none !important;
+  }
+  body.theme-kawaii {
     --auth-btn-bg: linear-gradient(135deg, #FFE1F0, #FFF0F7);
     --auth-btn-color: #C2308A;
     --auth-btn-hover-text: #fff;
@@ -3674,7 +3692,6 @@
       document.body.style.removeProperty(v);
       document.documentElement.style.removeProperty(v);
     });
-    document.body.style.removeProperty('background');
     document.body.style.removeProperty('background-color');
     document.querySelectorAll('.card, .medals-card, .results-card, .header-bar, .profile-section').forEach(el => {
       el.style.removeProperty('background');
@@ -6086,7 +6103,6 @@
       document.body.style.setProperty('--panel',   panelBg);
       document.body.style.setProperty('--panel2',  panel2Bg);
       document.body.style.setProperty('--border',  `rgba(${rgb},0.5)`);
-      document.body.style.removeProperty('background');
       document.body.style.removeProperty('background-color');
       document.body.style.setProperty('--ppd-bg',       `rgb(${Math.round(_r*0.5)},${Math.round(_g*0.5)},${Math.round(_b*0.5)})`);
       document.body.style.setProperty('--ppd-color',    color);
@@ -6122,7 +6138,6 @@
         document.body.style.removeProperty(v);
         root.style.removeProperty(v);
       });
-      document.body.style.removeProperty('background');
       document.body.style.removeProperty('background-color');
       document.querySelectorAll('.card, .medals-card').forEach(el => {
         el.style.removeProperty('background');
@@ -7992,7 +8007,7 @@
   (function() {
     function loadBg() {
       const img = new Image();
-      img.onload = () => { document.body.style.backgroundImage = "url('outdoor-bg.webp')"; };
+      img.onload = () => { document.documentElement.style.setProperty('--bg-image', "url('outdoor-bg.webp')"); };
       img.src = 'outdoor-bg.webp';
     }
     if (document.readyState === 'complete') loadBg();
