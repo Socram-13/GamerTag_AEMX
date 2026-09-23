@@ -73,18 +73,6 @@
     animation:drift 22s ease-in-out infinite alternate;
     will-change:transform;
   }
-  html::after{
-    content:"";
-    position:fixed;
-    left:0; right:0; top:0;
-    height:140px;
-    z-index:-1;
-    pointer-events:none;
-    background:linear-gradient(180deg, transparent 0%, rgba(79,209,255,0.08) 85%, rgba(120,235,255,0.55) 99%, rgba(120,235,255,0.15) 100%);
-    transform:translate3d(0,-140px,0);
-    animation:beam 10s linear infinite;
-    will-change:transform;
-  }
   h1{
     text-align:center;
     font-family:var(--font-display);
@@ -291,15 +279,36 @@
     background:#000;
     display:block;
   }
-  #lightLayer, #shadowLayer, #lightLayerBack, #shadowLayerBack{
+  #lightLayer, #shadowLayer, #lightLayerBack, #shadowLayerBack, #shineLayer, #shineLayerBack{
     position:absolute;
     inset:0;
     pointer-events:none;
     z-index:2;
     opacity:0;
   }
+  #shineLayer, #shineLayerBack{
+    mix-blend-mode:screen;
+  }
   #lightLayer, #lightLayerBack{
-    background:linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, transparent 100%);
+    background-image:
+      linear-gradient(30deg, rgba(255,255,255,0.9) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.9) 87.5%, rgba(255,255,255,0.9)),
+      linear-gradient(150deg, rgba(255,255,255,0.9) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.9) 87.5%, rgba(255,255,255,0.9)),
+      linear-gradient(30deg, rgba(255,255,255,0.9) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.9) 87.5%, rgba(255,255,255,0.9)),
+      linear-gradient(150deg, rgba(255,255,255,0.9) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.9) 87.5%, rgba(255,255,255,0.9)),
+      linear-gradient(60deg, rgba(255,255,255,0.6) 25%, transparent 25.5%, transparent 75%, rgba(255,255,255,0.6) 75%, rgba(255,255,255,0.6)),
+      linear-gradient(60deg, rgba(255,255,255,0.6) 25%, transparent 25.5%, transparent 75%, rgba(255,255,255,0.6) 75%, rgba(255,255,255,0.6)),
+      linear-gradient(115deg,
+        #ff5fd8 0%,
+        #5fc8ff 16%,
+        #7dffb0 32%,
+        #ffe65f 48%,
+        #ff9a5f 64%,
+        #c05fff 80%,
+        #ff5fd8 100%);
+    background-size:11px 19px, 11px 19px, 11px 19px, 11px 19px, 11px 19px, 11px 19px, 420% 420%;
+    background-repeat:repeat, repeat, repeat, repeat, repeat, repeat, no-repeat;
+    background-position:0 0, 0 0, 5.5px 9.5px, 5.5px 9.5px, 0 0, 5.5px 9.5px, 50% 50%;
+    mix-blend-mode:color-dodge;
   }
   #shadowLayer, #shadowLayerBack{
     background:linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.25) 100%);
@@ -412,8 +421,8 @@
     <div class="stage">
       <div id="spinner"></div>
       <div class="card3d" id="card3d">
-        <div class="face front"><img id="frontImg" src="" alt="carta" draggable="false"><div id="lightLayer"></div><div id="shadowLayer"></div></div>
-        <div class="face back"><img id="backImg" src="" alt="reverso" draggable="false"><div id="lightLayerBack"></div><div id="shadowLayerBack"></div></div>
+        <div class="face front"><img id="frontImg" src="" alt="carta" draggable="false"><div id="lightLayer"></div><div id="shineLayer"></div><div id="shadowLayer"></div></div>
+        <div class="face back"><img id="backImg" src="" alt="reverso" draggable="false"><div id="lightLayerBack"></div><div id="shineLayerBack"></div><div id="shadowLayerBack"></div></div>
         <div id="edges"></div>
       </div>
     </div>
@@ -698,15 +707,41 @@
   const shadowLayer = document.getElementById('shadowLayer');
   const lightLayerBack = document.getElementById('lightLayerBack');
   const shadowLayerBack = document.getElementById('shadowLayerBack');
+  const shineLayer = document.getElementById('shineLayer');
+  const shineLayerBack = document.getElementById('shineLayerBack');
 
   function updateLight(){
     const t = Math.max(-1, Math.min(1, rotX / 60)); // -1..1
-    const bright = Math.max(0, t).toFixed(3);
+    const t2 = Math.max(0, t);
+    const bright = (Math.pow(t2, 0.8) * 0.9).toFixed(3);
     const dark = Math.max(0, -t).toFixed(3);
     lightLayer.style.opacity = bright;
     shadowLayer.style.opacity = dark;
     lightLayerBack.style.opacity = bright;
     shadowLayerBack.style.opacity = dark;
+
+    const posX = Math.max(0, Math.min(100, 50 - Math.max(-60, Math.min(60, rotY)) * 1.1)).toFixed(1) + '%';
+    const posY = Math.max(0, Math.min(100, 50 - rotX * 1.1)).toFixed(1) + '%';
+    const holoPos = '0 0, 0 0, 5.5px 9.5px, 5.5px 9.5px, 0 0, 5.5px 9.5px, ' + posX + ' ' + posY;
+    lightLayer.style.backgroundPosition = holoPos;
+    lightLayerBack.style.backgroundPosition = holoPos;
+
+    // Máscara de luz: el holograma se concentra donde "pega" la luz y se apaga hacia los bordes,
+    // en vez de verse parejo en toda la carta.
+    const maskStrength = 35 + t2 * 45; // el punto caliente crece con la inclinación
+    const holoMask = `radial-gradient(circle at ${posX} ${posY}, #000 0%, rgba(0,0,0,0.5) ${maskStrength}%, transparent ${maskStrength + 35}%)`;
+    lightLayer.style.webkitMaskImage = holoMask;
+    lightLayer.style.maskImage = holoMask;
+    lightLayerBack.style.webkitMaskImage = holoMask;
+    lightLayerBack.style.maskImage = holoMask;
+
+    // Brillo especular: crece de forma más pronunciada cuanto más se inclina
+    const shine = Math.pow(t2, 1.6).toFixed(3);
+    const shineBg = `radial-gradient(circle at ${posX} ${posY}, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.35) 28%, transparent 60%)`;
+    shineLayer.style.background = shineBg;
+    shineLayerBack.style.background = shineBg;
+    shineLayer.style.opacity = shine;
+    shineLayerBack.style.opacity = shine;
   }
 
   function applyRotation(snap){
