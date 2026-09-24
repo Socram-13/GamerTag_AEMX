@@ -367,15 +367,15 @@
   }
   #shinyBtn{
     position:fixed;
-    top:14px;
+    top:56px;
     right:14px;
     z-index:20;
     overflow:hidden;
-    padding:9px 16px;
+    padding:5px 9px;
     font-family:var(--font-display);
     font-weight:700;
-    font-size:0.75rem;
-    letter-spacing:0.18em;
+    font-size:0.5rem;
+    letter-spacing:0.12em;
     color:#eaf6ff;
     background:
       radial-gradient(circle at 30% 25%, rgba(255,255,255,0.25) 0%, transparent 40%),
@@ -487,7 +487,7 @@
 <body>
 
   <button id="backBtn" onclick="regresar()" aria-label="Regresar" title="Regresar">&#8592;</button>
-  <button id="shinyBtn" class="active">SHINY</button>
+  <button id="shinyBtn">SHINY</button>
 
   <h1>CARTAS AEMX</h1>
   <div id="status">Cargando cartas desde GitHub...</div>
@@ -816,7 +816,7 @@
   }
 
   // ---- TOGGLE "SHINY": holograma de hexágonos vs. luz simple ----
-  let hologramOn = true;
+  let hologramOn = false;
   const shinyBtn = document.getElementById('shinyBtn');
   function applyHologramMode(){
     lightLayer.classList.toggle('plainMode', !hologramOn);
