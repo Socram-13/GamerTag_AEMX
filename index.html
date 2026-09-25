@@ -3425,13 +3425,25 @@
 
     btn.textContent = 'Generando...';
     btn.disabled = true;
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+    };
+    // Salvaguarda: si algo (html2canvas o navigator.share) se queda colgado
+    // sin resolver ni rechazar, esto libera el botón después de 10s.
+    const safetyTimer = setTimeout(finish, 10000);
+
     try {
       const canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true, logging: true });
       canvas.toBlob((blob) => {
         if (!blob) {
           alert('No se pudo generar la imagen. Intenta de nuevo.');
-          btn.textContent = originalLabel;
-          btn.disabled = false;
+          clearTimeout(safetyTimer);
+          finish();
           return;
         }
         const file = new File([blob], 'mi-resumen-aemx.png', { type: 'image/png' });
@@ -3450,15 +3462,15 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
           }
-          btn.textContent = originalLabel;
-          btn.disabled = false;
+          clearTimeout(safetyTimer);
+          finish();
         })();
       }, 'image/png');
     } catch (err) {
       console.error('[shareCard] error generando imagen:', err);
       alert('Ocurrió un error generando la imagen: ' + (err?.message || err));
-      btn.textContent = originalLabel;
-      btn.disabled = false;
+      clearTimeout(safetyTimer);
+      finish();
     }
   }
 </script>
