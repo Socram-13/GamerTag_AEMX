@@ -755,13 +755,21 @@ const userRef = ref(database, 'chat_presence/' + userId);
 
                     // No renderizar más de los últimos 5 mensajes de feed, aunque el borrado en Firebase aún no se haya confirmado
                     const feedKeysToShow = new Set(feedMsgs.slice(-5).map(m => m.key));
-                    const messagesToRender = messages.filter(m => m.isSystem !== true || feedKeysToShow.has(m.key));
 
-                    messagesToRender.slice(-20).forEach((msg) => {
+                    // ── Los avisos (feed) siempre arriba, máx. 5, y los mensajes de usuario siempre abajo. ──
+                    // Se renderizan en dos bloques separados en vez de mezclarlos por orden cronológico.
+                    const feedToRender = messages.filter(m => m.isSystem === true && feedKeysToShow.has(m.key));
+                    const userMsgsToRender = messages.filter(m => m.isSystem !== true).slice(-20);
+
+                    feedToRender.forEach((msg) => {
+                        if (!msg.username || !msg.text) return;
+                        addMessageToUI(msg.username, msg.text, msg.timestamp, false, '', false, msg.key, false, true);
+                    });
+                    userMsgsToRender.forEach((msg) => {
                         if (!msg.username || !msg.text) return;
                         const isAdminMsg = msg.isAdmin === true || (currentUserIsAdmin && msg.username === currentUsername);
                         const isModeratorMsg = !isAdminMsg && (msg.isModerator === true || (currentUserIsModerator && msg.username === currentUsername));
-                        addMessageToUI(msg.username, msg.text, msg.timestamp, msg.username === currentUsername, msg.borderColor || '', isAdminMsg, msg.key, isModeratorMsg, msg.isSystem === true);
+                        addMessageToUI(msg.username, msg.text, msg.timestamp, msg.username === currentUsername, msg.borderColor || '', isAdminMsg, msg.key, isModeratorMsg, false);
                     });
                     // Reinsertar mensajes locales de Aura y @aura del usuario
                     localMsgs.forEach(m => container.appendChild(m));
