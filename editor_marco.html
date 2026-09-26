@@ -344,7 +344,7 @@ input[type="range"]{width:90px; accent-color:var(--glow);}
 <!-- Zoom controls (visible solo con foto) -->
 <div class="zoom-bar" id="zoom-bar">
   <span class="ctrl-label">↔ ZOOM</span>
-  <input type="range" id="zoom-slider" min="100" max="300" value="100" step="1"/>
+  <input type="range" id="zoom-slider" min="50" max="300" value="100" step="1"/>
   <span class="range-val" id="zoom-val">100%</span>
   <button class="btn" id="zoom-reset">↺ RESET</button>
 </div>
@@ -551,7 +551,7 @@ wrap.addEventListener('wheel', e => {
   if (!document.querySelector('#photo-layer img')) return;
   e.preventDefault();
   const delta = e.deltaY > 0 ? -0.05 : 0.05;
-  photoState.zoom = Math.min(3, Math.max(1, photoState.zoom + delta));
+  photoState.zoom = Math.min(3, Math.max(0.5, photoState.zoom + delta));
   applyPhotoTransform();
 }, { passive: false });
 
@@ -585,7 +585,7 @@ wrap.addEventListener('touchmove', e => {
       e.touches[1].clientX - e.touches[0].clientX,
       e.touches[1].clientY - e.touches[0].clientY
     );
-    photoState.zoom = Math.min(3, Math.max(1, touch.lastZoom * (dist / touch.lastDist)));
+    photoState.zoom = Math.min(3, Math.max(0.5, touch.lastZoom * (dist / touch.lastDist)));
     applyPhotoTransform();
   }
 }, { passive: false });
