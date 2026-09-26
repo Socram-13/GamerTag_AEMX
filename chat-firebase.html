@@ -1033,6 +1033,13 @@ const userRef = ref(database, 'chat_presence/' + userId);
             mostrarAviso('⚠️ NO SE PUDO VERIFICAR', 'No se pudo verificar tu acceso. Inténtalo de nuevo en unos segundos.');
         }
 
+        // ── Membresía de clan pasada por el padre (evita re-verificar Firebase Auth
+        //    dentro del iframe, que falla intermitentemente en Safari/iOS por ITP) ──
+        const _urlParamsClan = new URLSearchParams(window.location.search);
+        const _clanDesdeParent = _urlParamsClan.get('clan');
+        const huboClanParam = _clanDesdeParent !== null;
+        const esMiembroDesdeParent = _clanDesdeParent === '1';
+
         // Espera a que Firebase termine de restaurar la sesión: si se pulsa un botón
         // justo al abrir el chat, auth.currentUser puede estar vacío todavía.
         function esperarSesion() {
@@ -1046,6 +1053,14 @@ const userRef = ref(database, 'chat_presence/' + userId);
 
         // ── Botón Visor HUD ──
         window.abrirVisor = async function() {
+            if (huboClanParam) {
+                if (esMiembroDesdeParent) {
+                    window.top.location.href = new URL('visor_hud_aemx.html', window.location.href).href;
+                } else {
+                    avisoDenegado('al visor HUD');
+                }
+                return;
+            }
             const user = await esperarSesion();
             if (!user) { avisoSinSesion(); return; }
             try {
@@ -1067,6 +1082,14 @@ const userRef = ref(database, 'chat_presence/' + userId);
         // El botón es siempre visible (igual que Marco): la membresía del clan
         // se valida al hacer clic y, si no es miembro, se muestra el aviso.
         window.abrirVisorCartas = async function() {
+            if (huboClanParam) {
+                if (esMiembroDesdeParent) {
+                    window.top.location.href = new URL('visor_cartas.html', window.location.href).href;
+                } else {
+                    avisoDenegado('al visor de cartas');
+                }
+                return;
+            }
             const user = await esperarSesion();
             if (!user) { avisoSinSesion(); return; }
             try {
@@ -1086,6 +1109,16 @@ const userRef = ref(database, 'chat_presence/' + userId);
 
         // ── Botón Marco (comportamiento sin cambios; solo fija su propio texto) ──
         window.abrirMarco = async function() {
+            if (huboClanParam) {
+                const ventana = window.open('', '_top');
+                if (esMiembroDesdeParent) {
+                    ventana.location.href = 'editor_marco.html';
+                } else {
+                    ventana.location.href = window.location.href;
+                    setTimeout(() => avisoDenegado('al editor de marco'), 300);
+                }
+                return;
+            }
             const user = auth.currentUser;
             if (!user) { avisoDenegado('al editor de marco'); return; }
             const ventana = window.open('', '_top');

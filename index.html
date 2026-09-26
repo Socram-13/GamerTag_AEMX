@@ -6,13 +6,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🪪 Atlas Earth AEMX - GAMERTAG V2.0</title>
-<meta property="og:title" content="Atlas Earth AEMX - GamerTag">
-<meta property="og:description" content="Plataforma web del clan Atlas Earth México. Perfiles, rankings, chat y más.">
-<meta property="og:image" content="https://gamertag-aemx.pages.dev/imagen_2.png">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://gamertag-aemx.pages.dev/">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://gamertag-aemx.pages.dev/imagen_2.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -7071,7 +7064,8 @@
         if (!frame.getAttribute('data-loaded')) {
           const username = localStorage.getItem('atlas-username') || '';
           const color = localStorage.getItem('atlas-avatar-border') || '';
-          frame.src = `chat-firebase.html?username=${encodeURIComponent(username)}&color=${encodeURIComponent(color)}`;
+          const esMiembroClan = window.clanMember === true ? '1' : '0';
+          frame.src = `chat-firebase.html?username=${encodeURIComponent(username)}&color=${encodeURIComponent(color)}&clan=${esMiembroClan}`;
           frame.setAttribute('data-loaded', '1');
         }
       }
