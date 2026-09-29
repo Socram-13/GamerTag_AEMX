@@ -8,8 +8,8 @@
 <title>🪪 Atlas Earth AEMX - GAMERTAG V2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet"></noscript>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&family=Baloo+2:wght@700;800&family=Creepster&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&family=Baloo+2:wght@700;800&family=Creepster&display=swap" rel="stylesheet"></noscript>
 <style>
   :root {
     --bg: #7bc96a;
@@ -155,7 +155,7 @@
 
   .header-title .atlas { color: #FFD060; }
   .header-title .earth { color: #FFD060; }
-  .header-title .mexico { color: #fff; visibility: hidden; }
+  .header-title .mexico { color: #7EC8E3; visibility: visible; }
   .header-title .mexico .i { color: #ef4444; }
 
   .header-subtitle {
@@ -2403,6 +2403,169 @@
   body.theme-kawaii .share-player-block #share-title { color: #fff; }
   body.theme-kawaii .share-player-block #share-days { color: #FFF0B3; }
 
+  /* ══ Tema Halloween (calabaza / morado / slime) ══ */
+  body.theme-halloween {
+    --auth-btn-bg: linear-gradient(135deg, #3a1a5c, #1c1026);
+    --auth-btn-color: #ffb347;
+    --auth-btn-hover-text: #120818;
+    --location-color: #e9d5ff;
+    --body-bg: #120818;
+    --bg: #120818;
+    --panel: #1c1026;
+    --panel2: #261436;
+    --border: #5b2a86;
+    --glow: #ff7a1a;
+    --glow2: #8fd14f;
+    --gold: #ffb347;
+    --epic: #b06bff;
+    --rare: #5ec8ff;
+    --common: #8fd14f;
+    --legendary: #ffb02e;
+    --mythic: #ff3b3b;
+    --text: #f3e6d0;
+    --text2: #b79ac9;
+    --accent: #ff7a1a;
+    --sand: #1c1026;
+    --sand-dark: #3a1a5c;
+    --input-bg: #150a1f;
+    --input-border: #5b2a86;
+    --ppd-bg: #ff7a1a;
+    --ppd-color: #1a0b00;
+    --ppd-shadow: 0 0 8px rgba(255,122,26,0.5);
+    font-family: 'Nunito', sans-serif !important;
+    background-color: #120818 !important;
+  }
+  html:has(body.theme-halloween) { background: #120818; }
+
+  /* Fondo: brillo naranja arriba, neblina morada abajo y murciélagos tenues */
+  body.theme-halloween::before {
+    background-image:
+      radial-gradient(ellipse at 88% -5%, rgba(255,122,26,0.22), transparent 45%),
+      radial-gradient(ellipse at 8% 105%, rgba(140,70,220,0.28), transparent 55%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='44' viewBox='0 0 120 44'%3E%3Cg fill='mediumpurple' fill-opacity='0.22'%3E%3Cpath transform='translate(30 16)' d='M0 -3C-2 -8 -4 -8 -5 -5C-9 -9 -16 -8 -20 -2C-16 -3 -13 -1 -11 3C-9 0 -6 0 -4 3C-2 1 2 1 4 3C6 0 9 0 11 3C13 -1 16 -3 20 -2C16 -8 9 -9 5 -5C4 -8 2 -8 0 -3Z'/%3E%3Cpath transform='translate(90 30) scale(0.7)' d='M0 -3C-2 -8 -4 -8 -5 -5C-9 -9 -16 -8 -20 -2C-16 -3 -13 -1 -11 3C-9 0 -6 0 -4 3C-2 1 2 1 4 3C6 0 9 0 11 3C13 -1 16 -3 20 -2C16 -8 9 -9 5 -5C4 -8 2 -8 0 -3Z'/%3E%3C/g%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat, no-repeat, repeat-x !important;
+    background-position: 0 0, 0 0, 0 6px !important;
+    background-size: auto, auto, 120px 44px !important;
+  }
+
+  body.theme-halloween .card,
+  body.theme-halloween .profile-section,
+  body.theme-halloween .results-card,
+  body.theme-halloween .medals-card,
+  body.theme-halloween .coins-bar,
+  body.theme-halloween .medal-modal {
+    background: var(--panel) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 0 20px rgba(255,122,26,0.10) !important;
+  }
+
+  body.theme-halloween .header-bar {
+    background: linear-gradient(135deg, #4a1f7a 0%, #7a2f0a 100%) !important;
+    border-color: #ff7a1a !important;
+    box-shadow: 0 0 18px rgba(255,122,26,0.25) !important;
+  }
+  body.theme-halloween .header-bar::before {
+    background: linear-gradient(90deg, #ff7a1a, #8fd14f, #b06bff, #ff7a1a) !important;
+  }
+  /* Telarañas en las esquinas del encabezado */
+  body.theme-halloween .header-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    pointer-events: none;
+    opacity: 0.55;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='lavender' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M0 0L64 0M0 0L59 24M0 0L45 45M0 0L24 59M0 0L0 64'/%3E%3Cpath d='M20 0L18.5 7.5L14.1 14.1L7.5 18.5L0 20'/%3E%3Cpath d='M40 0L37 15L28.3 28.3L15 37L0 40'/%3E%3Cpath d='M60 0L55.4 23L42.4 42.4L23 55.4L0 60'/%3E%3C/g%3E%3C/svg%3E") top left / 64px 64px no-repeat,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg transform='translate(64 0) scale(-1 1)'%3E%3Cg fill='none' stroke='lavender' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M0 0L64 0M0 0L59 24M0 0L45 45M0 0L24 59M0 0L0 64'/%3E%3Cpath d='M20 0L18.5 7.5L14.1 14.1L7.5 18.5L0 20'/%3E%3Cpath d='M40 0L37 15L28.3 28.3L15 37L0 40'/%3E%3Cpath d='M60 0L55.4 23L42.4 42.4L23 55.4L0 60'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") top right / 64px 64px no-repeat;
+  }
+  body.theme-halloween .header-title .atlas { color: #ffb347 !important; }
+  body.theme-halloween .header-title .earth { color: #e9d5ff !important; }
+  /* El título siempre dice "ATLAS EARTH MÉXICO" (el script cambia el país al detectarlo) */
+  body.theme-halloween .header-title .mexico { display: inline; visibility: visible !important; color: #7EC8E3; }
+
+  body.theme-halloween .results-card {
+    background: linear-gradient(135deg, var(--panel2) 0%, var(--panel) 100%) !important;
+    border-color: var(--glow) !important;
+  }
+  body.theme-halloween .btn-save {
+    background: linear-gradient(135deg, #ff7a1a, #ff9f43) !important;
+    border-color: transparent !important;
+    color: #1a0b00 !important;
+    box-shadow: 0 0 20px rgba(255,122,26,0.4) !important;
+  }
+  body.theme-halloween .btn-checkin {
+    background: linear-gradient(135deg, rgba(255,122,26,0.25), rgba(143,209,79,0.12)) !important;
+    border-color: #ff7a1a !important;
+    color: #ffb347 !important;
+    box-shadow: 0 0 12px rgba(255,122,26,0.2) !important;
+  }
+  body.theme-halloween .coins-bar {
+    background: linear-gradient(135deg, var(--panel2) 0%, var(--panel) 100%) !important;
+    border-color: rgba(255,122,26,0.45) !important;
+    box-shadow: none !important;
+  }
+  body.theme-halloween input[type="number"] {
+    background: #150a1f !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+    box-shadow: none !important;
+  }
+  body.theme-halloween .counter-btn {
+    background: var(--panel2) !important;
+    border-color: var(--border) !important;
+    color: #ffb347 !important;
+    box-shadow: none !important;
+  }
+  body.theme-halloween .counter-btn:hover {
+    background: #3a1a5c !important;
+    border-color: #ff7a1a !important;
+  }
+  body.theme-halloween .card-title,
+  body.theme-halloween .results-title,
+  body.theme-halloween .medals-title {
+    color: #ff9f43 !important;
+    font-family: 'Creepster', 'Fredoka One', cursive !important;
+    letter-spacing: 1.5px;
+    text-shadow: 0 0 8px rgba(255,122,26,0.45);
+  }
+  body.theme-halloween .breakdown-title { color: #ff9f43 !important; }
+
+  /* Racha de check-in */
+  body.theme-halloween .streak-track {
+    background: linear-gradient(135deg, #2a1240 0%, #1c0f08 100%) !important;
+    border-color: rgba(255,122,26,0.4) !important;
+    box-shadow: none !important;
+  }
+  body.theme-halloween .streak-label,
+  body.theme-halloween .streak-day-label,
+  body.theme-halloween .streak-note { color: #ffb347 !important; }
+  body.theme-halloween .streak-dot {
+    background: #120818 !important;
+    border-color: rgba(255,122,26,0.3) !important;
+    color: #ffb347 !important;
+  }
+  body.theme-halloween .streak-dot.today,
+  body.theme-halloween .streak-dot.gift.today {
+    background: linear-gradient(135deg, rgba(255,122,26,0.45), rgba(255,179,71,0.2)) !important;
+    border-color: #ff7a1a !important;
+    color: #fff !important;
+  }
+
+  /* Tarjeta compartible */
+  body.theme-halloween .share-player-block {
+    background: linear-gradient(180deg, #4a1f7a 0%, #2a1240 100%);
+    border: 2px solid #ff7a1a;
+  }
+  body.theme-halloween .share-player-block #share-username { color: #fff; }
+  body.theme-halloween .share-player-block #share-title,
+  body.theme-halloween .share-player-block #share-days { color: #ffb347; }
+
+  /* Calabaza en lugar del moño del avatar */
+  body.theme-halloween .avatar-bow { display: block; font-size: 0 !important; }
+  body.theme-halloween .avatar-bow::after { content: '🎃'; font-size: 55px; line-height: 1; }
+  body.theme-halloween .avatar-bow-share::after { font-size: 24px; }
+
   /* ══ Modal de configuración (reusa look del bottom-sheet de medallas) ══ */
   .settings-modal-overlay {
     position: fixed;
@@ -2565,6 +2728,7 @@
     gap: 10px;
     flex-wrap: wrap;
   }
+  .theme-btn-group .theme-option-btn { flex: 1 1 calc(50% - 10px); }
   .theme-option-btn {
     flex: 1;
     display: flex;
@@ -2604,6 +2768,12 @@
     background: linear-gradient(135deg, rgba(255,111,181,0.25), rgba(179,136,255,0.25));
     box-shadow: 0 0 0 2px #FF6FB5, 0 0 14px rgba(255,111,181,0.6);
     color: #C2308A;
+  }
+  body.theme-halloween .theme-option-btn.active {
+    border-color: #ff7a1a;
+    background: linear-gradient(135deg, rgba(255,122,26,0.25), rgba(176,107,255,0.25));
+    box-shadow: 0 0 0 2px #ff7a1a, 0 0 14px rgba(255,122,26,0.6);
+    color: #ffb347;
   }
 
   /* Tooltips para enlaces de redes sociales */
@@ -3326,6 +3496,9 @@
       <button type="button" class="theme-option-btn" id="theme-btn-kawaii" onclick="setTheme('kawaii')">
         <span class="theme-option-icon">🎀</span> Kawaii
       </button>
+      <button type="button" class="theme-option-btn" id="theme-btn-halloween" onclick="setTheme('halloween')">
+        <span class="theme-option-icon">🎃</span> Halloween
+      </button>
     </div>
   </div>
 
@@ -3697,13 +3870,14 @@
 <script>
   (function() {
     const saved = localStorage.getItem('aemx-theme');
-    if (saved === 'original' || saved === 'kawaii') document.body.classList.add('theme-' + saved);
+    if (saved === 'original' || saved === 'kawaii' || saved === 'halloween') document.body.classList.add('theme-' + saved);
     updateThemeButtonsUI();
   })();
 
   function getCurrentTheme() {
     if (document.body.classList.contains('theme-original')) return 'original';
     if (document.body.classList.contains('theme-kawaii')) return 'kawaii';
+    if (document.body.classList.contains('theme-halloween')) return 'halloween';
     return 'atlas';
   }
 
@@ -3712,16 +3886,18 @@
     const btnAtlas = document.getElementById('theme-btn-atlas');
     const btnOriginal = document.getElementById('theme-btn-original');
     const btnKawaii = document.getElementById('theme-btn-kawaii');
+    const btnHalloween = document.getElementById('theme-btn-halloween');
     if (btnAtlas)    btnAtlas.classList.toggle('active', current === 'atlas');
     if (btnOriginal) btnOriginal.classList.toggle('active', current === 'original');
     if (btnKawaii)   btnKawaii.classList.toggle('active', current === 'kawaii');
+    if (btnHalloween) btnHalloween.classList.toggle('active', current === 'halloween');
   }
 
   function setTheme(theme) {
     const current = getCurrentTheme();
     if (theme === current) return; // ya está en ese tema
-    document.body.classList.remove('theme-original', 'theme-kawaii');
-    if (theme === 'original' || theme === 'kawaii') document.body.classList.add('theme-' + theme);
+    document.body.classList.remove('theme-original', 'theme-kawaii', 'theme-halloween');
+    if (theme === 'original' || theme === 'kawaii' || theme === 'halloween') document.body.classList.add('theme-' + theme);
     localStorage.setItem('aemx-theme', theme);
     updateThemeButtonsUI();
     ['--body-bg','--panel','--panel2','--border','--glow','--accent',
