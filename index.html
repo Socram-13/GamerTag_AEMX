@@ -2733,6 +2733,7 @@
        tanto para que el splash de la PWA desaparezca). Si Firebase no
        responde en 5s, la app sigue funcionando sin funciones en línea. -->
   <script type="module">
+    let deleteUser, reauthenticateWithPopup;
     let initializeApp, getAuth, signInWithPopup, signOut, GoogleAuthProvider,
         onAuthStateChanged, browserLocalPersistence, setPersistence,
         getDatabase, ref, set, get, update, onValue, push, serverTimestamp, remove;
@@ -2758,6 +2759,7 @@
     ).then(([appMod, authMod, dbMod]) => {
       ({ initializeApp } = appMod);
       ({ getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged, browserLocalPersistence, setPersistence } = authMod);
+      ({ deleteUser, reauthenticateWithPopup } = authMod);
       ({ getDatabase, ref, set, get, update, onValue, push, serverTimestamp, remove } = dbMod);
       _initFirebaseApp();
     }).catch((e) => {
@@ -2793,6 +2795,20 @@
     window._fbOnValue  = onValue;
     window._fbSignIn   = () => signInWithPopup(auth, provider);
     window._fbSignOut  = () => signOut(auth);
+    window._fbDeleteAccount = async () => {
+      const user = auth.currentUser;
+      if (!user) throw new Error('no-user');
+      const uid = user.uid;
+      // Evitar que una cuenta bloqueada se borre para evadir el bloqueo
+      const b = await get(ref(db, `users/${uid}/bannedWrite`));
+      if (b.exists() && b.val() === true) throw new Error('banned');
+      // Firebase exige inicio de sesión reciente para borrar la cuenta
+      await reauthenticateWithPopup(user, provider);
+      // Borrar datos primero; si las reglas lo impiden, se detiene aquí
+      await remove(ref(db, `users/${uid}`));
+      try { await remove(ref(db, `notifications/${uid}`)); } catch (e) { console.warn('notifications:', e); }
+      await deleteUser(user);
+    };
 
     // 🔇 Detección de SRB: cálculo LOCAL desde config/avisos (no depende de admin.html abierto)
     window._srbActive = false;
@@ -2853,6 +2869,7 @@
       if (user) {
         btn.textContent = 'Cerrar sesión';
         btn.title = `Sesión: ${user.displayName}`;
+        const _del = document.getElementById('settings-row-eliminar'); if (_del) _del.style.display = 'flex';
         if (info) {
           info.innerHTML = `<img loading="lazy" src="${user.photoURL}" style="width:22px;height:22px;border-radius:50%;vertical-align:middle;margin-right:6px;">${user.displayName.split(' ')[0]}`;
           info.style.display = 'flex';
@@ -2861,6 +2878,7 @@
         btn.textContent = '🔑 Iniciar con Google';
         btn.title = '';
         if (info) info.style.display = 'none';
+        const _del = document.getElementById('settings-row-eliminar'); if (_del) _del.style.display = 'none';
       }
     }
 
@@ -3320,6 +3338,14 @@
       <input type="checkbox" id="checkinNotifToggle" onchange="onCheckinNotifToggle(this.checked)">
       <span class="settings-switch-slider"></span>
     </label>
+  </div>
+
+  <div class="settings-row" id="settings-row-eliminar" style="display:none;">
+    <div>
+      <div class="settings-row-label" style="color:#c0392b;">Eliminar cuenta y datos</div>
+      <div class="settings-row-desc">Borra tu perfil y acceso de forma permanente</div>
+    </div>
+    <button type="button" class="settings-icon-btn" title="Eliminar mi cuenta y datos" onclick="closeSettingsModal();abrirEliminarCuenta();" style="border-color:#922b21;background:linear-gradient(180deg,#e74c3c 0%,#c0392b 100%);box-shadow:0 3px 0 #922b21;color:#fff;">🗑️</button>
   </div>
 
   <div class="settings-modal-handle"></div>
@@ -5058,6 +5084,53 @@
     <span style="color:var(--text2);opacity:0.5;"> • </span>
     <a href="terminos.html" style="color:var(--text2);text-decoration:none;opacity:0.7;">Términos y Condiciones</a>
   </p>
+
+  <!-- Modal eliminar cuenta -->
+  <div id="eliminar-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;" onclick="if(event.target===this)cerrarEliminarCuenta()">
+    <div style="background:var(--panel);border:2px solid var(--border);border-radius:16px;padding:24px 28px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+      <div style="font-family:'Fredoka One',cursive;font-size:18px;color:var(--text);letter-spacing:1px;margin-bottom:8px;">🗑️ Eliminar mi cuenta</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5;">Se borrarán de forma permanente tu perfil, parcelas, medallas, coins y notificaciones, y tu acceso con Google. <strong>Esta acción no se puede deshacer.</strong> Se te pedirá confirmar con Google de nuevo.</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">Escribe <strong>ELIMINAR</strong> para continuar:</div>
+      <input id="eliminar-confirm" type="text" autocomplete="off" oninput="document.getElementById('eliminar-ok').disabled = this.value.trim().toUpperCase()!=='ELIMINAR'" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);text-align:center;font-size:14px;margin-bottom:10px;">
+      <div id="eliminar-msg" style="font-size:12px;min-height:16px;margin-bottom:8px;color:#c0392b;"></div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button onclick="cerrarEliminarCuenta()" style="padding:9px 16px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--text);font-weight:800;font-size:12px;cursor:pointer;">Cancelar</button>
+        <button id="eliminar-ok" onclick="confirmarEliminarCuenta()" disabled style="padding:9px 16px;border-radius:10px;border:none;background:#c0392b;color:#fff;font-weight:800;font-size:12px;cursor:pointer;opacity:1;">Eliminar todo</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    function abrirEliminarCuenta() {
+      var m = document.getElementById('eliminar-modal');
+      document.getElementById('eliminar-confirm').value = '';
+      document.getElementById('eliminar-ok').disabled = true;
+      document.getElementById('eliminar-msg').textContent = '';
+      m.style.display = 'flex';
+    }
+    function cerrarEliminarCuenta() { document.getElementById('eliminar-modal').style.display = 'none'; }
+    async function confirmarEliminarCuenta() {
+      var btn = document.getElementById('eliminar-ok');
+      var msg = document.getElementById('eliminar-msg');
+      if (!window._fbDeleteAccount || !window._fbUser) { msg.textContent = 'Inicia sesión para continuar.'; return; }
+      btn.disabled = true; msg.style.color = 'var(--text2)'; msg.textContent = 'Eliminando...';
+      try {
+        await window._fbDeleteAccount();
+        Object.keys(localStorage).forEach(function (k) {
+          if (/^(atlas-|aemx-|aura_)/.test(k)) localStorage.removeItem(k);
+        });
+        msg.style.color = '#27ae60'; msg.textContent = '✔ Cuenta eliminada.';
+        setTimeout(function () { location.reload(); }, 1200);
+      } catch (e) {
+        console.warn('Eliminar cuenta:', e);
+        msg.style.color = '#c0392b';
+        if (e && e.message === 'banned') msg.textContent = 'Tu cuenta tiene un bloqueo activo. Escribe al correo de contacto para gestionar la eliminación.';
+        else if (e && (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request')) msg.textContent = 'Confirmación con Google cancelada.';
+        else if (e && /permission/i.test(e.message || '')) msg.textContent = 'No se pudieron borrar los datos. Escribe al correo de contacto para solicitarlo.';
+        else msg.textContent = 'No se pudo eliminar. Intenta de nuevo o escribe al correo de contacto.';
+        btn.disabled = false;
+      }
+    }
+  </script>
 
   <!-- Modal de donación -->
   <div id="donacion-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;" onclick="if(event.target===this)this.style.display='none'">
