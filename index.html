@@ -2479,6 +2479,124 @@
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='lavender' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M0 0L64 0M0 0L59 24M0 0L45 45M0 0L24 59M0 0L0 64'/%3E%3Cpath d='M20 0L18.5 7.5L14.1 14.1L7.5 18.5L0 20'/%3E%3Cpath d='M40 0L37 15L28.3 28.3L15 37L0 40'/%3E%3Cpath d='M60 0L55.4 23L42.4 42.4L23 55.4L0 60'/%3E%3C/g%3E%3C/svg%3E") top left / 64px 64px no-repeat,
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg transform='translate(64 0) scale(-1 1)'%3E%3Cg fill='none' stroke='lavender' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M0 0L64 0M0 0L59 24M0 0L45 45M0 0L24 59M0 0L0 64'/%3E%3Cpath d='M20 0L18.5 7.5L14.1 14.1L7.5 18.5L0 20'/%3E%3Cpath d='M40 0L37 15L28.3 28.3L15 37L0 40'/%3E%3Cpath d='M60 0L55.4 23L42.4 42.4L23 55.4L0 60'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") top right / 64px 64px no-repeat;
   }
+  /* Araña colgante que sube y baja (solo tema Halloween) */
+  .hw-spider { display: none; }
+  body.theme-halloween .hw-spider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: absolute;
+    top: 0;
+    left: 33px;
+    z-index: 100;
+    pointer-events: none;
+  }
+  body.theme-halloween .hw-thread {
+    width: 1px;
+    height: 14px;
+    background: rgba(230,220,255,0.8);
+    animation: hwSpiderDrop 12s ease-in-out infinite;
+  }
+  body.theme-halloween .hw-spider-body {
+    line-height: 0;
+    margin-top: -10px;
+    transform-origin: top center;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+    animation: hwSpiderSway 2.5s ease-in-out infinite;
+  }
+  @keyframes hwSpiderDrop {
+    0%, 100% { height: 10px; }
+    50%      { height: var(--hw-drop, 200px); }
+  }
+  @keyframes hwSpiderSway {
+    0%, 100% { transform: rotate(-6deg); }
+    50%      { transform: rotate(6deg); }
+  }
+  /* Las patas se mueven solo durante la bajada (primera mitad del ciclo de 12 s) */
+  body.theme-halloween .hw-leg { animation-duration: 12s; animation-timing-function: linear; animation-iteration-count: infinite; }
+  body.theme-halloween .hw-legL.hw-l1, body.theme-halloween .hw-legL.hw-l3,
+  body.theme-halloween .hw-legR.hw-l2, body.theme-halloween .hw-legR.hw-l4 { animation-name: hwLegsA; }
+  body.theme-halloween .hw-legR.hw-l1, body.theme-halloween .hw-legR.hw-l3,
+  body.theme-halloween .hw-legL.hw-l2, body.theme-halloween .hw-legL.hw-l4 { animation-name: hwLegsB; }
+  @keyframes hwLegsA {
+    0% { transform: rotate(0deg); }
+    2.5% { transform: rotate(-14deg); }
+    5% { transform: rotate(14deg); }
+    7.5% { transform: rotate(-14deg); }
+    10% { transform: rotate(14deg); }
+    12.5% { transform: rotate(-14deg); }
+    15% { transform: rotate(14deg); }
+    17.5% { transform: rotate(-14deg); }
+    20% { transform: rotate(14deg); }
+    22.5% { transform: rotate(-14deg); }
+    25% { transform: rotate(14deg); }
+    27.5% { transform: rotate(-14deg); }
+    30% { transform: rotate(14deg); }
+    32.5% { transform: rotate(-14deg); }
+    35% { transform: rotate(14deg); }
+    37.5% { transform: rotate(-14deg); }
+    40% { transform: rotate(14deg); }
+    42.5% { transform: rotate(-14deg); }
+    45% { transform: rotate(14deg); }
+    47.5% { transform: rotate(-14deg); }
+    50% { transform: rotate(14deg); }
+    52% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+  }
+  @keyframes hwLegsB {
+    0% { transform: rotate(0deg); }
+    2.5% { transform: rotate(14deg); }
+    5% { transform: rotate(-14deg); }
+    7.5% { transform: rotate(14deg); }
+    10% { transform: rotate(-14deg); }
+    12.5% { transform: rotate(14deg); }
+    15% { transform: rotate(-14deg); }
+    17.5% { transform: rotate(14deg); }
+    20% { transform: rotate(-14deg); }
+    22.5% { transform: rotate(14deg); }
+    25% { transform: rotate(-14deg); }
+    27.5% { transform: rotate(14deg); }
+    30% { transform: rotate(-14deg); }
+    32.5% { transform: rotate(14deg); }
+    35% { transform: rotate(-14deg); }
+    37.5% { transform: rotate(14deg); }
+    40% { transform: rotate(-14deg); }
+    42.5% { transform: rotate(14deg); }
+    45% { transform: rotate(-14deg); }
+    47.5% { transform: rotate(14deg); }
+    50% { transform: rotate(-14deg); }
+    52% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+  }
+  /* Fantasma semitransparente que cruza la pantalla de vez en cuando (solo Halloween) */
+  #hw-ghost { display: none; position: fixed; top: 30vh; left: 0; width: 56px; z-index: 60; pointer-events: none; opacity: 0; }
+  body.theme-halloween #hw-ghost.hw-go { display: block; animation: hwGhostFly 18s linear forwards; }
+  body.theme-halloween #hw-ghost.hw-go.hw-rev { animation-name: hwGhostFlyRev; }
+  #hw-ghost .hw-ghost-inner { animation: hwGhostBob 3.2s ease-in-out infinite; }
+  #hw-ghost.hw-rev .hw-ghost-inner svg { transform: scaleX(-1); }
+  #hw-ghost svg { display: block; width: 56px; height: 88px; filter: drop-shadow(0 0 8px rgba(233,213,255,0.7)); }
+  @keyframes hwGhostFly {
+    0%   { transform: translateX(-80px); opacity: 0; }
+    10%  { opacity: 0.4; }
+    90%  { opacity: 0.4; }
+    100% { transform: translateX(calc(100vw + 24px)); opacity: 0; }
+  }
+  @keyframes hwGhostFlyRev {
+    0%   { transform: translateX(calc(100vw + 24px)); opacity: 0; }
+    10%  { opacity: 0.4; }
+    90%  { opacity: 0.4; }
+    100% { transform: translateX(-80px); opacity: 0; }
+  }
+  @keyframes hwGhostBob {
+    0%, 100% { transform: translateY(-14px) rotate(-4deg); }
+    50%      { transform: translateY(14px) rotate(4deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.theme-halloween .hw-thread,
+    body.theme-halloween .hw-spider-body,
+    body.theme-halloween .hw-leg { animation: none; }
+    body.theme-halloween .hw-thread { height: 28px; }
+  }
   body.theme-halloween .header-title .atlas { color: #ffb347 !important; }
   body.theme-halloween .header-title .earth { color: #e9d5ff !important; }
   /* El título siempre dice "ATLAS EARTH MÉXICO" (el script cambia el país al detectarlo) */
@@ -3934,6 +4052,7 @@
 <div class="container">
   <header>
     <div class="header-bar">
+      <div class="hw-spider" aria-hidden="true"><div class="hw-thread"></div><div class="hw-spider-body"><svg viewBox="0 0 40 40" width="30" height="30" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#1a0a24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path class="hw-leg hw-legL hw-l1" style="transform-origin:16px 19px" d="M16 19 L8 10 L3 14"/><path class="hw-leg hw-legR hw-l1" style="transform-origin:24px 19px" d="M 24 19 L 32 10 L 37 14"/><path class="hw-leg hw-legL hw-l2" style="transform-origin:16px 21px" d="M16 21 L6 17 L2 23"/><path class="hw-leg hw-legR hw-l2" style="transform-origin:24px 21px" d="M 24 21 L 34 17 L 38 23"/><path class="hw-leg hw-legL hw-l3" style="transform-origin:16px 23px" d="M16 23 L6 26 L3 33"/><path class="hw-leg hw-legR hw-l3" style="transform-origin:24px 23px" d="M 24 23 L 34 26 L 37 33"/><path class="hw-leg hw-legL hw-l4" style="transform-origin:17px 25px" d="M17 25 L9 32 L7 38"/><path class="hw-leg hw-legR hw-l4" style="transform-origin:23px 25px" d="M 23 25 L 31 32 L 33 38"/></g><ellipse cx="20" cy="27" rx="6.5" ry="8" fill="#1a0a24"/><circle cx="20" cy="17" r="4.5" fill="#2b1238"/><circle cx="18.2" cy="16" r="1.1" fill="#ff7a1a"/><circle cx="21.8" cy="16" r="1.1" fill="#ff7a1a"/><path d="M17 25 Q20 22 23 25" stroke="#ff7a1a" stroke-width="1.2" fill="none"/></svg></div></div>
       <div class="header-left" style="position:relative;">
         <a href="https://www.facebook.com/groups/atlasearthmexicoaemx" target="_blank" rel="noopener noreferrer" style="display:block;line-height:0;">
           <img loading="lazy" src="imagen_2.png" alt="AEMX" class="aemx-logo-img">
@@ -8276,6 +8395,48 @@
     }
     if (document.readyState === 'complete') loadBg();
     else window.addEventListener('load', loadBg);
+  })();
+</script>
+<script>
+  /* Araña Halloween: calcula hasta dónde bajar (mitad de la foto de perfil) */
+  (function() {
+    function updateSpiderDrop() {
+      const bar = document.querySelector('.header-bar');
+      const av = document.querySelector('.profile-avatar, .profile-avatar-placeholder');
+      if (!bar || !av) return;
+      const b = bar.getBoundingClientRect();
+      const a = av.getBoundingClientRect();
+      if (!a.height) return;
+      const top = b.top + bar.clientTop;
+      const drop = (a.top + a.height / 2) - top - 5; // 5px ≈ centro del cuerpo respecto al hilo
+      document.documentElement.style.setProperty('--hw-drop', Math.max(40, Math.round(drop)) + 'px');
+    }
+    window.addEventListener('load', updateSpiderDrop);
+    window.addEventListener('resize', updateSpiderDrop);
+    if (window.ResizeObserver) new ResizeObserver(updateSpiderDrop).observe(document.body);
+    updateSpiderDrop();
+  })();
+</script>
+<div id="hw-ghost" aria-hidden="true"><div class="hw-ghost-inner"><svg viewBox="0 0 56 88" xmlns="http://www.w3.org/2000/svg"><path d="M6 84 V28 C6 14 16 4 28 4 C40 4 50 14 50 28 V84 L40 78 L33 84 L25 78 L17 84 L10 78 Z" fill="#f3e8ff"><animate attributeName="d" dur="2.6s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" values="M6 84 V28 C6 14 16 4 28 4 C40 4 50 14 50 28 V84 L40 78 L33 84 L25 78 L17 84 L10 78 Z;M6 84 V28 C6 14 16 4 28 4 C40 4 50 14 50 28 V84 L46 79 L39 83 L31 79 L23 83 L16 79 Z;M6 84 V28 C6 14 16 4 28 4 C40 4 50 14 50 28 V84 L40 78 L33 84 L25 78 L17 84 L10 78 Z"/></path><path d="M14.5 26 A5.5 5.5 0 0 0 25.5 26 Z" fill="#2b1238" transform="rotate(18 20 26)"/><path d="M30.5 26 A5.5 5.5 0 0 0 41.5 26 Z" fill="#2b1238" transform="rotate(-18 36 26)"/><path d="M18 40 Q28 53 38 40 Q28 44 18 40 Z" fill="#2b1238" stroke="#2b1238" stroke-width="1.5" stroke-linejoin="round"/></svg></div></div>
+<script>
+  /* Fantasma Halloween: aparece de forma ocasional */
+  (function() {
+    const ghost = document.getElementById('hw-ghost');
+    if (!ghost) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function schedule(ms) { setTimeout(launch, ms); }
+    function launch() {
+      if (reduce || document.hidden || !document.body.classList.contains('theme-halloween')) { schedule(15000); return; }
+      ghost.style.top = (20 + Math.random() * 55) + 'vh';
+      ghost.classList.toggle('hw-rev', Math.random() < 0.5);
+      ghost.classList.add('hw-go');
+    }
+    ghost.addEventListener('animationend', function(e) {
+      if (e.target !== ghost) return;
+      ghost.classList.remove('hw-go');
+      schedule(20000 + Math.random() * 30000);
+    });
+    schedule(6000);
   })();
 </script>
 </body>
