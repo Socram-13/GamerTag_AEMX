@@ -279,19 +279,56 @@
     background:#000;
     display:block;
   }
-  #lightLayer, #shadowLayer, #lightLayerBack, #shadowLayerBack{
+  #lightLayer, #shadowLayer, #lightLayerBack, #shadowLayerBack, #shineLayer, #hexLayer{
     position:absolute;
     inset:0;
     pointer-events:none;
     z-index:2;
     opacity:0;
   }
-
-  #lightLayer, #lightLayerBack{
+  #shineLayer{
+    mix-blend-mode:screen;
+  }
+  #lightLayer{
+    background:linear-gradient(115deg,
+      #ff5fd8 0%,
+      #5fc8ff 16%,
+      #7dffb0 32%,
+      #ffe65f 48%,
+      #ff9a5f 64%,
+      #c05fff 80%,
+      #ff5fd8 100%);
+    background-size:420% 420%;
+    background-position:50% 50%;
+    mix-blend-mode:color-dodge;
+  }
+  #hexLayer{
+    background-image:
+      linear-gradient(30deg, rgba(255,255,255,0.7) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.7) 87.5%, rgba(255,255,255,0.7)),
+      linear-gradient(150deg, rgba(255,255,255,0.7) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.7) 87.5%, rgba(255,255,255,0.7)),
+      linear-gradient(30deg, rgba(255,255,255,0.7) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.7) 87.5%, rgba(255,255,255,0.7)),
+      linear-gradient(150deg, rgba(255,255,255,0.7) 12%, transparent 12.5%, transparent 87%, rgba(255,255,255,0.7) 87.5%, rgba(255,255,255,0.7)),
+      linear-gradient(60deg, rgba(255,255,255,0.45) 25%, transparent 25.5%, transparent 75%, rgba(255,255,255,0.45) 75%, rgba(255,255,255,0.45)),
+      linear-gradient(60deg, rgba(255,255,255,0.45) 25%, transparent 25.5%, transparent 75%, rgba(255,255,255,0.45) 75%, rgba(255,255,255,0.45));
+    background-size:15px 26px, 15px 26px, 15px 26px, 15px 26px, 15px 26px, 15px 26px;
+    background-repeat:repeat, repeat, repeat, repeat, repeat, repeat;
+    background-position:0 0, 0 0, 7.5px 13px, 7.5px 13px, 0 0, 7.5px 13px;
+    mix-blend-mode:overlay;
+  }
+  #lightLayerBack{
     background:linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, transparent 100%);
   }
   #shadowLayer, #shadowLayerBack{
     background:linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.25) 100%);
+  }
+  #lightLayer.plainMode{
+    background:linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, transparent 100%) !important;
+    mix-blend-mode:normal !important;
+    -webkit-mask-image:none !important;
+    mask-image:none !important;
+  }
+  #hexLayer.plainMode, #shineLayer.plainMode{
+    display:none;
   }
   #edges{
     position:absolute;
@@ -305,13 +342,19 @@
     display:none;
     align-items:center;
     justify-content:center;
-    background:rgba(10,13,20,0.92);
-    border-radius:16px;
-    overflow:hidden;
+    background:rgba(10,13,20,0.6);
+    border-radius:14px;
     z-index:5;
   }
   #spinner.show{ display:flex; }
-  #spinner canvas{ width:100%; height:100%; display:block; }
+  #spinner::after{
+    content:"";
+    width:34px; height:34px;
+    border:3px solid #2a3550;
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation:spin 0.8s linear infinite;
+  }
   @keyframes spin{ to{ transform:rotate(360deg); } }
   #hint{
     margin-top:16px;
@@ -321,6 +364,63 @@
     opacity:0.85;
     text-align:center;
     animation:fadeIn 0.8s ease-out 1s backwards;
+  }
+  #shinyBtn{
+    position:fixed;
+    top:56px;
+    right:14px;
+    z-index:20;
+    overflow:hidden;
+    padding:5px 9px;
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:0.5rem;
+    letter-spacing:0.12em;
+    color:#eaf6ff;
+    background:
+      radial-gradient(circle at 30% 25%, rgba(255,255,255,0.25) 0%, transparent 40%),
+      linear-gradient(150deg, #4a5670 0%, #232c40 45%, #10141f 100%);
+    border:1px solid #5c6c8c;
+    clip-path:polygon(14% 0%, 100% 0%, 100% 70%, 86% 100%, 0% 100%, 0% 30%);
+    cursor:pointer;
+    box-shadow:
+      0 2px 0 rgba(0,0,0,0.6),
+      0 4px 10px rgba(0,0,0,0.55),
+      inset 1px 1px 0 rgba(255,255,255,0.35),
+      inset -2px -2px 4px rgba(0,0,0,0.6),
+      0 0 10px rgba(79,209,255,0.35);
+    transition:box-shadow .15s ease, transform .1s ease, color .15s ease;
+  }
+  #shinyBtn.active{
+    color:#fff;
+    box-shadow:
+      0 2px 0 rgba(0,0,0,0.6),
+      0 4px 12px rgba(0,0,0,0.55),
+      inset 1px 1px 0 rgba(255,255,255,0.45),
+      inset -2px -2px 4px rgba(0,0,0,0.6),
+      0 0 18px rgba(79,209,255,0.75);
+  }
+  #shinyBtn.active::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    clip-path:polygon(14% 0%, 100% 0%, 100% 70%, 86% 100%, 0% 100%, 0% 30%);
+    pointer-events:none;
+    background:linear-gradient(115deg,
+      #ff5fd8 0%, #5fc8ff 16%, #7dffb0 32%, #ffe65f 48%, #ff9a5f 64%, #c05fff 80%, #ff5fd8 100%);
+    background-size:300% 300%;
+    mix-blend-mode:color-dodge;
+    opacity:0.75;
+    animation:shinyHue 3s linear infinite;
+  }
+  @keyframes shinyHue{ to{ background-position:300% 50%; } }
+  #shinyBtn:active{
+    transform:translateY(2px) scale(0.96);
+    color:var(--accent-2);
+    box-shadow:
+      inset 2px 2px 6px rgba(0,0,0,0.8),
+      inset -1px -1px 0 rgba(255,255,255,0.15),
+      0 0 10px rgba(255,43,214,0.55);
   }
   #backBtn{
     position:fixed;
@@ -387,15 +487,16 @@
 <body>
 
   <button id="backBtn" onclick="regresar()" aria-label="Regresar" title="Regresar">&#8592;</button>
+  <button id="shinyBtn">SHINY</button>
 
   <h1>CARTAS AEMX</h1>
   <div id="status">Cargando cartas desde GitHub...</div>
 
   <div id="viewer">
     <div class="stage">
-      <div id="spinner"><canvas id="matrixFX"></canvas></div>
+      <div id="spinner"></div>
       <div class="card3d" id="card3d">
-        <div class="face front"><img id="frontImg" src="" alt="carta" draggable="false"><div id="lightLayer"></div><div id="shadowLayer"></div></div>
+        <div class="face front"><img id="frontImg" src="" alt="carta" draggable="false"><div id="lightLayer"></div><div id="hexLayer"></div><div id="shineLayer"></div><div id="shadowLayer"></div></div>
         <div class="face back"><img id="backImg" src="" alt="reverso" draggable="false"><div id="lightLayerBack"></div><div id="shadowLayerBack"></div></div>
         <div id="edges"></div>
       </div>
@@ -498,58 +599,6 @@
   frontImg.addEventListener('load', () => spinnerEl.classList.remove('show'));
   frontImg.addEventListener('error', () => spinnerEl.classList.remove('show'));
 
-
-  // ---- ESPERA: MATRIZ CON LUZ DINÁMICA ----
-  const matrixCv = document.getElementById('matrixFX');
-  const mctx = matrixCv.getContext('2d');
-  const CELL = 14;
-  let matrixRAF = 0, matrixW = 0, matrixH = 0;
-
-  function sizeMatrix(){
-    const dpr = window.devicePixelRatio || 1;
-    matrixW = spinnerEl.clientWidth; matrixH = spinnerEl.clientHeight;
-    matrixCv.width = matrixW * dpr; matrixCv.height = matrixH * dpr;
-    mctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  function drawMatrix(t){
-    mctx.clearRect(0, 0, matrixW, matrixH);
-    const s = t / 1000;
-    const lights = [
-      { x: matrixW * (0.5 + 0.42 * Math.sin(s * 1.3)),       y: matrixH * (0.5 + 0.42 * Math.sin(s * 0.9 + 1)), c: '79,209,255' },
-      { x: matrixW * (0.5 + 0.42 * Math.sin(s * 0.8 + 2.5)), y: matrixH * (0.5 + 0.42 * Math.cos(s * 1.2)),     c: '255,43,214' }
-    ];
-    const R = Math.max(matrixW, matrixH) * 0.28;
-    const cols = Math.ceil(matrixW / CELL), rows = Math.ceil(matrixH / CELL);
-    for(let i = 0; i < cols; i++){
-      for(let j = 0; j < rows; j++){
-        const cx = i * CELL + CELL / 2, cy = j * CELL + CELL / 2;
-        let best = 0, col = '79,209,255';
-        for(const L of lights){
-          const d = Math.hypot(cx - L.x, cy - L.y);
-          const k = Math.max(0, 1 - d / R);
-          if(k > best){ best = k; col = L.c; }
-        }
-        const pulse = 0.5 + 0.5 * Math.sin(s * 3 + i * 0.5 + j * 0.35);
-        const a = 0.10 + best * best * (0.6 + 0.4 * pulse);
-        mctx.fillStyle = `rgba(${col},${a.toFixed(3)})`;
-        const r = 1.1 + best * 2.4;
-        mctx.beginPath(); mctx.arc(cx, cy, r, 0, 6.2832); mctx.fill();
-      }
-    }
-    matrixRAF = requestAnimationFrame(drawMatrix);
-  }
-
-  // Solo anima mientras el contenedor está visible
-  new MutationObserver(() => {
-    if(spinnerEl.classList.contains('show')){
-      if(!matrixRAF){ sizeMatrix(); matrixRAF = requestAnimationFrame(drawMatrix); }
-    } else if(matrixRAF){
-      cancelAnimationFrame(matrixRAF); matrixRAF = 0;
-    }
-  }).observe(spinnerEl, { attributes:true, attributeFilter:['class'] });
-  window.addEventListener('resize', () => { if(matrixRAF) sizeMatrix(); });
-
   const DEPTH_PX = 3;   // debe coincidir con --depth en CSS
   const CORNER_R = 16;  // debe coincidir con el border-radius de .face
   const CORNER_SEGMENTS = 6;
@@ -634,28 +683,13 @@
     preloadNeighbors();
   }
 
-  // Carga y decodifica una imagen; siempre resuelve (también si falla).
-  // Se guardan las referencias para que la caché no las descarte.
-  const imgCache = new Map();
-  function loadImage(url){
-    if(imgCache.has(url)) return imgCache.get(url).promise;
-    const img = new Image();
-    const entry = { img, done:false };
-    entry.promise = new Promise(resolve => {
-      const finish = () => { entry.done = true; resolve(); };
-      img.onload = () => (img.decode ? img.decode().catch(()=>{}).then(finish) : finish());
-      img.onerror = finish;
-    });
-    img.src = url;
-    imgCache.set(url, entry);
-    return entry.promise;
-  }
-  function isLoaded(url){ const e = imgCache.get(url); return !!(e && e.done); }
-
   function preloadNeighbors(){
     [currentIndex - 1, currentIndex + 1].forEach(idx => {
       const f = cardFiles[(idx + cardFiles.length) % cardFiles.length];
-      if(f) loadImage(rawBase + encodeURIComponent(f.name));
+      if(f){
+        const img = new Image();
+        img.src = rawBase + encodeURIComponent(f.name);
+      }
     });
   }
 
@@ -674,7 +708,6 @@
 
     const nextIndex = (currentIndex + dir + cardFiles.length) % cardFiles.length;
     const nextUrl = rawBase + encodeURIComponent(cardFiles[nextIndex].name);
-    const ready = loadImage(nextUrl); // empieza a cargar mientras la carta actual sale
 
     // dir > 0 (siguiente): la carta sale por la izquierda y la nueva entra por la derecha
     const EXIT_X  = dir > 0 ? -130 : 130;
@@ -689,11 +722,7 @@
       card3d.style.transform = `translateX(${EXIT_X}%) rotateX(${baseRotX}deg) rotateY(${baseRotY + EXIT_ROT}deg)`;
     });
 
-    setTimeout(async () => {
-      // Esperar a que la imagen nueva esté cargada y decodificada: así nunca
-      // se ve la carta anterior. Mientras tanto, la carta sigue fuera de vista.
-      if(!isLoaded(nextUrl)) spinnerEl.classList.add('show');
-      await ready;
+    setTimeout(() => {
       // Está fuera de vista (de perfil): cambiamos la imagen y la reubicamos
       // del otro lado, también de perfil, sin transición (instantáneo).
       frontImg.src = nextUrl;
@@ -750,19 +779,56 @@
   setInterval(updateBolt, 70);
 
   const lightLayer = document.getElementById('lightLayer');
+  const hexLayer = document.getElementById('hexLayer');
   const shadowLayer = document.getElementById('shadowLayer');
   const lightLayerBack = document.getElementById('lightLayerBack');
   const shadowLayerBack = document.getElementById('shadowLayerBack');
+  const shineLayer = document.getElementById('shineLayer');
 
   function updateLight(){
     const t = Math.max(-1, Math.min(1, rotX / 60)); // -1..1
-    const bright = Math.max(0, t).toFixed(3);
+    const t2 = Math.max(0, t);
+    const bright = (Math.pow(t2, 0.8) * 0.9).toFixed(3);
     const dark = Math.max(0, -t).toFixed(3);
     lightLayer.style.opacity = bright;
+    hexLayer.style.opacity = bright;
     shadowLayer.style.opacity = dark;
     lightLayerBack.style.opacity = bright;
     shadowLayerBack.style.opacity = dark;
+
+    const posX = Math.max(0, Math.min(100, 50 - Math.max(-60, Math.min(60, rotY)) * 1.1)).toFixed(1) + '%';
+    const posY = Math.max(0, Math.min(100, 50 - rotX * 1.1)).toFixed(1) + '%';
+    lightLayer.style.backgroundPosition = posX + ' ' + posY;
+
+    // Máscara de luz: el holograma se concentra donde "pega" la luz y se apaga hacia los bordes,
+    // creciendo conforme más se inclina la carta. Aplica al color y a las líneas de hexágono.
+    const maskStrength = 35 + t2 * 45;
+    const holoMask = `radial-gradient(circle at ${posX} ${posY}, #000 0%, rgba(0,0,0,0.5) ${maskStrength}%, transparent ${maskStrength + 35}%)`;
+    lightLayer.style.webkitMaskImage = holoMask;
+    lightLayer.style.maskImage = holoMask;
+    hexLayer.style.webkitMaskImage = holoMask;
+    hexLayer.style.maskImage = holoMask;
+
+    // Brillo especular: crece de forma más pronunciada cuanto más se inclina
+    const shine = Math.pow(t2, 1.6).toFixed(3);
+    shineLayer.style.background = `radial-gradient(circle at ${posX} ${posY}, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.35) 28%, transparent 60%)`;
+    shineLayer.style.opacity = shine;
   }
+
+  // ---- TOGGLE "SHINY": holograma de hexágonos vs. luz simple ----
+  let hologramOn = false;
+  const shinyBtn = document.getElementById('shinyBtn');
+  function applyHologramMode(){
+    lightLayer.classList.toggle('plainMode', !hologramOn);
+    hexLayer.classList.toggle('plainMode', !hologramOn);
+    shineLayer.classList.toggle('plainMode', !hologramOn);
+    shinyBtn.classList.toggle('active', hologramOn);
+  }
+  shinyBtn.addEventListener('click', () => {
+    hologramOn = !hologramOn;
+    applyHologramMode();
+  });
+  applyHologramMode();
 
   function applyRotation(snap){
     card3d.classList.toggle('snap', snap);
