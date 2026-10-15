@@ -41,9 +41,22 @@ button{background:#222;color:#ddd;border:1px solid #444;border-radius:4px;paddin
 button:hover{background:#333}
 #wrap{flex:1;overflow:auto;display:flex;justify-content:center;padding:16px}
 canvas{max-width:none;box-shadow:0 0 30px #000;background:#fff;height:fit-content}
+#accessOverlay{display:none;position:fixed;inset:0;z-index:99999;background:rgba(6,11,20,.97);align-items:center;justify-content:center}
+.access-box{background:#0b1626;border:1px solid #1a3a5c;border-radius:18px;padding:36px 32px;max-width:360px;width:90%;display:flex;flex-direction:column;align-items:center;gap:20px;box-shadow:0 0 60px rgba(0,200,255,.12)}
+.access-logo{font-size:22px;font-weight:900;color:#00c8ff;letter-spacing:4px}
+.access-logo span{color:var(--gold)}
+#accessMsg{font-size:14px;letter-spacing:1px;color:#6b8ab0;text-align:center;line-height:1.6}
+#btnLoginGoogle{display:none;border-color:#00c8ff;color:#00c8ff;letter-spacing:2px;padding:12px 22px}
 </style>
 </head>
 <body>
+<div id="accessOverlay">
+  <div class="access-box">
+    <div class="access-logo">AEMX · <span>X-FILES</span></div>
+    <p id="accessMsg">Verificando acceso...</p>
+    <button id="btnLoginGoogle" onclick="window._googleLogin()">INICIAR CON GOOGLE</button>
+  </div>
+</div>
 <h1>X-Files</h1>
 <div id="msg">Cargando…</div>
 <div id="room"></div>
@@ -159,10 +172,52 @@ addEventListener("keydown",e=>{
   if(e.key==="ArrowRight")go(1); if(e.key==="ArrowLeft")go(-1);
 });
 
-list().then(fs=>{
-  if(!fs.length){$("msg").textContent="No hay PDFs en la carpeta.";return;}
-  $("msg").textContent=fs.length+" documento(s)"; build(fs);
-}).catch(e=>{$("msg").textContent=e.message;});
+window.iniciarXfiles=function(){
+  if(window._xfStarted) return; window._xfStarted=true;
+  list().then(fs=>{
+    if(!fs.length){$("msg").textContent="No hay PDFs en la carpeta.";return;}
+    $("msg").textContent=fs.length+" documento(s)"; build(fs);
+  }).catch(e=>{$("msg").textContent=e.message;});
+};
+</script>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB-xx2PlBjvnHe0K7Bf1MspVqUlfjky0mk",
+  authDomain: "aemx-chat.firebaseapp.com",
+  databaseURL: "https://aemx-chat-default-rtdb.firebaseio.com",
+  projectId: "aemx-chat",
+  storageBucket: "aemx-chat.firebasestorage.app",
+  messagingSenderId: "267113002594",
+  appId: "1:267113002594:web:4099e7537d950f5753433b"
+};
+const app=initializeApp(firebaseConfig), auth=getAuth(app), database=getDatabase(app);
+const overlay=document.getElementById('accessOverlay'), msgEl=document.getElementById('accessMsg'), btnLogin=document.getElementById('btnLoginGoogle');
+overlay.style.display='flex';
+
+async function verificar(user){
+  if(!user){ msgEl.textContent='Debes iniciar sesión para acceder a X-Files.'; btnLogin.style.display='block'; return; }
+  try{
+    const snap=await get(ref(database,'users/'+user.uid));
+    const d=snap.exists()?snap.val():{};
+    if(d.clanMember===true||d.role==='admin'||d.role==='moderator'){
+      overlay.style.display='none';
+      window.iniciarXfiles();
+    }else{
+      btnLogin.style.display='none';
+      msgEl.textContent='⛔ Solo los miembros del clan AEMX pueden acceder a esta página.';
+    }
+  }catch(e){ msgEl.textContent='⛔ Error al verificar acceso. Intenta de nuevo.'; }
+}
+onAuthStateChanged(auth,verificar);
+window._googleLogin=async function(){
+  try{ await signInWithPopup(auth,new GoogleAuthProvider()); }
+  catch(e){ msgEl.textContent='Error al iniciar sesión. Intenta de nuevo.'; }
+};
 </script>
 </body>
 </html>
