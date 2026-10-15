@@ -15,10 +15,13 @@ h1{text-align:center;letter-spacing:.4em;font-weight:400;color:var(--gold);margi
 .shelf{display:flex;flex-wrap:wrap;align-items:flex-end;gap:3px;padding:0 24px;min-height:230px;transform:rotateX(4deg);transform-style:preserve-3d;
 border-bottom:22px solid var(--wood);box-shadow:0 22px 30px -10px #000;margin-bottom:34px;background:linear-gradient(#0000 70%,#0006)}
 .book{position:relative;width:20px;height:200px;transform-style:preserve-3d;cursor:pointer;transition:transform .35s;transform:rotateY(-14deg)}
-.book:hover{transform:rotateY(-14deg) translateZ(40px) translateY(-8px)}
+.book:hover{transform:translateZ(80px) translateY(-8px) rotateY(-90deg);z-index:5}
+.spine img{width:16px;height:16px;border-radius:50%;background:#f3e9c8;flex:none}
+.cover{flex-direction:column;gap:12px}
+.cover img{width:62%;aspect-ratio:1;object-fit:contain;border-radius:50%;background:#f3e9c8;padding:4px}
 .face{position:absolute;backface-visibility:hidden;overflow:hidden}
-.spine{inset:0;transform:translateZ(var(--d));background:var(--c);display:flex;align-items:center;justify-content:center;border:1px solid #0005;box-shadow:inset 0 0 12px #0008}
-.spine span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:.9rem;font-weight:bold;color:#f3e9c8;max-height:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0}
+.spine{inset:0;transform:translateZ(var(--d));background:var(--c);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;padding-top:8px;border:1px solid #0005;box-shadow:inset 0 0 12px #0008}
+.spine span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:.9rem;font-weight:bold;color:#f3e9c8;max-height:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0}
 .cover{width:calc(var(--d)*2);height:100%;left:calc(50% - var(--d));top:0;transform-origin:center;transform:rotateY(90deg) translateZ(10px);background:var(--c);display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;font-size:.95rem;color:#f3e9c8;border:2px solid #0006;box-shadow:inset 0 0 30px #000a}
 .side{inset:0;background:#e8dfc4;transform:rotateY(180deg) translateZ(var(--d))}
 .book{--d:60px}
@@ -118,7 +121,8 @@ function build(files){
     files.slice(i,i+PER_SHELF).forEach((f,k)=>{
       const c=colors[(i+k)%colors.length];
       const b=document.createElement("div"); b.className="book"; b.style.setProperty("--c",c);
-      b.innerHTML=`<div class="face spine"><span>${esc(f.name)}</span></div><div class="face cover">${esc(f.name)}</div><div class="face side"></div>`;
+      const im=`<img src="${CONFIG.cover}" alt="" onerror="this.remove()">`;
+      b.innerHTML=`<div class="face spine">${im}<span>${esc(f.name)}</span></div><div class="face cover">${im}<span>${esc(f.name)}</span></div><div class="face side"></div>`;
       b.title=f.name; b.onclick=()=>openBook(f,c);
       s.appendChild(b);
     });
