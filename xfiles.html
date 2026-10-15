@@ -101,7 +101,6 @@ function build(files){
     files.slice(i,i+PER_SHELF).forEach((f,k)=>{
       const c=colors[(i+k)%colors.length];
       const b=document.createElement("div"); b.className="book"; b.style.setProperty("--c",c);
-      b.style.height=(180+((i+k)*37)%40)+"px";
       b.innerHTML=`<div class="face spine"><span>${esc(f.name)}</span></div><div class="face cover">${esc(f.name)}</div><div class="face side"></div>`;
       b.title=f.name; b.onclick=()=>openBook(f,c);
       s.appendChild(b);
