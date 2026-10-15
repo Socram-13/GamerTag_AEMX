@@ -48,13 +48,14 @@ button:hover{background:#333}
 #ctrl{display:flex;gap:10px;align-items:center;justify-content:center;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#000;border-top:1px solid #333}
 #ctrl button{min-width:48px;min-height:44px}
 #pn{min-width:70px;text-align:center}
-#warn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(380px,88vw);background:#0b0b10f2;border:1px solid var(--gold);padding:22px 20px;text-align:center;display:none;box-shadow:0 0 40px #000;z-index:2}
-#warn.on{display:block;animation:wIn .5s ease}
-@keyframes wIn{from{opacity:0;transform:translate(-50%,-46%)}}
-#warn .wt{color:#ff5555;letter-spacing:.2em;font-size:.9rem;margin:0 0 12px}
-#wm{line-height:1.5;margin:0 0 18px}
-#warn button{display:block;width:100%;margin-top:8px;min-height:44px}
-#wok{border-color:var(--gold);color:var(--gold);letter-spacing:.1em}
+#warn{display:none;position:absolute;inset:0;padding:22px 20px;text-align:center;color:#2a1a0f;flex-direction:column;justify-content:center}
+#warn.on{display:flex;animation:wFade .6s ease}
+@keyframes wFade{from{opacity:0}}
+#warn .wt{color:#9b1c1c;letter-spacing:.18em;font-size:.85rem;font-weight:bold;margin:0 0 12px}
+#wm{line-height:1.5;font-size:.95rem;margin:0 0 16px}
+#warn button{display:block;width:100%;margin-top:8px;min-height:40px;background:#2a1a0f;color:#f3e9c8;border:1px solid #2a1a0f;letter-spacing:.08em}
+#warn button:hover{background:#3b2417}
+#wno{background:none!important;color:#2a1a0f!important}
 #wrap{flex:1;overflow:auto;display:flex;padding:16px;-webkit-overflow-scrolling:touch}
 @media(max-width:700px){#wrap{padding:8px}}
 canvas{margin:auto;max-width:none;box-shadow:0 0 30px #000;background:#fff;height:fit-content}
@@ -79,12 +80,16 @@ canvas{margin:auto;max-width:none;box-shadow:0 0 30px #000;background:#fff;heigh
 <div id="room"></div>
 
 <div id="stage">
-  <div id="big"><div class="pg"></div><div class="cv" id="bigcv"></div></div>
-  <div id="warn">
-    <p class="wt">⚠ DOCUMENTO CONFIDENCIAL</p>
-    <p id="wm">Atención, agente: lo que está por leer es información reservada. Su contenido es de uso exclusivo del clan AEMX. Lo que lea aquí no debe salir de aquí.</p>
-    <button id="wok">ENTENDIDO, ABRIR ARCHIVO</button>
-    <button id="wno">VOLVER</button>
+  <div id="big">
+    <div class="pg">
+      <div id="warn">
+        <p class="wt">⚠ DOCUMENTO CONFIDENCIAL</p>
+        <p id="wm">Atención, explorador: lo que está por leer es información reservada. Su contenido es de uso exclusivo del clan AEMX. Lo que lea aquí no debe salir de aquí.</p>
+        <button id="wok">ENTENDIDO, ABRIR ARCHIVO</button>
+        <button id="wno">VOLVER</button>
+      </div>
+    </div>
+    <div class="cv" id="bigcv"></div>
   </div>
 </div>
 
