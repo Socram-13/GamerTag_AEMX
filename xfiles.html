@@ -41,7 +41,7 @@ button{background:#222;color:#ddd;border:1px solid #444;border-radius:4px;paddin
 button:hover{background:#333}
 #wrap{flex:1;overflow:auto;display:flex;justify-content:center;padding:16px}
 canvas{max-width:none;box-shadow:0 0 30px #000;background:#fff;height:fit-content}
-#accessOverlay{display:none;position:fixed;inset:0;z-index:99999;background:rgba(6,11,20,.97);align-items:center;justify-content:center}
+#accessOverlay{display:flex;position:fixed;inset:0;z-index:99999;background:rgba(6,11,20,.97);align-items:center;justify-content:center}
 .access-box{background:#0b1626;border:1px solid #1a3a5c;border-radius:18px;padding:36px 32px;max-width:360px;width:90%;display:flex;flex-direction:column;align-items:center;gap:20px;box-shadow:0 0 60px rgba(0,200,255,.12)}
 .access-logo{font-size:22px;font-weight:900;color:#00c8ff;letter-spacing:4px}
 .access-logo span{color:var(--gold)}
@@ -77,7 +77,7 @@ canvas{max-width:none;box-shadow:0 0 30px #000;background:#fff;height:fit-conten
 <script>
 /* ===== CONFIG (opcional) =====
    Si lo dejas vacío, se detecta solo desde la URL de GitHub Pages. */
-const CONFIG = { user:"", repo:"", folder:"pdfs", branch:"", cover:"portada.png" };
+const CONFIG = { user:"Socram-13", repo:"GamerTag_AEMX", folder:"pdfs", dir:"", branch:"", cover:"portada.png" };
 const PER_SHELF = 14;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -88,6 +88,7 @@ function detect(){
   const h=location.hostname, parts=location.pathname.split("/").filter(Boolean);
   let user=CONFIG.user, repo=CONFIG.repo, dir="";
   if(!user && h.endsWith(".github.io")) user=h.split(".")[0];
+  if(!h.endsWith(".github.io")) return {user,repo,path:(CONFIG.dir||"")+CONFIG.folder}; // Cloudflare u otro dominio
   if(!repo){
     if(parts.length>1 || (parts.length===1 && !parts[0].includes("."))) repo=parts[0];
     else repo=h;
@@ -172,6 +173,10 @@ addEventListener("keydown",e=>{
   if(e.key==="ArrowRight")go(1); if(e.key==="ArrowLeft")go(-1);
 });
 
+setTimeout(()=>{
+  const m=$("accessMsg");
+  if(m && m.textContent==="Verificando acceso...") m.textContent="No se pudo verificar el acceso. Abre la página desde tu GitHub Pages (https://), no como archivo local.";
+},6000);
 window.iniciarXfiles=function(){
   if(window._xfStarted) return; window._xfStarted=true;
   list().then(fs=>{
