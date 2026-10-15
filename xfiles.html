@@ -47,7 +47,11 @@ position:relative;z-index:1;padding-bottom:0}
 .cover{width:calc(var(--d)*2);height:100%;left:calc(50% - var(--d));top:0;transform-origin:center;transform:rotateY(90deg) translateZ(14px);background:var(--c);display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;font-size:.95rem;color:#f3e9c8;border:2px solid #0006;box-shadow:inset 0 0 30px #000a}
 .side{inset:0;background:#e8dfc4;transform:rotateY(180deg) translateZ(var(--d))}
 .left{width:calc(var(--d)*2);height:100%;left:calc(50% - var(--d));top:0;transform:rotateY(-90deg) translateZ(14px);background:var(--c);filter:brightness(.75)}
-.topf{width:100%;height:calc(var(--d)*2);left:0;top:calc(var(--d)*-1);transform:rotateX(90deg);background:var(--c);filter:brightness(1.35)}
+.topf{width:100%;height:calc(var(--d)*2);left:0;top:calc(var(--d)*-1);transform:rotateX(90deg);
+  background:
+    linear-gradient(180deg,transparent calc(100% - 7px),var(--c) calc(100% - 7px)),
+    linear-gradient(90deg,var(--c) 0 3px,transparent 3px calc(100% - 3px),var(--c) calc(100% - 3px)),
+    repeating-linear-gradient(90deg,#f1e8cc 0 1px,#c7b98e 1px 2px)}
 .book{--d:84px}
 /* animacion de apertura */
 #stage{position:fixed;inset:0;display:none;perspective:1600px;z-index:10;background:#000c;align-items:center;justify-content:center}
