@@ -27,16 +27,15 @@ h1 .x{color:#7dffe0;font-size:1.15em;text-shadow:0 0 10px #7dffe0,0 0 34px #19d3
 h1::after{content:"";display:block;width:min(320px,60vw);height:1px;margin:8px auto 0;background:linear-gradient(90deg,transparent,#7dffe0aa,transparent)}
 @keyframes flick{0%,91%,100%{opacity:1}92%{opacity:.35}93%{opacity:1}95%{opacity:.55}96%{opacity:1}}
 #msg{text-align:center;font-size:.9rem;color:#7fb5aa;opacity:.8;min-height:1.4em;position:relative;z-index:2}
-#room{perspective:1400px;padding:100px 16px 60px;max-width:1100px;margin:auto;min-height:calc(100vh - 120px);display:flex;flex-direction:column;justify-content:flex-end}
+#room{padding:100px 16px 60px;max-width:1100px;margin:auto;min-height:calc(100vh - 120px);display:flex;flex-direction:column;justify-content:flex-end}
 .shelf{display:flex;flex-wrap:wrap;align-items:flex-end;gap:3px;padding:0 24px;min-height:230px;transform:rotateX(0deg);transform-style:preserve-3d;
-position:relative;z-index:1;padding-bottom:8px}
-/* la tabla va en una capa aparte, siempre DETRÁS de los libros */
-.row{position:relative;margin-bottom:64px}
-.plank{position:absolute;left:0;right:0;bottom:-24px;height:50px;z-index:0;pointer-events:none}
-.plank::before{content:"";position:absolute;left:-22px;right:-22px;bottom:24px;height:26px;clip-path:polygon(3% 0,97% 0,100% 100%,0 100%);background:linear-gradient(#a8744a,#5a3820 65%,#4a2d19)}
-.plank::after{content:"";position:absolute;left:-22px;right:-22px;bottom:0;height:24px;border-radius:0 0 4px 4px;background:repeating-linear-gradient(90deg,#0000 0 70px,#0003 70px 72px),linear-gradient(#6b4326 0,#3a2314 55%,#1f1209);box-shadow:inset 0 2px 0 #b98556,0 26px 34px -8px #000}
+position:relative;z-index:1;padding-bottom:0}
+/* escena 3D: libros y tabla comparten la misma cámara (vista desde arriba) */
+.row{position:relative;margin-bottom:70px;perspective:1200px;perspective-origin:50% -220px}
+.top{position:absolute;left:-22px;right:-22px;bottom:0;height:200px;transform-origin:50% 100%;transform:translateZ(100px) rotateX(90deg);background:linear-gradient(#3a2314,#7a5030 55%,#a8744a);box-shadow:inset 0 0 40px #0008}
+.front{position:absolute;left:-22px;right:-22px;bottom:-24px;height:24px;transform:translateZ(100px);background:repeating-linear-gradient(90deg,#0000 0 70px,#0003 70px 72px),linear-gradient(#6b4326 0,#3a2314 55%,#1f1209);box-shadow:inset 0 2px 0 #b98556,0 26px 34px -8px #000}
 .slot{position:relative;width:28px;height:280px;transform-style:preserve-3d;cursor:pointer}
-.book{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .4s;transform:rotateY(-14deg)}
+.book{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .4s;transform:none}
 .slot:hover{z-index:5}
 .slot:hover .book{transform:translateX(var(--tx,70px)) translateZ(110px) translateY(-70px) rotateY(-90deg)}
 .spine img{width:22px;height:22px;border-radius:50%;background:#f3e9c8;flex:none}
@@ -47,6 +46,8 @@ position:relative;z-index:1;padding-bottom:8px}
 .spine span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:1.05rem;font-weight:bold;color:#f3e9c8;max-height:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0}
 .cover{width:calc(var(--d)*2);height:100%;left:calc(50% - var(--d));top:0;transform-origin:center;transform:rotateY(90deg) translateZ(14px);background:var(--c);display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;font-size:.95rem;color:#f3e9c8;border:2px solid #0006;box-shadow:inset 0 0 30px #000a}
 .side{inset:0;background:#e8dfc4;transform:rotateY(180deg) translateZ(var(--d))}
+.left{width:calc(var(--d)*2);height:100%;left:calc(50% - var(--d));top:0;transform:rotateY(-90deg) translateZ(14px);background:var(--c);filter:brightness(.75)}
+.topf{width:100%;height:calc(var(--d)*2);left:0;top:calc(var(--d)*-1);transform:rotateX(90deg);background:var(--c);filter:brightness(1.35)}
 .book{--d:84px}
 /* animacion de apertura */
 #stage{position:fixed;inset:0;display:none;perspective:1600px;z-index:10;background:#000c;align-items:center;justify-content:center}
@@ -165,23 +166,24 @@ function build(files){
   const room=$("room"); room.innerHTML="";
   for(let i=0;i<files.length;i+=PER_SHELF){
     const s=document.createElement("div"); s.className="shelf";
+    s.insertAdjacentHTML("afterbegin",'<div class="top"></div><div class="front"></div>');
     files.slice(i,i+PER_SHELF).forEach((f,k)=>{
       const c=colors[(i+k)%colors.length];
       const b=document.createElement("div"); b.className="slot"; b.style.setProperty("--c",c);
       const im=`<img src="${CONFIG.cover}" alt="" onerror="this.remove()">`;
-      b.innerHTML=`<div class="book"><div class="face spine">${im}<span>${esc(f.name)}</span></div><div class="face cover">${im}<span>${esc(f.name)}</span></div><div class="face side"></div></div>`;
+      b.innerHTML=`<div class="book"><div class="face spine">${im}<span>${esc(f.name)}</span></div><div class="face cover">${im}<span>${esc(f.name)}</span></div><div class="face side"></div><div class="face left"></div><div class="face topf"></div></div>`;
       b.title=f.name; b.onclick=()=>openBook(f,c);
       b.addEventListener("mouseenter",()=>{
         // alinea el borde izquierdo de la portada con el del libro (no tapa al de la izquierda),
         // compensando la perspectiva según la posición en pantalla
         const rr=$("room").getBoundingClientRect(), sr=b.getBoundingClientRect();
         const dx=sr.left-(rr.left+rr.width/2);
-        b.style.setProperty("--tx",(70-dx*110/1400)+"px");
+        b.style.setProperty("--tx",(70-dx*110/1200)+"px");
       });
       s.appendChild(b);
     });
     const row=document.createElement("div"); row.className="row";
-    row.innerHTML='<div class="plank"></div>'; row.appendChild(s); room.appendChild(row);
+    row.appendChild(s); room.appendChild(row);
   }
 }
 const esc=s=>s.replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
