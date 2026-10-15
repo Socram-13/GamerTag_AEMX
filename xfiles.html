@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>X-Files</title>
+<style>
+:root{--wood:#3b2417;--wood2:#2a190f;--gold:#c9a227}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 20%,#1d1d22,#07070a);color:#ddd;font-family:Georgia,serif;overflow-x:hidden}
+h1{text-align:center;letter-spacing:.4em;font-weight:400;color:var(--gold);margin:28px 0 4px;text-transform:uppercase}
+#msg{text-align:center;font-size:.9rem;opacity:.7;min-height:1.4em}
+#room{perspective:1400px;padding:30px 16px 80px;max-width:1100px;margin:auto}
+.shelf{display:flex;flex-wrap:wrap;align-items:flex-end;gap:3px;padding:0 24px;min-height:230px;transform:rotateX(4deg);transform-style:preserve-3d;
+border-bottom:22px solid var(--wood);box-shadow:0 22px 30px -10px #000;margin-bottom:34px;background:linear-gradient(#0000 70%,#0006)}
+.book{position:relative;width:48px;height:200px;transform-style:preserve-3d;cursor:pointer;transition:transform .35s;transform:rotateY(-14deg)}
+.book:hover{transform:rotateY(-14deg) translateZ(40px) translateY(-8px)}
+.face{position:absolute;backface-visibility:hidden;overflow:hidden}
+.spine{inset:0;transform:translateZ(var(--d));background:var(--c);display:flex;align-items:center;justify-content:center;border:1px solid #0005;box-shadow:inset 0 0 12px #0008}
+.spine span{writing-mode:vertical-rl;font-size:.78rem;color:#f3e9c8;max-height:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px}
+.cover{width:calc(var(--d)*2);height:100%;left:calc(50% - var(--d));top:0;transform-origin:center;transform:rotateY(90deg) translateZ(24px);background:var(--c);display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;font-size:.95rem;color:#f3e9c8;border:2px solid #0006;box-shadow:inset 0 0 30px #000a}
+.side{inset:0;background:#e8dfc4;transform:rotateY(180deg) translateZ(var(--d))}
+.book{--d:60px}
+/* animacion de apertura */
+#stage{position:fixed;inset:0;display:none;perspective:1600px;z-index:10;background:#000c;align-items:center;justify-content:center}
+#stage.on{display:flex}
+#big{width:300px;height:420px;position:relative;transform-style:preserve-3d;transform:rotateY(-90deg) scale(.3);transition:transform .8s cubic-bezier(.3,.8,.3,1)}
+#big.front{transform:rotateY(0) scale(1)}
+#big .pg{position:absolute;inset:0;background:#efe6cc;border-radius:2px 8px 8px 2px}
+#big .cv{position:absolute;inset:0;transform-origin:left center;transition:transform 1s ease-in-out;background:var(--c);display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font-size:1.3rem;color:#f3e9c8;border-radius:2px 8px 8px 2px;border:3px solid #0007;backface-visibility:hidden}
+#big.open .cv{transform:rotateY(-170deg)}
+#reader{position:fixed;inset:0;z-index:20;background:#101014;display:none;flex-direction:column;opacity:0;transition:opacity .5s}
+#reader.on{display:flex}#reader.show{opacity:1}
+#bar{display:flex;gap:10px;align-items:center;padding:8px 12px;background:#000;border-bottom:1px solid #333}
+#bar b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400;color:var(--gold)}
+button{background:#222;color:#ddd;border:1px solid #444;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:1rem}
+button:hover{background:#333}
+#wrap{flex:1;overflow:auto;display:flex;justify-content:center;padding:16px}
+canvas{max-width:none;box-shadow:0 0 30px #000;background:#fff;height:fit-content}
+</style>
+</head>
+<body>
+<h1>X-Files</h1>
+<div id="msg">Cargando…</div>
+<div id="room"></div>
+
+<div id="stage"><div id="big"><div class="pg"></div><div class="cv" id="bigcv"></div></div></div>
+
+<div id="reader">
+  <div id="bar">
+    <b id="rt"></b>
+    <button id="prev">◀</button><span id="pn"></span><button id="next">▶</button>
+    <button id="zo">−</button><button id="zi">+</button>
+    <button id="close">✕</button>
+  </div>
+  <div id="wrap"><canvas id="cv"></canvas></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+/* ===== CONFIG (opcional) =====
+   Si lo dejas vacío, se detecta solo desde la URL de GitHub Pages. */
+const CONFIG = { user:"", repo:"", folder:"pdfs", branch:"" };
+const PER_SHELF = 14;
+
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const $=id=>document.getElementById(id);
+const colors=["#6b1e1e","#1e3a5f","#2f4f2f","#4a2a5a","#5a4a1e","#1e4f4f","#5a2a2a","#333b52"];
+
+function detect(){
+  const h=location.hostname, parts=location.pathname.split("/").filter(Boolean);
+  let user=CONFIG.user, repo=CONFIG.repo, dir="";
+  if(!user && h.endsWith(".github.io")) user=h.split(".")[0];
+  if(!repo){
+    if(parts.length>1 || (parts.length===1 && !parts[0].includes("."))) repo=parts[0];
+    else repo=h;
+  }
+  // carpeta donde vive este html dentro del repo
+  const segs=parts.slice(); if(segs.length && segs[segs.length-1].includes(".")) segs.pop();
+  if(repo!==h && segs[0]===repo) segs.shift();
+  dir=segs.length?segs.join("/")+"/":"";
+  return {user,repo,path:dir+CONFIG.folder};
+}
+
+async function list(){
+  const {user,repo,path}=detect();
+  if(!user) throw new Error("No se pudo detectar el usuario. Llena CONFIG arriba.");
+  let url=`https://api.github.com/repos/${user}/${repo}/contents/${path}`;
+  if(CONFIG.branch) url+=`?ref=${CONFIG.branch}`;
+  const r=await fetch(url);
+  if(!r.ok) throw new Error(`GitHub respondió ${r.status} (¿repo público y carpeta "${path}" existe?)`);
+  const data=await r.json();
+  return data.filter(f=>/\.pdf$/i.test(f.name)).map(f=>({name:f.name.replace(/\.pdf$/i,""),url:f.download_url||("./"+path.split("/").pop()+"/"+encodeURIComponent(f.name))}));
+}
+
+function build(files){
+  const room=$("room"); room.innerHTML="";
+  for(let i=0;i<files.length;i+=PER_SHELF){
+    const s=document.createElement("div"); s.className="shelf";
+    files.slice(i,i+PER_SHELF).forEach((f,k)=>{
+      const c=colors[(i+k)%colors.length];
+      const b=document.createElement("div"); b.className="book"; b.style.setProperty("--c",c);
+      b.style.height=(180+((i+k)*37)%40)+"px";
+      b.innerHTML=`<div class="face spine"><span>${esc(f.name)}</span></div><div class="face cover">${esc(f.name)}</div><div class="face side"></div>`;
+      b.title=f.name; b.onclick=()=>openBook(f,c);
+      s.appendChild(b);
+    });
+    room.appendChild(s);
+  }
+}
+const esc=s=>s.replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function openBook(f,c){
+  const st=$("stage"),big=$("big"),cv=$("bigcv");
+  big.style.setProperty("--c",c); cv.textContent=f.name; cv.style.setProperty("--c",c);
+  big.classList.remove("front","open"); st.classList.add("on");
+  await wait(30); big.classList.add("front");
+  await wait(850); big.classList.add("open");
+  await wait(700);
+  showReader(f);
+  await wait(550);
+  st.classList.remove("on"); big.classList.remove("front","open");
+}
+
+let pdf=null,page=1,scale=1.3,rendering=false,pending=null;
+async function showReader(f){
+  $("rt").textContent=f.name; $("reader").classList.add("on");
+  requestAnimationFrame(()=>$("reader").classList.add("show"));
+  try{ pdf=await pdfjsLib.getDocument(f.url).promise; page=1; render(); }
+  catch(e){ $("rt").textContent="Error al abrir: "+e.message; }
+}
+async function render(){
+  if(rendering){pending=true;return;} rendering=true;
+  const p=await pdf.getPage(page), dpr=window.devicePixelRatio||1;
+  const vp=p.getViewport({scale:scale*dpr}), cv=$("cv");
+  cv.width=vp.width; cv.height=vp.height; cv.style.width=vp.width/dpr+"px"; cv.style.height=vp.height/dpr+"px";
+  await p.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
+  $("pn").textContent=` ${page} / ${pdf.numPages} `;
+  rendering=false; if(pending){pending=null;render();}
+}
+const go=n=>{ if(!pdf)return; page=Math.min(Math.max(1,page+n),pdf.numPages); render(); $("wrap").scrollTop=0; };
+const zoom=z=>{ scale=Math.min(4,Math.max(.4,scale+z)); render(); };
+function closeReader(){ $("reader").classList.remove("show"); setTimeout(()=>{$("reader").classList.remove("on");pdf=null;},400); }
+$("prev").onclick=()=>go(-1); $("next").onclick=()=>go(1);
+$("zi").onclick=()=>zoom(.2); $("zo").onclick=()=>zoom(-.2); $("close").onclick=closeReader;
+addEventListener("keydown",e=>{
+  if(!$("reader").classList.contains("on"))return;
+  if(e.key==="Escape")closeReader();
+  if(e.key==="ArrowRight")go(1); if(e.key==="ArrowLeft")go(-1);
+});
+
+list().then(fs=>{
+  if(!fs.length){$("msg").textContent="No hay PDFs en la carpeta.";return;}
+  $("msg").textContent=fs.length+" documento(s)"; build(fs);
+}).catch(e=>{$("msg").textContent=e.message;});
+</script>
+</body>
+</html>
