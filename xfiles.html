@@ -48,8 +48,9 @@ button:hover{background:#333}
 #ctrl{display:flex;gap:10px;align-items:center;justify-content:center;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#000;border-top:1px solid #333}
 #ctrl button{min-width:48px;min-height:44px}
 #pn{min-width:70px;text-align:center}
-#wrap{flex:1;overflow:auto;display:flex;justify-content:center;padding:16px}
-canvas{max-width:none;box-shadow:0 0 30px #000;background:#fff;height:fit-content}
+#wrap{flex:1;overflow:auto;display:flex;padding:16px;-webkit-overflow-scrolling:touch}
+@media(max-width:700px){#wrap{padding:8px}}
+canvas{margin:auto;max-width:none;box-shadow:0 0 30px #000;background:#fff;height:fit-content}
 #accessOverlay{display:flex;position:fixed;inset:0;z-index:99999;background:rgba(6,11,20,.97);align-items:center;justify-content:center}
 .access-box{background:#0b1626;border:1px solid #1a3a5c;border-radius:18px;padding:36px 32px;max-width:360px;width:90%;display:flex;flex-direction:column;align-items:center;gap:20px;box-shadow:0 0 60px rgba(0,200,255,.12)}
 .access-logo{font-size:22px;font-weight:900;color:#00c8ff;letter-spacing:4px}
@@ -169,7 +170,10 @@ async function render(){
   try{
     const p=await pdf.getPage(page), dpr=window.devicePixelRatio||1;
     const base=p.getViewport({scale:1}), w=$("wrap");
-    const fit=Math.min((w.clientHeight-32)/base.height,(w.clientWidth-32)/base.width);
+    const movil=window.innerWidth<700, pad=movil?8:16;
+    const fitW=(Math.min(w.clientWidth,window.innerWidth)-pad*2)/base.width;
+    const fitH=(w.clientHeight-pad*2)/base.height;
+    const fit=movil?fitW:Math.min(fitW,fitH); // móvil: ajusta al ancho; escritorio: a la pantalla completa
     const vp=p.getViewport({scale:fit*zoomF*dpr}), cv=$("cv");
     cv.width=vp.width; cv.height=vp.height; cv.style.width=vp.width/dpr+"px"; cv.style.height=vp.height/dpr+"px";
     await p.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
