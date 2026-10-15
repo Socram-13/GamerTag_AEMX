@@ -5,15 +5,33 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>X-Files</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
 :root{--wood:#3b2417;--wood2:#2a190f;--gold:#c9a227}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 20%,#1d1d22,#07070a);color:#ddd;font-family:Georgia,serif;overflow-x:hidden}
-h1{text-align:center;letter-spacing:.4em;font-weight:400;color:var(--gold);margin:28px 0 4px;text-transform:uppercase}
-#msg{text-align:center;font-size:.9rem;opacity:.7;min-height:1.4em}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#0f2a2c 0%,#070d0f 55%,#020304 100%);color:#bcd6d0;font-family:Georgia,serif;overflow-x:hidden}
+/* haz de linterna + niebla + viñeta */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:conic-gradient(from 180deg at 50% -8%,transparent 152deg,rgba(125,255,224,.09) 172deg,transparent 188deg),
+             radial-gradient(ellipse at 50% 55%,transparent 38%,rgba(0,0,0,.78) 100%);
+  animation:beam 7s ease-in-out infinite}
+body::after{content:"";position:fixed;inset:-20%;pointer-events:none;z-index:1;opacity:.5;
+  background:radial-gradient(40% 25% at 25% 70%,rgba(90,160,150,.10),transparent 70%),
+             radial-gradient(45% 28% at 75% 80%,rgba(90,160,150,.08),transparent 70%);
+  animation:fog 26s ease-in-out infinite alternate}
+@keyframes beam{0%,100%{opacity:1}46%{opacity:.85}48%{opacity:.4}50%{opacity:.95}}
+@keyframes fog{from{transform:translateX(-6%)}to{transform:translateX(6%)}}
+h1{font-family:'Bebas Neue',Impact,sans-serif;text-align:center;font-weight:400;font-size:clamp(2.6rem,9vw,4.6rem);letter-spacing:.28em;padding-left:.28em;margin:26px 0 0;color:#d8efe8;position:relative;z-index:2;
+  text-shadow:0 0 6px #5fffd155,0 0 26px #1fb59a66,0 2px 0 #000;animation:flick 6s infinite}
+h1 .x{color:#7dffe0;font-size:1.15em;text-shadow:0 0 10px #7dffe0,0 0 34px #19d3a8}
+h1::after{content:"";display:block;width:min(320px,60vw);height:1px;margin:8px auto 0;background:linear-gradient(90deg,transparent,#7dffe0aa,transparent)}
+@keyframes flick{0%,91%,100%{opacity:1}92%{opacity:.35}93%{opacity:1}95%{opacity:.55}96%{opacity:1}}
+#msg{text-align:center;font-size:.9rem;color:#7fb5aa;opacity:.8;min-height:1.4em;position:relative;z-index:2}
 #room{perspective:1400px;padding:100px 16px 60px;max-width:1100px;margin:auto;min-height:calc(100vh - 120px);display:flex;flex-direction:column;justify-content:flex-end}
 .shelf{display:flex;flex-wrap:wrap;align-items:flex-end;gap:3px;padding:0 24px;min-height:230px;transform:rotateX(4deg);transform-style:preserve-3d;
-border-bottom:22px solid var(--wood);box-shadow:0 22px 30px -10px #000;margin-bottom:34px;background:linear-gradient(#0000 70%,#0006)}
+position:relative;padding-bottom:12px;margin-bottom:64px;background:linear-gradient(#0000 70%,#0006)}
+.shelf::before{content:"";position:absolute;left:-22px;right:-22px;bottom:0;height:26px;clip-path:polygon(3% 0,97% 0,100% 100%,0 100%);background:linear-gradient(#9a6a40,#5a3820 60%,#4a2d19)}
+.shelf::after{content:"";position:absolute;left:-22px;right:-22px;bottom:-24px;height:24px;border-radius:0 0 4px 4px;background:repeating-linear-gradient(90deg,#0000 0 70px,#0003 70px 72px),linear-gradient(#6b4326 0,#3a2314 55%,#1f1209);box-shadow:inset 0 2px 0 #b98556,0 26px 34px -8px #000}
 .slot{position:relative;width:28px;height:280px;transform-style:preserve-3d;cursor:pointer}
 .book{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .4s;transform:rotateY(-14deg)}
 .slot:hover{z-index:5}
@@ -75,7 +93,7 @@ canvas{margin:auto;max-width:none;box-shadow:0 0 30px #000;background:#fff;heigh
     <button id="btnLoginGoogle" onclick="window._googleLogin()">INICIAR CON GOOGLE</button>
   </div>
 </div>
-<h1>X-Files</h1>
+<h1><span class="x">X</span>-FILES</h1>
 <div id="msg">Cargando…</div>
 <div id="room"></div>
 
@@ -227,7 +245,7 @@ window.iniciarXfiles=function(){
   if(window._xfStarted) return; window._xfStarted=true;
   list().then(fs=>{
     if(!fs.length){$("msg").textContent="No hay PDFs en la carpeta.";return;}
-    $("msg").textContent=fs.length+" documento(s)"; build(fs);
+    $("msg").textContent=""; build(fs);
   }).catch(e=>{$("msg").textContent=e.message;});
 };
 </script>
