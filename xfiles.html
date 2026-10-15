@@ -29,6 +29,9 @@ border-bottom:22px solid var(--wood);box-shadow:0 22px 30px -10px #000;margin-bo
 #big.front{transform:rotateY(0) scale(1)}
 #big .pg{position:absolute;inset:0;background:#efe6cc;border-radius:2px 8px 8px 2px}
 #big .cv{position:absolute;inset:0;transform-origin:left center;transition:transform 1s ease-in-out;background:var(--c);display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font-size:1.3rem;color:#f3e9c8;border-radius:2px 8px 8px 2px;border:3px solid #0007;backface-visibility:hidden}
+#big .cv{flex-direction:column;gap:22px}
+#big .cv img{width:70%;aspect-ratio:1;object-fit:contain;border-radius:50%;background:#f3e9c8;padding:6px;box-shadow:0 0 18px #0009}
+#big .cv span{font-size:1.1rem;letter-spacing:.08em;word-break:break-word}
 #big.open .cv{transform:rotateY(-170deg)}
 #reader{position:fixed;inset:0;z-index:20;background:#101014;display:none;flex-direction:column;opacity:0;transition:opacity .5s}
 #reader.on{display:flex}#reader.show{opacity:1}
@@ -61,7 +64,7 @@ canvas{max-width:none;box-shadow:0 0 30px #000;background:#fff;height:fit-conten
 <script>
 /* ===== CONFIG (opcional) =====
    Si lo dejas vacío, se detecta solo desde la URL de GitHub Pages. */
-const CONFIG = { user:"", repo:"", folder:"pdfs", branch:"" };
+const CONFIG = { user:"", repo:"", folder:"pdfs", branch:"", cover:"portada.png" };
 const PER_SHELF = 14;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -113,7 +116,8 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
 
 async function openBook(f,c){
   const st=$("stage"),big=$("big"),cv=$("bigcv");
-  big.style.setProperty("--c",c); cv.textContent=f.name; cv.style.setProperty("--c",c);
+  big.style.setProperty("--c",c); cv.style.setProperty("--c",c);
+  cv.innerHTML=`<img src="${CONFIG.cover}" alt="" onerror="this.remove()"><span>${esc(f.name)}</span>`;
   big.classList.remove("front","open"); st.classList.add("on");
   await wait(30); big.classList.add("front");
   await wait(850); big.classList.add("open");
