@@ -758,9 +758,9 @@
   });
 
   // Tile oscuro
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-    subdomains: 'abcd',
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri',
+    maxNativeZoom: 16,
     maxZoom: 19,
   }).addTo(map);
 
@@ -1232,6 +1232,12 @@
           renderRed(raw);
         }
         if (i + batch < raw.length) await new Promise(r => setTimeout(r, 300));
+      }
+
+      // ── Ajustar la vista para mostrar TODAS las ubicaciones (solo la primera carga) ──
+      if (!window._vistaAjustada && playerMarkers.length) {
+        window._vistaAjustada = true;
+        map.fitBounds(L.featureGroup(playerMarkers).getBounds().pad(0.15), { maxZoom: 6, animate: true });
       }
     });
   }
