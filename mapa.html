@@ -862,14 +862,48 @@
     return `<div class="popup-avatar" style="background:${bg};border-color:${border};width:${size}px;height:${size}px">${letter}</div>`;
   }
 
-  // Extraer estado de city string "Ciudad, Estado"
+  // ── Normalización de nombres (sin acentos, minúsculas) ──
+  const quitarAcentos = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '').trim();
+
+  const ESTADO_ALIAS = {};
+  Object.keys(ESTADO_COORDS).forEach(k => { ESTADO_ALIAS[quitarAcentos(k)] = k; });
+  Object.assign(ESTADO_ALIAS, {
+    'mexico city': 'Ciudad de México', 'federal district': 'Ciudad de México', 'distrito federal': 'Ciudad de México',
+    'cdmx': 'Ciudad de México', 'ciudad de mexico': 'Ciudad de México', 'cd de mexico': 'Ciudad de México', 'df': 'Ciudad de México',
+    'state of mexico': 'Estado de México', 'estado de mexico': 'Estado de México', 'mexico state': 'Estado de México',
+    'edomex': 'Estado de México', 'edo de mexico': 'Estado de México',
+    'michoacan de ocampo': 'Michoacán', 'coahuila de zaragoza': 'Coahuila',
+    'veracruz de ignacio de la llave': 'Veracruz', 'baja california norte': 'Baja California',
+    'queretaro de arteaga': 'Querétaro',
+  });
+  const CIUDAD_ESTADO_N = {};
+  Object.keys(CIUDAD_ESTADO).forEach(k => { CIUDAD_ESTADO_N[quitarAcentos(k)] = CIUDAD_ESTADO[k]; });
+
+  const estadoCanonico = (t) => ESTADO_ALIAS[quitarAcentos(t)] || null;
+  const esMexico = (c) => { const n = quitarAcentos(c); return n === 'mexico' || n === 'mx' || n === 'united mexican states'; };
+
+  const COUNTRY_COORDS = {
+    'brasil':[-14.2,-51.9],'brazil':[-14.2,-51.9],'espana':[40.4,-3.7],'spain':[40.4,-3.7],
+    'estados unidos':[39.8,-98.6],'united states':[39.8,-98.6],'usa':[39.8,-98.6],'us':[39.8,-98.6],
+    'argentina':[-34.6,-58.4],'colombia':[4.6,-74.1],'chile':[-33.4,-70.7],'peru':[-12.0,-77.0],
+    'venezuela':[10.5,-66.9],'ecuador':[-0.2,-78.5],'guatemala':[14.6,-90.5],'francia':[48.9,2.4],'france':[48.9,2.4],
+    'alemania':[52.5,13.4],'germany':[52.5,13.4],'italia':[41.9,12.5],'italy':[41.9,12.5],
+    'reino unido':[51.5,-0.1],'united kingdom':[51.5,-0.1],'canada':[45.4,-75.7],'portugal':[38.7,-9.1],
+    'uruguay':[-34.9,-56.2],'bolivia':[-16.5,-68.1],'paraguay':[-25.3,-57.6],'costa rica':[9.9,-84.1],
+    'panama':[9.0,-79.5],'republica dominicana':[18.5,-69.9],'cuba':[23.1,-82.4],'honduras':[14.1,-87.2],
+    'el salvador':[13.7,-89.2],'nicaragua':[12.1,-86.3],'japon':[35.7,139.7],'japan':[35.7,139.7],
+    'china':[39.9,116.4],'india':[28.6,77.2],'rusia':[55.8,37.6],'russia':[55.8,37.6],'australia':[-35.3,149.1],
+  };
+
+  // Extraer el estado mexicano de "Ciudad, Región[, País]" (acepta nombres en inglés / sin acentos)
   function extractEstado(city) {
     if (!city) return null;
-    const parts = city.split(',');
-    if (parts.length >= 2) return parts[parts.length - 1].trim();
-    // Intentar mapeo directo por ciudad
-    const lower = city.toLowerCase().trim();
-    return CIUDAD_ESTADO[lower] || null;
+    const parts = city.split(',').map(x => x.trim()).filter(Boolean);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const e = estadoCanonico(parts[i]);
+      if (e) return e;
+    }
+    return CIUDAD_ESTADO_N[quitarAcentos(parts[0] || '')] || null;
   }
 
   // Icono marcador personalizado
@@ -1138,43 +1172,53 @@
 
   // ── Geocodificación ──
   const CITY_COORDS_CACHE = {};
+  try { Object.assign(CITY_COORDS_CACHE, JSON.parse(localStorage.getItem('aemx_geocache_v2') || '{}')); } catch (e) {}
+  const guardarCache = () => { try { localStorage.setItem('aemx_geocache_v2', JSON.stringify(CITY_COORDS_CACHE)); } catch (e) {} };
+  const claveGeo = (city, country) => quitarAcentos((city || '') + '|' + (country || ''));
+  const dentroDeMexico = (c) => c[0] >= 14 && c[0] <= 33.5 && c[1] >= -119 && c[1] <= -86;
+  const dormir = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // Coords inmediatas desde el estado (sin esperar Nominatim)
-  function coordsInstant(city, sinCiudad) {
-    if (sinCiudad || !city) {
-      const base = [23.6345, -102.5528];
-      const jitter = [(Math.random()-0.5)*8, (Math.random()-0.5)*8];
-      return [base[0]+jitter[0], base[1]+jitter[1]];
+  // Coords inmediatas (sin esperar Nominatim): estado mexicano, país o centro de México
+  function coordsInstant(city, sinCiudad, country) {
+    const jit = (base, amp) => [base[0] + (Math.random() - 0.5) * amp, base[1] + (Math.random() - 0.5) * amp];
+    const extranjero = country && !esMexico(country);
+    if (extranjero) {
+      const c = COUNTRY_COORDS[quitarAcentos(country)];
+      if (c) return jit(c, 4);
+      return jit([23.6345, -102.5528], 8);
     }
-    const estado = extractEstado(city);
-    if (estado && ESTADO_COORDS[estado]) {
-      const base   = ESTADO_COORDS[estado];
-      const jitter = [(Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5];
-      return [base[0]+jitter[0], base[1]+jitter[1]];
-    }
-    // Fallback centro del mundo (jugador sin ciudad reconocida fuera de México)
-    const base = [20.0, 0.0];
-    const jitter = [(Math.random()-0.5)*40, (Math.random()-0.5)*60];
-    return [base[0]+jitter[0], base[1]+jitter[1]];
+    const estado = city ? extractEstado(city) : null;
+    if (estado && ESTADO_COORDS[estado]) return jit(ESTADO_COORDS[estado], 1.5);
+    return jit([23.6345, -102.5528], 8);
   }
 
-  // Geocodificación exacta vía proxy CORS (en segundo plano)
-  async function geocodeExact(city) {
-    if (!city) return null;
-    const key = city.toLowerCase().trim();
-    if (CITY_COORDS_CACHE[key]) return CITY_COORDS_CACHE[key];
+  async function nominatim(q, cc) {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&accept-language=es` + (cc ? `&countrycodes=${cc}` : '');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    return data[0] ? [parseFloat(data[0].lat), parseFloat(data[0].lon)] : null;
+  }
+
+  // Geocodificación exacta directa a Nominatim (con caché). undefined = error temporal (no se cachea)
+  async function geocodeExact(city, country) {
+    const key = claveGeo(city, country);
+    if (key in CITY_COORDS_CACHE) return CITY_COORDS_CACHE[key];
+    let coords = null;
     try {
-      const nominatim = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1&accept-language=es`;
-      const url = `https://corsproxy.io/?url=${encodeURIComponent(nominatim)}`;
-      const res  = await fetch(url);
-      const data = await res.json();
-      if (data[0]) {
-        const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-        CITY_COORDS_CACHE[key] = coords;
-        return coords;
+      if (esMexico(country)) {
+        coords = await nominatim(city, 'mx');
+        if (coords && !dentroDeMexico(coords)) coords = null;
+      } else if (country) {
+        coords = await nominatim(city ? `${city}, ${country}` : country);
+      } else {
+        coords = await nominatim(city, 'mx');
+        if (!coords) { await dormir(1100); coords = await nominatim(city); }
       }
-    } catch(e) {}
-    return null;
+    } catch (e) { return undefined; }
+    CITY_COORDS_CACHE[key] = coords;
+    guardarCache();
+    return coords;
   }
 
   // ── Cargar jugadores ──
@@ -1198,47 +1242,47 @@
           username:    d.username,
           borderColor: d.borderColor || '',
           city:        d.city        || '',
+          country:     d.country     || '',
           total:       common + rare + epic + legendary,
           isYou:       child.key === currentUid,
           sinCiudad:   !d.city,
         });
       });
 
-      // ── Paso 1: asignar coords instantáneas del estado y renderizar YA ──
+      // ── Paso 1: asignar coords instantáneas (estado / país) y renderizar YA ──
       raw.forEach(p => {
-        p.coords = coordsInstant(p.city, p.sinCiudad);
+        p.coords = coordsInstant(p.city, p.sinCiudad, p.country);
       });
-      renderMapa(raw);
+      await renderMapa(raw);
 
-      // ── Paso 2: geocodificar exacto en segundo plano y mover marcadores ──
-      const batch = 5;
-      for (let i = 0; i < raw.length; i += batch) {
-        let algoCambio = false;
-        await Promise.all(raw.slice(i, i + batch).map(async (p, idx) => {
-          if (p.sinCiudad || !p.city) return;
-          const exact = await geocodeExact(p.city);
-          if (!exact) return;
-          const marker = playerMarkers[raw.indexOf(p)];
-          if (marker) {
-            marker.setLatLng(exact);
-            p.coords = exact;
-            algoCambio = true;
-          }
-        }));
-        // Redibujar líneas de red con coords actualizadas
-        if (algoCambio) {
-          networkLines.forEach(l => map.removeLayer(l));
-          networkLines = [];
-          renderRed(raw);
-        }
-        if (i + batch < raw.length) await new Promise(r => setTimeout(r, 300));
-      }
-
-      // ── Ajustar la vista para mostrar TODAS las ubicaciones (solo la primera carga) ──
+      // Ajustar la vista para mostrar TODAS las ubicaciones (solo la primera carga)
       if (!window._vistaAjustada && playerMarkers.length) {
         window._vistaAjustada = true;
         map.fitBounds(L.featureGroup(playerMarkers).getBounds().pad(0.15), { maxZoom: 6, animate: true });
       }
+
+      // ── Paso 2: geocodificar exacto en segundo plano (1 petición/seg, con caché) ──
+      const run = window._geoRun = (window._geoRun || 0) + 1;
+      let cambios = 0;
+      const redibujarRed = () => {
+        networkLines.forEach(l => map.removeLayer(l));
+        networkLines = [];
+        renderRed(raw);
+      };
+      for (let i = 0; i < raw.length; i++) {
+        if (window._geoRun !== run) return; // llegó una carga más nueva
+        const p = raw[i];
+        if (!(p.city || (p.country && !esMexico(p.country)))) continue;
+        const enCache = claveGeo(p.city, p.country) in CITY_COORDS_CACHE;
+        const exact = await geocodeExact(p.city, p.country);
+        if (exact) {
+          const marker = playerMarkers[i];
+          if (marker) { marker.setLatLng(exact); p.coords = exact; cambios++; }
+        }
+        if (cambios && cambios % 5 === 0) redibujarRed();
+        if (!enCache) await dormir(1100);
+      }
+      if (cambios) redibujarRed();
     });
   }
 
