@@ -4853,6 +4853,7 @@
       </style>
       <table class="results-table" id="ev-t"></table>
     </div>
+    <div id="ev-note" style="text-align:center;font-size:10px;color:var(--text2);margin-top:8px;font-style:italic;"></div>
   </details>
 
   <div class="results-card">
@@ -8488,6 +8489,7 @@ const t=document.getElementById('ev-t');if(!t)return;
 const c=window.userCountry||'Mexico';BT=c==='Brazil'?BTS.br:c==='United States'?BTS.us:EU.includes(c)?BTS.eu:BTS.mx;
 v=IDS.map(g);N0=v.reduce((a,b)=>a+b,0);P=pas(g('badges'));
 let hh=parseInt(document.getElementById('horas-calculo').value);H=isNaN(hh)?24:Math.max(0,Math.min(24,hh));
+const nt=document.getElementById('ev-note');if(nt)nt.textContent='Los cálculos de esta tabla se basan en las horas de cálculo diario que ajustaste ('+H+'h con boost al día).';
 if(!N0){t.innerHTML='<tr><td style="padding:10px;color:var(--text2);text-align:left;">Escribe al menos una parcela.</td></tr>';return}
 const TOP=BT.map(x=>x[0]).filter(l=>boost(l+1)<boost(l));
 let h='<thead><tr><th>Parcelas</th><th>Renta por día</th><th>SRB</th><th>Evento</th><th>Acción</th><th>AB faltantes</th></tr></thead><tbody>',any=false;
