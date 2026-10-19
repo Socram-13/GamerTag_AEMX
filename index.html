@@ -8501,7 +8501,7 @@ const X=M||L;if(N0>=X)continue;any=true;
 h+=row('tp',tp,pk,'Tope','Acumular para el siguiente salto ('+X+' P)');
 h+=row('cd',tp+1,rent(tp+1),'Caída','Avanzar a '+X+' parcelas');
 if(M)h+=row('sl',M,rent(M),'Salto',(L?'Renta recuperada. Libre hasta el siguiente tope ('+L+' P)':'Umbral alcanzado: renta recuperada. Boost x2 fijo, ya no hay más caídas'),fa(M))}
-if(!any)h+=row('tp',N0,rent(N0),'—','Comprar parcelas','—')+'<tr><td colspan="6" style="padding:10px;color:var(--text2);text-align:center;">Ya superaste todos los saltos.</td></tr>';
+if(!any)h+=row('tp',N0,rent(N0),'—','<span style="white-space:nowrap">Comprar parcelas</span>','—')+'<tr><td colspan="6" style="padding:10px;color:var(--text2);text-align:center;">Ya superaste todos los saltos.</td></tr>';
 t.innerHTML=h+'</tbody>'}
 const _c=window.calc;
 if(typeof _c==='function')window.calc=function(){const r=_c.apply(this,arguments);try{ev()}catch(e){}return r};
