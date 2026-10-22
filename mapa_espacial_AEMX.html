@@ -442,7 +442,7 @@ window.startMap = function (RAW) {
   scene.add(sun.target);
 
   /* Texturas de ventanas */
-  var WIN_COLORS = ['#ffe08a', '#9be7ff', '#ffffff', '#ffd1a1'];
+  var WIN_COLORS = ['#00f0ff', '#ff2bd6', '#ffe14d', '#7cffb2', '#ffffff'];
   function winCanvas(lit) {
     var c = document.createElement('canvas');
     c.width = c.height = 128;
@@ -475,25 +475,32 @@ window.startMap = function (RAW) {
     texCache[k] = t;
     return t;
   }
+  var wallMats = [];
   function wallMat(color, w, h, cyl) {
     var rx = cyl ? Math.max(1, Math.round(Math.PI * w / 3.2)) : Math.max(0.5, Math.round(w / 3.2 * 2) / 2);
     var ry = Math.max(0.5, Math.round(h / 3.2 * 2) / 2);
-    return new THREE.MeshLambertMaterial({ color: color, map: tex('m', rx, ry), emissive: 0xffffff, emissiveMap: tex('e', rx, ry), emissiveIntensity: 0.9 });
+    var wm = new THREE.MeshLambertMaterial({ color: color, map: tex('m', rx, ry), emissive: 0xffffff, emissiveMap: tex('e', rx, ry), emissiveIntensity: 1.0 });
+    wallMats.push({ m: wm, ph: rnd() * 6.28 });
+    return wm;
   }
 
   var COL = { c: 0x4ade80, r: 0x60a5fa, e: 0xc084fc, l: 0xfacc15 };
   var trimMat = {};
   Object.keys(COL).forEach(function (k) { trimMat[k] = new THREE.MeshBasicMaterial({ color: COL[k] }); });
-  var roofMat = new THREE.MeshLambertMaterial({ color: 0x32486f });
-  var darkMat = new THREE.MeshLambertMaterial({ color: 0x1a2a46 });
+  var WALL = { c: 0x1f5c47, r: 0x1f3f7a, e: 0x45307d, l: 0x7a5c0c };
+  var roofMat = new THREE.MeshLambertMaterial({ color: 0x232c48 });
+  var darkMat = new THREE.MeshLambertMaterial({ color: 0x151b30 });
 
   var blinkers = [], spinners = [];
 
-  function addAntenna(g, y, x, h) {
+  var antMats = {};
+  function addAntenna(g, y, x, h, col) {
+    col = col || 0x00ff9d;
+    if (!antMats[col]) antMats[col] = new THREE.MeshBasicMaterial({ color: col });
     var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, h, 6), new THREE.MeshLambertMaterial({ color: 0xcce4ff }));
     pole.position.set(x, y + h / 2, 0);
     g.add(pole);
-    var tip = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshBasicMaterial({ color: 0x00ff9d }));
+    var tip = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), antMats[col]);
     tip.position.set(x, y + h, 0);
     g.add(tip);
     blinkers.push({ mesh: tip, phase: rnd() * 6 });
@@ -509,7 +516,7 @@ window.startMap = function (RAW) {
       h = H * fr[j] / sm;
       wi = w * (1 - taper * ((y + h / 2) / H));
       topW = wi;
-      mat = wallMat(COL[items[j].k], wi, h, cyl);
+      mat = wallMat(WALL[items[j].k], wi, h, cyl);
       if (cyl) {
         geo2 = new THREE.CylinderGeometry(wi / 2, wi / 2, h, 20);
         mesh = new THREE.Mesh(geo2, [mat, roofMat, roofMat]);
@@ -541,14 +548,79 @@ window.startMap = function (RAW) {
     spinners.push({ obj: pivot, speed: speed });
   }
 
+  /* ---------- Estilo cyberpunk espacial: piezas y materiales compartidos ---------- */
+  var uBox = new THREE.BoxGeometry(1, 1, 1);
+  var uCyl = new THREE.CylinderGeometry(1, 1, 1, 16);
+  var uTorus = new THREE.TorusGeometry(1, 0.05, 8, 48);
+  var uPlane = new THREE.PlaneGeometry(1, 1);
+  var uCone = new THREE.CylinderGeometry(0.25, 1, 1, 14, 1, true);
+  var uDisc = new THREE.CircleGeometry(1, 28); uDisc.rotateX(-Math.PI / 2);
+  var uSphere = new THREE.SphereGeometry(1, 12, 8);
+  function cyNm(c) { return new THREE.MeshBasicMaterial({ color: c }); }
+  var cyNeon = { cyan: cyNm(0x00f0ff), mag: cyNm(0xff2bd6), yel: cyNm(0xffe14d), gold: cyNm(0xffd36b) };
+  var cyHull = new THREE.MeshLambertMaterial({ color: 0x2a3556 });
+  var cyGold = new THREE.MeshLambertMaterial({ color: 0xe0b413, emissive: 0x3a2c00 });
+  function cyGlow(c, o) { return new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); }
+  var cyBeamGold = cyGlow(0xffd36b, 0.2), cyBeamCyan = cyGlow(0x00f0ff, 0.16);
+  function cyTex(w, h, fn) {
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    fn(c.getContext('2d'), w, h);
+    return new THREE.CanvasTexture(c);
+  }
+  var solarTex = cyTex(64, 64, function (x, w, h) {
+    x.fillStyle = '#0b1f4a'; x.fillRect(0, 0, w, h);
+    x.strokeStyle = '#19d3ff'; x.lineWidth = 2;
+    var k;
+    for (k = 0; k <= w; k += 16) { x.beginPath(); x.moveTo(k, 0); x.lineTo(k, h); x.stroke(); }
+    for (k = 0; k <= h; k += 16) { x.beginPath(); x.moveTo(0, k); x.lineTo(w, k); x.stroke(); }
+  });
+  solarTex.wrapS = solarTex.wrapT = THREE.RepeatWrapping; solarTex.repeat.set(2, 1);
+  var solarMat = new THREE.MeshLambertMaterial({ map: solarTex, emissive: 0x0a2a66 });
+  var heliTex = cyTex(128, 128, function (x, w, h) {
+    x.fillStyle = '#10162b'; x.fillRect(0, 0, w, h);
+    x.strokeStyle = '#ffe14d'; x.lineWidth = 6;
+    x.beginPath(); x.arc(64, 64, 54, 0, Math.PI * 2); x.stroke();
+    x.fillStyle = '#ffe14d'; x.font = 'bold 72px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('H', 64, 68);
+  });
+  var cyHeli = new THREE.MeshBasicMaterial({ map: heliTex });
+  var holoTex = cyTex(64, 128, function (x, w, h) {
+    var gr = x.createLinearGradient(0, 0, 0, h);
+    gr.addColorStop(0, 'rgba(0,240,255,0.15)'); gr.addColorStop(1, 'rgba(255,43,214,0.35)');
+    x.fillStyle = gr; x.fillRect(0, 0, w, h);
+    x.fillStyle = 'rgba(0,240,255,0.55)';
+    var k;
+    for (k = 0; k < h; k += 6) x.fillRect(0, k, w, 1);
+    x.fillStyle = 'rgba(255,255,255,0.8)';
+    for (k = 0; k < 5; k++) x.fillRect(6, 12 + k * 22, 8 + ((k * 23) % 40), 5);
+    x.strokeStyle = '#00f0ff'; x.lineWidth = 2; x.strokeRect(1, 1, w - 2, h - 2);
+  });
+  var holoMat = new THREE.MeshBasicMaterial({ map: holoTex, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+
+  function cyBox(g, mat, sx, sy, sz, x, y, z) { var m = new THREE.Mesh(uBox, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); g.add(m); return m; }
+  function cyCyl(g, mat, rx, h, x, y, z) { var m = new THREE.Mesh(uCyl, mat); m.scale.set(rx, h, rx); m.position.set(x, y, z); g.add(m); return m; }
+  function cyRing(g, mat, y, r) { var m = new THREE.Mesh(uTorus, mat); m.rotation.x = Math.PI / 2; m.scale.setScalar(r); m.position.y = y; g.add(m); return m; }
+  function cyHolo(g, x, y, z, w, h, ry) { var m = new THREE.Mesh(uPlane, holoMat); m.scale.set(w, h, 1); m.position.set(x, y, z); m.rotation.y = ry; g.add(m); return m; }
+  function cyBeam(g, mat, r, h, y) { var m = new THREE.Mesh(uCone, mat); m.scale.set(r, h, r); m.position.y = y + h / 2; g.add(m); return m; }
+
+  /* Parpadeo de ventanas y holograma */
+  function updateCyber(t) {
+    var i, w;
+    holoMat.opacity = 0.55 + 0.18 * Math.sin(t * 4) + 0.07 * Math.sin(t * 27);
+    for (i = 0; i < wallMats.length; i++) {
+      w = wallMats[i];
+      w.m.emissiveIntensity = 0.95 + 0.35 * Math.pow(Math.max(0, Math.sin(t * 0.9 + w.ph)), 3);
+    }
+  }
+
   function addWing(g, y, side) {
-    var arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.0, 6), new THREE.MeshLambertMaterial({ color: 0x9fb4d8 }));
+    var arm = cyCyl(g, cyHull, 0.07, 1.4, side * 2.4, y, 0);
     arm.rotation.z = Math.PI / 2;
-    arm.position.set(side * 2.2, y, 0);
-    g.add(arm);
-    var panel = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.08, 1.5), new THREE.MeshLambertMaterial({ color: 0x1c3d7a, emissive: 0x0a2a66 }));
-    panel.position.set(side * 3.5, y + 0.25, 0);
-    panel.rotation.z = side * -0.35;
+    var panel = new THREE.Mesh(uBox, solarMat);
+    panel.scale.set(2.5, 0.08, 1.7);
+    panel.position.set(side * 3.7, y + 0.3, 0);
+    panel.rotation.z = side * -0.3;
     panel.castShadow = true;
     g.add(panel);
   }
@@ -558,37 +630,63 @@ window.startMap = function (RAW) {
     var t = tierOf(p.total);
     var W = TIER_W[t];
     var H = Math.max(2.2, Math.sqrt(p.total) * 0.2);
-    var r, topY;
+    var r, topY, s2, m2, i, ang;
     p.tier = t;
     if (t === 0) {
+      /* Cápsula: módulo habitable con cúpula de cristal, aros de neón y esclusa lateral */
       r = stack(g, p, W, H, 0, true);
-      var dome = new THREE.Mesh(new THREE.SphereGeometry(r.w / 2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xb8f5d2, transparent: true, opacity: 0.85 }));
+      var dome = new THREE.Mesh(new THREE.SphereGeometry(r.w / 2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x9ff3ff, emissive: 0x06303a, transparent: true, opacity: 0.7 }));
       dome.position.y = r.top;
       g.add(dome);
+      cyRing(g, cyNeon.cyan, 0.12, W / 2 + 0.15);
+      cyRing(g, cyNeon.mag, r.top + 0.05, r.w / 2 + 0.05);
+      m2 = cyCyl(g, cyHull, 0.45, 0.9, W / 2 + 0.25, 0.75, 0);
+      m2.rotation.z = Math.PI / 2;
+      cyBox(g, cyNeon.cyan, 0.05, 0.5, 0.5, W / 2 + 0.72, 0.75, 0);
       topY = r.top + r.w / 2;
     } else if (t === 1) {
+      /* Módulo: bloques tipo contenedor espacial con antena de luz roja */
       r = stack(g, p, W, H, 0.1, false);
-      addAntenna(g, r.top, 0, 1.6);
+      for (s2 = -1; s2 <= 1; s2 += 2) {
+        cyBox(g, cyHull, W * 0.45, H * 0.3, W * 0.5, s2 * (W / 2 + W * 0.18), H * 0.22, 0);
+        cyBox(g, s2 < 0 ? cyNeon.mag : cyNeon.cyan, W * 0.45 + 0.04, 0.08, W * 0.5 + 0.04, s2 * (W / 2 + W * 0.18), H * 0.22 + H * 0.15, 0);
+      }
+      addAntenna(g, r.top, 0, 1.6, 0xff3b5c);
       topY = r.top + 1.8;
     } else if (t === 2) {
+      /* Torre solar: paneles con retícula, núcleo de energía brillante */
       r = stack(g, p, W, H, 0.15, false);
       addWing(g, r.top * 0.55, -1);
       addWing(g, r.top * 0.55, 1);
-      addAntenna(g, r.top, 0, 1.8);
-      topY = r.top + 2;
+      cyCyl(g, cyNeon.cyan, 0.5, 1.1, 0, r.top + 0.6, 0);
+      cyRing(g, cyNeon.cyan, r.top + 0.1, r.w * 0.45);
+      addAntenna(g, r.top + 1.15, 0, 1.4, 0x00f0ff);
+      topY = r.top + 2.6;
     } else if (t === 3) {
+      /* Rascacielos: helipuerto con luces y pantallas holográficas */
       r = stack(g, p, W, H, 0.3, false);
-      var box = new THREE.Mesh(new THREE.BoxGeometry(r.w * 0.45, 0.6, r.w * 0.45), darkMat);
-      box.position.y = r.top + 0.3;
-      g.add(box);
-      addAntenna(g, r.top + 0.6, 0, 2.0);
+      m2 = new THREE.Mesh(uDisc, cyHeli);
+      m2.scale.setScalar(r.w * 0.28);
+      m2.position.y = r.top + 0.08;
+      g.add(m2);
+      cyRing(g, cyNeon.yel, r.top + 0.09, r.w * 0.3);
+      addAntenna(g, r.top, -r.w * 0.4, 2.0, 0xff2bd6);
+      addAntenna(g, r.top, r.w * 0.4, 1.4, 0x00f0ff);
+      var hh = Math.min(3.4, r.top * 0.5);
+      cyHolo(g, W * 0.5 + 0.7, r.top * 0.7, 0, 1.9, hh, Math.PI / 2);
+      cyHolo(g, -(W * 0.5 + 0.7), r.top * 0.5, 0, 1.9, hh, Math.PI / 2);
       topY = r.top + 2.8;
     } else if (t === 4) {
+      /* Megatorre: anillos contrarrotantes, antenas dobles y haz de luz */
       r = stack(g, p, W, H, 0.25, false);
       addRing(g, r.top * 0.7, W * 0.95, 0xc084fc, 0.6, 0.22);
-      addAntenna(g, r.top, 0, 2.4);
-      topY = r.top + 2.6;
+      addRing(g, r.top * 0.42, W * 0.8, 0x00f0ff, -0.5, -0.2);
+      addAntenna(g, r.top, -r.w * 0.3, 2.6, 0xff2bd6);
+      addAntenna(g, r.top, r.w * 0.3, 2.0, 0x00f0ff);
+      cyBeam(g, cyBeamCyan, 1.1, 9, r.top);
+      topY = r.top + 2.8;
     } else {
+      /* Palacio: estructura dorada con columnas, aros orbitales, satélite y rayo al cielo */
       var base = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.6, 0.9, 10), new THREE.MeshLambertMaterial({ color: 0xc79a05 }));
       base.position.y = 0.45;
       base.castShadow = true; base.receiveShadow = true;
@@ -596,6 +694,11 @@ window.startMap = function (RAW) {
       var step = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.9, 0.7, 10), new THREE.MeshLambertMaterial({ color: 0xe0b413 }));
       step.position.y = 1.25;
       g.add(step);
+      for (i = 0; i < 10; i++) {
+        ang = i / 10 * Math.PI * 2;
+        cyCyl(g, cyGold, 0.17, 1.3, Math.sin(ang) * 4.1, 1.55, Math.cos(ang) * 4.1);
+      }
+      cyRing(g, cyNeon.gold, 2.2, 4.1);
       var sub = new THREE.Group();
       sub.position.y = 1.6;
       g.add(sub);
@@ -612,6 +715,15 @@ window.startMap = function (RAW) {
       blinkers.push({ mesh: beacon, phase: 0 });
       addRing(g, 1.6 + r.top * 0.5, 4.6, 0xfacc15, 0.5, 0.18);
       addRing(g, 1.6 + r.top * 0.8, 3.2, 0xffe27a, -0.8, -0.25);
+      cyBeam(g, cyBeamGold, 2.0, 18, spireBase + 4.4);
+      var satPivot = new THREE.Group();
+      satPivot.position.y = 1.6 + r.top * 0.65;
+      var sat = new THREE.Mesh(uSphere, cyNeon.cyan);
+      sat.scale.setScalar(0.28);
+      sat.position.set(5.6, 0, 0);
+      satPivot.add(sat);
+      g.add(satPivot);
+      spinners.push({ obj: satPivot, speed: 1.2 });
       var pl = new THREE.PointLight(0xffd36b, 1.1, 46);
       pl.position.y = spireBase + 4.2;
       g.add(pl);
@@ -1406,6 +1518,7 @@ window.startMap = function (RAW) {
     for (n = 0; n < spinners.length; n++) spinners[n].obj.rotation.y += spinners[n].speed * dt;
     updateWalkers(dt, t);
     for (n = 0; n < blinkers.length; n++) blinkers[n].mesh.scale.setScalar(0.85 + 0.35 * Math.sin(t * 3 + blinkers[n].phase));
+    updateCyber(t);
     if (selected) selRing.rotation.z = t * 0.8;
 
     var rects = blockedRects();
