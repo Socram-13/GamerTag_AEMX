@@ -1903,16 +1903,17 @@ window.startMap = function (RAW) {
         var taunting = false, spd = w.speed * (w.fleeT > 0 ? 2.4 : 1);
         if (w.role === 'orange' && w.foe) {
           var fo = w.foe, fd = Math.hypot(fo.bx - w.bx, fo.bz - w.bz);
-          if (w.tauntT <= 0 && w.tauntCd <= 0 && fd < 2.4 && fo.state === 'walk') { w.tauntT = 2.4; fo.fleeT = 10; }
+          if (w.tauntT <= 0 && w.tauntCd <= 0 && fd < 2.4 && fo.state === 'walk') { w.tauntT = 10; fo.fleeT = 10; }
           taunting = w.tauntT > 0;
         }
         if (taunting) {
           turnToward(w, w.foe.bx - w.bx, w.foe.bz - w.bz, dt);
-          w.parts.legL.rotation.x = 0; w.parts.legR.rotation.x = 0;
-          w.parts.armL.rotation.x = 0; w.parts.armL.rotation.z = 0;
-          w.parts.armR.rotation.x = -2.9;
-          w.parts.armR.rotation.z = Math.sin(t * 10) * 0.25;
-          w.g.position.y = 0.14;
+          /* Se queda quieto saltando con los brazos en alto mientras el negro huye */
+          var jmp = Math.abs(Math.sin(t * 6));
+          w.parts.legL.rotation.x = -0.35 * jmp; w.parts.legR.rotation.x = 0.35 * jmp;
+          w.parts.armL.rotation.x = -2.9; w.parts.armL.rotation.z = Math.sin(t * 10) * 0.25;
+          w.parts.armR.rotation.x = -2.9; w.parts.armR.rotation.z = -Math.sin(t * 10) * 0.25;
+          w.g.position.y = 0.14 + jmp * 0.55;
         } else if (w.state === 'walk') {
           len = w.len;
           ux = len > 0 ? (w.to.x - w.from.x) / len : 0;
@@ -2007,7 +2008,7 @@ window.startMap = function (RAW) {
       var showB = clanOrange.tauntT > 0 && clanOrange.g.visible;
       if (showB !== clanBubble.visible) clanBubble.visible = showB;
       if (showB) {
-        var pu = Math.min(1, (2.4 - clanOrange.tauntT) / 0.2), psc = 0.6 + 0.4 * (1 - Math.pow(1 - pu, 3));
+        var pu = Math.min(1, (10 - clanOrange.tauntT) / 0.2), psc = 0.6 + 0.4 * (1 - Math.pow(1 - pu, 3));
         clanBubble.scale.set(3.6 * psc, 1.41 * psc, 1);
         clanBubble.position.set(clanOrange.g.position.x, 2.25, clanOrange.g.position.z);
       }
