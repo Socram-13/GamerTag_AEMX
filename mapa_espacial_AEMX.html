@@ -125,6 +125,7 @@
       <div class="tools">
         <button type="button" id="b-over">México</button>
         <button type="button" id="b-pal">Palacio</button>
+        <button type="button" id="b-lbl" aria-pressed="true" title="Mostrar u ocultar etiquetas">Etiquetas</button>
       </div>
     </header>
     <footer class="bottom">
@@ -1407,6 +1408,11 @@ window.startMap = function (RAW) {
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { deselect(); resEl.hidden = true; } });
   document.getElementById('b-over').addEventListener('click', overview);
   document.getElementById('b-pal').addEventListener('click', function () { select(pres); });
+  document.getElementById('b-lbl').addEventListener('click', function () {
+    var show = labelsEl.style.display === 'none';
+    labelsEl.style.display = show ? '' : 'none';
+    this.setAttribute('aria-pressed', show ? 'true' : 'false');
+  });
 
   /* Búsqueda de jugadores y ciudades */
   var q = document.getElementById('q'), resEl = document.getElementById('res'), matches = [];
