@@ -945,7 +945,7 @@ window.startMap = function (RAW) {
   var clock = new THREE.Clock(), tmp = new THREE.Vector3();
   var LABEL_D = 55, DIST_NEAR = 60, PIN_D = 140;
 
-  function placeLabel(node, wpos, show, rects) {
+  function placeLabel(node, wpos, show, rects, readonly) {
     tmp.copy(wpos).project(camera);
     var inView = tmp.z < 1 && tmp.x > -1.1 && tmp.x < 1.1 && tmp.y > -1.1 && tmp.y < 1.1;
     if (!show || !inView) {
@@ -962,12 +962,24 @@ window.startMap = function (RAW) {
         if (r[0] < o[2] && r[2] > o[0] && r[1] < o[3] && r[3] > o[1]) { hit = true; break; }
       }
       if (hit) { node.style.opacity = '0'; node.style.visibility = 'hidden'; return; }
-      rects.push(r);
+      if (!readonly) rects.push(r);
     }
     node.style.visibility = 'visible';
     node.style.opacity = '1';
     node.style.transform = 'translate3d(' + sx.toFixed(1) + 'px,' + sy.toFixed(1) + 'px,0) translate(-50%,-100%)';
     node.style.zIndex = String(Math.max(1, 1000 - Math.round(Math.min(camera.position.distanceTo(wpos), 990))));
+  }
+
+  function blockedRects() {
+    var out = [], sr = stage.getBoundingClientRect();
+    ['.top', '#legend', '#card'].forEach(function (sel) {
+      var e = document.querySelector(sel);
+      if (!e || e.hidden) return;
+      var b = e.getBoundingClientRect();
+      if (b.width < 2 || b.height < 2) return;
+      out.push([b.left - sr.left - 6, b.top - sr.top - 6, b.right - sr.left + 6, b.bottom - sr.top + 6]);
+    });
+    return out;
   }
 
   function frame() {
@@ -994,12 +1006,12 @@ window.startMap = function (RAW) {
     for (n = 0; n < blinkers.length; n++) blinkers[n].mesh.scale.setScalar(0.85 + 0.35 * Math.sin(t * 3 + blinkers[n].phase));
     if (selected) selRing.rotation.z = t * 0.8;
 
+    var rects = blockedRects();
     for (n = 0; n < players.length; n++) {
       var p = players[n];
       var d = camera.position.distanceTo(p.wpos);
-      placeLabel(p.pill, p.wpos, (p.isPres && d < 220) || p === selected || d < LABEL_D);
+      placeLabel(p.pill, p.wpos, (p.isPres && d < 220) || p === selected || d < LABEL_D, p === selected ? null : rects, true);
     }
-    var rects = [];
     if (!districts._order) districts._order = districts.slice().sort(function (a, b) { return b.list.length - a.list.length; });
     for (n = 0; n < districts.length; n++) {
       var dd = districts[n];
