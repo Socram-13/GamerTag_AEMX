@@ -636,6 +636,11 @@ window.startMap = function (RAW) {
   function updateCyber(t) {
     var i, w;
     holoMat.opacity = 0.55 + 0.18 * Math.sin(t * 4) + 0.07 * Math.sin(t * 27);
+    for (i = 0; i < domeAst.length; i++) {
+      w = domeAst[i];
+      w.g.rotation.y = Math.sin(t * 0.5 + w.ph) * 0.7;
+      w.arm.rotation.z = 2.3 + 0.35 * Math.sin(t * 4 + w.ph);
+    }
     for (i = 0; i < wallMats.length; i++) {
       w = wallMats[i];
       w.m.emissiveIntensity = 0.95 + 0.35 * Math.pow(Math.max(0, Math.sin(t * 0.9 + w.ph)), 3);
@@ -659,6 +664,36 @@ window.startMap = function (RAW) {
     g.add(panel);
   }
 
+  /* ---------- Astronauta dentro de la cúpula de las cápsulas ---------- */
+  var domeAst = [];
+  var dsSuit = new THREE.MeshLambertMaterial({ color: 0xf2f6ff, emissive: 0x2a3550 });
+  var dsSuitOff = new THREE.MeshLambertMaterial({ color: 0x8a93a6 });
+  var dsPack = new THREE.MeshLambertMaterial({ color: 0xaebbd2, emissive: 0x10151f });
+  var dsVisor = new THREE.MeshBasicMaterial({ color: 0xffb938 });
+  var dsGTorso = new THREE.BoxGeometry(0.5, 0.6, 0.34), dsGLegs = new THREE.BoxGeometry(0.46, 0.55, 0.24);
+  var dsGArm = new THREE.BoxGeometry(0.15, 0.5, 0.15), dsGHelmet = new THREE.SphereGeometry(0.3, 12, 8);
+  var dsGVisor = new THREE.SphereGeometry(0.19, 12, 8), dsGPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
+  function addDomeAstronaut(g, y, off, ph) {
+    var a = new THREE.Group(), suit = off ? dsSuitOff : dsSuit, m, armR, armL;
+    function put(geo, mat, x, yy, z) { var mm = new THREE.Mesh(geo, mat); mm.position.set(x, yy, z); a.add(mm); return mm; }
+    put(dsGLegs, suit, 0, 0.375, 0);
+    put(dsGTorso, suit, 0, 0.95, 0);
+    put(dsGPack, off ? dsSuitOff : dsPack, 0, 0.98, -0.27);
+    put(dsGHelmet, suit, 0, 1.5, 0);
+    m = put(dsGVisor, off ? dsSuitOff : dsVisor, 0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75);
+    armL = new THREE.Group(); armL.position.set(-0.33, 1.2, 0); a.add(armL);
+    m = new THREE.Mesh(dsGArm, suit); m.position.y = -0.25; armL.add(m);
+    armR = new THREE.Group(); armR.position.set(0.33, 1.2, 0); a.add(armR);
+    m = new THREE.Mesh(dsGArm, suit); m.position.y = -0.25; armR.add(m);
+    armL.rotation.z = -0.15;
+    armR.rotation.z = off ? 0.15 : 2.3;
+    a.scale.setScalar(0.65);
+    a.position.y = y + 0.04;
+    a.rotation.y = off ? 0.4 : 0;
+    g.add(a);
+    if (!off) domeAst.push({ g: a, arm: armR, ph: ph });
+  }
+
   function buildBuilding(p) {
     var g = new THREE.Group();
     var t = tierOf(p.total);
@@ -675,9 +710,10 @@ window.startMap = function (RAW) {
     if (t === 0) {
       /* Cápsula: módulo habitable con cúpula de cristal, aros de neón y esclusa lateral */
       r = stack(g, p, W, H, 0, true);
-      var dome = new THREE.Mesh(new THREE.SphereGeometry(r.w / 2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: off ? 0x5a6478 : 0x9ff3ff, emissive: off ? 0x000000 : 0x06303a, transparent: true, opacity: off ? 0.8 : 0.7 }));
+      var dome = new THREE.Mesh(new THREE.SphereGeometry(r.w / 2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: off ? 0x5a6478 : 0x9ff3ff, emissive: off ? 0x000000 : 0x06303a, transparent: true, opacity: off ? 0.6 : 0.4 }));
       dome.position.y = r.top;
       g.add(dome);
+      addDomeAstronaut(g, r.top, off, (p.total % 7) * 0.9);
       cyRing(g, N.cyan, 0.12, W / 2 + 0.15);
       cyRing(g, N.mag, r.top + 0.05, r.w / 2 + 0.05);
       m2 = cyCyl(g, cyHull, 0.45, 0.9, W / 2 + 0.25, 0.75, 0);
