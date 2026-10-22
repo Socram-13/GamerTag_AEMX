@@ -723,94 +723,86 @@ window.startMap = function (RAW) {
 
   var byCity = {};
   players.forEach(function (p) { if (p === pres) return; (byCity[p.city] = byCity[p.city] || []).push(p); });
+  /* El presidente es el edificio central de Ciudad de México */
+  byCity['Ciudad de México'] = [pres].concat(byCity['Ciudad de México'] || []);
+
+  /* Celdas hexagonales (panal): la celda 0 es el centro y se llena hacia afuera */
+  function hexCells(n) {
+    var K = 0, q, r, out = [];
+    while (1 + 3 * K * (K + 1) < n) K++;
+    for (q = -K; q <= K; q++) {
+      for (r = Math.max(-K, -q - K); r <= Math.min(K, -q + K); r++) {
+        var x = S * (q + r / 2), z = S * 0.8660254 * r;
+        out.push({ x: x, z: z, d: Math.sqrt(x * x + z * z), a: Math.atan2(z, x) });
+      }
+    }
+    out.sort(function (m, o) { return (m.d - o.d) || (m.a - o.a); });
+    return out.slice(0, n);
+  }
+
   var districts = Object.keys(byCity).map(function (name) {
-    var list = byCity[name], n = list.length;
-    var cols = Math.ceil(Math.sqrt(n * 1.15)), rows = Math.ceil(n / cols);
-    var hx = cols * S / 2, hz = rows * S / 2;
+    var list = byCity[name].slice().sort(function (a, b) { return b.total - a.total; });
+    var cells = hexCells(list.length), i, far = 0;
+    for (i = 0; i < cells.length; i++) far = Math.max(far, cells[i].d);
     var c = cityXY[name];
-    var cx = c.x, cz = c.z;
-    if (name === 'Ciudad de México') cx += PLAZA + hx + 2;
-    return { name: name, list: list, cols: cols, rows: rows, r: Math.sqrt(hx * hx + hz * hz), cx: cx, cz: cz };
+    return { name: name, list: list, cells: cells, r: far + S, cx: c.x, cz: c.z };
   });
 
-  /* Plaza central y palacio */
-  var plazaMesh = new THREE.Mesh(new THREE.CylinderGeometry(PLAZA - 1, PLAZA - 1, BASE, 56), new THREE.MeshLambertMaterial({ color: 0x1e3358 }));
-  plazaMesh.position.set(presPos.x, BASE / 2, presPos.z);
-  plazaMesh.receiveShadow = true;
-  scene.add(plazaMesh);
-  var plazaRing = new THREE.Mesh(new THREE.TorusGeometry(PLAZA - 1.3, 0.14, 8, 80), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
-  plazaRing.rotation.x = Math.PI / 2;
-  plazaRing.position.set(presPos.x, BASE + 0.03, presPos.z);
-  scene.add(plazaRing);
-
   var roots = [];
-  var palace = buildBuilding(pres);
-  palace.position.set(presPos.x, BASE, presPos.z);
-  pres.x = presPos.x; pres.z = presPos.z;
-  scene.add(palace);
-  roots.push(palace);
 
-  var padGeo = new THREE.BoxGeometry(PADW, 0.2, PADW);
+  var HEX_R = S / Math.sqrt(3), HEX_PAD_R = (S - 0.8) / Math.sqrt(3);
+  var slabGeo = new THREE.CylinderGeometry(HEX_R, HEX_R, 0.14, 6);
+  var padGeo = new THREE.CylinderGeometry(HEX_PAD_R, HEX_PAD_R, 0.2, 6);
+  var slabMat = new THREE.MeshLambertMaterial({ color: 0x182a4a });
   var padMat = new THREE.MeshLambertMaterial({ color: 0x23375a });
-  var lineMat = new THREE.MeshBasicMaterial({ color: 0x3a6cb0 });
-  var lampPos = [];
-  var domeMat = new THREE.MeshLambertMaterial({ color: 0x4ade80, transparent: true, opacity: 0.45, emissive: 0x0b3d1f });
-  var ringMatG = new THREE.MeshBasicMaterial({ color: 0x4ade80 });
+  var padMatCenter = new THREE.MeshLambertMaterial({ color: 0x2d4a7a });
+  var hexLineMat = new THREE.LineBasicMaterial({ color: 0x3a6cb0 });
+  var hexGoldMat = new THREE.LineBasicMaterial({ color: 0xfacc15 });
+  function hexLoopGeo(R) {
+    var pts = [], k;
+    for (k = 0; k < 6; k++) pts.push(new THREE.Vector3(R * Math.sin(k * Math.PI / 3), 0, R * Math.cos(k * Math.PI / 3)));
+    return new THREE.BufferGeometry().setFromPoints(pts);
+  }
+  var hexOutlineGeo = hexLoopGeo(HEX_PAD_R + 0.15), hexGoldGeo = hexLoopGeo(HEX_PAD_R - 0.1);
+  var lampPos = [], lampSeen = {};
 
   districts.forEach(function (d) {
-    var slab = new THREE.Mesh(new THREE.BoxGeometry(d.cols * S + 1.6, 0.14, d.rows * S + 1.6), new THREE.MeshLambertMaterial({ color: 0x182a4a }));
-    slab.position.set(d.cx, 0.07, d.cz);
-    slab.receiveShadow = true;
-    scene.add(slab);
+    d.cells.forEach(function (cell, idx) {
+      var wx = d.cx + cell.x, wz = d.cz + cell.z, k;
 
-    var k, j, ln;
-    for (k = 0; k <= d.cols; k++) {
-      ln = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.02, d.rows * S), lineMat);
-      ln.position.set(d.cx + (k - d.cols / 2) * S, 0.15, d.cz);
-      scene.add(ln);
-    }
-    for (j = 0; j <= d.rows; j++) {
-      ln = new THREE.Mesh(new THREE.BoxGeometry(d.cols * S, 0.02, 0.14), lineMat);
-      ln.position.set(d.cx, 0.15, d.cz + (j - d.rows / 2) * S);
-      scene.add(ln);
-    }
-    for (k = 0; k <= d.cols; k++) {
-      for (j = 0; j <= d.rows; j++) {
-        if ((k + j) % 2 === 0) lampPos.push([d.cx + (k - d.cols / 2) * S, d.cz + (j - d.rows / 2) * S]);
-      }
-    }
+      var slab = new THREE.Mesh(slabGeo, slabMat);
+      slab.position.set(wx, 0.07, wz);
+      slab.receiveShadow = true;
+      scene.add(slab);
 
-    var cells = [], c, r2;
-    for (r2 = 0; r2 < d.rows; r2++) {
-      for (c = 0; c < d.cols; c++) {
-        var x = (c - (d.cols - 1) / 2) * S, z = (r2 - (d.rows - 1) / 2) * S;
-        cells.push({ x: x, z: z, d: Math.sqrt(x * x + z * z) });
-      }
-    }
-    cells.sort(function (a, b) { return a.d - b.d; });
-    var sorted = d.list.slice().sort(function (a, b) { return b.total - a.total; });
-    cells.forEach(function (cell, idx) {
-      var pad = new THREE.Mesh(padGeo, padMat);
-      pad.position.set(d.cx + cell.x, 0.24, d.cz + cell.z);
+      var pad = new THREE.Mesh(padGeo, idx === 0 ? padMatCenter : padMat);
+      pad.position.set(wx, 0.24, wz);
       pad.receiveShadow = true;
       scene.add(pad);
-      var pl = sorted[idx];
-      if (pl) {
-        var b = buildBuilding(pl);
-        b.position.set(d.cx + cell.x, BASE, d.cz + cell.z);
-        pl.x = d.cx + cell.x; pl.z = d.cz + cell.z;
-        scene.add(b);
-        roots.push(b);
-      } else {
-        var rr = 1.3 + rnd() * 0.9;
-        var dm = new THREE.Mesh(new THREE.SphereGeometry(rr, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), domeMat);
-        dm.position.set(d.cx + cell.x, BASE, d.cz + cell.z);
-        scene.add(dm);
-        var dr = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.07, 6, 28), ringMatG);
-        dr.rotation.x = Math.PI / 2;
-        dr.position.set(d.cx + cell.x, BASE + 0.04, d.cz + cell.z);
-        scene.add(dr);
+
+      var outline = new THREE.LineLoop(hexOutlineGeo, hexLineMat);
+      outline.position.set(wx, 0.36, wz);
+      scene.add(outline);
+
+      if (idx === 0) {
+        var gold = new THREE.LineLoop(hexGoldGeo, hexGoldMat);
+        gold.position.set(wx, 0.37, wz);
+        scene.add(gold);
       }
+
+      /* Farolas en algunos vértices, sin repetir los compartidos */
+      for (k = 0; k < 6; k += 2) {
+        var lx = wx + HEX_R * Math.sin(k * Math.PI / 3), lz = wz + HEX_R * Math.cos(k * Math.PI / 3);
+        var key = Math.round(lx * 2) + ',' + Math.round(lz * 2);
+        if (!lampSeen[key]) { lampSeen[key] = true; lampPos.push([lx, lz]); }
+      }
+
+      var pl = d.list[idx];
+      var b = buildBuilding(pl);
+      b.position.set(wx, BASE, wz);
+      pl.x = wx; pl.z = wz;
+      scene.add(b);
+      roots.push(b);
     });
   });
 
@@ -929,7 +921,7 @@ window.startMap = function (RAW) {
   districts.forEach(function (d) {
     var e = el('div', 'dist');
     e.appendChild(document.createTextNode(d.name));
-    e.appendChild(el('small', null, d.list.length + (d.list.length === 1 ? ' jugador' : ' jugadores') + (d.name === 'Ciudad de México' ? ' + presidente' : '')));
+    e.appendChild(el('small', null, d.list.length + (d.list.length === 1 ? ' jugador' : ' jugadores')));
     labelsEl.appendChild(e);
     e.setAttribute('role', 'button');
     e.tabIndex = 0;
