@@ -1111,12 +1111,40 @@ window.startMap = function (RAW) {
     var vr = mulberry32(48151623), VMAX = 12000, SP = 2.3, RING = 18, CELL = 10, PCELL = 1.5, PMIN = 1.25;
     var hexGrid = {}, placed = {}, plants = [], country = [toWorld(MAIN_LL), toWorld(BAJA_LL)];
     function gk(a, b) { return a + ',' + b; }
-    districts.forEach(function (d) {
-      d.cells.concat(d.extra).forEach(function (c) {
-        var x = d.cx + c.x, z = d.cz + c.z, k = gk(Math.floor(x / CELL), Math.floor(z / CELL));
-        (hexGrid[k] || (hexGrid[k] = [])).push([x, z]);
+    var invGrid = {}, invList = [], A_PAD = HEX_PAD_R * 0.8660254, A_IN = A_PAD - 0.45, A_BAND = HEX_R * 0.8660254 + 0.6;
+    function hexInside(dx, dz, a) { var ax = Math.abs(dx), az = Math.abs(dz); return ax <= a && ax * 0.5 + az * 0.8660254 <= a; }
+    function fillHexGrid() {
+      districts.forEach(function (d) {
+        function addH(c) {
+          var x = d.cx + c.x, z = d.cz + c.z, k = gk(Math.floor(x / CELL), Math.floor(z / CELL));
+          (hexGrid[k] || (hexGrid[k] = [])).push([x, z]);
+        }
+        d.cells.forEach(addH);
+        /* Algunos hexágonos vacíos (cerca de la mitad) quedan invadidos por la vegetación */
+        d.extra.forEach(function (c) {
+          var x = d.cx + c.x, z = d.cz + c.z, k;
+          c.inv = vr() < 0.5 && onLand(x, z, 0);
+          if (c.inv) {
+            k = gk(Math.floor(x / CELL), Math.floor(z / CELL));
+            (invGrid[k] || (invGrid[k] = [])).push([x, z]);
+            invList.push({ x: x, z: z, d: d });
+          } else addH(c);
+        });
       });
-    });
+    }
+    /* 1 = interior del hexágono invadido, 2 = su calle (sin plantas), 0 = fuera */
+    function invStatus(x, z) {
+      var ix = Math.floor(x / CELL), iz = Math.floor(z / CELL), a, b, l, i, st = 0;
+      for (a = -1; a <= 1; a++) for (b = -1; b <= 1; b++) {
+        l = invGrid[gk(ix + a, iz + b)];
+        if (!l) continue;
+        for (i = 0; i < l.length; i++) {
+          if (hexInside(x - l[i][0], z - l[i][1], A_IN)) return 1;
+          if (hexInside(x - l[i][0], z - l[i][1], A_BAND)) st = 2;
+        }
+      }
+      return st;
+    }
     function nearestHex(x, z) {
       var ix = Math.floor(x / CELL), iz = Math.floor(z / CELL), a, b, l, i, best = 1e9, dd;
       for (a = -2; a <= 2; a++) for (b = -2; b <= 2; b++) {
@@ -1161,6 +1189,7 @@ window.startMap = function (RAW) {
       if (lat < 19.3 || (lon > -91.5 && lat < 21.8)) return 'trop';
       return 'temp';
     }
+    fillHexGrid();
     var W = {
       temp: [['pine', 0.20], ['oak', 0.16], ['round', 0.14], ['birch', 0.08], ['jacaranda', 0.04], ['bush', 0.14], ['flower', 0.06], ['grass', 0.08], ['rock', 0.05], ['agave', 0.03], ['cactus', 0.02]],
       arid: [['cactus', 0.22], ['agave', 0.16], ['bush', 0.20], ['grass', 0.12], ['rock', 0.14], ['flower', 0.04], ['round', 0.05], ['palm', 0.05], ['pine', 0.02]],
@@ -1179,7 +1208,7 @@ window.startMap = function (RAW) {
         x0 = Math.min(x0, d.cx + all[i].x); x1 = Math.max(x1, d.cx + all[i].x);
         z0 = Math.min(z0, d.cz + all[i].z); z1 = Math.max(z1, d.cz + all[i].z);
       }
-      var gx, gz, x, z, dm, t, patch, p, zone, k, arr;
+      var gx, gz, x, z, dm, t, patch, p, zone, k, arr, ist;
       for (gx = x0 - ext; gx <= x1 + ext; gx += SP) {
         for (gz = z0 - ext; gz <= z1 + ext; gz += SP) {
           x = gx + (vr() - 0.5) * SP * 0.7; z = gz + (vr() - 0.5) * SP * 0.7;
@@ -1187,15 +1216,18 @@ window.startMap = function (RAW) {
           if (dm < HEX_R + 0.6) continue;
           t = (dm - HEX_R - 0.6) / RING;
           if (t > 1) continue;
+          ist = invStatus(x, z);
+          if (ist === 2) continue;
           patch = 0.5 + 0.5 * Math.sin(x * 0.21 + 1.7) * Math.sin(z * 0.17 - 0.4);
           p = Math.pow(1 - t, 1.3) * (0.3 + 0.7 * patch) * 0.95;
+          if (ist === 1) p = (0.25 + 0.6 * Math.min(1, Math.hypot(x - d.cx, z - d.cz) / d.r)) * (0.4 + 0.6 * patch);
           if (vr() > p) continue;
           if (crowded(x, z)) continue;
           if (!onLand(x, z)) continue;
           k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k] || (placed[k] = [])).push([x, z]);
           zone = zoneOf(x, z);
-          plants.push({ type: pickType(zone), x: x, z: z, zone: zone, edge: lastEdge });
+          plants.push({ type: pickType(zone), x: x, z: z, y: ist === 1 ? 0.34 : 0, zone: zone, edge: lastEdge });
         }
       }
     });
@@ -1261,6 +1293,44 @@ window.startMap = function (RAW) {
       gm.raycast = function () {};
       scene.add(gm);
     })();
+    /* Césped y tierra sobre la losa de los hexágonos invadidos, más cubiertos hacia afuera */
+    (function () {
+      var items = [], dummy = new THREE.Object3D(), bg = new THREE.CircleGeometry(1, 10);
+      function nz2(x, z, f, o) { return 0.5 + 0.25 * Math.sin(x * f + o) * Math.cos(z * f * 1.3 - o) + 0.25 * Math.sin((x + z) * f * 0.7 + o * 2.1); }
+      invList.forEach(function (h) {
+        var n = 9 + Math.floor(vr() * 6), i = 0, tries = 0, ang, rad, x, z, r, ow, zone, n1, n2, c, yy = 0.345;
+        while (i < n && tries < 90) {
+          tries++;
+          ang = vr() * 6.283; rad = Math.sqrt(vr()) * 3.1;
+          x = h.x + Math.sin(ang) * rad; z = h.z + Math.cos(ang) * rad;
+          r = 0.7 + vr() * 1.0;
+          if (!hexInside(x - h.x, z - h.z, A_PAD - 0.1 - r * 0.75)) continue;
+          ow = Math.min(1, Math.hypot(x - h.d.cx, z - h.d.cz) / h.d.r);
+          if (vr() > 0.3 + 0.8 * ow) continue;
+          zone = zoneOf(x, z); n1 = nz2(x, z, 0.23, 4.1); n2 = nz2(x, z, 0.61, 0.7);
+          if (zone === 'arid') c = n1 > 0.5 ? col(0.09 + 0.02 * n2, 0.34, 0.26 + 0.08 * n2) : col(0.13 + 0.02 * n2, 0.3, 0.3 + 0.08 * n2);
+          else if (zone === 'trop') c = n1 > 0.8 ? col(0.08, 0.35, 0.22) : col(0.32 + 0.03 * n2, 0.5, 0.2 + 0.08 * n2);
+          else c = n1 > 0.72 ? col(0.08 + 0.02 * n2, 0.33, 0.21) : col(0.28 + 0.05 * n2, 0.42, 0.19 + 0.08 * n2);
+          items.push({ x: x, z: z, y: yy + i * 0.002, r: r, yaw: vr() * 6.283, sx: 0.85 + vr() * 0.3, c: c });
+          i++;
+        }
+      });
+      if (!items.length) return;
+      var bm = new THREE.InstancedMesh(bg, new THREE.MeshLambertMaterial({ color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), items.length), q, it;
+      for (q = 0; q < items.length; q++) {
+        it = items[q];
+        dummy.position.set(it.x, it.y, it.z);
+        dummy.rotation.set(-Math.PI / 2, 0, it.yaw);
+        dummy.scale.set(it.r * it.sx, it.r, 1);
+        dummy.updateMatrix();
+        bm.setMatrixAt(q, dummy.matrix); bm.setColorAt(q, it.c);
+      }
+      bm.instanceMatrix.needsUpdate = true;
+      if (bm.instanceColor) bm.instanceColor.needsUpdate = true;
+      bm.frustumCulled = false;
+      bm.raycast = function () {};
+      scene.add(bm);
+    })();
     /* Geometrías compartidas: una sola InstancedMesh por geometría, con color por instancia */
     var GEO = {
       trunk: new THREE.CylinderGeometry(0.09, 0.12, 1, 6),
@@ -1290,7 +1360,7 @@ window.startMap = function (RAW) {
       /* Los árboles grandes crecen más en el centro de los bosques (variación de tamaño) */
       if (pl.type === 'pine' || pl.type === 'oak') sc *= 1.0 + vr() * 0.35;
       vqYaw.setFromAxisAngle(AX_Y, yaw);
-      vB.compose(new THREE.Vector3(pl.x, 0, pl.z), vqYaw, vOne.set(sc, sc, sc));
+      vB.compose(new THREE.Vector3(pl.x, pl.y || 0, pl.z), vqYaw, vOne.set(sc, sc, sc));
       trunkC = col(0.07 + vr() * 0.02, 0.4, 0.2 + vr() * 0.06);
       if (pl.type === 'pine') {
         /* Pino/abeto en 3 niveles con tonos azul-verdosos */
