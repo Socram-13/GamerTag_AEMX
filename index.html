@@ -3222,6 +3222,16 @@
           applyBorder(d.borderColor);
         }
         if (d.startDate) { document.getElementById('start-date').value = d.startDate; if(typeof actualizarDiasJugando==='function') actualizarDiasJugando(); }
+        if (d.manualLoc && typeof d.manualLoc === 'object') {
+          try {
+            localStorage.setItem('atlas-manual-loc', JSON.stringify({
+              enabled: !!d.manualLoc.enabled,
+              city: d.manualLoc.city || '',
+              state: d.manualLoc.state || ''
+            }));
+            if (typeof initManualLocUI === 'function') initManualLocUI();
+          } catch(e) {}
+        }
         if (d.country) {
           const _normC = (typeof normalizarPais === 'function') ? normalizarPais(d.country) : d.country;
           userCountry = _normC; window.userCountry = _normC;
@@ -3230,7 +3240,7 @@
           const spanMx = document.querySelector('.mexico');
           if (spanMx) { spanMx.textContent = _normC.toUpperCase(); spanMx.style.color = '#7EC8E3'; spanMx.style.visibility = 'visible'; }
           const elLoc = document.getElementById('user-location');
-          if (elLoc) elLoc.textContent = (d.city || d.country).toUpperCase();
+          if (elLoc) elLoc.textContent = ((window.getManualLocText && window.getManualLocText()) || d.city || d.country).toUpperCase();
         }
 
         // Si hay datos del scanner pendientes, no sobreescribir parcelas/insignias
@@ -3539,6 +3549,18 @@
       } catch(e) { console.warn('Firebase city error:', e); }
     };
 
+    window._fbSaveManualLoc = async function(m) {
+      const user = window._fbUser;
+      if (!user || !m) return;
+      try {
+        const wSnap = await get(ref(db, `users/${user.uid}/bannedWrite`));
+        if (wSnap.exists() && wSnap.val() === true) return;
+        await update(ref(db, `users/${user.uid}`), {
+          manualLoc: { enabled: !!m.enabled, city: m.city || '', state: m.state || '' }
+        });
+      } catch(e) { console.warn('Firebase manualLoc error:', e); }
+    };
+
     window._fbSaveCountry = async function(newCountry) {
       const user = window._fbUser;
       if (!user || !newCountry) return;
@@ -3620,6 +3642,23 @@
     </div>
   </div>
 
+  <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
+        <div class="settings-row-label">Ubicación manual</div>
+        <div class="settings-row-desc">Usar mi ciudad y estado en lugar de la detectada</div>
+      </div>
+      <label class="settings-switch">
+        <input type="checkbox" id="manualLocToggle" onchange="onManualLocToggle(this.checked)">
+        <span class="settings-switch-slider"></span>
+      </label>
+    </div>
+    <div id="manualLocFields" style="display:none;flex-direction:column;gap:8px;">
+      <input type="text" id="manualCity" maxlength="60" placeholder="Ciudad" autocomplete="off" oninput="saveManualLoc()" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--border,#888);background:var(--card,transparent);color:var(--text,inherit);font-size:14px;">
+      <input type="text" id="manualState" maxlength="60" placeholder="Estado" autocomplete="off" oninput="saveManualLoc()" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--border,#888);background:var(--card,transparent);color:var(--text,inherit);font-size:14px;">
+    </div>
+  </div>
+
   <div class="settings-row">
     <div>
       <div class="settings-row-label">Notificación de Check In</div>
@@ -3643,10 +3682,74 @@
 </div>
 
 <script>
+  // ===== Ubicación manual =====
+  function getManualLoc() {
+    try { return JSON.parse(localStorage.getItem('atlas-manual-loc') || '{}') || {}; } catch(e) { return {}; }
+  }
+  window.getManualLoc = getManualLoc;
+  window.getManualLocText = function() {
+    var m = getManualLoc();
+    if (!m.enabled || !m.city) return '';
+    return m.city + (m.state ? ', ' + m.state : '');
+  };
+  function applyManualLoc() {
+    var txt = window.getManualLocText();
+    if (!txt) return;
+    var el = document.getElementById('user-location');
+    if (el) el.textContent = txt.toUpperCase();
+    var tries = 0;
+    var t = setInterval(function() {
+      tries++;
+      if (window._fbSaveCity) { clearInterval(t); window._fbSaveCity(txt); }
+      else if (tries >= 20) clearInterval(t);
+    }, 500);
+  }
+  var _manualLocTimer = null;
+  function saveManualLoc() {
+    var m = getManualLoc();
+    m.city  = (document.getElementById('manualCity').value || '').trim();
+    m.state = (document.getElementById('manualState').value || '').trim();
+    localStorage.setItem('atlas-manual-loc', JSON.stringify(m));
+    clearTimeout(_manualLocTimer);
+    _manualLocTimer = setTimeout(function() { applyManualLoc(); syncManualLoc(); }, 600);
+  }
+  function syncManualLoc() {
+    var m = getManualLoc();
+    var tries = 0;
+    var t = setInterval(function() {
+      tries++;
+      if (window._fbSaveManualLoc && window._fbUser) { clearInterval(t); window._fbSaveManualLoc(m); }
+      else if (tries >= 20) clearInterval(t);
+    }, 500);
+  }
+  function onManualLocToggle(on) {
+    var m = getManualLoc();
+    m.enabled = !!on;
+    m.city  = (document.getElementById('manualCity').value || '').trim();
+    m.state = (document.getElementById('manualState').value || '').trim();
+    localStorage.setItem('atlas-manual-loc', JSON.stringify(m));
+    document.getElementById('manualLocFields').style.display = on ? 'flex' : 'none';
+    syncManualLoc();
+    if (on) applyManualLoc();
+    else if (typeof ubicacionPorIP === 'function') ubicacionPorIP();
+  }
+  function initManualLocUI() {
+    var m = getManualLoc();
+    var t = document.getElementById('manualLocToggle');
+    if (!t) return;
+    t.checked = !!m.enabled;
+    document.getElementById('manualCity').value  = m.city  || '';
+    document.getElementById('manualState').value = m.state || '';
+    document.getElementById('manualLocFields').style.display = m.enabled ? 'flex' : 'none';
+    if (m.enabled) applyManualLoc();
+  }
+  document.addEventListener('DOMContentLoaded', initManualLocUI);
+
   function openSettingsModal() {
     document.getElementById('settingsModalOverlay').classList.add('open');
     document.getElementById('settingsModal').classList.add('open');
     if (typeof updateThemeButtonsUI === 'function') updateThemeButtonsUI();
+    initManualLocUI();
   }
   function closeSettingsModal() {
     document.getElementById('settingsModalOverlay').classList.remove('open');
@@ -6746,6 +6849,7 @@
   }
 
   function actualizarCiudad(ciudad, estado) {
+    if (window.getManualLocText && window.getManualLocText()) return; // ubicación manual activa
     if (!ciudad) return;
     var texto = ciudad + (estado ? ", " + estado : "");
     var el = document.getElementById("user-location");
