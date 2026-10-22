@@ -1709,7 +1709,7 @@ window.startMap = function (RAW) {
     clanOrange = og;
   })();
 
-  /* Globo de texto "yo soy el clan" (sprite que mira siempre a la cámara) */
+  /* Globo de texto con símbolos (sprite que mira siempre a la cámara) */
   var clanBubble = null;
   (function () {
     if (REDUCED) return;
@@ -1721,8 +1721,8 @@ window.startMap = function (RAW) {
     x.lineTo(284, 136); x.lineTo(256, 190); x.lineTo(228, 136); x.lineTo(44, 136); x.arcTo(8, 136, 8, 100, 36);
     x.lineTo(8, 44); x.arcTo(8, 8, 44, 8, 36); x.closePath();
     x.fill(); x.stroke();
-    x.fillStyle = '#14161a'; x.font = 'bold 58px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText('yo soy el clan', 256, 74);
+    x.fillStyle = '#14161a'; x.font = 'bold 76px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('#@%&!*', 256, 74);
     var tex = new THREE.CanvasTexture(c);
     if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
     clanBubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
