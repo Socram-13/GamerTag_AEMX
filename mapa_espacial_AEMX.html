@@ -1900,7 +1900,7 @@ window.startMap = function (RAW) {
         var taunting = false, spd = w.speed * (w.fleeT > 0 ? 2.4 : 1);
         if (w.role === 'orange' && w.foe) {
           var fo = w.foe, fd = Math.hypot(fo.bx - w.bx, fo.bz - w.bz);
-          if (w.tauntT <= 0 && w.tauntCd <= 0 && fd < 2.4 && fo.state === 'walk') { w.tauntT = 2.4; fo.fleeT = 5; }
+          if (w.tauntT <= 0 && w.tauntCd <= 0 && fd < 2.4 && fo.state === 'walk') { w.tauntT = 2.4; fo.fleeT = 10; }
           taunting = w.tauntT > 0;
         }
         if (taunting) {
