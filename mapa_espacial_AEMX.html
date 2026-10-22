@@ -506,6 +506,26 @@ window.startMap = function (RAW) {
     blinkers.push({ mesh: tip, phase: rnd() * 6 });
   }
 
+  /* Borde fino de neón en cada piso (marco hueco: el techo oscuro queda visible) */
+  var trimGeoCache = {};
+  function trimGeo(wi, cyl) {
+    var key = (cyl ? 'c' : 'b') + wi.toFixed(2);
+    if (trimGeoCache[key]) return trimGeoCache[key];
+    var o = wi / 2 + 0.05, n = wi / 2 - 0.04, sh = new THREE.Shape(), hole = new THREE.Path(), geo;
+    if (cyl) {
+      sh.absarc(0, 0, o, 0, Math.PI * 2, false);
+      hole.absarc(0, 0, n, 0, Math.PI * 2, true);
+    } else {
+      sh.moveTo(-o, -o); sh.lineTo(o, -o); sh.lineTo(o, o); sh.lineTo(-o, o); sh.lineTo(-o, -o);
+      hole.moveTo(-n, -n); hole.lineTo(-n, n); hole.lineTo(n, n); hole.lineTo(n, -n); hole.lineTo(-n, -n);
+    }
+    sh.holes.push(hole);
+    geo = new THREE.ExtrudeGeometry(sh, { depth: 0.07, bevelEnabled: false, curveSegments: 24 });
+    geo.rotateX(-Math.PI / 2);
+    trimGeoCache[key] = geo;
+    return geo;
+  }
+
   function stack(g, p, w, H, taper, cyl) {
     var items = [];
     [['c', p.common], ['r', p.rare], ['e', p.epic], ['l', p.legendary]].forEach(function (s) { if (s[1] > 0) items.push({ k: s[0], n: s[1] }); });
@@ -520,18 +540,18 @@ window.startMap = function (RAW) {
       if (cyl) {
         geo2 = new THREE.CylinderGeometry(wi / 2, wi / 2, h, 20);
         mesh = new THREE.Mesh(geo2, [mat, roofMat, roofMat]);
-        tg = new THREE.CylinderGeometry(wi / 2 + 0.07, wi / 2 + 0.07, 0.12, 20);
+        tg = trimGeo(wi, true);
       } else {
         geo2 = new THREE.BoxGeometry(wi, h, wi);
         mesh = new THREE.Mesh(geo2, [mat, mat, roofMat, roofMat, mat, mat]);
-        tg = new THREE.BoxGeometry(wi + 0.14, 0.12, wi + 0.14);
+        tg = trimGeo(wi, false);
       }
       mesh.position.y = y + h / 2;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       g.add(mesh);
       tm = new THREE.Mesh(tg, trimMat[items[j].k]);
-      tm.position.y = y + h;
+      tm.position.y = y + h - 0.03;
       g.add(tm);
       y += h;
     }
