@@ -870,7 +870,8 @@ window.startMap = function (RAW) {
         a.g.visible = false;
         scene.add(a.g);
         var w = { g: a.g, parts: a.parts, from: from, to: to, prev: null, prog: 0, len: Math.hypot(to.x - from.x, to.z - from.z),
-                  speed: 1.6 + rnd() * 1.2, phase: rnd() * 6, yaw: Math.atan2(to.x - from.x, to.z - from.z) };
+                  speed: 1.6 + rnd() * 1.2, phase: rnd() * 6, yaw: Math.atan2(to.x - from.x, to.z - from.z),
+                  state: 'walk', stT: 0, cd: 2 + rnd() * 3, partner: null, wait: 0, bx: from.x, bz: from.z, off: 0 };
         w.g.rotation.y = w.yaw;
         d.walkers.push(w);
         walkers.push(w);
@@ -878,38 +879,140 @@ window.startMap = function (RAW) {
     });
   }
 
+  /* Interacción entre astronautas: no se atraviesan; al encontrarse pelean o se saludan al azar */
+  var W_BLOCK = 1.0, W_MEET = 1.25;
+
+  function turnToward(w, tx, tz, dt) {
+    var diff = Math.atan2(tx, tz) - w.yaw;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    w.yaw += diff * Math.min(1, dt * 8);
+    w.g.rotation.y = w.yaw;
+  }
+  function reverseWalker(w) {
+    var tmp = w.from; w.from = w.to; w.to = tmp;
+    w.prog = w.len - w.prog;
+  }
+  function poseReset(w) {
+    var p = w.parts;
+    p.legL.rotation.x = 0; p.legR.rotation.x = 0; p.armL.rotation.x = 0; p.armR.rotation.x = 0;
+    p.armL.rotation.z = 0; p.armR.rotation.z = 0;
+  }
+
   function updateWalkers(dt, t) {
-    var di, wi, d, w, near, dx, dz, diff, sw;
+    var di, wi, wj, d, w, o, p, near, ws, dx, dz, dist, len, ux, uz, f, sw, blocked, sameDir, offT, ph, pr, pl, kind, dur;
     for (di = 0; di < districts.length; di++) {
       d = districts[di];
-      if (!d.walkers || !d.walkers.length) continue;
+      ws = d.walkers;
+      if (!ws || !ws.length) continue;
       near = camera.position.distanceTo(wTmp.set(d.cx, 0, d.cz)) < d.r + 170;
-      for (wi = 0; wi < d.walkers.length; wi++) {
-        w = d.walkers[wi];
-        if (w.g.visible !== near) w.g.visible = near;
-        if (!near) continue;
-        w.prog += w.speed * dt;
-        if (w.prog >= w.len) {
-          var opts = w.to.n.filter(function (v) { return v !== w.from; });
-          if (!opts.length) opts = w.to.n;
-          w.prev = w.from; w.from = w.to;
-          w.to = opts[Math.floor(Math.random() * opts.length)];
-          w.len = Math.hypot(w.to.x - w.from.x, w.to.z - w.from.z);
-          w.prog = 0;
+      for (wi = 0; wi < ws.length; wi++) { if (ws[wi].g.visible !== near) ws[wi].g.visible = near; }
+      if (!near) continue;
+
+      /* 1) Enfriamiento y fin de encuentros (al terminar, cada uno da la vuelta y se separan) */
+      for (wi = 0; wi < ws.length; wi++) {
+        w = ws[wi];
+        if (w.cd > 0) w.cd -= dt;
+        if (w.state !== 'walk') {
+          w.stT -= dt;
+          if (w.stT <= 0) {
+            w.state = 'walk'; w.partner = null; w.wait = 0;
+            w.cd = 5 + Math.random() * 4;
+            poseReset(w);
+            reverseWalker(w);
+          }
         }
-        var f = w.len > 0 ? w.prog / w.len : 0;
-        w.g.position.x = w.from.x + (w.to.x - w.from.x) * f;
-        w.g.position.z = w.from.z + (w.to.z - w.from.z) * f;
-        dx = w.to.x - w.from.x; dz = w.to.z - w.from.z;
-        diff = Math.atan2(dx, dz) - w.yaw;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        w.yaw += diff * Math.min(1, dt * 8);
-        w.g.rotation.y = w.yaw;
-        sw = Math.sin(t * 7 * (w.speed / 2) + w.phase) * 0.7;
-        w.parts.legL.rotation.x = sw; w.parts.legR.rotation.x = -sw;
-        w.parts.armL.rotation.x = -sw * 0.8; w.parts.armR.rotation.x = sw * 0.8;
-        w.g.position.y = 0.14 + Math.abs(Math.sin(t * 7 * (w.speed / 2) + w.phase)) * 0.04;
+      }
+
+      /* 2) Nuevos encuentros: pelea o saludo al azar */
+      for (wi = 0; wi < ws.length; wi++) {
+        w = ws[wi];
+        if (w.state !== 'walk' || w.cd > 0) continue;
+        for (wj = wi + 1; wj < ws.length; wj++) {
+          o = ws[wj];
+          if (o.state !== 'walk' || o.cd > 0) continue;
+          if (Math.hypot(o.bx - w.bx, o.bz - w.bz) < W_MEET) {
+            kind = Math.random() < 0.5 ? 'fight' : 'greet';
+            dur = kind === 'fight' ? 2 + Math.random() : 1.5 + Math.random() * 0.5;
+            w.state = kind; o.state = kind;
+            w.stT = dur; o.stT = dur;
+            w.partner = o; o.partner = w;
+            break;
+          }
+        }
+      }
+
+      /* 3) Movimiento y poses */
+      for (wi = 0; wi < ws.length; wi++) {
+        w = ws[wi];
+        offT = 0;
+        if (w.state === 'walk') {
+          len = w.len;
+          ux = len > 0 ? (w.to.x - w.from.x) / len : 0;
+          uz = len > 0 ? (w.to.z - w.from.z) / len : 0;
+          blocked = false; sameDir = false;
+          for (wj = 0; wj < ws.length; wj++) {
+            if (wj === wi) continue;
+            o = ws[wj];
+            dx = o.bx - w.bx; dz = o.bz - w.bz;
+            dist = Math.hypot(dx, dz);
+            if (dist < W_BLOCK && dist > 0.001 && (ux * dx + uz * dz) / dist > 0.35) {
+              blocked = true;
+              if (o.state === 'walk' && o.len > 0 &&
+                  ((o.to.x - o.from.x) * ux + (o.to.z - o.from.z) * uz) / o.len > 0.5) sameDir = true;
+              break;
+            }
+          }
+          if (blocked) {
+            /* Alguien le cierra el paso: espera; si no va en su misma dirección, da la vuelta */
+            w.wait += dt;
+            if (!sameDir && w.wait > 1.5) { reverseWalker(w); w.wait = 0; }
+            poseReset(w);
+            w.g.position.y = 0.14;
+          } else {
+            w.wait = 0;
+            w.prog += w.speed * dt;
+            if (w.prog >= w.len) {
+              var opts = w.to.n.filter(function (v) { return v !== w.from; });
+              if (!opts.length) opts = w.to.n;
+              w.prev = w.from; w.from = w.to;
+              w.to = opts[Math.floor(Math.random() * opts.length)];
+              w.len = Math.hypot(w.to.x - w.from.x, w.to.z - w.from.z);
+              w.prog = 0;
+            }
+            f = w.len > 0 ? w.prog / w.len : 0;
+            w.bx = w.from.x + (w.to.x - w.from.x) * f;
+            w.bz = w.from.z + (w.to.z - w.from.z) * f;
+            sw = Math.sin(t * 7 * (w.speed / 2) + w.phase) * 0.7;
+            w.parts.legL.rotation.x = sw; w.parts.legR.rotation.x = -sw;
+            w.parts.armL.rotation.x = -sw * 0.8; w.parts.armR.rotation.x = sw * 0.8;
+            w.parts.armL.rotation.z = 0; w.parts.armR.rotation.z = 0;
+            w.g.position.y = 0.14 + Math.abs(Math.sin(t * 7 * (w.speed / 2) + w.phase)) * 0.04;
+          }
+          turnToward(w, w.to.x - w.from.x, w.to.z - w.from.z, dt);
+        } else {
+          p = w.partner;
+          turnToward(w, p.bx - w.bx, p.bz - w.bz, dt);
+          w.parts.legL.rotation.x = 0; w.parts.legR.rotation.x = 0;
+          if (w.state === 'fight') {
+            ph = t * 9 + w.phase;
+            pr = Math.max(0, Math.sin(ph)); pl = Math.max(0, -Math.sin(ph));
+            w.parts.armR.rotation.x = -1.5 * pr;
+            w.parts.armL.rotation.x = -1.5 * pl;
+            w.parts.armL.rotation.z = 0; w.parts.armR.rotation.z = 0;
+            offT = 0.15 + 0.1 * Math.max(pr, pl);
+            w.g.position.y = 0.14 + Math.abs(Math.sin(ph)) * 0.05;
+          } else {
+            w.parts.armL.rotation.x = 0; w.parts.armL.rotation.z = 0;
+            w.parts.armR.rotation.x = -2.6;
+            w.parts.armR.rotation.z = Math.sin(t * 12 + w.phase) * 0.45;
+            offT = 0.12;
+            w.g.position.y = 0.14;
+          }
+        }
+        w.off += (offT - w.off) * Math.min(1, dt * 10);
+        w.g.position.x = w.bx + Math.sin(w.yaw) * w.off;
+        w.g.position.z = w.bz + Math.cos(w.yaw) * w.off;
       }
     }
   }
