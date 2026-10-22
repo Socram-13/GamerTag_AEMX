@@ -625,29 +625,6 @@ window.startMap = function (RAW) {
     x.strokeStyle = '#00f0ff'; x.lineWidth = 2; x.strokeRect(1, 1, w - 2, h - 2);
   });
   var holoMat = new THREE.MeshBasicMaterial({ map: holoTex, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  var holoTex2 = cyTex(128, 256, function (x, w, h) {
-    var gr = x.createLinearGradient(0, 0, 0, h), k;
-    gr.addColorStop(0, 'rgba(0,240,255,0.55)'); gr.addColorStop(1, 'rgba(255,43,214,0.6)');
-    x.fillStyle = gr; x.fillRect(0, 0, w, h);
-    x.fillStyle = 'rgba(0,240,255,0.7)';
-    for (k = 0; k < h; k += 5) x.fillRect(0, k, w, 1);
-    x.fillStyle = 'rgba(255,255,255,0.95)';
-    x.fillRect(12, 14, w - 24, 10);
-    for (k = 0; k < 8; k++) x.fillRect(12, 44 + k * 26, 22 + ((k * 37) % 70), 8);
-    x.strokeStyle = '#00f0ff'; x.lineWidth = 4; x.strokeRect(2, 2, w - 4, h - 4);
-    x.strokeStyle = '#ffffff'; x.lineWidth = 6;
-    x.beginPath(); x.moveTo(2, 26); x.lineTo(2, 2); x.lineTo(26, 2); x.moveTo(w - 26, h - 2); x.lineTo(w - 2, h - 2); x.lineTo(w - 2, h - 26); x.stroke();
-  });
-  var holoMat2 = new THREE.MeshBasicMaterial({ map: holoTex2, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  /* Pantalla en esquina, orientada hacia afuera para verse desde cualquier ángulo */
-  function cyHoloCorner(g, sx, sz, rad, y, w, h) {
-    var m = new THREE.Mesh(uPlane, holoMat2);
-    m.scale.set(w, h, 1);
-    m.position.set(sx * rad / Math.SQRT2, y, sz * rad / Math.SQRT2);
-    m.rotation.y = Math.atan2(sx, sz);
-    g.add(m);
-    return m;
-  }
 
   function cyBox(g, mat, sx, sy, sz, x, y, z) { var m = new THREE.Mesh(uBox, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); g.add(m); return m; }
   function cyCyl(g, mat, rx, h, x, y, z) { var m = new THREE.Mesh(uCyl, mat); m.scale.set(rx, h, rx); m.position.set(x, y, z); g.add(m); return m; }
@@ -659,7 +636,6 @@ window.startMap = function (RAW) {
   function updateCyber(t) {
     var i, w;
     holoMat.opacity = 0.55 + 0.18 * Math.sin(t * 4) + 0.07 * Math.sin(t * 27);
-    holoMat2.opacity = 0.82 + 0.1 * Math.sin(t * 4) + 0.05 * Math.sin(t * 27);
     for (i = 0; i < wallMats.length; i++) {
       w = wallMats[i];
       w.m.emissiveIntensity = 0.95 + 0.35 * Math.pow(Math.max(0, Math.sin(t * 0.9 + w.ph)), 3);
@@ -748,22 +724,20 @@ window.startMap = function (RAW) {
       ring(r.top * 0.7, W * 0.95, 0xc084fc, 0.6, 0.22);
       ring(r.top * 0.42, W * 0.8, 0x00f0ff, -0.5, -0.2);
       m2 = new THREE.Mesh(uDisc, off ? cyHeliOff : cyHeli);
-      m2.scale.setScalar(r.w * 0.3);
+      m2.scale.setScalar(r.w * 0.28);
       m2.position.y = r.top + 0.08;
       g.add(m2);
-      cyRing(g, N.yel, r.top + 0.09, r.w * 0.32);
-      ant(r.top, -r.w * 0.42, 2.6, 0xff2bd6);
-      ant(r.top, r.w * 0.42, 2.0, 0x00f0ff);
+      cyRing(g, N.yel, r.top + 0.09, r.w * 0.3);
+      ant(r.top, -r.w * 0.4, 2.6, 0xff2bd6);
+      ant(r.top, r.w * 0.4, 2.0, 0x00f0ff);
       m2 = new THREE.Mesh(uSphere, N.cyan);
       m2.scale.setScalar(0.3);
       m2.position.y = r.top + 2.3;
       g.add(m2);
       if (!off) {
-        var hh4 = Math.min(4.6, r.top * 0.55);
-        function half4(f) { return W * (1 - 0.25 * f) / 2; }
-        cyHoloCorner(g, 1, 1, half4(0.6) * Math.SQRT2 + 0.7, r.top * 0.6, 2.5, hh4);
-        cyHoloCorner(g, -1, 1, half4(0.42) * Math.SQRT2 + 0.7, r.top * 0.42, 2.5, hh4);
-        cyHoloCorner(g, -1, -1, half4(0.55) * Math.SQRT2 + 0.7, r.top * 0.55, 2.5, hh4);
+        var hh4 = Math.min(3.4, r.top * 0.5);
+        cyHolo(g, W * 0.5 + 0.7, r.top * 0.7, 0, 1.9, hh4, Math.PI / 2);
+        cyHolo(g, -(W * 0.5 + 0.7), r.top * 0.5, 0, 1.9, hh4, Math.PI / 2);
         cyBeam(g, cyBeamCyan, 1.1, 9, r.top + 2.3);
       }
       topY = r.top + 2.8;
@@ -837,11 +811,9 @@ window.startMap = function (RAW) {
         }
       }
       if (!off) {
-        var hhp = Math.min(4.4, r.top * 0.3);
-        cyHoloCorner(g, 1, 1, hfp(0.58) * Math.SQRT2 + 0.8, 1.6 + r.top * 0.58, 2.7, hhp);
-        cyHoloCorner(g, -1, 1, hfp(0.46) * Math.SQRT2 + 0.8, 1.6 + r.top * 0.46, 2.7, hhp);
-        cyHoloCorner(g, 1, -1, hfp(0.5) * Math.SQRT2 + 0.8, 1.6 + r.top * 0.5, 2.7, hhp);
-        cyHoloCorner(g, -1, -1, hfp(0.62) * Math.SQRT2 + 0.8, 1.6 + r.top * 0.62, 2.7, hhp);
+        var hhp = Math.min(3.4, r.top * 0.5);
+        cyHolo(g, W * 0.5 + 0.7, 1.6 + r.top * 0.7, 0, 1.9, hhp, Math.PI / 2);
+        cyHolo(g, -(W * 0.5 + 0.7), 1.6 + r.top * 0.5, 0, 1.9, hhp, Math.PI / 2);
       }
       topY = spireBase + 4.4;
     }
