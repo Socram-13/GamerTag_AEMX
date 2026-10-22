@@ -1600,17 +1600,35 @@ window.startMap = function (RAW) {
   var astSuitB = new THREE.MeshLambertMaterial({ color: 0x15171c });
   var astPackB = new THREE.MeshLambertMaterial({ color: 0x2a2d34 });
   var astVisorB = new THREE.MeshLambertMaterial({ color: 0x2d7bff, emissive: 0x0a3a99 });
+  /* Astronauta especial: traje naranja, visor negro y moicano rubio inclinado al frente */
+  var astSuitO = new THREE.MeshLambertMaterial({ color: 0xf26a1b });
+  var astPackO = new THREE.MeshLambertMaterial({ color: 0xa8440c });
+  var astVisorO = new THREE.MeshLambertMaterial({ color: 0x08090b, emissive: 0x020203 });
+  var astHair = new THREE.MeshLambertMaterial({ color: 0xf7c92b, emissive: 0x3a2c00 });
+  var gSpike = new THREE.ConeGeometry(0.065, 0.3, 5);
   var gTorso = new THREE.BoxGeometry(0.5, 0.6, 0.32), gLeg = new THREE.BoxGeometry(0.2, 0.55, 0.22);
   var gArm = new THREE.BoxGeometry(0.14, 0.5, 0.14), gHelmet = new THREE.SphereGeometry(0.3, 14, 10);
   var gVisor = new THREE.SphereGeometry(0.18, 14, 10), gPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
 
-  function makeAstronaut(black) {
-    var g = new THREE.Group(), m, suit = black ? astSuitB : astSuit, pack = black ? astPackB : astPack, vis = black ? astVisorB : astVisor;
+  function makeAstronaut(kind) {
+    var black = kind === true, orange = kind === 'orange';
+    var g = new THREE.Group(), m, suit = orange ? astSuitO : black ? astSuitB : astSuit, pack = orange ? astPackO : black ? astPackB : astPack, vis = orange ? astVisorO : black ? astVisorB : astVisor;
     g.rotation.order = 'YXZ';
     m = new THREE.Mesh(gTorso, suit); m.position.y = 0.95; g.add(m);
     m = new THREE.Mesh(gPack, pack); m.position.set(0, 0.98, -0.26); g.add(m);
     m = new THREE.Mesh(gHelmet, suit); m.position.y = 1.5; g.add(m);
     m = new THREE.Mesh(gVisor, vis); m.position.set(0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75); g.add(m);
+    if (orange) {
+      /* Moicano: cresta de picos sobre el casco, cada vez más inclinada hacia la frente; el último cae como flequillo */
+      var hz = [-0.2, -0.1, 0, 0.1, 0.19, 0.26], hs = [0.9, 1.0, 1.1, 1.15, 1.2, 1.0], ht = [0.45, 0.65, 0.85, 1.05, 1.25, 1.6], hi;
+      for (hi = 0; hi < hz.length; hi++) {
+        m = new THREE.Mesh(gSpike, astHair);
+        m.position.set(0, 1.5 + Math.sqrt(0.09 - hz[hi] * hz[hi]) * 0.97, hz[hi]);
+        m.rotation.x = ht[hi];
+        m.scale.set(1, hs[hi], 1);
+        g.add(m);
+      }
+    }
     function limb(geo, x, y, len) {
       var piv = new THREE.Group();
       piv.position.set(x, y, 0);
@@ -1646,6 +1664,7 @@ window.startMap = function (RAW) {
     return list;
   }
 
+  var orangeDone = false;
   if (!REDUCED) {
     districts.forEach(function (d) {
       var streets = buildStreets(d);
@@ -1655,7 +1674,10 @@ window.startMap = function (RAW) {
       d.walkers = [];
       var usedV = [], i;
       for (i = 0; i < count; i++) {
-        var a = makeAstronaut(d.name === 'Ciudad de México' && i === 0);
+        var isCdmx = d.name === 'Ciudad de México', kindA;
+        if (isCdmx && i === 0) kindA = true;
+        else if (!orangeDone && ((isCdmx && i === 1) || (!isCdmx && i === 0 && (byCity['Ciudad de México'] || []).length < 2))) { kindA = 'orange'; orangeDone = true; }
+        var a = makeAstronaut(kindA);
         var from, tries = 0;
         do { from = streets[Math.floor(rnd() * streets.length)]; tries++; } while (usedV.indexOf(from) >= 0 && tries < 25);
         usedV.push(from);
@@ -1665,7 +1687,7 @@ window.startMap = function (RAW) {
         scene.add(a.g);
         var w = { g: a.g, parts: a.parts, from: from, to: to, prev: null, prog: 0, len: Math.hypot(to.x - from.x, to.z - from.z),
                   speed: 1.6 + rnd() * 1.2, phase: rnd() * 6, yaw: Math.atan2(to.x - from.x, to.z - from.z),
-                  state: 'walk', stT: 0, cd: 2 + rnd() * 3, partner: null, wait: 0, bx: from.x, bz: from.z, off: 0,
+                  state: 'walk', stT: 0, cd: kindA ? 1e9 : 2 + rnd() * 3, role: kindA === true ? 'black' : kindA === 'orange' ? 'orange' : null, foe: null, tauntT: 0, tauntCd: 0, fleeT: 0, rvT: 0, partner: null, wait: 0, bx: from.x, bz: from.z, off: 0,
                   hit: 0, lean: 0, pT: 0, pGap: 0, pArm: false, lose: false, boom: false };
         w.g.rotation.y = w.yaw;
         d.walkers.push(w);
@@ -1673,6 +1695,44 @@ window.startMap = function (RAW) {
       }
     });
   }
+
+  /* Persecución: el naranja persigue al negro (solo si están en el mismo distrito) */
+  var clanOrange = null;
+  (function () {
+    var bl = null, og = null;
+    walkers.forEach(function (w) { if (w.role === 'black') bl = w; else if (w.role === 'orange') og = w; });
+    if (!bl || !og) return;
+    var same = districts.some(function (d) { return d.walkers && d.walkers.indexOf(bl) >= 0 && d.walkers.indexOf(og) >= 0; });
+    if (!same) return;
+    bl.foe = og; og.foe = bl;
+    bl.speed = 1.7; og.speed = 2.3;
+    clanOrange = og;
+  })();
+
+  /* Globo de texto "yo soy el clan" (sprite que mira siempre a la cámara) */
+  var clanBubble = null;
+  (function () {
+    if (REDUCED) return;
+    var c = document.createElement('canvas'); c.width = 512; c.height = 200;
+    var x = c.getContext('2d');
+    x.fillStyle = '#ffffff'; x.strokeStyle = '#14161a'; x.lineWidth = 8; x.lineJoin = 'round';
+    x.beginPath();
+    x.moveTo(44, 8); x.lineTo(468, 8); x.arcTo(504, 8, 504, 44, 36); x.lineTo(504, 100); x.arcTo(504, 136, 468, 136, 36);
+    x.lineTo(284, 136); x.lineTo(256, 190); x.lineTo(228, 136); x.lineTo(44, 136); x.arcTo(8, 136, 8, 100, 36);
+    x.lineTo(8, 44); x.arcTo(8, 8, 44, 8, 36); x.closePath();
+    x.fill(); x.stroke();
+    x.fillStyle = '#14161a'; x.font = 'bold 58px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('yo soy el clan', 256, 74);
+    var tex = new THREE.CanvasTexture(c);
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    clanBubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    clanBubble.center.set(0.5, 0.05);
+    clanBubble.renderOrder = 999;
+    clanBubble.scale.set(3.6, 1.41, 1);
+    clanBubble.visible = false;
+    clanBubble.raycast = function () {};
+    scene.add(clanBubble);
+  })();
 
   /* Interacción entre astronautas: no se atraviesan; al encontrarse pelean o se saludan al azar */
   var W_BLOCK = 1.0, W_MEET = 1.25, PUNCH_DUR = 0.22;
@@ -1768,6 +1828,18 @@ window.startMap = function (RAW) {
     p.armL.rotation.z = 0; p.armR.rotation.z = 0;
   }
 
+  function pickNext(w, opts) {
+    var i, best = null, bd = 0, dd, fo = w.foe;
+    if (fo && (w.role === 'orange' || (w.role === 'black' && w.fleeT > 0))) {
+      for (i = 0; i < opts.length; i++) {
+        dd = Math.hypot(opts[i].x - fo.bx, opts[i].z - fo.bz);
+        if (best === null || (w.role === 'orange' ? dd < bd : dd > bd)) { best = opts[i]; bd = dd; }
+      }
+      return best;
+    }
+    return opts[Math.floor(Math.random() * opts.length)];
+  }
+
   function updateWalkers(dt, t) {
     var di, wi, wj, d, w, o, p, near, ws, dx, dz, dist, len, ux, uz, f, sw, blocked, sameDir, offT, leanT, pr, kind, dur;
     for (di = 0; di < districts.length; di++) {
@@ -1783,6 +1855,10 @@ window.startMap = function (RAW) {
         w = ws[wi];
         if (w.cd > 0) w.cd -= dt;
         if (w.hit > 0) w.hit = Math.max(0, w.hit - dt / 0.35);
+        if (w.tauntT > 0) { w.tauntT -= dt; if (w.tauntT <= 0) w.tauntCd = 3; }
+        if (w.tauntCd > 0) w.tauntCd -= dt;
+        if (w.fleeT > 0) w.fleeT -= dt;
+        if (w.rvT > 0) w.rvT -= dt;
         if (w.state !== 'walk') {
           w.stT -= dt;
           if (w.stT <= 0) {
@@ -1821,10 +1897,29 @@ window.startMap = function (RAW) {
       for (wi = 0; wi < ws.length; wi++) {
         w = ws[wi];
         offT = 0; leanT = 0;
-        if (w.state === 'walk') {
+        var taunting = false, spd = w.speed * (w.fleeT > 0 ? 2.4 : 1);
+        if (w.role === 'orange' && w.foe) {
+          var fo = w.foe, fd = Math.hypot(fo.bx - w.bx, fo.bz - w.bz);
+          if (w.tauntT <= 0 && w.tauntCd <= 0 && fd < 2.4 && fo.state === 'walk') { w.tauntT = 2.4; fo.fleeT = 5; }
+          taunting = w.tauntT > 0;
+        }
+        if (taunting) {
+          turnToward(w, w.foe.bx - w.bx, w.foe.bz - w.bz, dt);
+          w.parts.legL.rotation.x = 0; w.parts.legR.rotation.x = 0;
+          w.parts.armL.rotation.x = 0; w.parts.armL.rotation.z = 0;
+          w.parts.armR.rotation.x = -2.9;
+          w.parts.armR.rotation.z = Math.sin(t * 10) * 0.25;
+          w.g.position.y = 0.14;
+        } else if (w.state === 'walk') {
           len = w.len;
           ux = len > 0 ? (w.to.x - w.from.x) / len : 0;
           uz = len > 0 ? (w.to.z - w.from.z) / len : 0;
+          if (w.role && w.foe && w.rvT <= 0) {
+            var fx = w.foe.bx - w.bx, fz = w.foe.bz - w.bz, fdd = Math.hypot(fx, fz) || 1, fwd = (fx * ux + fz * uz) / fdd;
+            if ((w.role === 'orange' && fdd > 3 && fwd < -0.4) || (w.role === 'black' && w.fleeT > 0 && fdd < 9 && fwd > 0.4)) {
+              reverseWalker(w); w.rvT = 0.8; ux = -ux; uz = -uz;
+            }
+          }
           blocked = false; sameDir = false;
           for (wj = 0; wj < ws.length; wj++) {
             if (wj === wi) continue;
@@ -1846,23 +1941,23 @@ window.startMap = function (RAW) {
             w.g.position.y = 0.14;
           } else {
             w.wait = 0;
-            w.prog += w.speed * dt;
+            w.prog += spd * dt;
             if (w.prog >= w.len) {
               var opts = w.to.n.filter(function (v) { return v !== w.from; });
               if (!opts.length) opts = w.to.n;
               w.prev = w.from; w.from = w.to;
-              w.to = opts[Math.floor(Math.random() * opts.length)];
+              w.to = pickNext(w, opts);
               w.len = Math.hypot(w.to.x - w.from.x, w.to.z - w.from.z);
               w.prog = 0;
             }
             f = w.len > 0 ? w.prog / w.len : 0;
             w.bx = w.from.x + (w.to.x - w.from.x) * f;
             w.bz = w.from.z + (w.to.z - w.from.z) * f;
-            sw = Math.sin(t * 7 * (w.speed / 2) + w.phase) * 0.7;
+            sw = Math.sin(t * 7 * (spd / 2) + w.phase) * 0.7;
             w.parts.legL.rotation.x = sw; w.parts.legR.rotation.x = -sw;
             w.parts.armL.rotation.x = -sw * 0.8; w.parts.armR.rotation.x = sw * 0.8;
             w.parts.armL.rotation.z = 0; w.parts.armR.rotation.z = 0;
-            w.g.position.y = 0.14 + Math.abs(Math.sin(t * 7 * (w.speed / 2) + w.phase)) * 0.04;
+            w.g.position.y = 0.14 + Math.abs(Math.sin(t * 7 * (spd / 2) + w.phase)) * 0.04;
           }
           turnToward(w, w.to.x - w.from.x, w.to.z - w.from.z, dt);
         } else {
@@ -1903,6 +1998,15 @@ window.startMap = function (RAW) {
         w.g.rotation.x = w.lean;
         w.g.position.x = w.bx + Math.sin(w.yaw) * w.off;
         w.g.position.z = w.bz + Math.cos(w.yaw) * w.off;
+      }
+    }
+    if (clanOrange && clanBubble) {
+      var showB = clanOrange.tauntT > 0 && clanOrange.g.visible;
+      if (showB !== clanBubble.visible) clanBubble.visible = showB;
+      if (showB) {
+        var pu = Math.min(1, (2.4 - clanOrange.tauntT) / 0.2), psc = 0.6 + 0.4 * (1 - Math.pow(1 - pu, 3));
+        clanBubble.scale.set(3.6 * psc, 1.41 * psc, 1);
+        clanBubble.position.set(clanOrange.g.position.x, 2.25, clanOrange.g.position.z);
       }
     }
     updateFx(dt);
