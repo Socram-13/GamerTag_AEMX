@@ -810,17 +810,17 @@ window.startMap = function (RAW) {
   var walkers = [], wTmp = new THREE.Vector3();
   var astSuit = new THREE.MeshLambertMaterial({ color: 0xe8f0ff });
   var astPack = new THREE.MeshLambertMaterial({ color: 0x9fb0c8 });
-  var astVisor = new THREE.MeshLambertMaterial({ color: 0xe6a53a, emissive: 0x7a4a08 });
+  var astVisor = new THREE.MeshLambertMaterial({ color: 0x1c2026, emissive: 0x050607 });
   var gTorso = new THREE.BoxGeometry(0.5, 0.6, 0.32), gLeg = new THREE.BoxGeometry(0.2, 0.55, 0.22);
   var gArm = new THREE.BoxGeometry(0.14, 0.5, 0.14), gHelmet = new THREE.SphereGeometry(0.3, 14, 10);
-  var gVisor = new THREE.SphereGeometry(0.24, 14, 10), gPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
+  var gVisor = new THREE.SphereGeometry(0.18, 14, 10), gPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
 
   function makeAstronaut() {
     var g = new THREE.Group(), m;
     m = new THREE.Mesh(gTorso, astSuit); m.position.y = 0.95; g.add(m);
     m = new THREE.Mesh(gPack, astPack); m.position.set(0, 0.98, -0.26); g.add(m);
     m = new THREE.Mesh(gHelmet, astSuit); m.position.y = 1.5; g.add(m);
-    m = new THREE.Mesh(gVisor, astVisor); m.position.set(0, 1.5, 0.2); m.scale.set(1.15, 0.85, 0.75); g.add(m);
+    m = new THREE.Mesh(gVisor, astVisor); m.position.set(0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75); g.add(m);
     function limb(geo, x, y, len) {
       var piv = new THREE.Group();
       piv.position.set(x, y, 0);
