@@ -1143,7 +1143,7 @@ window.startMap = function (RAW) {
       stBox[n] = b;
     });
     var lastEdge = 1;
-    function onLand(x, z) {
+    function onLand(x, z, me) {
       var i, n, b, bestIn = false, minD = 1e9;
       if (!stNames.length) { probe(country, x, z); return PR.inside && PR.dist >= 0.9; }
       for (i = 0; i < stNames.length; i++) {
@@ -1153,7 +1153,7 @@ window.startMap = function (RAW) {
         if (PR.inside) { bestIn = true; minD = Math.min(minD, PR.dist); }
       }
       lastEdge = minD;
-      return bestIn && minD >= 0.9;
+      return bestIn && minD >= (me === undefined ? 0.9 : me);
     }
     function zoneOf(x, z) {
       var lat = LAT0 - z / KZ, lon = LON0 + x / KX;
@@ -1216,12 +1216,12 @@ window.startMap = function (RAW) {
         x = (ix + 0.5) * G; z = (iz + 0.5) * G;
         dm = nearestHex(x, z);
         if (dm < HEX_R * 0.5) return; /* el suelo también pasa por debajo de los hexágonos */
-        if (!force) {
-          lim = HEX_R + 0.6 + RING * (0.62 + 0.55 * nz(x, z, 0.33, 1.3) + 0.14 * (nz(x, z, 1.1, 2.2) - 0.5));
-          if (dm > lim) return;
-        }
-        if (!onLand(x, z)) return;
+        lim = HEX_R + 0.6 + RING * (0.62 + 0.55 * nz(x, z, 0.33, 1.3) + 0.14 * (nz(x, z, 1.1, 2.2) - 0.5));
+        if (!force && dm > HEX_R + 0.6 + RING * 1.3 + 3) return;
+        if (!onLand(x, z, 0.03)) return; /* el suelo llega hasta el borde del estado */
         edge = lastEdge;
+        /* Fuera de la franja de vegetación solo se cubre la orilla del estado (sin banda turquesa) */
+        if (!force && dm > lim && edge > 3.5) return;
         zone = zoneOf(x, z);
         n1 = nz(x, z, 0.23, 4.1); n2 = nz(x, z, 0.61, 0.7);
         var gc, dc, w;
@@ -1230,7 +1230,7 @@ window.startMap = function (RAW) {
         else { gc = col(0.28 + 0.05 * n2, 0.42, 0.16 + 0.1 * n2); dc = col(0.08 + 0.02 * n2, 0.33, 0.19 + 0.06 * n2); w = (n1 - 0.66) / 0.2; }
         w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
         c = gc.lerp(dc, w);
-        list.push({ x: x, z: z, y: 0.02 + ((ix + iz) & 1) * 0.004, c: c });
+        list.push({ x: x, z: z, y: 0.02 + ((ix + iz) & 1) * 0.004, c: c, r: Math.min(G * 0.82, edge + 0.12) });
       }
       districts.forEach(function (d) {
         var all = d.cells.concat(d.extra), i, x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, ix, iz;
@@ -1251,7 +1251,7 @@ window.startMap = function (RAW) {
         it = list[i];
         dummy.position.set(it.x, it.y, it.z);
         dummy.rotation.set(-Math.PI / 2, 0, 0);
-        dummy.scale.set(G * 0.82, G * 0.82, 1);
+        dummy.scale.set(it.r, it.r, 1);
         dummy.updateMatrix();
         gm.setMatrixAt(i, dummy.matrix); gm.setColorAt(i, it.c);
       }
