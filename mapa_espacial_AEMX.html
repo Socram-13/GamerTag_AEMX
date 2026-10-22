@@ -135,6 +135,7 @@
           <span><i class="dot" style="background:var(--epic)"></i>Épica</span>
           <span><i class="dot" style="background:var(--legend)"></i>Legendaria</span>
         </div>
+        <div class="row"><span><i class="dot" style="background:#00ff9d"></i>Estado con miembros AEMX</span></div>
         <div class="row levels"><b>Nivel</b>
           <span class="chip">Cápsula &lt;300</span>
           <span class="chip">Módulo 300–699</span>
@@ -282,15 +283,127 @@ window.startMap = function (RAW) {
   }
   function num(v) { v = Number(v); return isFinite(v) && v > 0 ? Math.round(v) : 0; }
 
+  const CIUDAD_ESTADO = {
+    'ciudad de méxico':'Ciudad de México','cdmx':'Ciudad de México',
+    'guadalajara':'Jalisco','zapopan':'Jalisco','tlaquepaque':'Jalisco',
+    'monterrey':'Nuevo León','san nicolás':'Nuevo León','apodaca':'Nuevo León','escobedo':'Nuevo León',
+    'puebla':'Puebla','cholula':'Puebla',
+    'tijuana':'Baja California','mexicali':'Baja California','ensenada':'Baja California',
+    'toluca':'Estado de México','ecatepec':'Estado de México','naucalpan':'Estado de México','nezahualcóyotl':'Estado de México',
+    'león':'Guanajuato','guanajuato':'Guanajuato','irapuato':'Guanajuato',
+    'chihuahua':'Chihuahua','juárez':'Chihuahua','ciudad juárez':'Chihuahua',
+    'mérida':'Yucatán','valladolid':'Yucatán',
+    'hermosillo':'Sonora','nogales':'Sonora','obregón':'Sonora',
+    'culiacán':'Sinaloa','mazatlán':'Sinaloa','los mochis':'Sinaloa',
+    'acapulco':'Guerrero','chilpancingo':'Guerrero',
+    'cancún':'Quintana Roo','playa del carmen':'Quintana Roo','tulum':'Quintana Roo','chetumal':'Quintana Roo',
+    'veracruz':'Veracruz','xalapa':'Veracruz','coatzacoalcos':'Veracruz',
+    'oaxaca':'Oaxaca','salina cruz':'Oaxaca',
+    'morelia':'Michoacán','uruapan':'Michoacán','zamora':'Michoacán',
+    'aguascalientes':'Aguascalientes',
+    'san luis potosí':'San Luis Potosí',
+    'saltillo':'Coahuila','torreón':'Coahuila','monclova':'Coahuila',
+    'durango':'Durango',
+    'tepic':'Nayarit',
+    'colima':'Colima','manzanillo':'Colima',
+    'tuxtla gutiérrez':'Chiapas','san cristóbal':'Chiapas','tapachula':'Chiapas',
+    'villahermosa':'Tabasco','cárdenas':'Tabasco',
+    'campeche':'Campeche',
+    'matehuala':'San Luis Potosí','ciudad valles':'San Luis Potosí',
+    'zacatecas':'Zacatecas','fresnillo':'Zacatecas',
+    'pachuca':'Hidalgo','tula':'Hidalgo',
+    'querétaro':'Querétaro',
+    'cuernavaca':'Morelos','jiutepec':'Morelos',
+    'tlaxcala':'Tlaxcala','apizaco':'Tlaxcala',
+    'chilpancingo':'Guerrero',
+    'la paz':'Baja California Sur','los cabos':'Baja California Sur','cabo san lucas':'Baja California Sur',
+    'cd. obregón':'Sonora','ciudad obregón':'Sonora',
+    'tampico':'Tamaulipas','matamoros':'Tamaulipas','reynosa':'Tamaulipas','nuevo laredo':'Tamaulipas',
+  };
+
+  // Coordenadas de capitales de estados para colorear el centroide
+  const ESTADO_COORDS = {
+    'Aguascalientes':      [21.8853, -102.2916],
+    'Baja California':     [30.8406, -115.2838],
+    'Baja California Sur': [26.0444, -111.6661],
+    'Campeche':            [19.8301, -90.5349],
+    'Chiapas':             [16.7569, -93.1292],
+    'Chihuahua':           [28.6353, -106.0889],
+    'Ciudad de México':    [19.4326, -99.1332],
+    'Coahuila':            [27.0587, -101.7068],
+    'Colima':              [19.2452, -103.7241],
+    'Durango':             [24.0277, -104.6532],
+    'Estado de México':    [19.2826, -99.6557],
+    'Guanajuato':          [21.0190, -101.2574],
+    'Guerrero':            [17.4392, -100.0000],
+    'Hidalgo':             [20.0911, -98.7624],
+    'Jalisco':             [20.6597, -103.3496],
+    'Michoacán':           [19.7008, -101.1844],
+    'Morelos':             [18.6813, -99.1013],
+    'Nayarit':             [21.7514, -104.8455],
+    'Nuevo León':          [25.5922, -99.9962],
+    'Oaxaca':              [17.0732, -96.7266],
+    'Puebla':              [19.0414, -98.2063],
+    'Querétaro':           [20.5888, -100.3899],
+    'Quintana Roo':        [19.1817, -88.4791],
+    'San Luis Potosí':     [22.1565, -100.9855],
+    'Sinaloa':             [25.1721, -107.4795],
+    'Sonora':              [29.0729, -110.9559],
+    'Tabasco':             [17.8409, -92.6189],
+    'Tamaulipas':          [24.2669, -98.8363],
+    'Tlaxcala':            [19.3182, -98.2375],
+    'Veracruz':            [19.1738, -96.1342],
+    'Yucatán':             [20.9674, -89.5926],
+    'Zacatecas':           [22.7709, -102.5832],
+  };
+
+
+  const quitarAcentos = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '').trim();
+
+  const ESTADO_ALIAS = {};
+  Object.keys(ESTADO_COORDS).forEach(k => { ESTADO_ALIAS[quitarAcentos(k)] = k; });
+  Object.assign(ESTADO_ALIAS, {
+    'mexico city': 'Ciudad de México', 'federal district': 'Ciudad de México', 'distrito federal': 'Ciudad de México',
+    'cdmx': 'Ciudad de México', 'ciudad de mexico': 'Ciudad de México', 'cd de mexico': 'Ciudad de México', 'df': 'Ciudad de México',
+    'state of mexico': 'Estado de México', 'estado de mexico': 'Estado de México', 'mexico state': 'Estado de México',
+    'edomex': 'Estado de México', 'edo de mexico': 'Estado de México',
+    'michoacan de ocampo': 'Michoacán', 'coahuila de zaragoza': 'Coahuila',
+    'veracruz de ignacio de la llave': 'Veracruz', 'baja california norte': 'Baja California',
+    'queretaro de arteaga': 'Querétaro',
+  });
+  const CIUDAD_ESTADO_N = {};
+  Object.keys(CIUDAD_ESTADO).forEach(k => { CIUDAD_ESTADO_N[quitarAcentos(k)] = CIUDAD_ESTADO[k]; });
+
+  const estadoCanonico = (t) => ESTADO_ALIAS[quitarAcentos(t)] || null;
+  const esMexico = (c) => { const n = quitarAcentos(c); return n === 'mexico' || n === 'mx' || n === 'united mexican states'; };
+
+  function extractEstado(city) {
+    if (!city) return null;
+    var parts = String(city).split(',').map(function (x) { return x.trim(); }).filter(Boolean), i, e;
+    for (i = parts.length - 1; i >= 0; i--) { e = estadoCanonico(parts[i]); if (e) return e; }
+    return CIUDAD_ESTADO_N[quitarAcentos(parts[0] || '')] || null;
+  }
+  var CITY2STATE = {'Mérida':'Yucatán','Ciudad de México':'Ciudad de México','Guadalajara':'Jalisco','Monterrey':'Nuevo León','Puebla':'Puebla','Cancún':'Quintana Roo','Tijuana':'Baja California','Querétaro':'Querétaro','Veracruz':'Veracruz','Chihuahua':'Chihuahua','Oaxaca':'Oaxaca','Hermosillo':'Sonora','Villahermosa':'Tabasco','La Paz':'Baja California Sur','León':'Guanajuato','San Luis Potosí':'San Luis Potosí','Toluca':'Estado de México','Aguascalientes':'Aguascalientes','Morelia':'Michoacán','Saltillo':'Coahuila','Culiacán':'Sinaloa','Mexicali':'Baja California','Acapulco':'Guerrero','Cuernavaca':'Morelos','Tampico':'Tamaulipas','Torreón':'Coahuila','Durango':'Durango','Zacatecas':'Zacatecas','Tuxtla Gutiérrez':'Chiapas','Campeche':'Campeche','Chetumal':'Quintana Roo','Playa del Carmen':'Quintana Roo','Tepic':'Nayarit','Colima':'Colima','Pachuca':'Hidalgo','Tlaxcala':'Tlaxcala','Xalapa':'Veracruz','Reynosa':'Tamaulipas','Ciudad Juárez':'Chihuahua','Mazatlán':'Sinaloa','Ensenada':'Baja California','Los Cabos':'Baja California Sur','Puerto Vallarta':'Jalisco','Tapachula':'Chiapas','Ciudad Obregón':'Sonora','Nuevo Laredo':'Tamaulipas','Matamoros':'Tamaulipas','Celaya':'Guanajuato','Irapuato':'Guanajuato','Guanajuato':'Guanajuato','Ciudad del Carmen':'Campeche','Progreso':'Yucatán','Valladolid':'Yucatán','Tulum':'Quintana Roo'};
+  var estadosCon = {};
+  function cityForState(est) {
+    var k; for (k in CITY2STATE) { if (CITY2STATE[k] === est) return k; }
+    if (ESTADO_COORDS[est]) { CITIES.push([est, 0, ESTADO_COORDS[est][1], ESTADO_COORDS[est][0]]); CITY2STATE[est] = est; return est; }
+    return null;
+  }
+
   var players = [], skipped = 0;
   Object.keys(RAW || {}).forEach(function (uid) {
     var u = RAW[uid];
     if (!u || typeof u !== 'object' || !u.username || u.bannedLeaderboard === true) return;
     var country = norm(u.country);
     if (country && country.indexOf('mex') === -1) { skipped++; return; }
-    var city = matchCity(u.city) || (u.city ? null : null);
+    var estado = extractEstado(u.city);
+    var city = matchCity(u.city);
+    if (!city && estado) city = cityForState(estado);
+    if (city && !estado) estado = CITY2STATE[city] || null;
     var total = num(u.common) + num(u.rare) + num(u.epic) + num(u.legendary);
     if (!city || total < 1) { skipped++; return; }
+    if (estado) estadosCon[estado] = (estadosCon[estado] || 0) + 1;
     players.push({ name: String(u.username), city: city, total: total, common: num(u.common), rare: num(u.rare), epic: num(u.epic), legendary: num(u.legendary) });
   });
   players.sort(function (a, b) { return b.total - a.total; });
@@ -549,6 +662,38 @@ window.startMap = function (RAW) {
   plate.position.y = -PLATE_D;
   plate.receiveShadow = true;
   scene.add(plate);
+
+  /* ---------- Estados con miembros AEMX (GeoJSON) ---------- */
+  var statesGroup = new THREE.Group();
+  scene.add(statesGroup);
+  var stateMat = new THREE.MeshBasicMaterial({ color: 0x00ff9d, transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide });
+  var stateLineMat = new THREE.LineBasicMaterial({ color: 0x00ff9d });
+  var NOMBRE_MAP = { 'Baja California Norte': 'Baja California', 'Coahuila de Zaragoza': 'Coahuila', 'Michoacán de Ocampo': 'Michoacán',
+    'Veracruz de Ignacio de la Llave': 'Veracruz', 'México': 'Estado de México' };
+  function ringPts(ring) { return ring.map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector2(g.x, -g.z); }); }
+  function addStatePoly(poly) {
+    var sh = new THREE.Shape(ringPts(poly[0])), i;
+    for (i = 1; i < poly.length; i++) sh.holes.push(new THREE.Path(ringPts(poly[i])));
+    var mesh = new THREE.Mesh(new THREE.ShapeGeometry(sh), stateMat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = 0.12;
+    statesGroup.add(mesh);
+    var pts = poly[0].map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector3(g.x, 0.14, g.z); });
+    statesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), stateLineMat));
+  }
+  fetch('https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json')
+    .then(function (r) { return r.json(); })
+    .then(function (gj) {
+      gj.features.forEach(function (f) {
+        var raw = (f.properties && (f.properties.name || f.properties.NAME_1)) || '';
+        var nombre = NOMBRE_MAP[raw] || estadoCanonico(raw) || raw;
+        if (!estadosCon[nombre] || !f.geometry) return;
+        var g = f.geometry;
+        var polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+        polys.forEach(addStatePoly);
+      });
+    })
+    .catch(function (e) { console.warn('No se pudo cargar el GeoJSON de estados:', e); });
   var rock = new THREE.Mesh(plateGeo, new THREE.MeshLambertMaterial({ color: 0x0a1326 }));
   rock.rotation.x = -Math.PI / 2;
   rock.scale.set(0.9, 0.9, 5);
