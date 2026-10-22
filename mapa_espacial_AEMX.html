@@ -1108,7 +1108,7 @@ window.startMap = function (RAW) {
   function buildVegetation() {
     if (vegBuilt) return;
     vegBuilt = true;
-    var vr = mulberry32(48151623), VMAX = 7000, SP = 2.6, RING = 14, CELL = 10, PCELL = 1.5, PMIN = 1.25;
+    var vr = mulberry32(48151623), VMAX = 12000, SP = 2.3, RING = 18, CELL = 10, PCELL = 1.5, PMIN = 1.25;
     var hexGrid = {}, placed = {}, plants = [], country = [toWorld(MAIN_LL), toWorld(BAJA_LL)];
     function gk(a, b) { return a + ',' + b; }
     districts.forEach(function (d) {
@@ -1135,6 +1135,24 @@ window.startMap = function (RAW) {
       }
       return false;
     }
+    /* Terreno válido: cualquier estado dibujado (los hexágonos de CDMX desbordan su pequeño estado) */
+    var stNames = Object.keys(statePolys), stBox = {};
+    stNames.forEach(function (n) {
+      var b = [1e9, 1e9, -1e9, -1e9];
+      statePolys[n].forEach(function (r) { r.forEach(function (q) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); }); });
+      stBox[n] = b;
+    });
+    function onLand(x, z) {
+      var i, n, b, bestIn = false, minD = 1e9;
+      if (!stNames.length) { probe(country, x, z); return PR.inside && PR.dist >= 0.9; }
+      for (i = 0; i < stNames.length; i++) {
+        n = stNames[i]; b = stBox[n];
+        if (x < b[0] - 1 || x > b[2] + 1 || z < b[1] - 1 || z > b[3] + 1) continue;
+        probe(statePolys[n], x, z);
+        if (PR.inside) { bestIn = true; minD = Math.min(minD, PR.dist); }
+      }
+      return bestIn && minD >= 0.9;
+    }
     function zoneOf(x, z) {
       var lat = LAT0 - z / KZ, lon = LON0 + x / KX;
       if (lat > 25.2 || (lon < -109.2 && lat > 22.3)) return 'arid';
@@ -1142,9 +1160,9 @@ window.startMap = function (RAW) {
       return 'temp';
     }
     var W = {
-      temp: [['pine', 0.30], ['round', 0.32], ['bush', 0.22], ['rock', 0.06], ['cactus', 0.04], ['palm', 0.0]],
-      arid: [['cactus', 0.30], ['bush', 0.30], ['rock', 0.18], ['round', 0.10], ['pine', 0.05], ['palm', 0.07]],
-      trop: [['palm', 0.34], ['round', 0.32], ['bush', 0.28], ['rock', 0.03], ['pine', 0.0], ['cactus', 0.03]]
+      temp: [['pine', 0.20], ['oak', 0.16], ['round', 0.14], ['birch', 0.08], ['jacaranda', 0.04], ['bush', 0.14], ['flower', 0.06], ['grass', 0.08], ['rock', 0.05], ['agave', 0.03], ['cactus', 0.02]],
+      arid: [['cactus', 0.22], ['agave', 0.16], ['bush', 0.20], ['grass', 0.12], ['rock', 0.14], ['flower', 0.04], ['round', 0.05], ['palm', 0.05], ['pine', 0.02]],
+      trop: [['palm', 0.26], ['round', 0.22], ['oak', 0.10], ['bush', 0.16], ['flower', 0.10], ['grass', 0.10], ['jacaranda', 0.03], ['rock', 0.02], ['cactus', 0.01]]
     };
     function pickType(zone) {
       var l = W[zone], r = vr(), i, acc = 0;
@@ -1171,8 +1189,7 @@ window.startMap = function (RAW) {
           p = Math.pow(1 - t, 1.3) * (0.3 + 0.7 * patch) * 0.95;
           if (vr() > p) continue;
           if (crowded(x, z)) continue;
-          probe(rings, x, z);
-          if (!PR.inside || PR.dist < 0.9) continue;
+          if (!onLand(x, z)) continue;
           k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k] || (placed[k] = [])).push([x, z]);
           zone = zoneOf(x, z);
@@ -1212,26 +1229,54 @@ window.startMap = function (RAW) {
     }
     var vqYaw = new THREE.Quaternion(), vOne = new THREE.Vector3();
     plants.forEach(function (pl) {
-      var sc = 0.75 + vr() * 0.6, yaw = vr() * 6.283, z = pl.zone, c1, c2, trunkC, kk, side, arm;
+      var sc = 0.75 + vr() * 0.6, yaw = vr() * 6.283, z = pl.zone, c1, c2, c3, trunkC, kk, side, arm, nn, ang, rr;
+      /* Los árboles grandes crecen más en el centro de los bosques (variación de tamaño) */
+      if (pl.type === 'pine' || pl.type === 'oak') sc *= 1.0 + vr() * 0.35;
       vqYaw.setFromAxisAngle(AX_Y, yaw);
       vB.compose(new THREE.Vector3(pl.x, 0, pl.z), vqYaw, vOne.set(sc, sc, sc));
       trunkC = col(0.07 + vr() * 0.02, 0.4, 0.2 + vr() * 0.06);
       if (pl.type === 'pine') {
-        c1 = col(0.36 + vr() * 0.05, 0.45 + vr() * 0.15, (z === 'arid' ? 0.26 : 0.17) + vr() * 0.08);
-        part('trunk', 0, 0.25, 0, 1, 0.5, 1, trunkC);
-        part('cone', 0, 0.85, 0, 0.66, 1.0, 0.66, c1);
-        part('cone', 0, 1.5, 0, 0.46, 0.85, 0.46, c1);
+        /* Pino/abeto en 3 niveles con tonos azul-verdosos */
+        c1 = col(0.36 + vr() * 0.05, 0.45 + vr() * 0.15, (z === 'arid' ? 0.26 : 0.16) + vr() * 0.08);
+        c2 = col(0.38 + vr() * 0.04, 0.5, (z === 'arid' ? 0.3 : 0.21) + vr() * 0.07);
+        part('trunk', 0, 0.3, 0, 1.1, 0.6, 1.1, trunkC);
+        part('cone', 0, 0.8, 0, 0.7, 0.9, 0.7, c1);
+        part('cone', 0, 1.35, 0, 0.54, 0.85, 0.54, c2);
+        part('cone', 0, 1.85, 0, 0.36, 0.75, 0.36, c1);
+      } else if (pl.type === 'oak') {
+        /* Encino/ahuehuete: tronco grueso y copa ancha de varios lóbulos */
+        c1 = z === 'trop' ? col(0.32 + vr() * 0.04, 0.62, 0.24 + vr() * 0.08) : col(0.27 + vr() * 0.07, 0.5 + vr() * 0.15, 0.22 + vr() * 0.1);
+        c2 = col(0.27 + vr() * 0.07, 0.5, 0.3 + vr() * 0.08);
+        part('trunk', 0, 0.45, 0, 1.7, 0.9, 1.7, trunkC);
+        part('ico', 0, 1.2, 0, 0.8, 0.55, 0.8, c1);
+        part('ico', 0.38, 1.05, 0.12, 0.5, 0.4, 0.5, c2);
+        part('ico', -0.3, 1.1, -0.2, 0.52, 0.42, 0.52, c1);
+        part('ico', 0.05, 1.55, 0.05, 0.5, 0.36, 0.5, c2);
       } else if (pl.type === 'round') {
         if (z === 'arid') c1 = col(0.2 + vr() * 0.05, 0.3, 0.3 + vr() * 0.08);
         else if (z === 'trop') c1 = col(0.33 + vr() * 0.05, 0.6, 0.28 + vr() * 0.1);
         else c1 = vr() < 0.08 ? col(0.08 + vr() * 0.05, 0.6, 0.38) : col(0.3 + vr() * 0.07, 0.45 + vr() * 0.2, 0.26 + vr() * 0.12);
         part('trunk', 0, 0.35, 0, 1.1, 0.7, 1.1, trunkC);
         part('ico', 0, 1.05, 0, 0.68, 0.6, 0.68, c1);
+        part('ico', 0.18, 1.3, 0.1, 0.4, 0.34, 0.4, col(0.3 + vr() * 0.06, 0.5, 0.34 + vr() * 0.08));
+      } else if (pl.type === 'birch') {
+        /* Abedul/fresno: tronco claro y copa alargada amarillo-verdosa */
+        c1 = col(0.19 + vr() * 0.07, 0.55, 0.36 + vr() * 0.1);
+        part('trunk', 0, 0.7, 0, 0.8, 1.4, 0.8, col(0.12, 0.08, 0.78));
+        part('ico', 0, 1.55, 0, 0.42, 0.78, 0.42, c1);
+        part('ico', 0.12, 1.15, 0.08, 0.3, 0.45, 0.3, c1);
+      } else if (pl.type === 'jacaranda') {
+        /* Jacaranda: copa morada/lila (muy típica del centro del país) */
+        c1 = vr() < 0.7 ? col(0.74 + vr() * 0.05, 0.5, 0.58 + vr() * 0.08) : col(0.9 + vr() * 0.04, 0.45, 0.66);
+        part('trunk', 0, 0.45, 0, 1.2, 0.9, 1.2, trunkC);
+        part('ico', 0, 1.2, 0, 0.72, 0.52, 0.72, c1);
+        part('ico', 0.3, 1.05, 0.1, 0.42, 0.34, 0.42, c1);
       } else if (pl.type === 'palm') {
         c1 = col(0.36 + vr() * 0.04, 0.55, 0.27 + vr() * 0.08);
         c2 = col(0.08, 0.35, 0.35 + vr() * 0.08);
         part('trunk', 0, 0.85, 0, 0.8, 1.7, 0.8, c2, 0, 0, 0.08);
-        for (kk = 0; kk < 6; kk++) part('frond', 0.12, 1.68, 0, 1, 1, 1, c1, 0, 0, 0, [kk * Math.PI / 3 + vr() * 0.3, 0.95 + vr() * 0.25]);
+        for (kk = 0; kk < 7; kk++) part('frond', 0.12, 1.68, 0, 1, 1, 1, c1, 0, 0, 0, [kk * Math.PI * 2 / 7 + vr() * 0.3, 0.95 + vr() * 0.25]);
+        part('ico0', 0.12, 1.64, 0, 0.1, 0.1, 0.1, col(0.08, 0.5, 0.2));
       } else if (pl.type === 'cactus') {
         c1 = col(0.4 + vr() * 0.05, 0.38, 0.3 + vr() * 0.08);
         part('cyl', 0, 0.5, 0, 0.15, 1.0, 0.15, c1);
@@ -1242,15 +1287,38 @@ window.startMap = function (RAW) {
             part('cyl', side * 0.42, 0.55 + arm / 2, 0, 0.09, arm, 0.09, c1);
           }
         }
+        if (vr() < 0.3) part('ico0', 0, 1.04, 0, 0.07, 0.05, 0.07, col(0.95, 0.7, 0.6));
+      } else if (pl.type === 'agave') {
+        /* Agave/maguey: roseta de pencas azul-verdosas */
+        c1 = col(0.44 + vr() * 0.05, 0.28, 0.34 + vr() * 0.1);
+        nn = 9;
+        for (kk = 0; kk < nn; kk++) part('frond', 0, 0.04, 0, 1.5, 0.75, 1.5, c1, 0, 0, 0, [kk * Math.PI * 2 / nn + vr() * 0.2, 0.7 + vr() * 0.3]);
+      } else if (pl.type === 'flower') {
+        /* Mancha de flores silvestres de colores */
+        nn = 3 + Math.floor(vr() * 3);
+        c1 = [col(0.0, 0.75, 0.55), col(0.12, 0.9, 0.55), col(0.15, 0.95, 0.6), col(0.85, 0.6, 0.62), col(0.58, 0.7, 0.65), col(0.08, 0.85, 0.55)][Math.floor(vr() * 6)];
+        for (kk = 0; kk < nn; kk++) {
+          ang = vr() * 6.283; rr = 0.12 + vr() * 0.3;
+          part('cyl', Math.cos(ang) * rr, 0.07, Math.sin(ang) * rr, 0.012, 0.14, 0.012, col(0.3, 0.5, 0.25));
+          part('ico0', Math.cos(ang) * rr, 0.16, Math.sin(ang) * rr, 0.075, 0.06, 0.075, c1);
+        }
+        part('ico0', 0, 0.06, 0, 0.3, 0.1, 0.3, col(0.29 + vr() * 0.05, 0.5, 0.24));
+      } else if (pl.type === 'grass') {
+        /* Macolla de pasto */
+        c1 = z === 'arid' ? col(0.13 + vr() * 0.04, 0.4, 0.4 + vr() * 0.08) : col(0.24 + vr() * 0.07, 0.5, 0.32 + vr() * 0.1);
+        for (kk = 0; kk < 5; kk++) part('frond', 0, 0, 0, 0.9, 0.55 + vr() * 0.3, 0.9, c1, 0, 0, 0, [kk * 1.26 + vr() * 0.4, 0.15 + vr() * 0.3]);
       } else if (pl.type === 'bush') {
         if (z === 'arid') c1 = col(0.14 + vr() * 0.05, 0.3, 0.34 + vr() * 0.08);
         else if (z === 'trop') c1 = col(0.35 + vr() * 0.04, 0.6, 0.26 + vr() * 0.08);
         else c1 = col(0.31 + vr() * 0.05, 0.45, 0.22 + vr() * 0.1);
         part('ico0', 0, 0.25, 0, 0.5, 0.34, 0.5, c1);
-        if (vr() < 0.5) part('ico0', 0.3, 0.2, 0.1, 0.3, 0.24, 0.3, c1);
+        part('ico0', 0.3, 0.2, 0.1, 0.3, 0.24, 0.3, col(0.3 + vr() * 0.06, 0.45, 0.3));
+        if (vr() < 0.5) part('ico0', -0.26, 0.17, -0.12, 0.26, 0.2, 0.26, c1);
       } else {
+        /* Rocas agrupadas */
         c1 = col(0.6, 0.08, 0.36 + vr() * 0.12);
         part('ico0', 0, 0.12, 0, 0.38, 0.22, 0.3, c1, 0, vr() * 3, 0);
+        part('ico0', 0.3, 0.07, 0.15, 0.2, 0.13, 0.18, col(0.6, 0.06, 0.3 + vr() * 0.1), 0, vr() * 3, 0);
       }
     });
     keys.forEach(function (kk) {
