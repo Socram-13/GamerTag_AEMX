@@ -135,7 +135,7 @@
           <span><i class="dot" style="background:var(--epic)"></i>Épica</span>
           <span><i class="dot" style="background:var(--legend)"></i>Legendaria</span>
         </div>
-        <div class="row"><span><i class="dot" style="background:#00ff9d"></i>Estado con miembros AEMX</span></div>
+        <div class="row"><span><i class="dot" style="background:#3f8a68"></i>Estado con miembros AEMX</span></div>
         <div class="row levels"><b>Nivel</b>
           <span class="chip">Cápsula &lt;300</span>
           <span class="chip">Módulo 300–699</span>
@@ -673,8 +673,8 @@ window.startMap = function (RAW) {
   var statesGroup = new THREE.Group();
   scene.add(statesGroup);
   var STATE_D = 5;
-  var stateMats = [new THREE.MeshLambertMaterial({ color: 0x1fbf7a, emissive: 0x06462a }), new THREE.MeshLambertMaterial({ color: 0x0b5a38 })];
-  var stateLineMat = new THREE.LineBasicMaterial({ color: 0x7dffc8 });
+  var stateMats = [new THREE.MeshLambertMaterial({ color: 0x3f8a68, emissive: 0x0a2a1c }), new THREE.MeshLambertMaterial({ color: 0x1f4a38 })];
+  var stateLineMat = new THREE.LineBasicMaterial({ color: 0x5fae8f });
   var NOMBRE_MAP = { 'Baja California Norte': 'Baja California', 'Coahuila de Zaragoza': 'Coahuila', 'Michoacán de Ocampo': 'Michoacán',
     'Veracruz de Ignacio de la Llave': 'Veracruz', 'México': 'Estado de México' };
   function ringPts(ring) { return ring.map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector2(g.x, -g.z); }); }
