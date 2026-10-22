@@ -400,17 +400,23 @@ window.startMap = function (RAW) {
     var estado = extractEstado(u.city);
     var city = matchCity(u.city);
     if (!city && estado) city = cityForState(estado);
+    if (!city) { city = 'Ciudad de México'; estado = estado || 'Ciudad de México'; }
     if (city && !estado) estado = CITY2STATE[city] || null;
     var total = num(u.common) + num(u.rare) + num(u.epic) + num(u.legendary);
     if (!city || total < 1) { skipped++; return; }
     if (estado) estadosCon[estado] = (estadosCon[estado] || 0) + 1;
-    players.push({ name: String(u.username), city: city, total: total, common: num(u.common), rare: num(u.rare), epic: num(u.epic), legendary: num(u.legendary) });
+    if (!estado || !ESTADO_COORDS[estado]) estado = 'Ciudad de México';
+    players.push({ name: String(u.username), city: estado, total: total, common: num(u.common), rare: num(u.rare), epic: num(u.epic), legendary: num(u.legendary) });
   });
+  /* Un distrito por estado, ubicado en su capital */
+  var usedStates = { 'Ciudad de México': true };
+  players.forEach(function (p) { usedStates[p.city] = true; });
+  CITIES = Object.keys(usedStates).map(function (n) { return [n, 0, ESTADO_COORDS[n][1], ESTADO_COORDS[n][0]]; });
   players.sort(function (a, b) { return b.total - a.total; });
   players.forEach(function (p, idx) { p.rank = idx + 1; p.isPres = idx === 0; });
   var pres = players[0];
   var tagEl = document.querySelector('.tag');
-  if (tagEl) tagEl.textContent = players.length + ' jugadores en el mapa' + (skipped ? ' · ' + skipped + ' sin ciudad reconocida' : '');
+  if (tagEl) tagEl.textContent = players.length + ' jugadores en el mapa' + (skipped ? ' · ' + skipped + ' omitidos (otro país o sin parcelas)' : '');
   if (!pres) { var f = document.getElementById('fail'); f.firstElementChild.textContent = 'Aún no hay jugadores con ciudad de México reconocida.'; f.hidden = false; return; }
 
   var TIER_NAMES = ['Cápsula', 'Módulo', 'Torre solar', 'Rascacielos', 'Megatorre', 'Palacio'];
