@@ -1674,7 +1674,7 @@ window.startMap = function (RAW) {
       d.walkers = [];
       var usedV = [], i;
       for (i = 0; i < count; i++) {
-        var isCdmx = d.name === 'Ciudad de México', kindA;
+        var isCdmx = d.name === 'Ciudad de México', kindA = null;
         if (isCdmx && i === 0) kindA = true;
         else if (!orangeDone && ((isCdmx && i === 1) || (!isCdmx && i === 0 && (byCity['Ciudad de México'] || []).length < 2))) { kindA = 'orange'; orangeDone = true; }
         var a = makeAstronaut(kindA);
