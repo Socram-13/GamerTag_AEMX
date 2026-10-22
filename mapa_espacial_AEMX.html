@@ -390,7 +390,9 @@ window.startMap = function (RAW) {
     if (!city || total < 1) { skipped++; return; }
     if (estado) estadosCon[estado] = (estadosCon[estado] || 0) + 1;
     if (!estado || !ESTADO_COORDS[estado]) estado = 'Ciudad de México';
-    players.push({ name: String(u.username), city: estado, total: total, common: num(u.common), rare: num(u.rare), epic: num(u.epic), legendary: num(u.legendary) });
+    var ua = Number(u.updatedAt); if (ua > 0 && ua < 1e11) ua *= 1000;
+    var inactive = ua > 0 && (Date.now() - ua) > 30 * 86400000;
+    players.push({ name: String(u.username), city: estado, total: total, common: num(u.common), rare: num(u.rare), epic: num(u.epic), legendary: num(u.legendary), inactive: inactive });
   });
   /* Un distrito por estado, ubicado en su capital */
   var usedStates = { 'Ciudad de México': true };
@@ -477,9 +479,10 @@ window.startMap = function (RAW) {
     return t;
   }
   var wallMats = [];
-  function wallMat(color, w, h, cyl) {
+  function wallMat(color, w, h, cyl, off) {
     var rx = cyl ? Math.max(1, Math.round(Math.PI * w / 3.2)) : Math.max(0.5, Math.round(w / 3.2 * 2) / 2);
     var ry = Math.max(0.5, Math.round(h / 3.2 * 2) / 2);
+    if (off) return new THREE.MeshLambertMaterial({ color: 0x2c303c, map: tex('m', rx, ry) });
     var wm = new THREE.MeshLambertMaterial({ color: color, map: tex('m', rx, ry), emissive: 0xffffff, emissiveMap: tex('e', rx, ry), emissiveIntensity: 1.0 });
     wallMats.push({ m: wm, ph: rnd() * 6.28 });
     return wm;
@@ -488,6 +491,7 @@ window.startMap = function (RAW) {
   var COL = { c: 0x4ade80, r: 0x60a5fa, e: 0xc084fc, l: 0xfacc15 };
   var trimMat = {};
   Object.keys(COL).forEach(function (k) { trimMat[k] = new THREE.MeshBasicMaterial({ color: COL[k] }); });
+  var offTrimMat = new THREE.MeshBasicMaterial({ color: 0x3a4258 });
   var WALL = { c: 0x1f5c47, r: 0x1f3f7a, e: 0x45307d, l: 0x7a5c0c };
   var roofMat = new THREE.MeshLambertMaterial({ color: 0x232c48 });
   var darkMat = new THREE.MeshLambertMaterial({ color: 0x151b30 });
@@ -496,6 +500,8 @@ window.startMap = function (RAW) {
 
   var antMats = {};
   function addAntenna(g, y, x, h, col) {
+    var isOff = col === 'off';
+    if (isOff) col = 0x39425a;
     col = col || 0x00ff9d;
     if (!antMats[col]) antMats[col] = new THREE.MeshBasicMaterial({ color: col });
     var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, h, 6), new THREE.MeshLambertMaterial({ color: 0xcce4ff }));
@@ -504,7 +510,7 @@ window.startMap = function (RAW) {
     var tip = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), antMats[col]);
     tip.position.set(x, y + h, 0);
     g.add(tip);
-    blinkers.push({ mesh: tip, phase: rnd() * 6 });
+    if (!isOff) blinkers.push({ mesh: tip, phase: rnd() * 6 });
   }
 
   /* Borde fino de neón en cada piso (marco hueco: el techo oscuro queda visible) */
@@ -537,7 +543,7 @@ window.startMap = function (RAW) {
       h = H * fr[j] / sm;
       wi = w * (1 - taper * ((y + h / 2) / H));
       topW = wi;
-      mat = wallMat(WALL[items[j].k], wi, h, cyl);
+      mat = wallMat(WALL[items[j].k], wi, h, cyl, p.inactive);
       if (cyl) {
         geo2 = new THREE.CylinderGeometry(wi / 2, wi / 2, h, 20);
         mesh = new THREE.Mesh(geo2, [mat, roofMat, roofMat]);
@@ -551,7 +557,7 @@ window.startMap = function (RAW) {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       g.add(mesh);
-      tm = new THREE.Mesh(tg, trimMat[items[j].k]);
+      tm = new THREE.Mesh(tg, p.inactive ? offTrimMat : trimMat[items[j].k]);
       tm.position.y = y + h - 0.03;
       g.add(tm);
       y += h;
@@ -635,10 +641,16 @@ window.startMap = function (RAW) {
     }
   }
 
-  function addWing(g, y, side) {
+  /* Materiales para edificios de jugadores inactivos (apagados) */
+  var cyOffM = cyNm(0x39425a);
+  var cyHeliOff = new THREE.MeshBasicMaterial({ map: heliTex, color: 0x505050 });
+  var solarMatOff = new THREE.MeshLambertMaterial({ map: solarTex, color: 0x777777 });
+  var cyGoldOff = new THREE.MeshLambertMaterial({ color: 0x6b6a60 });
+
+  function addWing(g, y, side, off) {
     var arm = cyCyl(g, cyHull, 0.07, 1.4, side * 2.4, y, 0);
     arm.rotation.z = Math.PI / 2;
-    var panel = new THREE.Mesh(uBox, solarMat);
+    var panel = new THREE.Mesh(uBox, off ? solarMatOff : solarMat);
     panel.scale.set(2.5, 0.08, 1.7);
     panel.position.set(side * 3.7, y + 0.3, 0);
     panel.rotation.z = side * -0.3;
@@ -652,102 +664,112 @@ window.startMap = function (RAW) {
     var W = TIER_W[t];
     var H = Math.max(2.2, Math.sqrt(p.total) * 0.2);
     var r, topY, s2, m2, i, ang;
+    var off = !!p.inactive;
+    var N = off ? { cyan: cyOffM, mag: cyOffM, yel: cyOffM, gold: cyOffM } : cyNeon;
+    function ring(y, radius, color, speed, tilt) {
+      if (off) cyRing(g, cyOffM, y, radius); else addRing(g, y, radius, color, speed, tilt);
+    }
+    function ant(y, x, h, col) { addAntenna(g, y, x, h, off ? 'off' : col); }
     p.tier = t;
     if (t === 0) {
       /* Cápsula: módulo habitable con cúpula de cristal, aros de neón y esclusa lateral */
       r = stack(g, p, W, H, 0, true);
-      var dome = new THREE.Mesh(new THREE.SphereGeometry(r.w / 2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x9ff3ff, emissive: 0x06303a, transparent: true, opacity: 0.7 }));
+      var dome = new THREE.Mesh(new THREE.SphereGeometry(r.w / 2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: off ? 0x5a6478 : 0x9ff3ff, emissive: off ? 0x000000 : 0x06303a, transparent: true, opacity: off ? 0.8 : 0.7 }));
       dome.position.y = r.top;
       g.add(dome);
-      cyRing(g, cyNeon.cyan, 0.12, W / 2 + 0.15);
-      cyRing(g, cyNeon.mag, r.top + 0.05, r.w / 2 + 0.05);
+      cyRing(g, N.cyan, 0.12, W / 2 + 0.15);
+      cyRing(g, N.mag, r.top + 0.05, r.w / 2 + 0.05);
       m2 = cyCyl(g, cyHull, 0.45, 0.9, W / 2 + 0.25, 0.75, 0);
       m2.rotation.z = Math.PI / 2;
-      cyBox(g, cyNeon.cyan, 0.05, 0.5, 0.5, W / 2 + 0.72, 0.75, 0);
+      cyBox(g, N.cyan, 0.05, 0.5, 0.5, W / 2 + 0.72, 0.75, 0);
       topY = r.top + r.w / 2;
     } else if (t === 1) {
       /* Módulo: bloques tipo contenedor espacial con antena de luz roja */
       r = stack(g, p, W, H, 0.1, false);
       for (s2 = -1; s2 <= 1; s2 += 2) {
         cyBox(g, cyHull, W * 0.45, H * 0.3, W * 0.5, s2 * (W / 2 + W * 0.18), H * 0.22, 0);
-        cyBox(g, s2 < 0 ? cyNeon.mag : cyNeon.cyan, W * 0.45 + 0.04, 0.08, W * 0.5 + 0.04, s2 * (W / 2 + W * 0.18), H * 0.22 + H * 0.15, 0);
+        cyBox(g, s2 < 0 ? N.mag : N.cyan, W * 0.45 + 0.04, 0.08, W * 0.5 + 0.04, s2 * (W / 2 + W * 0.18), H * 0.22 + H * 0.15, 0);
       }
-      addAntenna(g, r.top, 0, 1.6, 0xff3b5c);
+      ant(r.top, 0, 1.6, 0xff3b5c);
       topY = r.top + 1.8;
     } else if (t === 2) {
       /* Torre solar: paneles con retícula, núcleo de energía brillante */
       r = stack(g, p, W, H, 0.15, false);
-      addWing(g, r.top * 0.55, -1);
-      addWing(g, r.top * 0.55, 1);
-      cyCyl(g, cyNeon.cyan, 0.5, 1.1, 0, r.top + 0.6, 0);
-      cyRing(g, cyNeon.cyan, r.top + 0.1, r.w * 0.45);
-      addAntenna(g, r.top + 1.15, 0, 1.4, 0x00f0ff);
+      addWing(g, r.top * 0.55, -1, off);
+      addWing(g, r.top * 0.55, 1, off);
+      cyCyl(g, N.cyan, 0.5, 1.1, 0, r.top + 0.6, 0);
+      cyRing(g, N.cyan, r.top + 0.1, r.w * 0.45);
+      ant(r.top + 1.15, 0, 1.4, 0x00f0ff);
       topY = r.top + 2.6;
     } else if (t === 3) {
       /* Rascacielos: helipuerto con luces y pantallas holográficas */
       r = stack(g, p, W, H, 0.3, false);
-      m2 = new THREE.Mesh(uDisc, cyHeli);
+      m2 = new THREE.Mesh(uDisc, off ? cyHeliOff : cyHeli);
       m2.scale.setScalar(r.w * 0.28);
       m2.position.y = r.top + 0.08;
       g.add(m2);
-      cyRing(g, cyNeon.yel, r.top + 0.09, r.w * 0.3);
-      addAntenna(g, r.top, -r.w * 0.4, 2.0, 0xff2bd6);
-      addAntenna(g, r.top, r.w * 0.4, 1.4, 0x00f0ff);
-      var hh = Math.min(3.4, r.top * 0.5);
-      cyHolo(g, W * 0.5 + 0.7, r.top * 0.7, 0, 1.9, hh, Math.PI / 2);
-      cyHolo(g, -(W * 0.5 + 0.7), r.top * 0.5, 0, 1.9, hh, Math.PI / 2);
+      cyRing(g, N.yel, r.top + 0.09, r.w * 0.3);
+      ant(r.top, -r.w * 0.4, 2.0, 0xff2bd6);
+      ant(r.top, r.w * 0.4, 1.4, 0x00f0ff);
+      if (!off) {
+        var hh = Math.min(3.4, r.top * 0.5);
+        cyHolo(g, W * 0.5 + 0.7, r.top * 0.7, 0, 1.9, hh, Math.PI / 2);
+        cyHolo(g, -(W * 0.5 + 0.7), r.top * 0.5, 0, 1.9, hh, Math.PI / 2);
+      }
       topY = r.top + 2.8;
     } else if (t === 4) {
       /* Megatorre: anillos contrarrotantes, antenas dobles y haz de luz */
       r = stack(g, p, W, H, 0.25, false);
-      addRing(g, r.top * 0.7, W * 0.95, 0xc084fc, 0.6, 0.22);
-      addRing(g, r.top * 0.42, W * 0.8, 0x00f0ff, -0.5, -0.2);
-      addAntenna(g, r.top, -r.w * 0.3, 2.6, 0xff2bd6);
-      addAntenna(g, r.top, r.w * 0.3, 2.0, 0x00f0ff);
-      cyBeam(g, cyBeamCyan, 1.1, 9, r.top);
+      ring(r.top * 0.7, W * 0.95, 0xc084fc, 0.6, 0.22);
+      ring(r.top * 0.42, W * 0.8, 0x00f0ff, -0.5, -0.2);
+      ant(r.top, -r.w * 0.3, 2.6, 0xff2bd6);
+      ant(r.top, r.w * 0.3, 2.0, 0x00f0ff);
+      if (!off) cyBeam(g, cyBeamCyan, 1.1, 9, r.top);
       topY = r.top + 2.8;
     } else {
       /* Palacio: estructura dorada con columnas, aros orbitales, satélite y rayo al cielo */
-      var base = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.6, 0.9, 10), new THREE.MeshLambertMaterial({ color: 0xc79a05 }));
+      var base = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.6, 0.9, 10), new THREE.MeshLambertMaterial({ color: off ? 0x5a5848 : 0xc79a05 }));
       base.position.y = 0.45;
       base.castShadow = true; base.receiveShadow = true;
       g.add(base);
-      var step = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.9, 0.7, 10), new THREE.MeshLambertMaterial({ color: 0xe0b413 }));
+      var step = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.9, 0.7, 10), new THREE.MeshLambertMaterial({ color: off ? 0x6a6654 : 0xe0b413 }));
       step.position.y = 1.25;
       g.add(step);
       for (i = 0; i < 10; i++) {
         ang = i / 10 * Math.PI * 2;
-        cyCyl(g, cyGold, 0.17, 1.3, Math.sin(ang) * 4.1, 1.55, Math.cos(ang) * 4.1);
+        cyCyl(g, off ? cyGoldOff : cyGold, 0.17, 1.3, Math.sin(ang) * 4.1, 1.55, Math.cos(ang) * 4.1);
       }
-      cyRing(g, cyNeon.gold, 2.2, 4.1);
+      cyRing(g, N.gold, 2.2, 4.1);
       var sub = new THREE.Group();
       sub.position.y = 1.6;
       g.add(sub);
       var Hs = H * 0.8;
       r = stack(sub, p, W, Hs, 0.45, false);
       var spireBase = 1.6 + r.top;
-      var spire = new THREE.Mesh(new THREE.ConeGeometry(0.7, 3.8, 8), new THREE.MeshLambertMaterial({ color: 0xfacc15, emissive: 0x6b5200 }));
+      var spire = new THREE.Mesh(new THREE.ConeGeometry(0.7, 3.8, 8), new THREE.MeshLambertMaterial({ color: off ? 0x6b6b70 : 0xfacc15, emissive: off ? 0x000000 : 0x6b5200 }));
       spire.position.y = spireBase + 1.9;
       spire.castShadow = true;
       g.add(spire);
-      var beacon = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 10), new THREE.MeshBasicMaterial({ color: 0xfff1a8 }));
+      var beacon = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 10), new THREE.MeshBasicMaterial({ color: off ? 0x39425a : 0xfff1a8 }));
       beacon.position.y = spireBase + 4.0;
       g.add(beacon);
-      blinkers.push({ mesh: beacon, phase: 0 });
-      addRing(g, 1.6 + r.top * 0.5, 4.6, 0xfacc15, 0.5, 0.18);
-      addRing(g, 1.6 + r.top * 0.8, 3.2, 0xffe27a, -0.8, -0.25);
-      cyBeam(g, cyBeamGold, 2.0, 18, spireBase + 4.4);
+      if (!off) blinkers.push({ mesh: beacon, phase: 0 });
+      ring(1.6 + r.top * 0.5, 4.6, 0xfacc15, 0.5, 0.18);
+      ring(1.6 + r.top * 0.8, 3.2, 0xffe27a, -0.8, -0.25);
+      if (!off) cyBeam(g, cyBeamGold, 2.0, 18, spireBase + 4.4);
       var satPivot = new THREE.Group();
       satPivot.position.y = 1.6 + r.top * 0.65;
-      var sat = new THREE.Mesh(uSphere, cyNeon.cyan);
+      var sat = new THREE.Mesh(uSphere, N.cyan);
       sat.scale.setScalar(0.28);
       sat.position.set(5.6, 0, 0);
       satPivot.add(sat);
       g.add(satPivot);
-      spinners.push({ obj: satPivot, speed: 1.2 });
-      var pl = new THREE.PointLight(0xffd36b, 1.1, 46);
-      pl.position.y = spireBase + 4.2;
-      g.add(pl);
+      if (!off) {
+        spinners.push({ obj: satPivot, speed: 1.2 });
+        var pl = new THREE.PointLight(0xffd36b, 1.1, 46);
+        pl.position.y = spireBase + 4.2;
+        g.add(pl);
+      }
       topY = spireBase + 4.4;
     }
     p.topY = topY;
@@ -861,8 +883,43 @@ window.startMap = function (RAW) {
     var cells = hexCells(list.length), i, far = 0;
     for (i = 0; i < cells.length; i++) far = Math.max(far, cells[i].d);
     var c = cityXY[name];
-    return { name: name, list: list, cells: cells, r: far + S, cx: c.x, cz: c.z };
+    return { name: name, list: list, cells: cells, extra: [], r: far + S, cx: c.x, cz: c.z };
   });
+
+  /* Hexágonos vacíos: los vecinos libres de las celdas ocupadas (un anillo alrededor de cada ciudad).
+     Se descartan los que chocan con celdas de otras ciudades. */
+  (function () {
+    var dirs = [[S, 0], [-S, 0], [S / 2, S * 0.8660254], [-S / 2, S * 0.8660254], [S / 2, -S * 0.8660254], [-S / 2, -S * 0.8660254]];
+    var placed = [], minSep = S * 0.95;
+    function key(x, z) { return Math.round(x * 10) + ',' + Math.round(z * 10); }
+    function free(wx, wz) {
+      var i;
+      for (i = 0; i < placed.length; i++) {
+        if (Math.hypot(placed[i][0] - wx, placed[i][1] - wz) < minSep) return false;
+      }
+      return true;
+    }
+    districts.forEach(function (d) {
+      d.cells.forEach(function (c) { placed.push([d.cx + c.x, d.cz + c.z]); });
+    });
+    districts.forEach(function (d) {
+      var seen = {}, far = 0, i;
+      d.cells.forEach(function (c) { seen[key(c.x, c.z)] = true; });
+      d.cells.forEach(function (c) {
+        dirs.forEach(function (dd) {
+          var x = c.x + dd[0], z = c.z + dd[1], k = key(x, z);
+          if (seen[k]) return;
+          seen[k] = true;
+          if (!free(d.cx + x, d.cz + z)) return;
+          placed.push([d.cx + x, d.cz + z]);
+          d.extra.push({ x: x, z: z, d: Math.sqrt(x * x + z * z) });
+        });
+      });
+      for (i = 0; i < d.cells.length; i++) far = Math.max(far, d.cells[i].d);
+      for (i = 0; i < d.extra.length; i++) far = Math.max(far, d.extra[i].d);
+      d.r = far + S;
+    });
+  })();
 
   var roots = [];
 
@@ -880,7 +937,6 @@ window.startMap = function (RAW) {
     return new THREE.BufferGeometry().setFromPoints(pts);
   }
   var hexOutlineGeo = hexLoopGeo(HEX_PAD_R + 0.15), hexGoldGeo = hexLoopGeo(HEX_PAD_R - 0.1);
-  var lampPos = [], lampSeen = {};
 
   districts.forEach(function (d) {
     d.cells.forEach(function (cell, idx) {
@@ -906,13 +962,6 @@ window.startMap = function (RAW) {
         scene.add(gold);
       }
 
-      /* Farolas en algunos vértices, sin repetir los compartidos */
-      for (k = 0; k < 6; k += 2) {
-        var lx = wx + HEX_R * Math.sin(k * Math.PI / 3), lz = wz + HEX_R * Math.cos(k * Math.PI / 3);
-        var key = Math.round(lx * 2) + ',' + Math.round(lz * 2);
-        if (!lampSeen[key]) { lampSeen[key] = true; lampPos.push([lx, lz]); }
-      }
-
       var pl = d.list[idx];
       var b = buildBuilding(pl);
       b.position.set(wx, BASE, wz);
@@ -921,6 +970,36 @@ window.startMap = function (RAW) {
       roots.push(b);
     });
   });
+
+  /* Hexágonos vacíos alrededor de las ciudades: losa y base tenues + borde, instanciados */
+  (function () {
+    var pos = [];
+    districts.forEach(function (d) {
+      d.extra.forEach(function (c) { pos.push([d.cx + c.x, d.cz + c.z]); });
+    });
+    var n = pos.length;
+    if (!n) return;
+    var slabs = new THREE.InstancedMesh(slabGeo, slabMat, n);
+    var pads = new THREE.InstancedMesh(padGeo, new THREE.MeshLambertMaterial({ color: 0x1b2d4e }), n);
+    var o = new THREE.Object3D(), q, k, segs = new Float32Array(n * 6 * 2 * 3), w = 0, R = HEX_PAD_R + 0.15;
+    pads.receiveShadow = true; slabs.receiveShadow = true;
+    for (q = 0; q < n; q++) {
+      o.position.set(pos[q][0], 0.07, pos[q][1]); o.updateMatrix(); slabs.setMatrixAt(q, o.matrix);
+      o.position.set(pos[q][0], 0.24, pos[q][1]); o.updateMatrix(); pads.setMatrixAt(q, o.matrix);
+      for (k = 0; k < 6; k++) {
+        var a1 = k * Math.PI / 3, a2 = (k + 1) * Math.PI / 3;
+        segs[w++] = pos[q][0] + R * Math.sin(a1); segs[w++] = 0.36; segs[w++] = pos[q][1] + R * Math.cos(a1);
+        segs[w++] = pos[q][0] + R * Math.sin(a2); segs[w++] = 0.36; segs[w++] = pos[q][1] + R * Math.cos(a2);
+      }
+    }
+    slabs.instanceMatrix.needsUpdate = true;
+    pads.instanceMatrix.needsUpdate = true;
+    var lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.BufferAttribute(segs, 3));
+    scene.add(slabs);
+    scene.add(pads);
+    scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x2a4f84 })));
+  })();
 
   /* ---------- Astronautas que caminan por las calles entre hexágonos ---------- */
   var walkers = [], wTmp = new THREE.Vector3();
@@ -961,7 +1040,7 @@ window.startMap = function (RAW) {
       return verts[key];
     }
     function link(a, b) { if (a.n.indexOf(b) < 0) a.n.push(b); if (b.n.indexOf(a) < 0) b.n.push(a); }
-    d.cells.forEach(function (cell) {
+    d.cells.concat(d.extra).forEach(function (cell) {
       var k, first = null, prev = null;
       for (k = 0; k < 6; k++) {
         var v = vtx(d.cx + cell.x + HEX_R * Math.sin(k * Math.PI / 3), d.cz + cell.z + HEX_R * Math.cos(k * Math.PI / 3));
@@ -1233,22 +1312,6 @@ window.startMap = function (RAW) {
     }
     updateFx(dt);
   }
-
-  /* Farolas con instancias */
-  (function () {
-    var n = lampPos.length;
-    var poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.05, 1.1, 6), new THREE.MeshLambertMaterial({ color: 0x6b86b4 }), n);
-    var bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ color: 0x3fd0ff }), n);
-    var o = new THREE.Object3D(), q;
-    for (q = 0; q < n; q++) {
-      o.position.set(lampPos[q][0], 0.14 + 0.55, lampPos[q][1]); o.updateMatrix(); poles.setMatrixAt(q, o.matrix);
-      o.position.set(lampPos[q][0], 0.14 + 1.15, lampPos[q][1]); o.updateMatrix(); bulbs.setMatrixAt(q, o.matrix);
-    }
-    poles.instanceMatrix.needsUpdate = true;
-    bulbs.instanceMatrix.needsUpdate = true;
-    scene.add(poles);
-    scene.add(bulbs);
-  })();
 
   /* Marcadores que crecen con la distancia para verse desde todo el país */
   var pinGeoCone = new THREE.ConeGeometry(0.9, 3.2, 10);
