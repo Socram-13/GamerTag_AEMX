@@ -731,7 +731,11 @@ window.startMap = function (RAW) {
     fx.flames.push({ g: fg, s: sc, ph: x * 3.1 + z * 1.7 + y });
   }
 
-  function buildRuin(g, p) {
+  var RUIN_SCALE = 0.7;
+  function buildRuin(root, p) {
+    var g = new THREE.Group();
+    g.scale.setScalar(RUIN_SCALE);
+    root.add(g);
     var rr = mulberry32(hashStr(p.name)), fx2 = { flames: [], puffs: [], glow: null };
     var fx = fx2, side, seg, i, m, hgt, wx, wz, along, tall = null, mat;
     function R(a, b) { return a + (b - a) * rr(); }
@@ -825,7 +829,7 @@ window.startMap = function (RAW) {
     p.tier = t;
     if (t === 6) {
       buildRuin(g, p);
-      topY = 5;
+      topY = 3.8;
     } else if (t === 0) {
       /* Cápsula: módulo habitable con cúpula de cristal, aros de neón y esclusa lateral */
       r = stack(g, p, W, H, 0, true);
