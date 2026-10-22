@@ -1142,6 +1142,7 @@ window.startMap = function (RAW) {
       statePolys[n].forEach(function (r) { r.forEach(function (q) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); }); });
       stBox[n] = b;
     });
+    var lastEdge = 1;
     function onLand(x, z) {
       var i, n, b, bestIn = false, minD = 1e9;
       if (!stNames.length) { probe(country, x, z); return PR.inside && PR.dist >= 0.9; }
@@ -1151,6 +1152,7 @@ window.startMap = function (RAW) {
         probe(statePolys[n], x, z);
         if (PR.inside) { bestIn = true; minD = Math.min(minD, PR.dist); }
       }
+      lastEdge = minD;
       return bestIn && minD >= 0.9;
     }
     function zoneOf(x, z) {
@@ -1193,7 +1195,7 @@ window.startMap = function (RAW) {
           k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k] || (placed[k] = [])).push([x, z]);
           zone = zoneOf(x, z);
-          plants.push({ type: pickType(zone), x: x, z: z, zone: zone });
+          plants.push({ type: pickType(zone), x: x, z: z, zone: zone, edge: lastEdge });
         }
       }
     });
@@ -1204,6 +1206,42 @@ window.startMap = function (RAW) {
       for (q = plants.length - 1; q > 0; q--) { var j = Math.floor(vr() * (q + 1)), tmp2 = plants[q]; plants[q] = plants[j]; plants[j] = tmp2; }
       plants.length = VMAX;
     }
+    /* Base de césped / tierra bajo la vegetación: manchones irregulares que se mezclan entre sí */
+    (function () {
+      var gGeo = new THREE.CircleGeometry(1, 9), gMat = new THREE.MeshLambertMaterial({ color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      var items = [], dummy = new THREE.Object3D();
+      var R0 = { pine: 1.5, oak: 1.7, round: 1.4, birch: 1.2, jacaranda: 1.5, palm: 1.3, cactus: 1.0, agave: 1.0, bush: 1.0, flower: 0.9, grass: 0.9, rock: 0.8 };
+      plants.forEach(function (pl) {
+        var r = (R0[pl.type] || 1.1) * (0.85 + vr() * 0.5), n = pl.type === 'oak' || pl.type === 'pine' ? 2 : 1, k, ox, oz, rr, c, dirt;
+        r = Math.min(r, pl.edge - 0.08);
+        if (r < 0.35) return;
+        dirt = vr();
+        for (k = 0; k < n; k++) {
+          ox = k ? (vr() - 0.5) * 1.4 : 0; oz = k ? (vr() - 0.5) * 1.4 : 0;
+          rr = k ? r * 0.7 : r;
+          if (k && Math.hypot(ox, oz) + rr > pl.edge - 0.08) continue;
+          if (pl.zone === 'arid') c = dirt < 0.55 ? col(0.09 + vr() * 0.03, 0.32, 0.27 + vr() * 0.07) : col(0.13 + vr() * 0.03, 0.3, 0.3 + vr() * 0.06);
+          else if (pl.zone === 'trop') c = dirt < 0.1 ? col(0.08, 0.35, 0.22 + vr() * 0.05) : col(0.32 + vr() * 0.04, 0.5, 0.2 + vr() * 0.06);
+          else c = dirt < 0.18 ? col(0.08 + vr() * 0.02, 0.33, 0.2 + vr() * 0.06) : col(0.29 + vr() * 0.05, 0.42, 0.19 + vr() * 0.07);
+          items.push({ x: pl.x + ox, z: pl.z + oz, rx: rr * (0.85 + vr() * 0.3), rz: rr * (0.85 + vr() * 0.3), yaw: vr() * 6.283, y: 0.02 + vr() * 0.03, c: c });
+        }
+      });
+      if (!items.length) return;
+      var gm = new THREE.InstancedMesh(gGeo, gMat, items.length), i, it;
+      for (i = 0; i < items.length; i++) {
+        it = items[i];
+        dummy.position.set(it.x, it.y, it.z);
+        dummy.rotation.set(-Math.PI / 2, 0, it.yaw);
+        dummy.scale.set(it.rx, it.rz, 1);
+        dummy.updateMatrix();
+        gm.setMatrixAt(i, dummy.matrix); gm.setColorAt(i, it.c);
+      }
+      gm.instanceMatrix.needsUpdate = true;
+      if (gm.instanceColor) gm.instanceColor.needsUpdate = true;
+      gm.frustumCulled = false;
+      gm.raycast = function () {};
+      scene.add(gm);
+    })();
     /* Geometrías compartidas: una sola InstancedMesh por geometría, con color por instancia */
     var GEO = {
       trunk: new THREE.CylinderGeometry(0.09, 0.12, 1, 6),
