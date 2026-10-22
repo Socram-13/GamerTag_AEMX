@@ -638,14 +638,14 @@ window.startMap = function (RAW) {
     holoMat.opacity = 0.55 + 0.18 * Math.sin(t * 4) + 0.07 * Math.sin(t * 27);
     for (i = 0; i < domeAst.length; i++) {
       w = domeAst[i];
-      var b = t * 5 + w.ph, sw = Math.sin(b);
-      w.g.position.y = w.y0 + Math.abs(Math.sin(b)) * 0.1;
-      w.g.rotation.y = Math.sin(t * 1.3 + w.ph) * 0.9;
-      w.g.rotation.z = Math.sin(b) * 0.07;
-      w.armR.rotation.z = 1.4 + 1.1 * sw;
-      w.armL.rotation.z = -(1.4 - 1.1 * sw);
-      w.legL.rotation.x = 0.5 * sw;
-      w.legR.rotation.x = -0.5 * sw;
+      var b = t * 6 + w.ph, sw = Math.sin(b);
+      w.g.position.y = w.y0 + Math.abs(sw) * 0.16;
+      w.g.rotation.y = t * 2 + w.ph;
+      w.g.rotation.z = sw * 0.12;
+      w.armR.rotation.z = 1.2 + 1.2 * sw;
+      w.armL.rotation.z = -(1.2 - 1.2 * sw);
+      w.legL.rotation.x = 0.7 * sw;
+      w.legR.rotation.x = -0.7 * sw;
     }
     for (i = 0; i < wallMats.length; i++) {
       w = wallMats[i];
@@ -699,7 +699,7 @@ window.startMap = function (RAW) {
     var armL = limb(dsGArm, -0.33, 1.2, 0.5), armR = limb(dsGArm, 0.33, 1.2, 0.5);
     armL.rotation.z = -0.15;
     armR.rotation.z = 0.15;
-    a.scale.setScalar(0.65);
+    a.scale.setScalar(0.7);
     a.position.y = y + 0.04;
     a.rotation.y = off ? 0.4 : 0;
     g.add(a);
