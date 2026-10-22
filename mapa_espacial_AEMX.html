@@ -725,7 +725,7 @@ window.startMap = function (RAW) {
       var dome = new THREE.Mesh(new THREE.SphereGeometry(r.w / 2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: off ? 0x5a6478 : 0x9ff3ff, emissive: off ? 0x000000 : 0x06303a, transparent: true, opacity: off ? 0.6 : 0.4 }));
       dome.position.y = r.top;
       g.add(dome);
-      addDomeAstronaut(g, r.top, off, (p.total % 7) * 0.9);
+      if (!off) addDomeAstronaut(g, r.top, false, (p.total % 7) * 0.9);
       cyRing(g, N.cyan, 0.12, W / 2 + 0.15);
       cyRing(g, N.mag, r.top + 0.05, r.w / 2 + 0.05);
       m2 = cyCyl(g, cyHull, 0.45, 0.9, W / 2 + 0.25, 0.75, 0);
@@ -1063,18 +1063,6 @@ window.startMap = function (RAW) {
       roots.push(b);
     });
   });
-
-  /* DIAGNOSTICO TEMPORAL: astronautas de las cupulas */
-  (function () {
-    var v = new THREE.Vector3(), i, a, info = [];
-    scene.updateMatrixWorld(true);
-    for (i = 0; i < Math.min(3, domeAst.length); i++) {
-      a = domeAst[i];
-      a.g.getWorldPosition(v);
-      info.push({ visible: a.g.visible, hijos: a.g.children.length, y0: a.y0, ph: a.ph, mundo: v.toArray().map(function (n) { return Math.round(n * 100) / 100; }), padreEnEscena: !!a.g.parent });
-    }
-    console.log('[DIAG] astronautas de cupula:', domeAst.length, 'edificios:', roots.length, info);
-  })();
 
   /* Hexágonos vacíos alrededor de las ciudades: losa y base tenues + borde, instanciados */
   (function () {
