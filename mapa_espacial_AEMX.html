@@ -1687,7 +1687,7 @@ window.startMap = function (RAW) {
         scene.add(a.g);
         var w = { g: a.g, parts: a.parts, from: from, to: to, prev: null, prog: 0, len: Math.hypot(to.x - from.x, to.z - from.z),
                   speed: 1.6 + rnd() * 1.2, phase: rnd() * 6, yaw: Math.atan2(to.x - from.x, to.z - from.z),
-                  state: 'walk', stT: 0, cd: kindA ? 1e9 : 2 + rnd() * 3, role: kindA === true ? 'black' : kindA === 'orange' ? 'orange' : null, foe: null, tauntT: 0, tauntCd: 0, fleeT: 0, rvT: 0, partner: null, wait: 0, bx: from.x, bz: from.z, off: 0,
+                  state: 'walk', stT: 0, cd: 2 + rnd() * 3, role: kindA === true ? 'black' : kindA === 'orange' ? 'orange' : null, foe: null, tauntT: 0, tauntCd: 0, fleeT: 0, rvT: 0, partner: null, wait: 0, bx: from.x, bz: from.z, off: 0,
                   hit: 0, lean: 0, pT: 0, pGap: 0, pArm: false, lose: false, boom: false };
         w.g.rotation.y = w.yaw;
         d.walkers.push(w);
@@ -1877,8 +1877,11 @@ window.startMap = function (RAW) {
         for (wj = wi + 1; wj < ws.length; wj++) {
           o = ws[wj];
           if (o.state !== 'walk' || o.cd > 0) continue;
+          if (w.role && o.role) continue; /* el negro y el naranja no interactúan entre sí */
+          if (w.tauntT > 0 || o.tauntT > 0) continue;
           if (Math.hypot(o.bx - w.bx, o.bz - w.bz) < W_MEET) {
-            kind = Math.random() < 0.5 ? 'fight' : 'greet';
+            /* El negro siempre saluda a los blancos; el naranja siempre pelea con ellos */
+            kind = (w.role === 'black' || o.role === 'black') ? 'greet' : (w.role === 'orange' || o.role === 'orange') ? 'fight' : (Math.random() < 0.5 ? 'fight' : 'greet');
             dur = kind === 'fight' ? 2.2 + Math.random() * 0.9 : 1.5 + Math.random() * 0.5;
             w.state = kind; o.state = kind;
             w.stT = dur; o.stT = dur;
