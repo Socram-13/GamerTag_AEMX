@@ -86,8 +86,8 @@
   .pill em { font-style: normal; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--pres); font-weight: 700; }
   .pill.pres { border-color: var(--pres); }
   .pill.sel { border-color: var(--cyan); }
-  .dist { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; text-align: center; font-family: var(--f-display); font-weight: 700; font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); text-shadow: 0 1px 8px #000, 0 0 2px #000; transition: opacity 0.25s; white-space: nowrap; }
-  .dist small { display: block; font-family: var(--f-body); font-size: 12px; letter-spacing: 0.04em; color: var(--cyan); text-transform: none; font-weight: 600; }
+  .dist { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; text-align: center; font-family: var(--f-display); font-weight: 700; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); text-shadow: 0 1px 8px #000, 0 0 2px #000; transition: opacity 0.25s; white-space: nowrap; }
+  .dist small { display: block; font-family: var(--f-body); font-size: 11px; letter-spacing: 0.04em; color: var(--cyan); text-transform: none; font-weight: 600; }
   #fail { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 24px; text-align: center; background: var(--bg); }
   @media (max-width: 700px) {
     .bottom { flex-direction: column; align-items: stretch; }
@@ -945,7 +945,7 @@ window.startMap = function (RAW) {
   var clock = new THREE.Clock(), tmp = new THREE.Vector3();
   var LABEL_D = 55, DIST_NEAR = 60, PIN_D = 140;
 
-  function placeLabel(node, wpos, show) {
+  function placeLabel(node, wpos, show, rects) {
     tmp.copy(wpos).project(camera);
     var inView = tmp.z < 1 && tmp.x > -1.1 && tmp.x < 1.1 && tmp.y > -1.1 && tmp.y < 1.1;
     if (!show || !inView) {
@@ -954,6 +954,16 @@ window.startMap = function (RAW) {
       return;
     }
     var sx = (tmp.x * 0.5 + 0.5) * SW, sy = (-tmp.y * 0.5 + 0.5) * SH;
+    if (rects) {
+      var w = node._w || (node._w = node.offsetWidth || 90), h = node._h || (node._h = node.offsetHeight || 34);
+      var r = [sx - w / 2 - 4, sy - h - 2, sx + w / 2 + 4, sy + 2], j, hit = false;
+      for (j = 0; j < rects.length; j++) {
+        var o = rects[j];
+        if (r[0] < o[2] && r[2] > o[0] && r[1] < o[3] && r[3] > o[1]) { hit = true; break; }
+      }
+      if (hit) { node.style.opacity = '0'; node.style.visibility = 'hidden'; return; }
+      rects.push(r);
+    }
     node.style.visibility = 'visible';
     node.style.opacity = '1';
     node.style.transform = 'translate3d(' + sx.toFixed(1) + 'px,' + sy.toFixed(1) + 'px,0) translate(-50%,-100%)';
@@ -989,6 +999,8 @@ window.startMap = function (RAW) {
       var d = camera.position.distanceTo(p.wpos);
       placeLabel(p.pill, p.wpos, (p.isPres && d < 220) || p === selected || d < LABEL_D);
     }
+    var rects = [];
+    if (!districts._order) districts._order = districts.slice().sort(function (a, b) { return b.list.length - a.list.length; });
     for (n = 0; n < districts.length; n++) {
       var dd = districts[n];
       var d0 = camera.position.distanceTo(dd.pinPos);
@@ -996,7 +1008,10 @@ window.startMap = function (RAW) {
       dd.pin.scale.setScalar(s);
       dd.pin.visible = d0 > PIN_D;
       dd.wpos.y = 0.35 + 6.6 * (d0 > PIN_D ? s : 1);
-      placeLabel(dd.el, dd.wpos, d0 > DIST_NEAR);
+    }
+    for (n = 0; n < districts._order.length; n++) {
+      var d1 = districts._order[n];
+      placeLabel(d1.el, d1.wpos, camera.position.distanceTo(d1.pinPos) > DIST_NEAR, rects);
     }
     var dp = camera.position.distanceTo(presPinPos);
     presPin.scale.setScalar(Math.max(1, dp / 90) * 1.3);
