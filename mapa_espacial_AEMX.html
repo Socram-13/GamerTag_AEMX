@@ -125,7 +125,7 @@
       <div class="tools">
         <button type="button" id="b-over">México</button>
         <button type="button" id="b-pal">Palacio</button>
-        <button type="button" id="b-lbl" aria-pressed="true" title="Mostrar u ocultar etiquetas">Etiquetas</button>
+        <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
       </div>
     </header>
     <footer class="bottom">
@@ -731,7 +731,7 @@ window.startMap = function (RAW) {
     fx.flames.push({ g: fg, s: sc, ph: x * 3.1 + z * 1.7 + y });
   }
 
-  var RUIN_SCALE = 0.7;
+  var RUIN_SCALE = 0.5;
   function buildRuin(root, p) {
     var g = new THREE.Group();
     g.scale.setScalar(RUIN_SCALE);
@@ -829,7 +829,7 @@ window.startMap = function (RAW) {
     p.tier = t;
     if (t === 6) {
       buildRuin(g, p);
-      topY = 3.8;
+      topY = 2.8;
     } else if (t === 0) {
       /* Cápsula: módulo habitable con cúpula de cristal, aros de neón y esclusa lateral */
       r = stack(g, p, W, H, 0, true);
@@ -1653,6 +1653,7 @@ window.startMap = function (RAW) {
 
   /* ---------- Etiquetas ---------- */
   var labelsEl = document.getElementById('labels');
+  labelsEl.style.display = 'none';
   function el(tag, cls, text) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
