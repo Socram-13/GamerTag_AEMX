@@ -806,6 +806,114 @@ window.startMap = function (RAW) {
     });
   });
 
+  /* ---------- Astronautas que caminan por las calles entre hexágonos ---------- */
+  var walkers = [], wTmp = new THREE.Vector3();
+  var astSuit = new THREE.MeshLambertMaterial({ color: 0xe8f0ff });
+  var astPack = new THREE.MeshLambertMaterial({ color: 0x9fb0c8 });
+  var astVisor = new THREE.MeshLambertMaterial({ color: 0xf2b84b, emissive: 0x5a3c08 });
+  var gTorso = new THREE.BoxGeometry(0.5, 0.6, 0.32), gLeg = new THREE.BoxGeometry(0.2, 0.55, 0.22);
+  var gArm = new THREE.BoxGeometry(0.14, 0.5, 0.14), gHelmet = new THREE.SphereGeometry(0.3, 14, 10);
+  var gVisor = new THREE.SphereGeometry(0.22, 12, 8), gPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
+
+  function makeAstronaut() {
+    var g = new THREE.Group(), m;
+    m = new THREE.Mesh(gTorso, astSuit); m.position.y = 0.95; g.add(m);
+    m = new THREE.Mesh(gPack, astPack); m.position.set(0, 0.98, -0.26); g.add(m);
+    m = new THREE.Mesh(gHelmet, astSuit); m.position.y = 1.5; g.add(m);
+    m = new THREE.Mesh(gVisor, astVisor); m.position.set(0, 1.5, 0.14); m.scale.set(1, 0.9, 0.6); g.add(m);
+    function limb(geo, x, y, len) {
+      var piv = new THREE.Group();
+      piv.position.set(x, y, 0);
+      var mm = new THREE.Mesh(geo, astSuit);
+      mm.position.y = -len / 2;
+      piv.add(mm);
+      g.add(piv);
+      return piv;
+    }
+    var parts = { legL: limb(gLeg, -0.13, 0.65, 0.55), legR: limb(gLeg, 0.13, 0.65, 0.55), armL: limb(gArm, -0.33, 1.2, 0.5), armR: limb(gArm, 0.33, 1.2, 0.5) };
+    g.scale.setScalar(0.85);
+    return { g: g, parts: parts };
+  }
+
+  /* Grafo de calles: los vértices y aristas de los hexágonos de cada distrito */
+  function buildStreets(d) {
+    var verts = {}, list = [];
+    function vtx(x, z) {
+      var key = Math.round(x * 10) + ',' + Math.round(z * 10);
+      if (!verts[key]) { verts[key] = { x: x, z: z, n: [] }; list.push(verts[key]); }
+      return verts[key];
+    }
+    function link(a, b) { if (a.n.indexOf(b) < 0) a.n.push(b); if (b.n.indexOf(a) < 0) b.n.push(a); }
+    d.cells.forEach(function (cell) {
+      var k, first = null, prev = null;
+      for (k = 0; k < 6; k++) {
+        var v = vtx(d.cx + cell.x + HEX_R * Math.sin(k * Math.PI / 3), d.cz + cell.z + HEX_R * Math.cos(k * Math.PI / 3));
+        if (prev) link(prev, v); else first = v;
+        prev = v;
+      }
+      link(prev, first);
+    });
+    return list;
+  }
+
+  if (!REDUCED) {
+    districts.forEach(function (d) {
+      var streets = buildStreets(d);
+      var count = Math.min(4, 1 + Math.floor(d.list.length / 5));
+      d.walkers = [];
+      var i;
+      for (i = 0; i < count; i++) {
+        var a = makeAstronaut();
+        var from = streets[Math.floor(rnd() * streets.length)];
+        var to = from.n[Math.floor(rnd() * from.n.length)];
+        a.g.position.set(from.x, 0.14, from.z);
+        a.g.visible = false;
+        scene.add(a.g);
+        var w = { g: a.g, parts: a.parts, from: from, to: to, prev: null, prog: 0, len: Math.hypot(to.x - from.x, to.z - from.z),
+                  speed: 1.6 + rnd() * 1.2, phase: rnd() * 6, yaw: Math.atan2(to.x - from.x, to.z - from.z) };
+        w.g.rotation.y = w.yaw;
+        d.walkers.push(w);
+        walkers.push(w);
+      }
+    });
+  }
+
+  function updateWalkers(dt, t) {
+    var di, wi, d, w, near, dx, dz, diff, sw;
+    for (di = 0; di < districts.length; di++) {
+      d = districts[di];
+      if (!d.walkers || !d.walkers.length) continue;
+      near = camera.position.distanceTo(wTmp.set(d.cx, 0, d.cz)) < d.r + 170;
+      for (wi = 0; wi < d.walkers.length; wi++) {
+        w = d.walkers[wi];
+        if (w.g.visible !== near) w.g.visible = near;
+        if (!near) continue;
+        w.prog += w.speed * dt;
+        if (w.prog >= w.len) {
+          var opts = w.to.n.filter(function (v) { return v !== w.from; });
+          if (!opts.length) opts = w.to.n;
+          w.prev = w.from; w.from = w.to;
+          w.to = opts[Math.floor(Math.random() * opts.length)];
+          w.len = Math.hypot(w.to.x - w.from.x, w.to.z - w.from.z);
+          w.prog = 0;
+        }
+        var f = w.len > 0 ? w.prog / w.len : 0;
+        w.g.position.x = w.from.x + (w.to.x - w.from.x) * f;
+        w.g.position.z = w.from.z + (w.to.z - w.from.z) * f;
+        dx = w.to.x - w.from.x; dz = w.to.z - w.from.z;
+        diff = Math.atan2(dx, dz) - w.yaw;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        w.yaw += diff * Math.min(1, dt * 8);
+        w.g.rotation.y = w.yaw;
+        sw = Math.sin(t * 7 * (w.speed / 2) + w.phase) * 0.7;
+        w.parts.legL.rotation.x = sw; w.parts.legR.rotation.x = -sw;
+        w.parts.armL.rotation.x = -sw * 0.8; w.parts.armR.rotation.x = sw * 0.8;
+        w.g.position.y = 0.14 + Math.abs(Math.sin(t * 7 * (w.speed / 2) + w.phase)) * 0.04;
+      }
+    }
+  }
+
   /* Farolas con instancias */
   (function () {
     var n = lampPos.length;
@@ -1109,6 +1217,7 @@ window.startMap = function (RAW) {
     sun.position.copy(controls.target).add(SUN_OFF);
 
     for (n = 0; n < spinners.length; n++) spinners[n].obj.rotation.y += spinners[n].speed * dt;
+    updateWalkers(dt, t);
     for (n = 0; n < blinkers.length; n++) blinkers[n].mesh.scale.setScalar(0.85 + 0.35 * Math.sin(t * 3 + blinkers[n].phase));
     if (selected) selRing.rotation.z = t * 0.8;
 
