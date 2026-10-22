@@ -638,8 +638,14 @@ window.startMap = function (RAW) {
     holoMat.opacity = 0.55 + 0.18 * Math.sin(t * 4) + 0.07 * Math.sin(t * 27);
     for (i = 0; i < domeAst.length; i++) {
       w = domeAst[i];
-      w.g.rotation.y = Math.sin(t * 0.5 + w.ph) * 0.7;
-      w.arm.rotation.z = 2.3 + 0.35 * Math.sin(t * 4 + w.ph);
+      var b = t * 5 + w.ph, sw = Math.sin(b);
+      w.g.position.y = w.y0 + Math.abs(Math.sin(b)) * 0.1;
+      w.g.rotation.y = Math.sin(t * 1.3 + w.ph) * 0.9;
+      w.g.rotation.z = Math.sin(b) * 0.07;
+      w.armR.rotation.z = 1.4 + 1.1 * sw;
+      w.armL.rotation.z = -(1.4 - 1.1 * sw);
+      w.legL.rotation.x = 0.5 * sw;
+      w.legR.rotation.x = -0.5 * sw;
     }
     for (i = 0; i < wallMats.length; i++) {
       w = wallMats[i];
@@ -669,29 +675,35 @@ window.startMap = function (RAW) {
   var dsSuit = new THREE.MeshLambertMaterial({ color: 0xf2f6ff, emissive: 0x2a3550 });
   var dsSuitOff = new THREE.MeshLambertMaterial({ color: 0x8a93a6 });
   var dsPack = new THREE.MeshLambertMaterial({ color: 0xaebbd2, emissive: 0x10151f });
-  var dsVisor = new THREE.MeshBasicMaterial({ color: 0xffb938 });
-  var dsGTorso = new THREE.BoxGeometry(0.5, 0.6, 0.34), dsGLegs = new THREE.BoxGeometry(0.46, 0.55, 0.24);
+  var dsVisor = new THREE.MeshBasicMaterial({ color: 0x07080b });
+  var dsVisorOff = new THREE.MeshBasicMaterial({ color: 0x1a1d24 });
+  var dsGTorso = new THREE.BoxGeometry(0.5, 0.6, 0.34), dsGLeg = new THREE.BoxGeometry(0.2, 0.55, 0.22);
   var dsGArm = new THREE.BoxGeometry(0.15, 0.5, 0.15), dsGHelmet = new THREE.SphereGeometry(0.3, 12, 8);
   var dsGVisor = new THREE.SphereGeometry(0.19, 12, 8), dsGPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
   function addDomeAstronaut(g, y, off, ph) {
-    var a = new THREE.Group(), suit = off ? dsSuitOff : dsSuit, m, armR, armL;
+    var a = new THREE.Group(), suit = off ? dsSuitOff : dsSuit, m;
     function put(geo, mat, x, yy, z) { var mm = new THREE.Mesh(geo, mat); mm.position.set(x, yy, z); a.add(mm); return mm; }
-    put(dsGLegs, suit, 0, 0.375, 0);
+    function limb(geo, x, yy, len) {
+      var piv = new THREE.Group(), mm = new THREE.Mesh(geo, suit);
+      piv.position.set(x, yy, 0);
+      mm.position.y = -len / 2;
+      piv.add(mm);
+      a.add(piv);
+      return piv;
+    }
     put(dsGTorso, suit, 0, 0.95, 0);
     put(dsGPack, off ? dsSuitOff : dsPack, 0, 0.98, -0.27);
     put(dsGHelmet, suit, 0, 1.5, 0);
-    m = put(dsGVisor, off ? dsSuitOff : dsVisor, 0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75);
-    armL = new THREE.Group(); armL.position.set(-0.33, 1.2, 0); a.add(armL);
-    m = new THREE.Mesh(dsGArm, suit); m.position.y = -0.25; armL.add(m);
-    armR = new THREE.Group(); armR.position.set(0.33, 1.2, 0); a.add(armR);
-    m = new THREE.Mesh(dsGArm, suit); m.position.y = -0.25; armR.add(m);
+    m = put(dsGVisor, off ? dsVisorOff : dsVisor, 0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75);
+    var legL = limb(dsGLeg, -0.13, 0.65, 0.55), legR = limb(dsGLeg, 0.13, 0.65, 0.55);
+    var armL = limb(dsGArm, -0.33, 1.2, 0.5), armR = limb(dsGArm, 0.33, 1.2, 0.5);
     armL.rotation.z = -0.15;
-    armR.rotation.z = off ? 0.15 : 2.3;
+    armR.rotation.z = 0.15;
     a.scale.setScalar(0.65);
     a.position.y = y + 0.04;
     a.rotation.y = off ? 0.4 : 0;
     g.add(a);
-    if (!off) domeAst.push({ g: a, arm: armR, ph: ph });
+    if (!off) domeAst.push({ g: a, y0: y + 0.04, armL: armL, armR: armR, legL: legL, legR: legR, ph: ph });
   }
 
   function buildBuilding(p) {
