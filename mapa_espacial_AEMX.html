@@ -1103,11 +1103,174 @@ window.startMap = function (RAW) {
     }
     if (best) shiftDistrict(d, best.ox, best.oz);
   }
+  /* ---------- Vegetación variada alrededor de las zonas con hexágonos (instanciada, dentro de cada estado) ---------- */
+  var vegBuilt = false;
+  function buildVegetation() {
+    if (vegBuilt) return;
+    vegBuilt = true;
+    var vr = mulberry32(48151623), VMAX = 7000, SP = 2.6, RING = 14, CELL = 10, PCELL = 1.5, PMIN = 1.25;
+    var hexGrid = {}, placed = {}, plants = [], country = [toWorld(MAIN_LL), toWorld(BAJA_LL)];
+    function gk(a, b) { return a + ',' + b; }
+    districts.forEach(function (d) {
+      d.cells.concat(d.extra).forEach(function (c) {
+        var x = d.cx + c.x, z = d.cz + c.z, k = gk(Math.floor(x / CELL), Math.floor(z / CELL));
+        (hexGrid[k] || (hexGrid[k] = [])).push([x, z]);
+      });
+    });
+    function nearestHex(x, z) {
+      var ix = Math.floor(x / CELL), iz = Math.floor(z / CELL), a, b, l, i, best = 1e9, dd;
+      for (a = -2; a <= 2; a++) for (b = -2; b <= 2; b++) {
+        l = hexGrid[gk(ix + a, iz + b)];
+        if (!l) continue;
+        for (i = 0; i < l.length; i++) { dd = Math.hypot(x - l[i][0], z - l[i][1]); if (dd < best) best = dd; }
+      }
+      return best;
+    }
+    function crowded(x, z) {
+      var ix = Math.floor(x / PCELL), iz = Math.floor(z / PCELL), a, b, l, i;
+      for (a = -1; a <= 1; a++) for (b = -1; b <= 1; b++) {
+        l = placed[gk(ix + a, iz + b)];
+        if (!l) continue;
+        for (i = 0; i < l.length; i++) if (Math.hypot(x - l[i][0], z - l[i][1]) < PMIN) return true;
+      }
+      return false;
+    }
+    function zoneOf(x, z) {
+      var lat = LAT0 - z / KZ, lon = LON0 + x / KX;
+      if (lat > 25.2 || (lon < -109.2 && lat > 22.3)) return 'arid';
+      if (lat < 19.3 || (lon > -91.5 && lat < 21.8)) return 'trop';
+      return 'temp';
+    }
+    var W = {
+      temp: [['pine', 0.30], ['round', 0.32], ['bush', 0.22], ['rock', 0.06], ['cactus', 0.04], ['palm', 0.0]],
+      arid: [['cactus', 0.30], ['bush', 0.30], ['rock', 0.18], ['round', 0.10], ['pine', 0.05], ['palm', 0.07]],
+      trop: [['palm', 0.34], ['round', 0.32], ['bush', 0.28], ['rock', 0.03], ['pine', 0.0], ['cactus', 0.03]]
+    };
+    function pickType(zone) {
+      var l = W[zone], r = vr(), i, acc = 0;
+      for (i = 0; i < l.length; i++) { acc += l[i][1]; if (r < acc) return l[i][0]; }
+      return l[0][0];
+    }
+    /* Muestreo en rejilla con jitter alrededor de cada distrito, solo dentro de su estado y fuera de cualquier hexágono */
+    districts.forEach(function (d) {
+      var rings = statePolys[d.name] || country, all = d.cells.concat(d.extra), i;
+      var x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, ext = HEX_R + RING + 1;
+      for (i = 0; i < all.length; i++) {
+        x0 = Math.min(x0, d.cx + all[i].x); x1 = Math.max(x1, d.cx + all[i].x);
+        z0 = Math.min(z0, d.cz + all[i].z); z1 = Math.max(z1, d.cz + all[i].z);
+      }
+      var gx, gz, x, z, dm, t, patch, p, zone, k, arr;
+      for (gx = x0 - ext; gx <= x1 + ext; gx += SP) {
+        for (gz = z0 - ext; gz <= z1 + ext; gz += SP) {
+          x = gx + (vr() - 0.5) * SP * 0.7; z = gz + (vr() - 0.5) * SP * 0.7;
+          dm = nearestHex(x, z);
+          if (dm < HEX_R + 0.6) continue;
+          t = (dm - HEX_R - 0.6) / RING;
+          if (t > 1) continue;
+          patch = 0.5 + 0.5 * Math.sin(x * 0.21 + 1.7) * Math.sin(z * 0.17 - 0.4);
+          p = Math.pow(1 - t, 1.3) * (0.3 + 0.7 * patch) * 0.95;
+          if (vr() > p) continue;
+          if (crowded(x, z)) continue;
+          probe(rings, x, z);
+          if (!PR.inside || PR.dist < 0.9) continue;
+          k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
+          (placed[k] || (placed[k] = [])).push([x, z]);
+          zone = zoneOf(x, z);
+          plants.push({ type: pickType(zone), x: x, z: z, zone: zone });
+        }
+      }
+    });
+    if (!plants.length) return;
+    /* Tope total para cuidar el rendimiento (se descartan al azar) */
+    var q;
+    if (plants.length > VMAX) {
+      for (q = plants.length - 1; q > 0; q--) { var j = Math.floor(vr() * (q + 1)), tmp2 = plants[q]; plants[q] = plants[j]; plants[j] = tmp2; }
+      plants.length = VMAX;
+    }
+    /* Geometrías compartidas: una sola InstancedMesh por geometría, con color por instancia */
+    var GEO = {
+      trunk: new THREE.CylinderGeometry(0.09, 0.12, 1, 6),
+      cone: new THREE.ConeGeometry(1, 1, 8),
+      ico: new THREE.IcosahedronGeometry(1, 1),
+      ico0: new THREE.IcosahedronGeometry(1, 0),
+      cyl: new THREE.CylinderGeometry(1, 1, 1, 7),
+      frond: new THREE.ConeGeometry(0.12, 1.1, 4)
+    };
+    GEO.frond.translate(0, 0.55, 0);
+    var lists = {}, keys = Object.keys(GEO);
+    keys.forEach(function (kk) { GEO[kk] = GEO[kk].toNonIndexed(); GEO[kk].computeVertexNormals(); });
+    keys.forEach(function (kk) { lists[kk] = []; });
+    var vMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    var vB = new THREE.Matrix4(), vL = new THREE.Matrix4(), vP = new THREE.Vector3(), vS = new THREE.Vector3(), vQ = new THREE.Quaternion(), vQ2 = new THREE.Quaternion(), vE = new THREE.Euler();
+    var AX_Y = new THREE.Vector3(0, 1, 0), AX_Z = new THREE.Vector3(0, 0, 1);
+    function col(h, sat, l) { return new THREE.Color().setHSL(h, Math.min(1, sat), Math.max(0, Math.min(1, l))); }
+    function part(key, px, py, pz, sx, sy, sz, c, rx, ry, rz, yawTilt) {
+      if (yawTilt) { vQ.setFromAxisAngle(AX_Y, yawTilt[0]); vQ2.setFromAxisAngle(AX_Z, yawTilt[1]); vQ.multiply(vQ2); }
+      else { vE.set(rx || 0, ry || 0, rz || 0); vQ.setFromEuler(vE); }
+      vL.compose(vP.set(px, py, pz), vQ, vS.set(sx, sy, sz));
+      lists[key].push({ m: vB.clone().multiply(vL), c: c });
+    }
+    var vqYaw = new THREE.Quaternion(), vOne = new THREE.Vector3();
+    plants.forEach(function (pl) {
+      var sc = 0.75 + vr() * 0.6, yaw = vr() * 6.283, z = pl.zone, c1, c2, trunkC, kk, side, arm;
+      vqYaw.setFromAxisAngle(AX_Y, yaw);
+      vB.compose(new THREE.Vector3(pl.x, 0, pl.z), vqYaw, vOne.set(sc, sc, sc));
+      trunkC = col(0.07 + vr() * 0.02, 0.4, 0.2 + vr() * 0.06);
+      if (pl.type === 'pine') {
+        c1 = col(0.36 + vr() * 0.05, 0.45 + vr() * 0.15, (z === 'arid' ? 0.26 : 0.17) + vr() * 0.08);
+        part('trunk', 0, 0.25, 0, 1, 0.5, 1, trunkC);
+        part('cone', 0, 0.85, 0, 0.66, 1.0, 0.66, c1);
+        part('cone', 0, 1.5, 0, 0.46, 0.85, 0.46, c1);
+      } else if (pl.type === 'round') {
+        if (z === 'arid') c1 = col(0.2 + vr() * 0.05, 0.3, 0.3 + vr() * 0.08);
+        else if (z === 'trop') c1 = col(0.33 + vr() * 0.05, 0.6, 0.28 + vr() * 0.1);
+        else c1 = vr() < 0.08 ? col(0.08 + vr() * 0.05, 0.6, 0.38) : col(0.3 + vr() * 0.07, 0.45 + vr() * 0.2, 0.26 + vr() * 0.12);
+        part('trunk', 0, 0.35, 0, 1.1, 0.7, 1.1, trunkC);
+        part('ico', 0, 1.05, 0, 0.68, 0.6, 0.68, c1);
+      } else if (pl.type === 'palm') {
+        c1 = col(0.36 + vr() * 0.04, 0.55, 0.27 + vr() * 0.08);
+        c2 = col(0.08, 0.35, 0.35 + vr() * 0.08);
+        part('trunk', 0, 0.85, 0, 0.8, 1.7, 0.8, c2, 0, 0, 0.08);
+        for (kk = 0; kk < 6; kk++) part('frond', 0.12, 1.68, 0, 1, 1, 1, c1, 0, 0, 0, [kk * Math.PI / 3 + vr() * 0.3, 0.95 + vr() * 0.25]);
+      } else if (pl.type === 'cactus') {
+        c1 = col(0.4 + vr() * 0.05, 0.38, 0.3 + vr() * 0.08);
+        part('cyl', 0, 0.5, 0, 0.15, 1.0, 0.15, c1);
+        for (side = -1; side <= 1; side += 2) {
+          if (vr() < 0.6) {
+            arm = 0.3 + vr() * 0.25;
+            part('cyl', side * 0.27, 0.5 + vr() * 0.1, 0, 0.09, 0.34, 0.09, c1, 0, 0, Math.PI / 2);
+            part('cyl', side * 0.42, 0.55 + arm / 2, 0, 0.09, arm, 0.09, c1);
+          }
+        }
+      } else if (pl.type === 'bush') {
+        if (z === 'arid') c1 = col(0.14 + vr() * 0.05, 0.3, 0.34 + vr() * 0.08);
+        else if (z === 'trop') c1 = col(0.35 + vr() * 0.04, 0.6, 0.26 + vr() * 0.08);
+        else c1 = col(0.31 + vr() * 0.05, 0.45, 0.22 + vr() * 0.1);
+        part('ico0', 0, 0.25, 0, 0.5, 0.34, 0.5, c1);
+        if (vr() < 0.5) part('ico0', 0.3, 0.2, 0.1, 0.3, 0.24, 0.3, c1);
+      } else {
+        c1 = col(0.6, 0.08, 0.36 + vr() * 0.12);
+        part('ico0', 0, 0.12, 0, 0.38, 0.22, 0.3, c1, 0, vr() * 3, 0);
+      }
+    });
+    keys.forEach(function (kk) {
+      var l = lists[kk], mesh, i;
+      if (!l.length) return;
+      mesh = new THREE.InstancedMesh(GEO[kk], vMat, l.length);
+      for (i = 0; i < l.length; i++) { mesh.setMatrixAt(i, l[i].m); mesh.setColorAt(i, l[i].c); }
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.frustumCulled = false;
+      mesh.raycast = function () {};
+      scene.add(mesh);
+    });
+  }
   function fitDistricts() {
     var country = [toWorld(MAIN_LL), toWorld(BAJA_LL)];
     districts.forEach(function (d) {
       try { fitDistrict(d, statePolys[d.name] || country); } catch (e) { console.warn('No se pudo ajustar el distrito', d.name, e); }
     });
+    try { buildVegetation(); } catch (e) { console.warn('No se pudo crear la vegetación', e); }
   }
   function addStatePoly(poly, nombre) {
     var sh = new THREE.Shape(ringPts(poly[0])), i;
