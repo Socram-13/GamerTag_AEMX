@@ -1,0 +1,1056 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Mapa espacial AEMX</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&display=swap">
+<style>
+  /* Layout: escenario 3D a pantalla completa sobre el mapa de México; HUD con gutters de 16px o más */
+  :root {
+    --bg: #050a18;
+    --panel: rgba(8, 16, 34, 0.82);
+    --panel-solid: #0b1428;
+    --ink: #e4efff;
+    --muted: #8ea5ca;
+    --line: #22406b;
+    --cyan: #3fd0ff;
+    --common: #4ade80;
+    --rare: #60a5fa;
+    --epic: #c084fc;
+    --legend: #facc15;
+    --pres: #ff5f7e;
+    --f-display: 'Orbitron', 'Trebuchet MS', sans-serif;
+    --f-body: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; overflow: hidden; }
+  .stage { position: relative; height: 100%; overflow: hidden; background: var(--bg); }
+  #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #labels { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+  .hud {
+    position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: space-between; gap: 12px;
+    padding-block: 16px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    pointer-events: none;
+  }
+  .top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .brand { pointer-events: auto; min-width: 0; }
+  .eyebrow { margin: 0; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan); font-weight: 700; }
+  h1 { margin: 2px 0 0; font-family: var(--f-display); font-size: 19px; font-weight: 700; letter-spacing: 0.05em; }
+  .tag { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+  .search { position: relative; flex: 1 1 260px; max-width: 380px; pointer-events: auto; }
+  .search input {
+    width: 100%; height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--ink); font: 600 15px var(--f-body);
+  }
+  .search input::placeholder { color: var(--muted); font-weight: 500; }
+  .search input:focus-visible, button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  #res { list-style: none; margin: 6px 0 0; padding: 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-solid); position: absolute; left: 0; right: 0; z-index: 5; }
+  #res button { width: 100%; display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); font: 600 14px var(--f-body); cursor: pointer; text-align: left; }
+  #res button:hover { background: rgba(63, 208, 255, 0.12); }
+  #res small { color: var(--muted); font-weight: 500; }
+  .tools { display: flex; gap: 8px; pointer-events: auto; }
+  .tools button {
+    height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); font: 600 14px var(--f-body); cursor: pointer;
+  }
+  .tools button:hover { border-color: var(--cyan); }
+  .tools button[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+  .bottom { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .legend { pointer-events: auto; display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 12px; color: var(--muted); max-width: 100%; }
+  .legend .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .legend b { color: var(--ink); font-weight: 600; margin-right: 2px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .chip { padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px; }
+  .card { pointer-events: auto; position: relative; width: min(340px, 100%); padding: 14px 16px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(6px); }
+  .card .x { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+  .card .x:hover { color: var(--ink); }
+  .card h2 { margin: 0; font-family: var(--f-display); font-size: 16px; font-weight: 700; letter-spacing: 0.03em; overflow-wrap: anywhere; padding-right: 30px; }
+  .card .meta { margin: 4px 0 10px; color: var(--muted); font-size: 13px; }
+  .rank { display: inline-block; margin-bottom: 6px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cyan); }
+  .rank.pres { color: var(--pres); border-color: var(--pres); }
+  .total { font-family: var(--f-display); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .total small { font-family: var(--f-body); font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+  .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 8px 0 10px; background: var(--line); }
+  .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+  .rows li { display: flex; justify-content: space-between; gap: 10px; font-variant-numeric: tabular-nums; }
+  .rows span:last-child { font-weight: 600; }
+  .lvl { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+  .pill {
+    position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; display: flex; flex-direction: column; align-items: center;
+    padding: 3px 11px 4px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--panel); color: var(--ink);
+    font: 600 13px/1.15 var(--f-body); white-space: nowrap; transition: opacity 0.2s; will-change: transform;
+  }
+  .pill small { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .pill em { font-style: normal; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--pres); font-weight: 700; }
+  .pill.pres { border-color: var(--pres); }
+  .pill.sel { border-color: var(--cyan); }
+  .dist { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; text-align: center; font-family: var(--f-display); font-weight: 700; font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); text-shadow: 0 1px 8px #000, 0 0 2px #000; transition: opacity 0.25s; white-space: nowrap; }
+  .dist small { display: block; font-family: var(--f-body); font-size: 12px; letter-spacing: 0.04em; color: var(--cyan); text-transform: none; font-weight: 600; }
+  #fail { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 24px; text-align: center; background: var(--bg); }
+  @media (max-width: 700px) {
+    .bottom { flex-direction: column; align-items: stretch; }
+    .card { width: 100%; }
+    .stage.has-card .legend { display: none; }
+    .legend .levels { display: none; }
+    .tools button { padding: 0 10px; }
+    h1 { font-size: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pill, .dist { transition: none; } }
+
+  #gate { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(5,10,24,0.92); }
+  #gate[hidden] { display: none; }
+  #gate .box { max-width: 360px; width: 100%; text-align: center; padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel-solid); }
+  #gate h2 { margin: 0 0 8px; font-family: var(--f-display); font-size: 18px; }
+  #gate p { margin: 0 0 16px; color: var(--muted); }
+  #gate button { height: 44px; padding: 0 20px; border-radius: 10px; border: 1px solid var(--cyan); background: transparent; color: var(--ink); font: 700 15px var(--f-body); cursor: pointer; }
+  #gate #gate-err { margin: 12px 0 0; color: var(--pres); font-size: 13px; }
+</style>
+
+<main class="stage" id="stage">
+  <canvas id="gl" aria-label="Mapa de México en 3D con una ciudad espacial. Arrastra para girar, pellizca o usa la rueda para acercar."></canvas>
+  <div id="labels"></div>
+  <div class="hud">
+    <header class="top">
+      <div class="brand">
+        <p class="eyebrow">Atlas Earth AEMX</p>
+        <h1>Mapa espacial</h1>
+        <p class="tag">Cargando datos…</p>
+      </div>
+      <div class="search">
+        <input id="q" type="search" placeholder="Busca un gamertag o ciudad" autocomplete="off" aria-label="Buscar jugador o ciudad">
+        <ul id="res" hidden></ul>
+      </div>
+      <div class="tools">
+        <button type="button" id="b-over">México</button>
+        <button type="button" id="b-pal">Palacio</button>
+      </div>
+    </header>
+    <footer class="bottom">
+      <div class="legend" id="legend">
+        <div class="row"><b>Rareza de parcelas</b>
+          <span><i class="dot" style="background:var(--common)"></i>Común</span>
+          <span><i class="dot" style="background:var(--rare)"></i>Rara</span>
+          <span><i class="dot" style="background:var(--epic)"></i>Épica</span>
+          <span><i class="dot" style="background:var(--legend)"></i>Legendaria</span>
+        </div>
+        <div class="row levels"><b>Nivel</b>
+          <span class="chip">Cápsula &lt;300</span>
+          <span class="chip">Módulo 300–699</span>
+          <span class="chip">Torre solar 700–1,199</span>
+          <span class="chip">Rascacielos 1,200–2,999</span>
+          <span class="chip">Megatorre 3,000–5,999</span>
+          <span class="chip">Palacio 6,000+</span>
+        </div>
+      </div>
+      <aside class="card" id="card" hidden>
+        <button type="button" class="x" id="cx" aria-label="Cerrar">×</button>
+        <span class="rank" id="c-rank"></span>
+        <h2 id="c-name"></h2>
+        <p class="meta" id="c-meta"></p>
+        <div class="total"><span id="c-total"></span><small>parcelas</small></div>
+        <div class="bar" id="c-bar"></div>
+        <ul class="rows" id="c-rows"></ul>
+        <p class="lvl" id="c-lvl"></p>
+      </aside>
+    </footer>
+  </div>
+  <div id="fail" hidden><p>No se pudo cargar el motor 3D. Revisa tu conexión y vuelve a abrir la página.</p></div>
+</main>
+
+<div id="gate">
+  <div class="box">
+    <h2>Mapa espacial AEMX</h2>
+    <p id="gate-msg">Inicia sesión con Google para ver a los jugadores en el mapa.</p>
+    <button type="button" id="gate-btn">Iniciar con Google</button>
+    <p id="gate-err" hidden></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+window.startMap = function (RAW) {
+  'use strict';
+  var stage = document.getElementById('stage');
+  var canvas = document.getElementById('gl');
+  if (!window.THREE || !THREE.OrbitControls) { document.getElementById('fail').hidden = false; return; }
+
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  /* ---------- Geografía: 1 unidad = 1 km ---------- */
+  var LON0 = -102.0, LAT0 = 23.5, KX = 102.1, KZ = 110.57;
+  function geo(lon, lat) { return { x: (lon - LON0) * KX, z: -(lat - LAT0) * KZ }; }
+
+  var MAIN_LL = [
+    [-114.8, 31.75], [-114.78, 32.5], [-113.0, 31.3], [-111.07, 31.33], [-108.21, 31.33], [-108.21, 31.78], [-106.53, 31.78],
+    [-105.0, 30.65], [-104.4, 29.55], [-103.1, 28.97], [-102.4, 29.77], [-101.4, 29.77], [-100.9, 29.35], [-100.5, 28.7],
+    [-99.5, 27.5], [-99.1, 26.4], [-98.3, 26.1], [-97.15, 25.95], [-97.75, 22.9], [-97.35, 21.6], [-97.2, 20.6], [-96.4, 19.35],
+    [-95.0, 18.7], [-94.4, 18.15], [-93.5, 18.4], [-92.0, 18.65], [-91.0, 19.3], [-90.5, 20.0], [-90.4, 21.0], [-89.0, 21.4],
+    [-87.5, 21.6], [-86.6, 21.5], [-86.7, 20.5], [-87.2, 19.5], [-87.5, 18.5], [-88.3, 18.5], [-89.15, 17.95], [-90.98, 17.82],
+    [-91.43, 17.25], [-90.45, 16.07], [-91.7, 16.07], [-92.2, 15.25], [-92.2, 14.55], [-93.9, 15.9], [-95.2, 16.2], [-96.1, 15.75],
+    [-97.5, 15.9], [-99.9, 16.85], [-102.2, 17.95], [-104.3, 19.05], [-105.25, 20.6], [-105.4, 21.7], [-106.4, 23.2], [-107.5, 24.5],
+    [-109.1, 25.8], [-109.9, 27.5], [-110.9, 27.9], [-111.8, 28.9], [-112.8, 30.2], [-113.6, 31.3], [-114.7, 31.7]
+  ];
+  var BAJA_LL = [
+    [-117.12, 32.53], [-114.72, 32.72], [-114.8, 31.8], [-114.6, 30.5], [-113.5, 29.0], [-112.2, 27.3], [-111.3, 26.0], [-110.3, 24.2],
+    [-109.5, 23.4], [-109.9, 22.88], [-110.4, 23.6], [-112.0, 24.5], [-112.3, 25.5], [-113.5, 26.9], [-114.3, 28.2], [-115.1, 29.4],
+    [-116.0, 30.5], [-116.6, 31.8]
+  ];
+  function toWorld(ll) { return ll.map(function (q) { var g = geo(q[0], q[1]); return [g.x, g.z]; }); }
+
+  function offsetPoly(poly, d) {
+    var n = poly.length, i, area = 0, out = [];
+    for (i = 0; i < n; i++) { var a = poly[i], b = poly[(i + 1) % n]; area += a[0] * b[1] - b[0] * a[1]; }
+    var sgn = area > 0 ? -1 : 1;
+    for (i = 0; i < n; i++) {
+      var p0 = poly[(i + n - 1) % n], p1 = poly[i], p2 = poly[(i + 1) % n];
+      var ax = p1[0] - p0[0], az = p1[1] - p0[1], bx = p2[0] - p1[0], bz = p2[1] - p1[1];
+      var la = Math.sqrt(ax * ax + az * az) || 1, lb = Math.sqrt(bx * bx + bz * bz) || 1;
+      var n1x = -az / la, n1z = ax / la, n2x = -bz / lb, n2z = bx / lb;
+      var k = 1 / Math.max(0.35, 1 + n1x * n2x + n1z * n2z);
+      out.push([p1[0] + sgn * (n1x + n2x) * k * d, p1[1] + sgn * (n1z + n2z) * k * d]);
+    }
+    return out;
+  }
+  function ribbonGeo(poly, width) {
+    var outer = offsetPoly(poly, width / 2), inner = offsetPoly(poly, -width / 2), n = poly.length, i;
+    var pos = new Float32Array(n * 6), idx = [];
+    for (i = 0; i < n; i++) {
+      pos[i * 6] = outer[i][0]; pos[i * 6 + 1] = 0; pos[i * 6 + 2] = outer[i][1];
+      pos[i * 6 + 3] = inner[i][0]; pos[i * 6 + 4] = 0; pos[i * 6 + 5] = inner[i][1];
+    }
+    for (i = 0; i < n; i++) {
+      var a = i * 2, b = ((i + 1) % n) * 2;
+      idx.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    return g;
+  }
+  function toShape(poly) {
+    var s = new THREE.Shape();
+    poly.forEach(function (p, i) { if (i === 0) s.moveTo(p[0], -p[1]); else s.lineTo(p[0], -p[1]); });
+    s.closePath();
+    return s;
+  }
+
+  /* ---------- Datos de ejemplo ---------- */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var rnd = mulberry32(20261021);
+
+  /* ---------- Datos reales (Firebase users/$uid) ---------- */
+  var CITIES = [
+    ['Mérida', 0, -89.62, 20.97], ['Ciudad de México', 0, -99.13, 19.43], ['Guadalajara', 0, -103.35, 20.67], ['Monterrey', 0, -100.31, 25.67],
+    ['Puebla', 0, -98.2, 19.04], ['Cancún', 0, -86.85, 21.16], ['Tijuana', 0, -117.03, 32.51], ['Querétaro', 0, -100.39, 20.59],
+    ['Veracruz', 0, -96.13, 19.17], ['Chihuahua', 0, -106.07, 28.63], ['Oaxaca', 0, -96.73, 17.06], ['Hermosillo', 0, -110.97, 29.07],
+    ['Villahermosa', 0, -92.93, 17.99], ['La Paz', 0, -110.31, 24.14],
+    ['León', 0, -101.68, 21.12], ['San Luis Potosí', 0, -100.98, 22.15], ['Toluca', 0, -99.66, 19.29], ['Aguascalientes', 0, -102.29, 21.88],
+    ['Morelia', 0, -101.19, 19.70], ['Saltillo', 0, -101.0, 25.42], ['Culiacán', 0, -107.39, 24.81], ['Mexicali', 0, -115.47, 32.66],
+    ['Acapulco', 0, -99.89, 16.85], ['Cuernavaca', 0, -99.23, 18.92], ['Tampico', 0, -97.86, 22.23], ['Torreón', 0, -103.43, 25.54],
+    ['Durango', 0, -104.67, 24.02], ['Zacatecas', 0, -102.57, 22.77], ['Tuxtla Gutiérrez', 0, -93.12, 16.75], ['Campeche', 0, -90.53, 19.85],
+    ['Chetumal', 0, -88.30, 18.50], ['Playa del Carmen', 0, -87.07, 20.63], ['Tepic', 0, -104.89, 21.51], ['Colima', 0, -103.72, 19.24],
+    ['Pachuca', 0, -98.76, 20.12], ['Tlaxcala', 0, -98.24, 19.32], ['Xalapa', 0, -96.92, 19.54], ['Reynosa', 0, -98.28, 26.08],
+    ['Ciudad Juárez', 0, -106.49, 31.69], ['Mazatlán', 0, -106.41, 23.24], ['Ensenada', 0, -116.60, 31.87], ['Los Cabos', 0, -109.91, 22.89],
+    ['Puerto Vallarta', 0, -105.23, 20.65], ['Tapachula', 0, -92.26, 14.91], ['Ciudad Obregón', 0, -109.94, 27.49], ['Nuevo Laredo', 0, -99.51, 27.48],
+    ['Matamoros', 0, -97.50, 25.87], ['Celaya', 0, -100.81, 20.52], ['Irapuato', 0, -101.35, 20.68], ['Guanajuato', 0, -101.26, 21.02],
+    ['Ciudad del Carmen', 0, -91.83, 18.65], ['Progreso', 0, -89.66, 21.28], ['Valladolid', 0, -88.20, 20.69], ['Tulum', 0, -87.46, 20.21]
+  ];
+  var ALIASES = { 'cdmx': 'Ciudad de México', 'df': 'Ciudad de México', 'mexico city': 'Ciudad de México', 'distrito federal': 'Ciudad de México',
+    'cd mexico': 'Ciudad de México', 'cd juarez': 'Ciudad Juárez', 'juarez': 'Ciudad Juárez', 'gdl': 'Guadalajara', 'mty': 'Monterrey',
+    'cd obregon': 'Ciudad Obregón', 'tuxtla': 'Tuxtla Gutiérrez', 'cabo san lucas': 'Los Cabos', 'san jose del cabo': 'Los Cabos',
+    'merida': 'Mérida', 'yucatan': 'Mérida', 'cancun': 'Cancún' };
+  function norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+  var CITY_KEYS = [];
+  CITIES.forEach(function (c) { CITY_KEYS.push([norm(c[0]), c[0]]); });
+  Object.keys(ALIASES).forEach(function (k) { CITY_KEYS.push([k, ALIASES[k]]); });
+  CITY_KEYS.sort(function (a, b) { return b[0].length - a[0].length; });
+  function matchCity(text) {
+    var t = ' ' + norm(text) + ' ';
+    for (var i = 0; i < CITY_KEYS.length; i++) { if (t.indexOf(' ' + CITY_KEYS[i][0] + ' ') > -1) return CITY_KEYS[i][1]; }
+    return null;
+  }
+  function num(v) { v = Number(v); return isFinite(v) && v > 0 ? Math.round(v) : 0; }
+
+  var players = [], skipped = 0;
+  Object.keys(RAW || {}).forEach(function (uid) {
+    var u = RAW[uid];
+    if (!u || typeof u !== 'object' || !u.username || u.bannedLeaderboard === true) return;
+    var country = norm(u.country);
+    if (country && country.indexOf('mex') === -1) { skipped++; return; }
+    var city = matchCity(u.city) || (u.city ? null : null);
+    var total = num(u.common) + num(u.rare) + num(u.epic) + num(u.legendary);
+    if (!city || total < 1) { skipped++; return; }
+    players.push({ name: String(u.username), city: city, total: total, common: num(u.common), rare: num(u.rare), epic: num(u.epic), legendary: num(u.legendary) });
+  });
+  players.sort(function (a, b) { return b.total - a.total; });
+  players.forEach(function (p, idx) { p.rank = idx + 1; p.isPres = idx === 0; });
+  var pres = players[0];
+  var tagEl = document.querySelector('.tag');
+  if (tagEl) tagEl.textContent = players.length + ' jugadores en el mapa' + (skipped ? ' · ' + skipped + ' sin ciudad reconocida' : '');
+  if (!pres) { var f = document.getElementById('fail'); f.firstElementChild.textContent = 'Aún no hay jugadores con ciudad de México reconocida.'; f.hidden = false; return; }
+
+  var TIER_NAMES = ['Cápsula', 'Módulo', 'Torre solar', 'Rascacielos', 'Megatorre', 'Palacio'];
+  var TIER_RANGE = ['menos de 300', '300 a 699', '700 a 1,199', '1,200 a 2,999', '3,000 a 5,999', '6,000 o más'];
+  var TIER_W = [3.0, 3.4, 3.8, 4.2, 4.6, 5.2];
+  function tierOf(t) { return t < 300 ? 0 : t < 700 ? 1 : t < 1200 ? 2 : t < 3000 ? 3 : t < 6000 ? 4 : 5; }
+  function fmt(n) { return n.toLocaleString('es-MX'); }
+
+  /* ---------- Escena ---------- */
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, logarithmicDepthBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x050a18, 1);
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(48, 1, 0.5, 60000);
+  var controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.zoomSpeed = 1.6;
+  controls.minDistance = 14;
+  controls.maxDistance = 7500;
+  controls.maxPolarAngle = 1.45;
+  controls.minPolarAngle = 0.1;
+  controls.screenSpacePanning = false;
+  controls.autoRotate = false;
+
+  scene.add(new THREE.AmbientLight(0x7a8fc0, 0.55));
+  scene.add(new THREE.HemisphereLight(0x9db8ff, 0x1a2540, 0.35));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.8);
+  var SUN_OFF = new THREE.Vector3(70, 130, 45);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(window.innerWidth < 700 ? 1024 : 2048, window.innerWidth < 700 ? 1024 : 2048);
+  sun.shadow.camera.left = -90; sun.shadow.camera.right = 90;
+  sun.shadow.camera.top = 90; sun.shadow.camera.bottom = -90;
+  sun.shadow.camera.near = 10; sun.shadow.camera.far = 420;
+  sun.shadow.bias = -0.0008;
+  scene.add(sun);
+  scene.add(sun.target);
+
+  /* Texturas de ventanas */
+  var WIN_COLORS = ['#ffe08a', '#9be7ff', '#ffffff', '#ffd1a1'];
+  function winCanvas(lit) {
+    var c = document.createElement('canvas');
+    c.width = c.height = 128;
+    var x = c.getContext('2d');
+    x.fillStyle = lit ? '#000' : '#fff';
+    x.fillRect(0, 0, 128, 128);
+    var a, b;
+    for (a = 0; a < 4; a++) {
+      for (b = 0; b < 4; b++) {
+        var px = a * 32 + 6, py = b * 32 + 7;
+        if (lit) {
+          if (rnd() > 0.45) { x.fillStyle = WIN_COLORS[Math.floor(rnd() * WIN_COLORS.length)]; x.fillRect(px, py, 20, 18); }
+        } else {
+          x.fillStyle = '#1c2d4d';
+          x.fillRect(px, py, 20, 18);
+        }
+      }
+    }
+    return c;
+  }
+  var mapCv = winCanvas(false), emCv = winCanvas(true);
+  var texCache = {};
+  function tex(kind, rx, ry) {
+    var k = kind + rx + '_' + ry;
+    if (texCache[k]) return texCache[k];
+    var t = new THREE.CanvasTexture(kind === 'm' ? mapCv : emCv);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(rx, ry);
+    t.anisotropy = 4;
+    texCache[k] = t;
+    return t;
+  }
+  function wallMat(color, w, h, cyl) {
+    var rx = cyl ? Math.max(1, Math.round(Math.PI * w / 3.2)) : Math.max(0.5, Math.round(w / 3.2 * 2) / 2);
+    var ry = Math.max(0.5, Math.round(h / 3.2 * 2) / 2);
+    return new THREE.MeshLambertMaterial({ color: color, map: tex('m', rx, ry), emissive: 0xffffff, emissiveMap: tex('e', rx, ry), emissiveIntensity: 0.9 });
+  }
+
+  var COL = { c: 0x4ade80, r: 0x60a5fa, e: 0xc084fc, l: 0xfacc15 };
+  var trimMat = {};
+  Object.keys(COL).forEach(function (k) { trimMat[k] = new THREE.MeshBasicMaterial({ color: COL[k] }); });
+  var roofMat = new THREE.MeshLambertMaterial({ color: 0x32486f });
+  var darkMat = new THREE.MeshLambertMaterial({ color: 0x1a2a46 });
+
+  var blinkers = [], spinners = [];
+
+  function addAntenna(g, y, x, h) {
+    var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, h, 6), new THREE.MeshLambertMaterial({ color: 0xcce4ff }));
+    pole.position.set(x, y + h / 2, 0);
+    g.add(pole);
+    var tip = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshBasicMaterial({ color: 0x00ff9d }));
+    tip.position.set(x, y + h, 0);
+    g.add(tip);
+    blinkers.push({ mesh: tip, phase: rnd() * 6 });
+  }
+
+  function stack(g, p, w, H, taper, cyl) {
+    var items = [];
+    [['c', p.common], ['r', p.rare], ['e', p.epic], ['l', p.legendary]].forEach(function (s) { if (s[1] > 0) items.push({ k: s[0], n: s[1] }); });
+    var fr = items.map(function (it) { return Math.max(0.14, it.n / p.total); });
+    var sm = fr.reduce(function (a, b) { return a + b; }, 0);
+    var y = 0, topW = w, j, h, wi, mat, geo2, mesh, tg, tm;
+    for (j = 0; j < items.length; j++) {
+      h = H * fr[j] / sm;
+      wi = w * (1 - taper * ((y + h / 2) / H));
+      topW = wi;
+      mat = wallMat(COL[items[j].k], wi, h, cyl);
+      if (cyl) {
+        geo2 = new THREE.CylinderGeometry(wi / 2, wi / 2, h, 20);
+        mesh = new THREE.Mesh(geo2, [mat, roofMat, roofMat]);
+        tg = new THREE.CylinderGeometry(wi / 2 + 0.07, wi / 2 + 0.07, 0.12, 20);
+      } else {
+        geo2 = new THREE.BoxGeometry(wi, h, wi);
+        mesh = new THREE.Mesh(geo2, [mat, mat, roofMat, roofMat, mat, mat]);
+        tg = new THREE.BoxGeometry(wi + 0.14, 0.12, wi + 0.14);
+      }
+      mesh.position.y = y + h / 2;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      g.add(mesh);
+      tm = new THREE.Mesh(tg, trimMat[items[j].k]);
+      tm.position.y = y + h;
+      g.add(tm);
+      y += h;
+    }
+    return { top: y, w: topW };
+  }
+
+  function addRing(g, y, radius, color, speed, tilt) {
+    var pivot = new THREE.Group();
+    pivot.position.y = y;
+    var ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.12, 8, 56), new THREE.MeshBasicMaterial({ color: color }));
+    ring.rotation.x = Math.PI / 2 + tilt;
+    pivot.add(ring);
+    g.add(pivot);
+    spinners.push({ obj: pivot, speed: speed });
+  }
+
+  function addWing(g, y, side) {
+    var arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.0, 6), new THREE.MeshLambertMaterial({ color: 0x9fb4d8 }));
+    arm.rotation.z = Math.PI / 2;
+    arm.position.set(side * 2.2, y, 0);
+    g.add(arm);
+    var panel = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.08, 1.5), new THREE.MeshLambertMaterial({ color: 0x1c3d7a, emissive: 0x0a2a66 }));
+    panel.position.set(side * 3.5, y + 0.25, 0);
+    panel.rotation.z = side * -0.35;
+    panel.castShadow = true;
+    g.add(panel);
+  }
+
+  function buildBuilding(p) {
+    var g = new THREE.Group();
+    var t = tierOf(p.total);
+    var W = TIER_W[t];
+    var H = Math.max(2.2, Math.sqrt(p.total) * 0.2);
+    var r, topY;
+    p.tier = t;
+    if (t === 0) {
+      r = stack(g, p, W, H, 0, true);
+      var dome = new THREE.Mesh(new THREE.SphereGeometry(r.w / 2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xb8f5d2, transparent: true, opacity: 0.85 }));
+      dome.position.y = r.top;
+      g.add(dome);
+      topY = r.top + r.w / 2;
+    } else if (t === 1) {
+      r = stack(g, p, W, H, 0.1, false);
+      addAntenna(g, r.top, 0, 1.6);
+      topY = r.top + 1.8;
+    } else if (t === 2) {
+      r = stack(g, p, W, H, 0.15, false);
+      addWing(g, r.top * 0.55, -1);
+      addWing(g, r.top * 0.55, 1);
+      addAntenna(g, r.top, 0, 1.8);
+      topY = r.top + 2;
+    } else if (t === 3) {
+      r = stack(g, p, W, H, 0.3, false);
+      var box = new THREE.Mesh(new THREE.BoxGeometry(r.w * 0.45, 0.6, r.w * 0.45), darkMat);
+      box.position.y = r.top + 0.3;
+      g.add(box);
+      addAntenna(g, r.top + 0.6, 0, 2.0);
+      topY = r.top + 2.8;
+    } else if (t === 4) {
+      r = stack(g, p, W, H, 0.25, false);
+      addRing(g, r.top * 0.7, W * 0.95, 0xc084fc, 0.6, 0.22);
+      addAntenna(g, r.top, 0, 2.4);
+      topY = r.top + 2.6;
+    } else {
+      var base = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.6, 0.9, 10), new THREE.MeshLambertMaterial({ color: 0xc79a05 }));
+      base.position.y = 0.45;
+      base.castShadow = true; base.receiveShadow = true;
+      g.add(base);
+      var step = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.9, 0.7, 10), new THREE.MeshLambertMaterial({ color: 0xe0b413 }));
+      step.position.y = 1.25;
+      g.add(step);
+      var sub = new THREE.Group();
+      sub.position.y = 1.6;
+      g.add(sub);
+      var Hs = H * 0.8;
+      r = stack(sub, p, W, Hs, 0.45, false);
+      var spireBase = 1.6 + r.top;
+      var spire = new THREE.Mesh(new THREE.ConeGeometry(0.7, 3.8, 8), new THREE.MeshLambertMaterial({ color: 0xfacc15, emissive: 0x6b5200 }));
+      spire.position.y = spireBase + 1.9;
+      spire.castShadow = true;
+      g.add(spire);
+      var beacon = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 10), new THREE.MeshBasicMaterial({ color: 0xfff1a8 }));
+      beacon.position.y = spireBase + 4.0;
+      g.add(beacon);
+      blinkers.push({ mesh: beacon, phase: 0 });
+      addRing(g, 1.6 + r.top * 0.5, 4.6, 0xfacc15, 0.5, 0.18);
+      addRing(g, 1.6 + r.top * 0.8, 3.2, 0xffe27a, -0.8, -0.25);
+      var pl = new THREE.PointLight(0xffd36b, 1.1, 46);
+      pl.position.y = spireBase + 4.2;
+      g.add(pl);
+      topY = spireBase + 4.4;
+    }
+    p.topY = topY;
+    g.userData.p = p;
+    return g;
+  }
+
+  /* ---------- Plataforma con la forma de México ---------- */
+  var MARGIN = 28, PLATE_D = 12;
+  var mainW = offsetPoly(toWorld(MAIN_LL), MARGIN);
+  var bajaW = offsetPoly(toWorld(BAJA_LL), MARGIN);
+
+  var gridCv = document.createElement('canvas');
+  gridCv.width = gridCv.height = 256;
+  (function () {
+    var x = gridCv.getContext('2d');
+    x.fillStyle = '#13213d';
+    x.fillRect(0, 0, 256, 256);
+    x.strokeStyle = '#22406b';
+    x.lineWidth = 3;
+    x.strokeRect(0, 0, 256, 256);
+    x.strokeStyle = '#192e52';
+    x.lineWidth = 1.5;
+    x.beginPath(); x.moveTo(128, 0); x.lineTo(128, 256); x.moveTo(0, 128); x.lineTo(256, 128); x.stroke();
+  })();
+  var gridTex = new THREE.CanvasTexture(gridCv);
+  gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping;
+  gridTex.repeat.set(1 / 150, 1 / 150);
+  gridTex.anisotropy = 8;
+
+  var plateGeo = new THREE.ExtrudeGeometry([toShape(mainW), toShape(bajaW)], { depth: PLATE_D, bevelEnabled: false });
+  var plate = new THREE.Mesh(plateGeo, [new THREE.MeshLambertMaterial({ map: gridTex }), new THREE.MeshLambertMaterial({ color: 0x0e1a30 })]);
+  plate.rotation.x = -Math.PI / 2;
+  plate.position.y = -PLATE_D;
+  plate.receiveShadow = true;
+  scene.add(plate);
+  var rock = new THREE.Mesh(plateGeo, new THREE.MeshLambertMaterial({ color: 0x0a1326 }));
+  rock.rotation.x = -Math.PI / 2;
+  rock.scale.set(0.9, 0.9, 5);
+  rock.position.y = -PLATE_D - PLATE_D * 5;
+  scene.add(rock);
+
+  [mainW, bajaW].forEach(function (poly) {
+    var rib = new THREE.Mesh(ribbonGeo(poly, 9), new THREE.MeshBasicMaterial({ color: 0x3fd0ff, side: THREE.DoubleSide }));
+    rib.position.y = 0.6;
+    scene.add(rib);
+  });
+
+  /* ---------- Distritos en su posición real ---------- */
+  var S = 7.2, PADW = 6.2, BASE = 0.34, PLAZA = 9.5;
+  var cityXY = {};
+  CITIES.forEach(function (c) { cityXY[c[0]] = geo(c[2], c[3]); });
+  var presPos = cityXY['Ciudad de México'];
+
+  var byCity = {};
+  players.forEach(function (p) { if (p === pres) return; (byCity[p.city] = byCity[p.city] || []).push(p); });
+  var districts = Object.keys(byCity).map(function (name) {
+    var list = byCity[name], n = list.length;
+    var cols = Math.ceil(Math.sqrt(n * 1.15)), rows = Math.ceil(n / cols);
+    var hx = cols * S / 2, hz = rows * S / 2;
+    var c = cityXY[name];
+    var cx = c.x, cz = c.z;
+    if (name === 'Ciudad de México') cx += PLAZA + hx + 2;
+    return { name: name, list: list, cols: cols, rows: rows, r: Math.sqrt(hx * hx + hz * hz), cx: cx, cz: cz };
+  });
+
+  /* Plaza central y palacio */
+  var plazaMesh = new THREE.Mesh(new THREE.CylinderGeometry(PLAZA - 1, PLAZA - 1, BASE, 56), new THREE.MeshLambertMaterial({ color: 0x1e3358 }));
+  plazaMesh.position.set(presPos.x, BASE / 2, presPos.z);
+  plazaMesh.receiveShadow = true;
+  scene.add(plazaMesh);
+  var plazaRing = new THREE.Mesh(new THREE.TorusGeometry(PLAZA - 1.3, 0.14, 8, 80), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+  plazaRing.rotation.x = Math.PI / 2;
+  plazaRing.position.set(presPos.x, BASE + 0.03, presPos.z);
+  scene.add(plazaRing);
+
+  var roots = [];
+  var palace = buildBuilding(pres);
+  palace.position.set(presPos.x, BASE, presPos.z);
+  pres.x = presPos.x; pres.z = presPos.z;
+  scene.add(palace);
+  roots.push(palace);
+
+  var padGeo = new THREE.BoxGeometry(PADW, 0.2, PADW);
+  var padMat = new THREE.MeshLambertMaterial({ color: 0x23375a });
+  var lineMat = new THREE.MeshBasicMaterial({ color: 0x3a6cb0 });
+  var lampPos = [];
+  var domeMat = new THREE.MeshLambertMaterial({ color: 0x4ade80, transparent: true, opacity: 0.45, emissive: 0x0b3d1f });
+  var ringMatG = new THREE.MeshBasicMaterial({ color: 0x4ade80 });
+
+  districts.forEach(function (d) {
+    var slab = new THREE.Mesh(new THREE.BoxGeometry(d.cols * S + 1.6, 0.14, d.rows * S + 1.6), new THREE.MeshLambertMaterial({ color: 0x182a4a }));
+    slab.position.set(d.cx, 0.07, d.cz);
+    slab.receiveShadow = true;
+    scene.add(slab);
+
+    var k, j, ln;
+    for (k = 0; k <= d.cols; k++) {
+      ln = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.02, d.rows * S), lineMat);
+      ln.position.set(d.cx + (k - d.cols / 2) * S, 0.15, d.cz);
+      scene.add(ln);
+    }
+    for (j = 0; j <= d.rows; j++) {
+      ln = new THREE.Mesh(new THREE.BoxGeometry(d.cols * S, 0.02, 0.14), lineMat);
+      ln.position.set(d.cx, 0.15, d.cz + (j - d.rows / 2) * S);
+      scene.add(ln);
+    }
+    for (k = 0; k <= d.cols; k++) {
+      for (j = 0; j <= d.rows; j++) {
+        if ((k + j) % 2 === 0) lampPos.push([d.cx + (k - d.cols / 2) * S, d.cz + (j - d.rows / 2) * S]);
+      }
+    }
+
+    var cells = [], c, r2;
+    for (r2 = 0; r2 < d.rows; r2++) {
+      for (c = 0; c < d.cols; c++) {
+        var x = (c - (d.cols - 1) / 2) * S, z = (r2 - (d.rows - 1) / 2) * S;
+        cells.push({ x: x, z: z, d: Math.sqrt(x * x + z * z) });
+      }
+    }
+    cells.sort(function (a, b) { return a.d - b.d; });
+    var sorted = d.list.slice().sort(function (a, b) { return b.total - a.total; });
+    cells.forEach(function (cell, idx) {
+      var pad = new THREE.Mesh(padGeo, padMat);
+      pad.position.set(d.cx + cell.x, 0.24, d.cz + cell.z);
+      pad.receiveShadow = true;
+      scene.add(pad);
+      var pl = sorted[idx];
+      if (pl) {
+        var b = buildBuilding(pl);
+        b.position.set(d.cx + cell.x, BASE, d.cz + cell.z);
+        pl.x = d.cx + cell.x; pl.z = d.cz + cell.z;
+        scene.add(b);
+        roots.push(b);
+      } else {
+        var rr = 1.3 + rnd() * 0.9;
+        var dm = new THREE.Mesh(new THREE.SphereGeometry(rr, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), domeMat);
+        dm.position.set(d.cx + cell.x, BASE, d.cz + cell.z);
+        scene.add(dm);
+        var dr = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.07, 6, 28), ringMatG);
+        dr.rotation.x = Math.PI / 2;
+        dr.position.set(d.cx + cell.x, BASE + 0.04, d.cz + cell.z);
+        scene.add(dr);
+      }
+    });
+  });
+
+  /* Farolas con instancias */
+  (function () {
+    var n = lampPos.length;
+    var poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.05, 1.1, 6), new THREE.MeshLambertMaterial({ color: 0x6b86b4 }), n);
+    var bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ color: 0x3fd0ff }), n);
+    var o = new THREE.Object3D(), q;
+    for (q = 0; q < n; q++) {
+      o.position.set(lampPos[q][0], 0.14 + 0.55, lampPos[q][1]); o.updateMatrix(); poles.setMatrixAt(q, o.matrix);
+      o.position.set(lampPos[q][0], 0.14 + 1.15, lampPos[q][1]); o.updateMatrix(); bulbs.setMatrixAt(q, o.matrix);
+    }
+    poles.instanceMatrix.needsUpdate = true;
+    bulbs.instanceMatrix.needsUpdate = true;
+    scene.add(poles);
+    scene.add(bulbs);
+  })();
+
+  /* Marcadores que crecen con la distancia para verse desde todo el país */
+  var pinGeoCone = new THREE.ConeGeometry(0.9, 3.2, 10);
+  var pinGeoBall = new THREE.SphereGeometry(1.25, 14, 10);
+  function makePin(color) {
+    var g = new THREE.Group();
+    var cone = new THREE.Mesh(pinGeoCone, new THREE.MeshBasicMaterial({ color: color }));
+    cone.rotation.x = Math.PI;
+    cone.position.y = 1.6;
+    var ball = new THREE.Mesh(pinGeoBall, new THREE.MeshBasicMaterial({ color: color }));
+    ball.position.y = 4.4;
+    g.add(cone);
+    g.add(ball);
+    scene.add(g);
+    return g;
+  }
+  var pinRoots = [];
+  districts.forEach(function (d) {
+    d.pin = makePin(0x3fd0ff);
+    d.pin.userData.d = d;
+    pinRoots.push(d.pin);
+    d.pin.position.set(d.cx, 0.35, d.cz);
+    d.pinPos = new THREE.Vector3(d.cx, 0.35, d.cz);
+  });
+  var presPin = makePin(0xfacc15);
+  presPin.position.set(presPos.x, 0.35, presPos.z);
+  presPin.userData.pres = true;
+  pinRoots.push(presPin);
+  var presPinPos = new THREE.Vector3(presPos.x, 0.35, presPos.z);
+
+  /* Fondo: estrellas y la Tierra */
+  (function () {
+    var N = 2600, arr = new Float32Array(N * 3), n;
+    for (n = 0; n < N; n++) {
+      var th = rnd() * Math.PI * 2, ph = Math.acos(2 * rnd() - 1), rr = 30000;
+      arr[n * 3] = rr * Math.sin(ph) * Math.cos(th);
+      arr[n * 3 + 1] = rr * Math.cos(ph);
+      arr[n * 3 + 2] = rr * Math.sin(ph) * Math.sin(th);
+    }
+    var sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xcce4ff, size: 1.6, sizeAttenuation: false, fog: false })));
+
+    var ec = document.createElement('canvas');
+    ec.width = 512; ec.height = 256;
+    var x = ec.getContext('2d');
+    var gr = x.createLinearGradient(0, 0, 0, 256);
+    gr.addColorStop(0, '#2a62e0'); gr.addColorStop(1, '#0e2f8a');
+    x.fillStyle = gr; x.fillRect(0, 0, 512, 256);
+    var b;
+    for (b = 0; b < 26; b++) {
+      x.fillStyle = rnd() < 0.8 ? '#3fae5a' : '#c9b56a';
+      x.beginPath();
+      x.ellipse(rnd() * 512, 30 + rnd() * 196, 14 + rnd() * 46, 8 + rnd() * 24, rnd() * 3, 0, Math.PI * 2);
+      x.fill();
+    }
+    x.strokeStyle = 'rgba(255,255,255,0.45)'; x.lineWidth = 6; x.lineCap = 'round';
+    for (b = 0; b < 16; b++) {
+      var cx0 = rnd() * 512, cy0 = rnd() * 256;
+      x.beginPath(); x.moveTo(cx0, cy0); x.lineTo(cx0 + 30 + rnd() * 60, cy0 + (rnd() - 0.5) * 14); x.stroke();
+    }
+    var earth = new THREE.Mesh(new THREE.SphereGeometry(2400, 48, 32), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(ec), emissive: 0x0a1f4a, fog: false }));
+    earth.position.set(-9500, 4200, -17000);
+    scene.add(earth);
+    var halo = new THREE.Mesh(new THREE.SphereGeometry(2600, 40, 28), new THREE.MeshBasicMaterial({ color: 0x4da6ff, transparent: true, opacity: 0.16, side: THREE.BackSide, fog: false }));
+    halo.position.copy(earth.position);
+    scene.add(halo);
+    spinners.push({ obj: earth, speed: 0.02 });
+  })();
+
+  /* Anillo de selección */
+  var selRing = new THREE.Mesh(new THREE.TorusGeometry(3.9, 0.12, 8, 64), new THREE.MeshBasicMaterial({ color: 0x3fd0ff }));
+  selRing.rotation.x = Math.PI / 2;
+  selRing.visible = false;
+  scene.add(selRing);
+
+  /* ---------- Etiquetas ---------- */
+  var labelsEl = document.getElementById('labels');
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  var selected = null;
+  players.forEach(function (p) {
+    var b = el('button', 'pill' + (p.isPres ? ' pres' : ''));
+    b.type = 'button';
+    b.tabIndex = -1;
+    if (p.isPres) b.appendChild(el('em', null, 'Presidente'));
+    b.appendChild(el('span', null, '@' + p.name));
+    b.appendChild(el('small', null, p.city));
+    b.addEventListener('click', function () { select(p); });
+    labelsEl.appendChild(b);
+    p.pill = b;
+    p.wpos = new THREE.Vector3(p.x, p.topY + 1.3, p.z);
+  });
+  districts.forEach(function (d) {
+    var e = el('div', 'dist');
+    e.appendChild(document.createTextNode(d.name));
+    e.appendChild(el('small', null, d.list.length + (d.list.length === 1 ? ' jugador' : ' jugadores') + (d.name === 'Ciudad de México' ? ' + presidente' : '')));
+    labelsEl.appendChild(e);
+    e.setAttribute('role', 'button');
+    e.tabIndex = 0;
+    e.addEventListener('click', function () { flyToDistrict(d); });
+    e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') flyToDistrict(d); });
+    d.el = e;
+    d.wpos = new THREE.Vector3(d.cx, 8, d.cz);
+  });
+
+  /* ---------- Cámara ---------- */
+  var fly = null, rotOn = false, SW = 1, SH = 1;
+  function setRot() { rotOn = false; }
+  controls.addEventListener('start', function () { setRot(false); fly = null; });
+
+  function overviewDist() {
+    var aspect = SW / SH;
+    return 3700 * Math.max(1, 1.15 / aspect);
+  }
+  function flyTo(tx, ty, tz, dist, phi) {
+    var to = new THREE.Vector3(tx, ty, tz);
+    var s = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
+    s.radius = dist;
+    s.phi = phi;
+    var pos = to.clone().add(new THREE.Vector3().setFromSpherical(s));
+    fly = { t: 0, dur: REDUCED ? 0.01 : 1.4, fa: controls.target.clone(), fb: to, pa: camera.position.clone(), pb: pos };
+  }
+  function overview() { deselect(); flyTo(0, 0, 0, overviewDist(), 0.6); }
+  function flyToDistrict(d) { deselect(); flyTo(d.cx, 0, d.cz, Math.max(90, d.r * 2.8), 0.95); }
+
+  function resize() {
+    SW = Math.max(1, stage.clientWidth);
+    SH = Math.max(1, stage.clientHeight);
+    renderer.setSize(SW, SH, false);
+    camera.aspect = SW / SH;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+  (function () {
+    var d = overviewDist();
+    camera.position.set(0, d * Math.cos(0.6), d * Math.sin(0.6));
+    controls.target.set(0, 0, 0);
+    controls.update();
+  })();
+
+  /* ---------- Selección y tarjeta ---------- */
+  var card = document.getElementById('card');
+  var RAR = [['Común', 'common', 'var(--common)'], ['Rara', 'rare', 'var(--rare)'], ['Épica', 'epic', 'var(--epic)'], ['Legendaria', 'legendary', 'var(--legend)']];
+
+  function select(p) {
+    if (selected && selected.pill) selected.pill.classList.remove('sel');
+    selected = p;
+    p.pill.classList.add('sel');
+    selRing.visible = true;
+    selRing.position.set(p.x, BASE + 0.08, p.z);
+    selRing.scale.setScalar(p.isPres ? 1.9 : 1);
+
+    var rk = document.getElementById('c-rank');
+    rk.textContent = p.isPres ? 'Presidente de México' : 'Puesto ' + p.rank + ' de ' + players.length;
+    rk.className = 'rank' + (p.isPres ? ' pres' : '');
+    document.getElementById('c-name').textContent = '@' + p.name;
+    document.getElementById('c-meta').textContent = p.city + ' · México';
+    document.getElementById('c-total').textContent = fmt(p.total);
+    var bar = document.getElementById('c-bar'), rows = document.getElementById('c-rows');
+    bar.textContent = ''; rows.textContent = '';
+    RAR.forEach(function (r) {
+      var n = p[r[1]];
+      var seg = el('span');
+      seg.style.width = (n / p.total * 100) + '%';
+      seg.style.background = r[2];
+      bar.appendChild(seg);
+      var li = el('li');
+      var left = el('span');
+      var dot = el('i', 'dot');
+      dot.style.background = r[2];
+      left.appendChild(dot);
+      left.appendChild(document.createTextNode(r[0]));
+      li.appendChild(left);
+      li.appendChild(el('span', null, fmt(n)));
+      rows.appendChild(li);
+    });
+    document.getElementById('c-lvl').textContent = 'Nivel: ' + TIER_NAMES[p.tier] + ' (' + TIER_RANGE[p.tier] + ' parcelas)';
+    card.hidden = false;
+    stage.classList.add('has-card');
+    setRot(false);
+    flyTo(p.x, p.topY * 0.35, p.z, p.tier === 5 ? 42 : 28, 0.95);
+  }
+  function deselect() {
+    if (selected && selected.pill) selected.pill.classList.remove('sel');
+    selected = null;
+    selRing.visible = false;
+    card.hidden = true;
+    stage.classList.remove('has-card');
+  }
+  document.getElementById('cx').addEventListener('click', deselect);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { deselect(); resEl.hidden = true; } });
+  document.getElementById('b-over').addEventListener('click', overview);
+  document.getElementById('b-pal').addEventListener('click', function () { select(pres); });
+
+  /* Búsqueda de jugadores y ciudades */
+  var q = document.getElementById('q'), resEl = document.getElementById('res'), matches = [];
+  function choose(m) {
+    if (m.kind === 'd') flyToDistrict(m.d); else select(m.p);
+    resEl.hidden = true; q.value = ''; q.blur();
+  }
+  q.addEventListener('input', function () {
+    var v = q.value.trim().replace(/^@/, '').toLowerCase();
+    resEl.textContent = '';
+    if (!v) { resEl.hidden = true; matches = []; return; }
+    matches = [];
+    districts.forEach(function (d) { if (d.name.toLowerCase().indexOf(v) > -1) matches.push({ kind: 'd', d: d, label: d.name, sub: 'ver ciudad' }); });
+    players.forEach(function (p) {
+      if (matches.length < 6 && (p.name.toLowerCase().indexOf(v) > -1 || p.city.toLowerCase().indexOf(v) > -1)) matches.push({ kind: 'p', p: p, label: '@' + p.name, sub: p.city });
+    });
+    matches = matches.slice(0, 6);
+    if (!matches.length) {
+      var none = el('li');
+      none.appendChild(el('small', null, 'Sin resultados'));
+      none.style.padding = '8px 10px';
+      resEl.appendChild(none);
+    }
+    matches.forEach(function (m) {
+      var li = el('li');
+      var b = el('button');
+      b.type = 'button';
+      b.appendChild(el('span', null, m.label));
+      b.appendChild(el('small', null, m.sub));
+      b.addEventListener('click', function () { choose(m); });
+      li.appendChild(b);
+      resEl.appendChild(li);
+    });
+    resEl.hidden = false;
+  });
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && matches.length) choose(matches[0]);
+  });
+
+  /* Clic sobre edificios */
+  var raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), downAt = null;
+  canvas.addEventListener('pointerdown', function (e) { downAt = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  canvas.addEventListener('pointerup', function (e) {
+    if (!downAt) return;
+    var dx = e.clientX - downAt.x, dy = e.clientY - downAt.y, dt = performance.now() - downAt.t;
+    downAt = null;
+    if (dx * dx + dy * dy > 25 || dt > 400) return;
+    var rect = canvas.getBoundingClientRect();
+    ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(ndc, camera);
+    var ph = raycaster.intersectObjects(pinRoots, true);
+    for (var pi = 0; pi < ph.length; pi++) {
+      var po = ph[pi].object;
+      while (po && !(po.userData && (po.userData.d || po.userData.pres))) po = po.parent;
+      if (po && po.visible) {
+        if (po.userData.pres) select(pres); else flyToDistrict(po.userData.d);
+        return;
+      }
+    }
+    var hits = raycaster.intersectObjects(roots, true);
+    if (!hits.length) return;
+    var o = hits[0].object;
+    while (o && !(o.userData && o.userData.p)) o = o.parent;
+    if (o) select(o.userData.p);
+  });
+
+  /* ---------- Bucle ---------- */
+  var clock = new THREE.Clock(), tmp = new THREE.Vector3();
+  var LABEL_D = 55, DIST_NEAR = 60, PIN_D = 140;
+
+  function placeLabel(node, wpos, show) {
+    tmp.copy(wpos).project(camera);
+    var inView = tmp.z < 1 && tmp.x > -1.1 && tmp.x < 1.1 && tmp.y > -1.1 && tmp.y < 1.1;
+    if (!show || !inView) {
+      node.style.opacity = '0';
+      node.style.visibility = 'hidden';
+      return;
+    }
+    var sx = (tmp.x * 0.5 + 0.5) * SW, sy = (-tmp.y * 0.5 + 0.5) * SH;
+    node.style.visibility = 'visible';
+    node.style.opacity = '1';
+    node.style.transform = 'translate3d(' + sx.toFixed(1) + 'px,' + sy.toFixed(1) + 'px,0) translate(-50%,-100%)';
+    node.style.zIndex = String(Math.max(1, 1000 - Math.round(Math.min(camera.position.distanceTo(wpos), 990))));
+  }
+
+  function frame() {
+    requestAnimationFrame(frame);
+    var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, k, n;
+
+    if (fly) {
+      fly.t = Math.min(1, fly.t + dt / fly.dur);
+      k = fly.t * fly.t * (3 - 2 * fly.t);
+      controls.target.lerpVectors(fly.fa, fly.fb, k);
+      camera.position.lerpVectors(fly.pa, fly.pb, k);
+      if (fly.t >= 1) fly = null;
+    }
+    controls.autoRotate = rotOn && !fly && !selected;
+    controls.update();
+    controls.target.x = clamp(controls.target.x, -1750, 1750);
+    controls.target.z = clamp(controls.target.z, -1300, 1300);
+    controls.target.y = clamp(controls.target.y, 0, 60);
+
+    sun.target.position.copy(controls.target);
+    sun.position.copy(controls.target).add(SUN_OFF);
+
+    for (n = 0; n < spinners.length; n++) spinners[n].obj.rotation.y += spinners[n].speed * dt;
+    for (n = 0; n < blinkers.length; n++) blinkers[n].mesh.scale.setScalar(0.85 + 0.35 * Math.sin(t * 3 + blinkers[n].phase));
+    if (selected) selRing.rotation.z = t * 0.8;
+
+    for (n = 0; n < players.length; n++) {
+      var p = players[n];
+      var d = camera.position.distanceTo(p.wpos);
+      placeLabel(p.pill, p.wpos, (p.isPres && d < 220) || p === selected || d < LABEL_D);
+    }
+    for (n = 0; n < districts.length; n++) {
+      var dd = districts[n];
+      var d0 = camera.position.distanceTo(dd.pinPos);
+      var s = Math.max(1, d0 / 90);
+      dd.pin.scale.setScalar(s);
+      dd.pin.visible = d0 > PIN_D;
+      dd.wpos.y = 0.35 + 6.6 * (d0 > PIN_D ? s : 1);
+      placeLabel(dd.el, dd.wpos, d0 > DIST_NEAR);
+    }
+    var dp = camera.position.distanceTo(presPinPos);
+    presPin.scale.setScalar(Math.max(1, dp / 90) * 1.3);
+    presPin.visible = dp > PIN_D;
+
+    renderer.render(scene, camera);
+  }
+  frame();
+};
+</script>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+const app = initializeApp({
+  apiKey: 'AIzaSyB-xx2PlBjvnHe0K7Bf1MspVqUlfjky0mk',
+  authDomain: 'aemx-chat.firebaseapp.com',
+  databaseURL: 'https://aemx-chat-default-rtdb.firebaseio.com',
+  projectId: 'aemx-chat',
+  storageBucket: 'aemx-chat.appspot.com'
+});
+const auth = getAuth(app);
+const db = getDatabase(app);
+const gate = document.getElementById('gate');
+const btn = document.getElementById('gate-btn');
+const msg = document.getElementById('gate-msg');
+const err = document.getElementById('gate-err');
+let started = false;
+
+function showErr(t) { err.textContent = t; err.hidden = false; }
+
+btn.addEventListener('click', async () => {
+  err.hidden = true;
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) { showErr('No se pudo iniciar sesión: ' + (e.code || e.message)); }
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) { gate.hidden = false; btn.hidden = false; msg.textContent = 'Inicia sesión con Google para ver a los jugadores en el mapa.'; return; }
+  if (started) return;
+  btn.hidden = true; msg.textContent = 'Cargando jugadores…';
+  try {
+    const snap = await get(ref(db, 'users'));
+    started = true;
+    gate.hidden = true;
+    window.startMap(snap.val() || {});
+  } catch (e) {
+    btn.hidden = false;
+    msg.textContent = 'No se pudieron leer los datos.';
+    showErr(e.code || e.message);
+  }
+});
+</script>
+
+</body></html>
