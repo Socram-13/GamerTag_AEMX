@@ -672,19 +672,21 @@ window.startMap = function (RAW) {
   /* ---------- Estados con miembros AEMX (GeoJSON) ---------- */
   var statesGroup = new THREE.Group();
   scene.add(statesGroup);
-  var stateMat = new THREE.MeshBasicMaterial({ color: 0x00ff9d, transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide });
-  var stateLineMat = new THREE.LineBasicMaterial({ color: 0x00ff9d });
+  var STATE_D = 5;
+  var stateMats = [new THREE.MeshLambertMaterial({ color: 0x1fbf7a, emissive: 0x06462a }), new THREE.MeshLambertMaterial({ color: 0x0b5a38 })];
+  var stateLineMat = new THREE.LineBasicMaterial({ color: 0x7dffc8 });
   var NOMBRE_MAP = { 'Baja California Norte': 'Baja California', 'Coahuila de Zaragoza': 'Coahuila', 'Michoacán de Ocampo': 'Michoacán',
     'Veracruz de Ignacio de la Llave': 'Veracruz', 'México': 'Estado de México' };
   function ringPts(ring) { return ring.map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector2(g.x, -g.z); }); }
   function addStatePoly(poly) {
     var sh = new THREE.Shape(ringPts(poly[0])), i;
     for (i = 1; i < poly.length; i++) sh.holes.push(new THREE.Path(ringPts(poly[i])));
-    var mesh = new THREE.Mesh(new THREE.ShapeGeometry(sh), stateMat);
+    var mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: STATE_D, bevelEnabled: false }), stateMats);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.y = 0.12;
+    mesh.position.y = -STATE_D;
+    mesh.receiveShadow = true;
     statesGroup.add(mesh);
-    var pts = poly[0].map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector3(g.x, 0.14, g.z); });
+    var pts = poly[0].map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector3(g.x, 0.05, g.z); });
     statesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), stateLineMat));
   }
   fetch('https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json')
@@ -698,6 +700,7 @@ window.startMap = function (RAW) {
         var polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
         polys.forEach(addStatePoly);
       });
+      if (statesGroup.children.length) { plate.visible = false; rock.visible = false; }
     })
     .catch(function (e) { console.warn('No se pudo cargar el GeoJSON de estados:', e); });
   var rock = new THREE.Mesh(plateGeo, new THREE.MeshLambertMaterial({ color: 0x0a1326 }));
