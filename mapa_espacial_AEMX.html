@@ -851,46 +851,6 @@ window.startMap = function (RAW) {
   pinRoots.push(presPin);
   var presPinPos = new THREE.Vector3(presPos.x, 0.35, presPos.z);
 
-  /* Fondo: estrellas y la Tierra */
-  (function () {
-    var N = 2600, arr = new Float32Array(N * 3), n;
-    for (n = 0; n < N; n++) {
-      var th = rnd() * Math.PI * 2, ph = Math.acos(2 * rnd() - 1), rr = 30000;
-      arr[n * 3] = rr * Math.sin(ph) * Math.cos(th);
-      arr[n * 3 + 1] = rr * Math.cos(ph);
-      arr[n * 3 + 2] = rr * Math.sin(ph) * Math.sin(th);
-    }
-    var sg = new THREE.BufferGeometry();
-    sg.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-    scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xcce4ff, size: 1.6, sizeAttenuation: false, fog: false })));
-
-    var ec = document.createElement('canvas');
-    ec.width = 512; ec.height = 256;
-    var x = ec.getContext('2d');
-    var gr = x.createLinearGradient(0, 0, 0, 256);
-    gr.addColorStop(0, '#2a62e0'); gr.addColorStop(1, '#0e2f8a');
-    x.fillStyle = gr; x.fillRect(0, 0, 512, 256);
-    var b;
-    for (b = 0; b < 26; b++) {
-      x.fillStyle = rnd() < 0.8 ? '#3fae5a' : '#c9b56a';
-      x.beginPath();
-      x.ellipse(rnd() * 512, 30 + rnd() * 196, 14 + rnd() * 46, 8 + rnd() * 24, rnd() * 3, 0, Math.PI * 2);
-      x.fill();
-    }
-    x.strokeStyle = 'rgba(255,255,255,0.45)'; x.lineWidth = 6; x.lineCap = 'round';
-    for (b = 0; b < 16; b++) {
-      var cx0 = rnd() * 512, cy0 = rnd() * 256;
-      x.beginPath(); x.moveTo(cx0, cy0); x.lineTo(cx0 + 30 + rnd() * 60, cy0 + (rnd() - 0.5) * 14); x.stroke();
-    }
-    var earth = new THREE.Mesh(new THREE.SphereGeometry(2400, 48, 32), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(ec), emissive: 0x0a1f4a, fog: false }));
-    earth.position.set(-9500, 4200, -17000);
-    scene.add(earth);
-    var halo = new THREE.Mesh(new THREE.SphereGeometry(2600, 40, 28), new THREE.MeshBasicMaterial({ color: 0x4da6ff, transparent: true, opacity: 0.16, side: THREE.BackSide, fog: false }));
-    halo.position.copy(earth.position);
-    scene.add(halo);
-    spinners.push({ obj: earth, speed: 0.02 });
-  })();
-
   /* Anillo de selección */
   var selRing = new THREE.Mesh(new THREE.TorusGeometry(3.9, 0.12, 8, 64), new THREE.MeshBasicMaterial({ color: 0x3fd0ff }));
   selRing.rotation.x = Math.PI / 2;
