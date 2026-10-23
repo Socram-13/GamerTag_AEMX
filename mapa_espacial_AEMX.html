@@ -2384,8 +2384,7 @@ window.startMap = function (RAW, AUTH) {
       nm2 = st[n] ? names[st[n] - 1] : null;
       base = !nm2 ? 0x1b3322 : (!(byCity[nm2] && byCity[nm2].length) ? 0x6b6f73 : NORTE[nm2] ? 0x4a3623 : 0x1b3322);
       c.setHex(base);
-      t = Math.min(1, H[n] / 7); c.lerp(rock, t * 0.6);
-      if (H[n] > 11) c.lerp(snow, Math.min(1, (H[n] - 11) / 3));
+      t = 1 + 0.3 * Math.min(1, H[n] / 10); c.setRGB(Math.min(1, c.r * t), Math.min(1, c.g * t), Math.min(1, c.b * t)); /* mismo color del mapa, apenas más claro con la altura */
       col[n * 3] = c.r; col[n * 3 + 1] = c.g; col[n * 3 + 2] = c.b;
     }
     terrainH = function (x, z) {
