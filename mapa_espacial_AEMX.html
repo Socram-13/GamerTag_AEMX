@@ -870,7 +870,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Drones: despegan del helipuerto, dan una vuelta por la zona y aterrizan ---------- */
   var drones = [], drTmp = new THREE.Vector3();
-  var DR_UP = 3, DR_FLY = 16, DR_DN = 3, DR_FLIGHT = DR_UP + DR_FLY + DR_DN;
+  var DR_UP = 3, DR_DN = 3;
   var drBody = new THREE.MeshLambertMaterial({ color: 0x3a4670, emissive: 0x0b1226 });
   var drBlade = new THREE.MeshBasicMaterial({ color: 0xcfefff });
   var drDisc = cyGlow(0x7fe9ff, 0.35);
@@ -894,14 +894,20 @@ window.startMap = function (RAW, AUTH) {
     m = new THREE.Mesh(uLamp, drLedG); m.scale.setScalar(0.6); m.position.set(0.22, 0, 0.3); g.add(m); leds.push(m);
     g.scale.setScalar(0.9);
     var pad = new THREE.Vector3(b.position.x + hl.x, b.position.y + hl.y + 0.1, b.position.z + hl.z);
-    /* El círculo de vuelo pasa por el helipuerto y se abre hacia el centro del distrito */
-    var toC = Math.hypot(d.cx - pad.x, d.cz - pad.z);
-    var alpha = toC > 3 ? Math.atan2(d.cz - pad.z, d.cx - pad.x) : Math.random() * 6.283;
-    var cycle = DR_FLIGHT + 10 + Math.random() * 15;
-    var dr = { g: g, d: d, pad: pad, rotors: rotors, leds: leds, alpha: alpha, R: 24 + Math.random() * 12,
-               cy: pad.y + 4, cycle: cycle, off: Math.random() * cycle, rs: 0, hdg: Math.atan2(-Math.sin(alpha + Math.PI), Math.cos(alpha + Math.PI)) };
+    /* Ruta: sale en línea recta del helipuerto hasta un anillo que rodea toda la ciudad, le da la vuelta completa y regresa por el mismo camino */
+    var c0x = d.cx, c0z = d.cz, Rc = d.r + 5;
+    var dxp = pad.x - c0x, dzp = pad.z - c0z;
+    var phi0 = Math.hypot(dxp, dzp) > 2 ? Math.atan2(dzp, dxp) : Math.random() * 6.283;
+    var p0x = c0x + Rc * Math.cos(phi0), p0z = c0z + Rc * Math.sin(phi0);
+    var L = Math.hypot(p0x - pad.x, p0z - pad.z), lap = 2 * Math.PI * Rc, total = 2 * L + lap;
+    var tFly = total / Math.max(9, total / 45);
+    var cycle = DR_UP + tFly + DR_DN + 10 + Math.random() * 15;
+    var hdgOut = Math.atan2(p0x - pad.x, p0z - pad.z), hdgIn = Math.atan2(pad.x - p0x, pad.z - p0z);
+    var dr = { g: g, d: d, pad: pad, rotors: rotors, leds: leds, cx: c0x, cz: c0z, Rc: Rc, phi0: phi0, p0x: p0x, p0z: p0z, L: L, lap: lap, total: total,
+               sg: Math.random() < 0.5 ? 1 : -1, tFly: tFly, yHi: pad.y + 2, yLo: 5, cycle: cycle, off: Math.random() * cycle, rs: 0,
+               hdgOut: hdgOut, hdgIn: hdgIn, hc: hdgIn, flight: DR_UP + tFly + DR_DN };
     g.position.copy(pad);
-    g.rotation.y = dr.hdg;
+    g.rotation.y = hdgIn;
     g.visible = false;
     g.raycast = function () {};
     d.group.add(g);
@@ -909,34 +915,50 @@ window.startMap = function (RAW, AUTH) {
   }
 
   function updateDrones(t, dt) {
-    var i, j, dr, ph, u, k, x, z, y, psi, th, near, flying, hdg, tilt, cx, cz;
+    var i, j, dr, ph, u, k, s, x, z, y, phi, near, flying, tgt, tilt, df;
     for (i = 0; i < drones.length; i++) {
       dr = drones[i];
       near = camera.position.distanceTo(drTmp.copy(dr.pad).add(dr.d.group.position)) < 700;
       if (dr.g.visible !== near) dr.g.visible = near;
       if (!near) continue;
       ph = (t + dr.off) % dr.cycle;
-      x = dr.pad.x; y = dr.pad.y; z = dr.pad.z; hdg = dr.hdg; tilt = 0; flying = ph < DR_FLIGHT;
+      x = dr.pad.x; y = dr.pad.y; z = dr.pad.z; tgt = dr.hdgIn; tilt = 0; flying = ph < dr.flight;
       if (ph < DR_UP) {
-        y = dr.pad.y + (dr.cy - dr.pad.y) * drSmooth(ph / DR_UP);
-      } else if (ph < DR_UP + DR_FLY) {
-        u = (ph - DR_UP) / DR_FLY;
-        th = Math.PI * 2 * drSmooth(u);
-        psi = dr.alpha + Math.PI + th;
-        cx = dr.pad.x + dr.R * Math.cos(dr.alpha); cz = dr.pad.z + dr.R * Math.sin(dr.alpha);
-        x = cx + dr.R * Math.cos(psi); z = cz + dr.R * Math.sin(psi);
-        y = dr.cy + 0.5 * Math.sin(u * Math.PI * 6);
-        hdg = Math.atan2(-Math.sin(psi), Math.cos(psi));
+        y = dr.pad.y + (dr.yHi - dr.pad.y) * drSmooth(ph / DR_UP);
+        tgt = dr.hdgOut;
+      } else if (ph < DR_UP + dr.tFly) {
+        u = (ph - DR_UP) / dr.tFly;
+        s = dr.total * drSmooth(u);
         tilt = 0.14 * Math.sin(Math.PI * u);
+        if (s < dr.L) {
+          k = s / dr.L;
+          x = dr.pad.x + (dr.p0x - dr.pad.x) * k; z = dr.pad.z + (dr.p0z - dr.pad.z) * k;
+          y = dr.yHi + (dr.yLo - dr.yHi) * drSmooth(k);
+          tgt = dr.hdgOut;
+        } else if (s < dr.L + dr.lap) {
+          phi = dr.phi0 + dr.sg * (s - dr.L) / dr.Rc;
+          x = dr.cx + dr.Rc * Math.cos(phi); z = dr.cz + dr.Rc * Math.sin(phi);
+          y = dr.yLo + 0.4 * Math.sin(u * Math.PI * 8);
+          tgt = Math.atan2(-Math.sin(phi) * dr.sg, Math.cos(phi) * dr.sg);
+        } else {
+          k = (s - dr.L - dr.lap) / dr.L;
+          x = dr.p0x + (dr.pad.x - dr.p0x) * k; z = dr.p0z + (dr.pad.z - dr.p0z) * k;
+          y = dr.yLo + (dr.yHi - dr.yLo) * drSmooth(k);
+          tgt = dr.hdgIn;
+        }
       } else if (flying) {
-        k = drSmooth((ph - DR_UP - DR_FLY) / DR_DN);
-        y = dr.cy + (dr.pad.y - dr.cy) * k;
+        k = drSmooth((ph - DR_UP - dr.tFly) / DR_DN);
+        y = dr.yHi + (dr.pad.y - dr.yHi) * k;
       }
+      df = tgt - dr.hc;
+      while (df > Math.PI) df -= Math.PI * 2;
+      while (df < -Math.PI) df += Math.PI * 2;
+      dr.hc += df * Math.min(1, dt * 4);
       dr.rs += ((flying ? 1 : 0) - dr.rs) * Math.min(1, dt * 3);
       for (j = 0; j < dr.rotors.length; j++) dr.rotors[j].rotation.y += (j % 2 ? -1 : 1) * dr.rs * dt * 45;
       dr.leds[0].visible = dr.leds[1].visible = !flying || Math.sin(t * 9) > -0.3;
       dr.g.position.set(x, y, z);
-      dr.g.rotation.y = hdg;
+      dr.g.rotation.y = dr.hc;
       dr.g.rotation.x = tilt;
     }
   }
