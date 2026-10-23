@@ -1249,11 +1249,13 @@ window.startMap = function (RAW) {
     }
     /* Alfombra continua de suelo (césped / pasto seco / tierra) que cubre toda el área con vegetación */
     (function () {
-      var G = 0.8, cells = {}, list = [], ext = HEX_R + RING * 1.2 + 2;
+      var G = 0.8, cells = {}, filled = {}, list = [], ext = HEX_R + RING * 1.2 + 2;
       function nz(x, z, f, o) { return 0.5 + 0.25 * Math.sin(x * f + o) * Math.cos(z * f * 1.3 - o) + 0.25 * Math.sin((x + z) * f * 0.7 + o * 2.1); }
       function addCell(ix, iz, force) {
         var k = gk(ix, iz), x, z, dm, lim, zone, n1, n2, c, edge;
-        if (cells[k]) return; cells[k] = 1;
+        if (filled[k]) return;
+        if (cells[k] && !force) return;
+        cells[k] = 1;
         x = (ix + 0.5) * G; z = (iz + 0.5) * G;
         dm = nearestHex(x, z);
         if (dm < HEX_R * 0.5) return; /* el suelo también pasa por debajo de los hexágonos */
@@ -1271,7 +1273,37 @@ window.startMap = function (RAW) {
         else { gc = col(0.28 + 0.05 * n2, 0.42, 0.16 + 0.1 * n2); dc = col(0.08 + 0.02 * n2, 0.33, 0.19 + 0.06 * n2); w = (n1 - 0.66) / 0.2; }
         w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
         c = gc.lerp(dc, w);
-        list.push({ x: x, z: z, y: 0.02 + ((ix + iz) & 1) * 0.004, c: c, r: Math.min(G * 0.82, edge + 0.12) });
+        filled[k] = 1;
+        list.push({ x: x, z: z, y: 0.02 + ((ix + iz) & 1) * 0.004, c: c, r: Math.min(G * 0.9, edge + 0.12) });
+      }
+      /* Rellena huecos: cierra rendijas y cubre las zonas sin suelo rodeadas por suelo (islas de la base del estado) */
+      function fillHoles(ia, ib, ja, jb) {
+        var pass, ix, iz, n, reach = {}, stack = [], cnt, s, kk;
+        function f(a, b) { return filled[gk(a, b)] === 1; }
+        for (pass = 0; pass < 3; pass++) {
+          for (ix = ia; ix <= ib; ix++) for (iz = ja; iz <= jb; iz++) {
+            if (f(ix, iz)) continue;
+            n = (f(ix + 1, iz) ? 1 : 0) + (f(ix - 1, iz) ? 1 : 0) + (f(ix, iz + 1) ? 1 : 0) + (f(ix, iz - 1) ? 1 : 0);
+            if (n >= 3) addCell(ix, iz, true);
+          }
+        }
+        /* Inundación desde el borde del área: lo que no se alcanza está encerrado por suelo */
+        for (ix = ia; ix <= ib; ix++) for (iz = ja; iz <= jb; iz++) {
+          if ((ix === ia || ix === ib || iz === ja || iz === jb) && !f(ix, iz)) { reach[gk(ix, iz)] = 1; stack.push([ix, iz]); }
+        }
+        while (stack.length) {
+          s = stack.pop();
+          [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (dd) {
+            var a = s[0] + dd[0], b = s[1] + dd[1];
+            if (a < ia || a > ib || b < ja || b > jb) return;
+            kk = gk(a, b);
+            if (reach[kk] || filled[kk] === 1) return;
+            reach[kk] = 1; stack.push([a, b]);
+          });
+        }
+        for (ix = ia; ix <= ib; ix++) for (iz = ja; iz <= jb; iz++) {
+          if (!reach[gk(ix, iz)] && !f(ix, iz)) addCell(ix, iz, true);
+        }
       }
       districts.forEach(function (d) {
         var all = d.cells.concat(d.extra), i, x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, ix, iz;
@@ -1279,11 +1311,15 @@ window.startMap = function (RAW) {
           x0 = Math.min(x0, d.cx + all[i].x); x1 = Math.max(x1, d.cx + all[i].x);
           z0 = Math.min(z0, d.cz + all[i].z); z1 = Math.max(z1, d.cz + all[i].z);
         }
-        for (ix = Math.floor((x0 - ext) / G); ix <= Math.floor((x1 + ext) / G); ix++)
-          for (iz = Math.floor((z0 - ext) / G); iz <= Math.floor((z1 + ext) / G); iz++) addCell(ix, iz, false);
+        var ia = Math.floor((x0 - ext) / G), ib = Math.floor((x1 + ext) / G), ja = Math.floor((z0 - ext) / G), jb = Math.floor((z1 + ext) / G);
+        for (ix = ia; ix <= ib; ix++)
+          for (iz = ja; iz <= jb; iz++) addCell(ix, iz, false);
+        districts._rng = districts._rng || [];
+        districts._rng.push([ia, ib, ja, jb]);
       });
       /* Garantiza suelo bajo cada planta */
       plants.forEach(function (pl) { addCell(Math.floor(pl.x / G), Math.floor(pl.z / G), true); });
+      districts._rng.forEach(function (r) { fillHoles(r[0], r[1], r[2], r[3]); });
       if (!list.length) return;
       var pg = new THREE.CircleGeometry(1, 10);
       var gMat = new THREE.MeshLambertMaterial({ color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
