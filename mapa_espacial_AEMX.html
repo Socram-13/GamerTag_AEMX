@@ -4074,7 +4074,7 @@ window.startMap = function (RAW, AUTH) {
     var pos = cr.g.attributes.position.array, i, j, f, a, rr, h, px, pz, rim, irr, o;
     cr.gy = terrainH(x, z);
     /* Pendiente local: en laderas el borde sube más para que el cráter no quede tapado por el relieve */
-    var sgx = (terrainH(x + 2, z) - terrainH(x - 2, z)) / 4, sgz = (terrainH(x, z + 2) - terrainH(x, z - 2)) / 4, slope = Math.min(0.6, Math.hypot(sgx, sgz)), rimH = 0.55 + 2.2 * slope, SM = 0.5;
+    var sgx = (terrainH(x + 2, z) - terrainH(x - 2, z)) / 4, sgz = (terrainH(x, z + 2) - terrainH(x, z - 2)) / 4, slope = Math.min(0.6, Math.hypot(sgx, sgz)), rimH = 0.85 + 2.4 * slope, SM = 0.5;
     cr.slope = slope;
     function top(qx, qz) { /* altura máxima del terreno alrededor del punto: evita hundirse entre los vértices */
       return Math.max(terrainH(qx, qz), terrainH(qx + SM, qz), terrainH(qx - SM, qz), terrainH(qx, qz + SM), terrainH(qx, qz - SM));
