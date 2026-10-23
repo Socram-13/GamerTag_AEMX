@@ -2839,7 +2839,7 @@ window.startMap = function (RAW, AUTH) {
     var ring = new THREE.Mesh(ufoRingGeo, ufoRingMat); ring.visible = false;
     noRay(g); ring.raycast = function () {};
     scene.add(g); scene.add(ring);
-    return { g: g, body: body, beam: beam, ring: ring, lamps: lamps, x: 0, z: 0, y: UFO_CRUISE, tx: 0, tz: 0, ty: UFO_CRUISE, state: 'wander', T: 0, legs: 2, cow: null, rx: 0, rz: 0, hits: 0, shk: 0, sm: 0, vy: 0, cvx: 0, cvz: 0 };
+    return { g: g, body: body, beam: beam, ring: ring, lamps: lamps, x: 0, z: 0, y: UFO_CRUISE, tx: 0, tz: 0, ty: UFO_CRUISE, state: 'wander', T: 0, legs: 2, cow: null, rx: 0, rz: 0, hits: 0, shk: 0, sm: 0, vy: 0, cvx: 0, cvz: 0, blk: 0 };
   }
 
   function ufoPick(fx, fz) {
@@ -2853,9 +2853,9 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Daño del OVNI: impactos, humo, caída y explosión ---------- */
-  var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 55, FX_N = 140, BUL_N = 10, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
+  var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 55, FX_N = 220, BUL_N = 10, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
   var fxGeo = new THREE.IcosahedronGeometry(1, 1), bulGeo = new THREE.SphereGeometry(1, 8, 6);
-  function ufoDown() { return !!ufo && (ufo.state === 'crash' || ufo.state === 'wreck'); }
+  function ufoDown() { return !!ufo && (ufo.state === 'crash' || ufo.state === 'wreck' || ufo.state === 'spawn'); }
   function fxInit() {
     var i, m;
     if (fxPool.length) return;
@@ -2925,19 +2925,63 @@ window.startMap = function (RAW, AUTH) {
     if (!wreck) wreck = buildWreck();
     wreck.position.set(u.x, 0.1, u.z); wreck.rotation.y = Math.random() * 6.2832; wreck.visible = true;
   }
+  /* Reaparición: esfera con efecto glitch y después el OVNI */
+  var glitch = null, GL_R = 2.2, GL_COLS = [0x00f0ff, 0xff2bd6, 0x39ff6a];
+  function buildGlitch() {
+    var g = new THREE.Group(), gl = { g: g, core: null, wire: null, bands: [], tm: 0, js: 1 }, i, m;
+    function mk(wire, op) { return new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: op, wireframe: wire, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); }
+    var sg = new THREE.SphereGeometry(1, 20, 14), bg = new THREE.CylinderGeometry(1, 1, 0.18, 20, 1, true);
+    gl.core = new THREE.Mesh(sg, mk(false, 0.35)); gl.wire = new THREE.Mesh(sg, mk(true, 0.8)); gl.wire.scale.setScalar(1.08);
+    g.add(gl.core); g.add(gl.wire);
+    for (i = 0; i < 4; i++) { m = new THREE.Mesh(bg, mk(false, 0.6)); gl.bands.push(m); g.add(m); }
+    noRay(g); g.visible = false; scene.add(g);
+    return gl;
+  }
+  function glitchStep(u, dt) {
+    var gl = glitch, T = u.T, i, b, y, col, sc, op;
+    gl.g.position.set(u.x, UFO_CRUISE + 0.25 * Math.sin(T * 6), u.z);
+    gl.tm -= dt;
+    if (gl.tm <= 0) {
+      gl.tm = 0.05 + Math.random() * 0.05;
+      col = GL_COLS[(Math.random() * 3) | 0];
+      gl.core.material.color.setHex(col); gl.wire.material.color.setHex(col);
+      gl.js = 0.85 + Math.random() * 0.3;
+      gl.core.visible = Math.random() > 0.2;
+      gl.core.position.set((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.5);
+      for (i = 0; i < gl.bands.length; i++) {
+        b = gl.bands[i]; y = (Math.random() * 2 - 1) * 0.9;
+        b.position.set((Math.random() - 0.5) * 1.4, y, (Math.random() - 0.5) * 0.6);
+        b.scale.set(1.2 * Math.sqrt(1 - y * y) + 0.05, 1, 1.2 * Math.sqrt(1 - y * y) + 0.05);
+        b.material.color.setHex(GL_COLS[(Math.random() * 3) | 0]); b.visible = Math.random() > 0.15;
+      }
+    }
+    sc = GL_R * gl.js;
+    if (T > 1.6) sc *= Math.max(0.001, 1 - (T - 1.6) / 0.4);
+    op = Math.min(1, T / 0.3);
+    gl.core.material.opacity = 0.35 * op; gl.wire.material.opacity = 0.8 * op;
+    gl.g.scale.setScalar(sc);
+  }
   function ufoRespawn() {
     var u = ufo, s = ufoPick(u.x, u.z);
     u.x = s[0]; u.z = s[1]; u.y = UFO_CRUISE; u.ty = UFO_CRUISE; u.rx = 0; u.rz = 0; u.hits = 0; u.shk = 0; u.vy = 0;
-    u.g.visible = true; u.g.rotation.set(0, 0, 0); u.g.position.set(u.x, u.y, u.z);
+    u.g.visible = false; u.g.rotation.set(0, 0, 0); u.g.position.set(u.x, u.y, u.z);
     if (wreck) wreck.visible = false;
+    if (!glitch) glitch = buildGlitch();
+    glitch.tm = 0; glitch.js = 1; glitch.g.visible = true;
+    u.state = 'spawn'; u.T = 0;
+  }
+  function ufoSpawnEnd() {
+    var u = ufo, s;
+    glitch.g.visible = false;
+    u.g.visible = true; u.blk = 0.5;
     u.legs = 2 + ((Math.random() * 2) | 0);
     s = ufoPick(u.x, u.z); u.tx = s[0]; u.tz = s[1];
     u.state = 'wander';
-    fxSpawn(u.x, u.y, u.z, 0, 0, 0, 0.5, 0.5, 6, 0xb44cff, 0.8, true);
+    fxSpawn(u.x, u.y, u.z, 0, 0, 0, 0.45, 1, 7, 0xe8c8ff, 0.9, true);
   }
-  /* Caída (giro, humo y fuego) y restos humeantes hasta reaparecer */
+  /* Caída (giro, humo y fuego), restos en llamas verdes y reaparición */
   function ufoCrashStep(t, dt) {
-    var u = ufo;
+    var u = ufo, r = Math.random;
     u.T += dt; u.sm -= dt;
     if (u.state === 'crash') {
       u.vy -= 7 * dt; u.y += u.vy * dt; u.x += u.cvx * dt; u.z += u.cvz * dt;
@@ -2946,16 +2990,28 @@ window.startMap = function (RAW, AUTH) {
       u.body.rotation.y += dt * 8;
       if (u.sm <= 0) {
         u.sm = 0.03;
-        fxSpawn(u.x, u.y, u.z, (Math.random() - 0.5) * 2, 1.5, (Math.random() - 0.5) * 2, 0.9, 0.7, 2.4, 0x2b2b2b, 0.7, false);
+        fxSpawn(u.x, u.y, u.z, (r() - 0.5) * 2, 1.5, (r() - 0.5) * 2, 0.9, 0.7, 2.4, 0x2b2b2b, 0.7, false);
         fxSpawn(u.x, u.y - 0.1, u.z, 0, 0.5, 0, 0.35, 0.6, 0.2, 0xff7a1a, 0.9, true);
       }
       if (u.y <= 0.3) { u.y = 0.3; ufoExplode(); }
-    } else {
+    } else if (u.state === 'wreck') {
+      /* Columna de humo larga (~25 de alto) */
       if (u.sm <= 0) {
-        u.sm = 0.18;
-        fxSpawn(u.x + (Math.random() - 0.5), 0.5, u.z + (Math.random() - 0.5), (Math.random() - 0.5) * 0.6, 1.6, (Math.random() - 0.5) * 0.6, 1.6, 0.6, 2.2, 0x33343a, 0.55, false);
+        u.sm = 0.12;
+        fxSpawn(u.x + (r() - 0.5), 1.0, u.z + (r() - 0.5), (r() - 0.5) * 0.6, 5 + r() * 1.5, (r() - 0.5) * 0.6, 4.5, 0.6, 3.8, 0x2f3036, 0.55, false);
+      }
+      /* Llamas verdes y resplandor en la base */
+      u.fl = (u.fl || 0) - dt;
+      if (u.fl <= 0) {
+        u.fl = 0.05;
+        fxSpawn(u.x + (r() - 0.5) * 1.6, 0.3 + r() * 0.3, u.z + (r() - 0.5) * 1.6, (r() - 0.5) * 0.8, 2 + r() * 2.5, (r() - 0.5) * 0.8, 0.45 + r() * 0.2, 0.8, 0.1, r() < 0.5 ? 0x39ff6a : 0xb6ff3d, 0.9, true);
+        fxSpawn(u.x + (r() - 0.5) * 1.6, 0.3 + r() * 0.3, u.z + (r() - 0.5) * 1.6, (r() - 0.5) * 0.8, 2 + r() * 2.5, (r() - 0.5) * 0.8, 0.45 + r() * 0.2, 0.8, 0.1, r() < 0.5 ? 0x39ff6a : 0xb6ff3d, 0.9, true);
+        if (r() < 0.5) fxSpawn(u.x, 0.6, u.z, 0, 0, 0, 0.15, 2.4 + r() * 0.4, 2.0, 0x1fff6a, 0.35, true);
       }
       if (u.T >= 8) ufoRespawn();
+    } else {
+      glitchStep(u, dt);
+      if (u.T >= 2.0) ufoSpawnEnd();
     }
   }
   function carFire(U) {
@@ -3027,7 +3083,9 @@ window.startMap = function (RAW, AUTH) {
       c.g.scale.setScalar(0.9 * u * u * (3 - 2 * u) + 0.001);
       c.head.rotation.x = 0.45 * Math.max(0, Math.sin(t * 0.7 + c.ph));
     }
-    if (ufo.state === 'crash' || ufo.state === 'wreck') { ufoCrashStep(t, dt); return; }
+    if (ufo.state === 'crash' || ufo.state === 'wreck' || ufo.state === 'spawn') { ufoCrashStep(t, dt); return; }
+    /* Parpadeo al materializarse */
+    if (ufo.blk > 0) { ufo.blk -= dt; ufo.g.visible = ufo.blk <= 0 || ((t * 18) | 0) % 2 === 0; }
     /* Movimiento del OVNI hacia su objetivo */
     dx = ufo.tx - ufo.x; dz = ufo.tz - ufo.z; d = Math.hypot(dx, dz);
     st = ufo.state;
