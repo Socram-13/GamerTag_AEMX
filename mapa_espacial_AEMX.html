@@ -2248,19 +2248,14 @@ window.startMap = function (RAW, AUTH) {
       });
       fitDistricts();
       if (statesGroup.children.length) { plate.visible = false; rock.visible = false; try { seaUseStates(); } catch (e) { console.warn('Mar: no se pudo ajustar a la costa', e); } }
+      if (window.__aemxHideGate) window.__aemxHideGate();
     })
-    .catch(function (e) { console.warn('No se pudo cargar el GeoJSON de estados:', e); fitDistricts(); });
+    .catch(function (e) { console.warn('No se pudo cargar el GeoJSON de estados:', e); try { fitDistricts(); } catch (e2) {} if (window.__aemxHideGate) window.__aemxHideGate(); });
   var rock = new THREE.Mesh(plateGeo, new THREE.MeshLambertMaterial({ color: 0x0a1326 }));
   rock.rotation.x = -Math.PI / 2;
   rock.scale.set(0.9, 0.9, 5);
   rock.position.y = -PLATE_D - PLATE_D * 5;
   scene.add(rock);
-
-  [mainW, bajaW].forEach(function (poly) {
-    var rib = new THREE.Mesh(ribbonGeo(poly, 9), new THREE.MeshBasicMaterial({ color: 0x3fd0ff, side: THREE.DoubleSide }));
-    rib.position.y = 0.6;
-    scene.add(rib);
-  });
 
   /* ---------- Distritos en su posición real ---------- */
   var S = 7.2, PADW = 6.2, BASE = 0.34, PLAZA = 9.5;
@@ -4075,7 +4070,11 @@ onAuthStateChanged(auth, async (user) => {
   try {
     const snap = await get(ref(db, 'users'));
     started = true;
-    gate.hidden = true;
+    msg.textContent = 'Cargando mapa…';
+    /* El mapa avisa cuando terminó de cargar; el temporizador evita que el panel se quede atorado */
+    window.__aemxHideGate = () => { requestAnimationFrame(() => requestAnimationFrame(() => { gate.hidden = true; })); };
+    setTimeout(() => { gate.hidden = true; }, 25000);
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
     window.__aemxUser = user;
     window.startMap(snap.val() || {}, user);
   } catch (e) {
