@@ -738,6 +738,12 @@ window.startMap = function (RAW, AUTH) {
       w.legL.rotation.x = 0.7 * sw;
       w.legR.rotation.x = -0.7 * sw;
     }
+    for (i = 0; i < presAst.length; i++) {
+      w = presAst[i];
+      w.armR.rotation.x = -2.6 + 0.12 * Math.sin(t * 3 + w.ph);
+      w.armR.rotation.z = Math.sin(t * 9 + w.ph) * 0.45;
+      w.a.rotation.y = Math.PI + Math.sin(t * 0.8 + w.ph) * 0.2;
+    }
     for (i = 0; i < wallMats.length; i++) {
       w = wallMats[i];
       w.m.emissiveIntensity = 0.95 + 0.35 * Math.pow(Math.max(0, Math.sin(t * 0.9 + w.ph)), 3);
@@ -795,6 +801,50 @@ window.startMap = function (RAW, AUTH) {
     a.rotation.y = off ? 0.4 : 0;
     g.add(a);
     if (!off) domeAst.push({ g: a, y0: y + 0.04, armL: armL, armR: armR, legL: legL, legR: legR, ph: ph });
+  }
+
+  /* ---------- Astronauta presidente: traje negro formal, triángulo blanco, banda tricolor y corona; saluda siempre ---------- */
+  var presAst = [];
+  var prSuit = new THREE.MeshLambertMaterial({ color: 0x15171c, emissive: 0x05060a });
+  var prPack = new THREE.MeshLambertMaterial({ color: 0x2a2d34 });
+  var prVisor = new THREE.MeshLambertMaterial({ color: 0x2d7bff, emissive: 0x0a3a99 });
+  var prWhite = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+  var prGreen = new THREE.MeshLambertMaterial({ color: 0x1f9d55, emissive: 0x0b3a20 });
+  var prSashW = new THREE.MeshLambertMaterial({ color: 0xf2f2f2, emissive: 0x555555 });
+  var prRed = new THREE.MeshLambertMaterial({ color: 0xd62839, emissive: 0x4a0a12 });
+  var prGold = new THREE.MeshLambertMaterial({ color: 0xfacc15, emissive: 0x6b5200 });
+  var prTriGeo = (function () { var sh = new THREE.Shape(); sh.moveTo(-0.15, 0); sh.lineTo(0.15, 0); sh.lineTo(0, -0.24); sh.closePath(); return new THREE.ShapeGeometry(sh); })();
+  var prCrownBase = new THREE.CylinderGeometry(0.17, 0.19, 0.1, 10), prSpike = new THREE.ConeGeometry(0.045, 0.16, 5);
+  function addPresident(g, x, y, z, ph) {
+    var a = new THREE.Group(), m, k, ang, sg;
+    function put(geo, mat, px, py, pz) { var mm = new THREE.Mesh(geo, mat); mm.position.set(px, py, pz); a.add(mm); return mm; }
+    function limb(geo, px, py, len) {
+      var piv = new THREE.Group(), mm = new THREE.Mesh(geo, prSuit);
+      piv.position.set(px, py, 0); mm.position.y = -len / 2; piv.add(mm); a.add(piv);
+      return piv;
+    }
+    put(dsGTorso, prSuit, 0, 0.95, 0);
+    put(dsGPack, prPack, 0, 0.98, -0.27);
+    put(dsGHelmet, prSuit, 0, 1.5, 0);
+    m = put(dsGVisor, prVisor, 0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75);
+    limb(dsGLeg, -0.13, 0.65, 0.55); limb(dsGLeg, 0.13, 0.65, 0.55);
+    var armL = limb(dsGArm, -0.33, 1.2, 0.5), armR = limb(dsGArm, 0.33, 1.2, 0.5);
+    armL.rotation.z = -0.12;
+    /* Triángulo blanco bajo el cuello */
+    put(prTriGeo, prWhite, 0, 1.23, 0.178);
+    /* Banda tricolor cruzada al pecho */
+    sg = new THREE.Group(); sg.position.set(0, 0.96, 0.18); sg.rotation.z = 0.9; a.add(sg);
+    [prGreen, prSashW, prRed].forEach(function (mat, i) {
+      var st = new THREE.Mesh(uBox, mat); st.scale.set(0.07, 0.64, 0.025); st.position.x = (i - 1) * 0.07; sg.add(st);
+    });
+    /* Corona dorada */
+    put(prCrownBase, prGold, 0, 1.8, 0);
+    for (k = 0; k < 5; k++) { ang = k / 5 * Math.PI * 2; put(prSpike, prGold, Math.cos(ang) * 0.175, 1.92, Math.sin(ang) * 0.175); }
+    a.scale.setScalar(0.75);
+    a.position.set(x, y, z);
+    a.rotation.y = Math.PI; /* mira hacia afuera del balcón */
+    g.add(a);
+    presAst.push({ a: a, armR: armR, ph: ph || 0 });
   }
 
   /* ---------- Edificio en ruinas con incendio (usuarios baneados) ---------- */
@@ -1083,7 +1133,6 @@ window.startMap = function (RAW, AUTH) {
         var hh4 = Math.min(3.4, r.top * 0.5);
         cyHolo(g, W * 0.5 + 0.7, r.top * 0.7, 0, 1.9, hh4, Math.PI / 2);
         cyHolo(g, -(W * 0.5 + 0.7), r.top * 0.5, 0, 1.9, hh4, Math.PI / 2);
-        cyBeam(g, cyBeamCyan, 1.1, 9, r.top + 2.3);
       }
       topY = r.top + 2.8;
     } else {
@@ -1116,7 +1165,6 @@ window.startMap = function (RAW, AUTH) {
       if (!off) blinkers.push({ mesh: beacon, phase: 0 });
       ring(1.6 + r.top * 0.5, 4.6, 0xfacc15, 0.5, 0.18);
       ring(1.6 + r.top * 0.8, 3.2, 0xffe27a, -0.8, -0.25);
-      if (!off) cyBeam(g, cyBeamGold, 2.0, 18, spireBase + 4.4);
       var satPivot = new THREE.Group();
       satPivot.position.y = 1.6 + r.top * 0.65;
       var sat = new THREE.Mesh(uSphere, N.cyan);
@@ -1161,6 +1209,22 @@ window.startMap = function (RAW, AUTH) {
         cyHolo(g, W * 0.5 + 0.7, 1.6 + r.top * 0.7, 0, 1.9, hhp, Math.PI / 2);
         cyHolo(g, -(W * 0.5 + 0.7), 1.6 + r.top * 0.5, 0, 1.9, hhp, Math.PI / 2);
       }
+      /* Balcón trasero con barandal dorado, dos columnas con luz y, en el Palacio del presidente, el presidente saludando */
+      var zb = -2.65, gm = off ? cyGoldOff : cyGold, px2;
+      cyBox(g, gm, 3.4, 0.2, 2.3, 0, yb, zb);
+      cyBox(g, N.gold, 3.48, 0.05, 2.38, 0, yb - 0.12, zb);
+      cyBox(g, gm, 3.4, 0.07, 0.07, 0, yb + 0.58, zb - 1.12);
+      cyBox(g, gm, 0.07, 0.07, 2.3, -1.66, yb + 0.58, zb);
+      cyBox(g, gm, 0.07, 0.07, 2.3, 1.66, yb + 0.58, zb);
+      for (px2 = -1.2; px2 <= 1.21; px2 += 0.6) cyBox(g, gm, 0.05, 0.5, 0.05, px2, yb + 0.35, zb - 1.12);
+      for (k = -1; k <= 1; k += 2) {
+        cyCyl(g, gm, 0.1, 1.3, k * 1.66, yb + 0.75, zb - 1.12);
+        m2 = new THREE.Mesh(uLamp, k < 0 ? N.mag : N.cyan);
+        m2.position.set(k * 1.66, yb + 1.45, zb - 1.12);
+        g.add(m2);
+        if (!off) blinkers.push({ mesh: m2, phase: k + 3 });
+      }
+      if (p.isPres) addPresident(g, 0, yb + 0.1, zb - 0.15, p.total % 5);
       topY = spireBase + 4.4;
     }
     p.topY = topY;
