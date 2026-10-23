@@ -1231,6 +1231,23 @@ window.startMap = function (RAW, AUTH) {
     seaTex.needsUpdate = true;
   }
   seaFillTex([mainW, bajaW]);
+  /* Distancia a la costa real (solo mainW/bajaW), independiente del campo del shader: se usa para el sonido del mar */
+  var coastSegs = [];
+  [mainW, bajaW].forEach(function (poly) {
+    for (var k = 0; k < poly.length; k++) { var p0 = poly[k], p1 = poly[(k + 1) % poly.length]; coastSegs.push(p0[0], p0[1], p1[0], p1[1]); }
+  });
+  function coastDist(x, z) {
+    var q, ax, az, dx, dz, l2, u, ex, ez, d2, best = 1e12;
+    for (q = 0; q < coastSegs.length; q += 4) {
+      ax = coastSegs[q]; az = coastSegs[q + 1]; dx = coastSegs[q + 2] - ax; dz = coastSegs[q + 3] - az;
+      l2 = dx * dx + dz * dz || 1;
+      u = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1);
+      ex = x - (ax + dx * u); ez = z - (az + dz * u);
+      d2 = ex * ex + ez * ez;
+      if (d2 < best) best = d2;
+    }
+    return Math.sqrt(best);
+  }
   var seaU = {
     uTime: { value: 0 }, uDist: { value: seaTex }, uMin: { value: new THREE.Vector2(SEA_X0, SEA_Z0) },
     uSize: { value: new THREE.Vector2(SEA_W, SEA_H) }, uMaxD: { value: SEA_MAXD }, uSunDir: { value: SUN_OFF.clone().normalize() }
@@ -3383,9 +3400,7 @@ window.startMap = function (RAW, AUTH) {
       r = Math.min(1, Math.max(0, (camera.position.y - 150) / 1350));
       r = 1 - r * r * (3 - 2 * r);
       /* Mar: solo se oye cerca de la costa (pleno a <20, silencio a >=120 unidades) */
-      var si = Math.min(SEA_TW - 1, Math.max(0, Math.floor((camera.position.x - SEA_X0) / SEA_W * SEA_TW)));
-      var sj = Math.min(SEA_TH - 1, Math.max(0, Math.floor((camera.position.z - SEA_Z0) / SEA_H * SEA_TH)));
-      var cd = seaData[sj * SEA_TW + si] / 255 * SEA_MAXD, cr = Math.min(1, Math.max(0, (cd - 20) / 100));
+      var cd = coastDist(camera.position.x, camera.position.z), cr = Math.min(1, Math.max(0, (cd - 20) / 100));
       r *= 1 - cr * cr * (3 - 2 * cr);
       L.sea.g.gain.setTargetAtTime(0.05 * (0.7 + 0.3 * Math.sin(t * 0.7)) * r, tc, 0.3);
       L.sea.f.frequency.setTargetAtTime((380 + 160 * Math.sin(t * 0.5)) * (0.45 + 0.55 * r), tc, 0.3);
