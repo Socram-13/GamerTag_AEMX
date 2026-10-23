@@ -1730,14 +1730,39 @@ window.startMap = function (RAW, AUTH) {
           if (vr() > p) continue;
           if (crowded(x, z)) continue;
           if (trailNear(x, z, 1.5)) continue;
+          if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R && volcBump(x, z) > 0.34 * VOLC.H) continue; /* nada en la parte alta del volcán */
           if (!onLand(x, z)) continue;
           k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k] || (placed[k] = [])).push([x, z]);
           zone = zoneOf(x, z);
-          plants.push({ type: pickType(zone), x: x, z: z, y: ist === 1 ? 0.34 : 0, zone: zone, edge: lastEdge });
+          plants.push({ type: pickType(zone), x: x, z: z, y: (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) ? terrainH(x, z) + 0.02 : (ist === 1 ? 0.34 : 0), zone: zone, edge: lastEdge });
         }
       }
     });
+    /* Bosque en las faldas bajas del Popocatépetl: las plantas se apoyan en la superficie real del volcán */
+    if (VOLC) (function () {
+      var v = VOLC, gx, gz, x, z, fr, p, patch, rr2, ty, k2, tp;
+      for (gx = v.x - v.R; gx <= v.x + v.R; gx += SP) {
+        for (gz = v.z - v.R; gz <= v.z + v.R; gz += SP) {
+          x = gx + (vr() - 0.5) * SP * 0.7; z = gz + (vr() - 0.5) * SP * 0.7;
+          if (Math.hypot(x - v.x, z - v.z) > v.R - 0.5) continue;
+          fr = volcBump(x, z) / v.H;
+          if (fr >= 0.34) continue; /* sin árboles hacia la nieve y el cráter */
+          if (nearestHex(x, z) < HEX_R + 0.6) continue;
+          patch = 0.5 + 0.5 * Math.sin(x * 0.23 + 0.9) * Math.sin(z * 0.19 + 2.1);
+          p = Math.pow(1 - fr / 0.34, 0.8) * (0.35 + 0.65 * patch) * 0.9;
+          if (vr() > p) continue;
+          if (crowded(x, z)) continue;
+          if (trailNear(x, z, 1.5)) continue;
+          if (!onLand(x, z)) continue;
+          k2 = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
+          (placed[k2] || (placed[k2] = [])).push([x, z]);
+          rr2 = vr();
+          tp = rr2 < 0.5 ? 'pine' : rr2 < 0.7 ? 'oak' : rr2 < 0.8 ? 'round' : rr2 < 0.9 ? 'birch' : 'bush';
+          plants.push({ type: tp, x: x, z: z, y: terrainH(x, z) + 0.02, zone: 'temp', edge: lastEdge });
+        }
+      }
+    })();
     if (!plants.length) return;
     /* Tope total para cuidar el rendimiento (se descartan al azar) */
     var q;
