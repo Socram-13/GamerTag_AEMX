@@ -4211,20 +4211,20 @@ window.startMap = function (RAW, AUTH) {
     }
   }
 
-  /* ---------- Haz blanco: al pasar por una ciudad, el OVNI ilumina el edificio más cercano ---------- */
-  var spot = null, SPOT_RANGE = 60;
+  /* ---------- Haz blanco: al pasar por una ciudad (a menos de 30), el OVNI ilumina la pared más cercana del edificio más próximo ---------- */
+  var spot = null, SPOT_RANGE = 30;
   function makeSpot() {
-    var geo = new THREE.CylinderGeometry(0.3, 1.9, 1, 24, 1, true), cm, hm, hm2, cone, halo, core;
+    var geo = new THREE.CylinderGeometry(0.3, 1.9, 1, 24, 1, true), disc = new THREE.CircleGeometry(1, 28), cm, hm, hm2, cone, halo, core;
     geo.translate(0, -0.5, 0);
     function mat(o) { return new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); }
     cm = mat(0); hm = mat(0); hm2 = mat(0);
-    cone = new THREE.Mesh(geo, cm); halo = new THREE.Mesh(uDisc, hm); core = new THREE.Mesh(uDisc, hm2);
+    cone = new THREE.Mesh(geo, cm); halo = new THREE.Mesh(disc, hm); core = new THREE.Mesh(disc, hm2);
     [cone, halo, core].forEach(function (m) { m.visible = false; m.raycast = function () {}; m.frustumCulled = false; scene.add(m); });
-    return { cone: cone, halo: halo, core: core, cm: cm, hm: hm, hm2: hm2, k: 0, tm: 0, has: false, tx: 0, ty: 0, tz: 0, cx: 0, cy: 0, cz: 0, up: new THREE.Vector3(0, -1, 0), dir: new THREE.Vector3() };
+    return { cone: cone, halo: halo, core: core, cm: cm, hm: hm, hm2: hm2, k: 0, tm: 0, p: null, tx: 0, ty: 0, tz: 0, nx: 0, nz: 1, cx: 0, cy: 0, cz: 0, up: new THREE.Vector3(0, -1, 0), dir: new THREE.Vector3() };
   }
   function ufoSpotStep(t, dt) {
     if (!ufo || !ufo.g) return;
-    var sp = spot || (spot = makeSpot()), act = ufo.state === 'wander', i, j, d, p, dd, bdd, bd, bestD, best, dx, dz, ke, f, len, A = ufo.g.position, on;
+    var sp = spot || (spot = makeSpot()), act = ufo.state === 'wander', i, j, d, b, dd, bdd, bd, bestD, best, dx, dz, ke, f, len, A = ufo.g.position, on, hw, ox, oz, sx, sz, ang;
     if (ufoDown()) sp.k = 0;
     if (act) {
       sp.tm -= dt;
@@ -4234,23 +4234,29 @@ window.startMap = function (RAW, AUTH) {
           d = districts[i];
           if (!d.list || !d.list.length) continue;
           dd = Math.hypot(ufo.x - d.cx, ufo.z - d.cz);
-          if (dd < d.r + SPOT_RANGE && dd < bdd) { bdd = dd; bestD = d; }
+          if (dd < d.r + SPOT_RANGE + 6 && dd < bdd) { bdd = dd; bestD = d; }
         }
         if (bestD) {
           for (j = 0; j < bestD.list.length; j++) {
-            p = bestD.list[j]; dx = p.x - ufo.x; dz = p.z - ufo.z; dd = dx * dx + dz * dz;
-            if (dd < bd) { bd = dd; best = p; }
+            b = bestD.list[j]; dx = b.x - ufo.x; dz = b.z - ufo.z; dd = Math.hypot(dx, dz) - (TIER_W[b.tier] || 3.4) / 2;
+            if (dd < bd) { bd = dd; best = b; }
           }
         }
-        sp.has = !!best;
-        if (best) { sp.tx = best.x; sp.ty = best.topY || 3; sp.tz = best.z; }
+        sp.p = best && bd <= SPOT_RANGE ? best : null; /* solo si el edificio está a menos de 30 unidades */
       }
     }
-    on = act && sp.has;
+    on = act && !!sp.p;
+    if (sp.p) { /* punto de la pared más cercana al OVNI, a media altura del edificio */
+      b = sp.p; hw = (TIER_W[b.tier] || 3.4) / 2 * 0.95;
+      dx = ufo.x - b.x; dz = ufo.z - b.z; ox = Math.abs(dx) - hw; oz = Math.abs(dz) - hw;
+      if (ox >= oz) { sx = dx < 0 ? -1 : 1; sp.nx = sx; sp.nz = 0; sp.tx = b.x + sx * hw; sp.tz = b.z + Math.max(-hw, Math.min(hw, dz)); }
+      else { sz = dz < 0 ? -1 : 1; sp.nx = 0; sp.nz = sz; sp.tz = b.z + sz * hw; sp.tx = b.x + Math.max(-hw, Math.min(hw, dx)); }
+      sp.ty = BASE + Math.max(1.4, Math.min((b.topY || 3) - 0.6, (b.topY || 3) * 0.55));
+    }
     if (on && sp.k === 0) { sp.cx = sp.tx; sp.cy = sp.ty; sp.cz = sp.tz; }
     sp.k = Math.max(0, Math.min(1, sp.k + (on ? 1 : -1) * dt * 2));
     if (sp.k <= 0) { sp.cone.visible = sp.halo.visible = sp.core.visible = false; return; }
-    f = Math.min(1, dt * 5);
+    f = Math.min(1, dt * 6);
     sp.cx += (sp.tx - sp.cx) * f; sp.cy += (sp.ty - sp.cy) * f; sp.cz += (sp.tz - sp.cz) * f;
     ke = sp.k * sp.k * (3 - 2 * sp.k);
     sp.dir.set(sp.cx - A.x, sp.cy - (A.y - 0.35), sp.cz - A.z);
@@ -4262,8 +4268,9 @@ window.startMap = function (RAW, AUTH) {
     sp.cone.scale.set(1, len, 1);
     f = 0.9 + 0.1 * Math.sin(t * 11);
     sp.cm.opacity = 0.3 * ke * f;
-    sp.halo.position.set(sp.cx, sp.cy + 0.08, sp.cz); sp.halo.scale.setScalar(2.6 * (0.95 + 0.05 * Math.sin(t * 7)));
-    sp.core.position.set(sp.cx, sp.cy + 0.1, sp.cz); sp.core.scale.setScalar(1.3);
+    ang = Math.atan2(sp.nx, sp.nz);
+    sp.halo.position.set(sp.cx + sp.nx * 0.1, sp.cy, sp.cz + sp.nz * 0.1); sp.halo.rotation.y = ang; sp.halo.scale.setScalar(2.4 * (0.95 + 0.05 * Math.sin(t * 7)));
+    sp.core.position.set(sp.cx + sp.nx * 0.12, sp.cy, sp.cz + sp.nz * 0.12); sp.core.rotation.y = ang; sp.core.scale.setScalar(1.2);
     sp.hm.opacity = 0.32 * ke * f; sp.hm2.opacity = 0.55 * ke * f;
     sp.cone.visible = sp.halo.visible = sp.core.visible = true;
   }
