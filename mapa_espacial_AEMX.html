@@ -2700,7 +2700,7 @@ window.startMap = function (RAW, AUTH) {
   })();
 
   /* ---------- Astronautas que caminan por las calles entre hexágonos ---------- */
-  var walkers = [], wTmp = new THREE.Vector3();
+  var walkers = [], wTmp = new THREE.Vector3(), shDoor = new THREE.Vector3(), shLoc = new THREE.Vector3();
   var astSuit = new THREE.MeshLambertMaterial({ color: 0xe8f0ff });
   var astPack = new THREE.MeshLambertMaterial({ color: 0x9fb0c8 });
   var astVisor = new THREE.MeshLambertMaterial({ color: 0x1c2026, emissive: 0x050607 });
@@ -2964,19 +2964,20 @@ window.startMap = function (RAW, AUTH) {
       ws = d.walkers;
       if (!ws || !ws.length) continue;
       near = camera.position.distanceTo(wTmp.set(d.cx, 0, d.cz)) < d.r + 170;
-      for (wi = 0; wi < ws.length; wi++) { if (ws[wi].g.visible !== near) ws[wi].g.visible = near; }
+      for (wi = 0; wi < ws.length; wi++) { var visW = near && !ws[wi].inside; if (ws[wi].g.visible !== visW) ws[wi].g.visible = visW; }
       if (!near) continue;
 
       /* 1) Enfriamiento, golpes recibidos y fin de encuentros (al terminar se dan la vuelta y se separan) */
       for (wi = 0; wi < ws.length; wi++) {
         w = ws[wi];
         if (w.cd > 0) w.cd -= dt;
+        w.shopCd = (w.shopCd === undefined ? 3 : w.shopCd - dt);
         if (w.hit > 0) w.hit = Math.max(0, w.hit - dt / 0.35);
         if (w.tauntT > 0) { w.tauntT -= dt; if (w.tauntT <= 0) w.tauntCd = 3; }
         if (w.tauntCd > 0) w.tauntCd -= dt;
         if (w.fleeT > 0) w.fleeT -= dt;
         if (w.rvT > 0) w.rvT -= dt;
-        if (w.state !== 'walk') {
+        if (w.state !== 'walk' && w.state !== 'shop') {
           w.stT -= dt;
           if (w.stT <= 0) {
             w.state = 'walk'; w.partner = null; w.wait = 0;
@@ -3010,6 +3011,20 @@ window.startMap = function (RAW, AUTH) {
             if (kind === 'greet') spawnFx('heart', (w.bx + o.bx) / 2, (w.bz + o.bz) / 2);
             break;
           }
+        }
+      }
+
+      /* 2b) Tiendas: un astronauta que pasa frente a la puerta (a menos de 5) puede entrar */
+      if (d.store) {
+        shDoor.set(0.95, 0, 1.45); d.store.localToWorld(shDoor);
+        for (wi = 0; wi < ws.length; wi++) {
+          w = ws[wi];
+          if (w.state !== 'walk' || w.role || w.shopCd > 0 || w.tauntT > 0 || w.fleeT > 0) continue;
+          if (Math.hypot(w.bx - shDoor.x, w.bz - shDoor.z) > 5) continue;
+          shLoc.set(w.bx, BASE, w.bz); d.store.worldToLocal(shLoc);
+          if (shLoc.z < 1.5) continue; /* solo desde el frente, sin cruzar el cuerpo de la tienda */
+          w.shopCd = 20;
+          if (Math.random() < 0.4) { w.state = 'shop'; w.sp = 'in'; w.sx = w.bx; w.sz = w.bz; w.dx = shDoor.x; w.dz = shDoor.z; }
         }
       }
 
@@ -3081,6 +3096,31 @@ window.startMap = function (RAW, AUTH) {
             w.g.position.y = 0.14 + Math.abs(Math.sin(t * 7 * (spd / 2) + w.phase)) * 0.04;
           }
           turnToward(w, w.to.x - w.from.x, w.to.z - w.from.z, dt);
+        } else if (w.state === 'shop') {
+          var tdx, tdz, tl, mv;
+          if (w.sp === 'inside') {
+            w.stT -= dt;
+            if (w.stT <= 0) {
+              w.sp = 'out'; w.inside = false; w.g.visible = true;
+              fxSpawn(w.dx, 1.0, w.dz, 0, 0.6, 0, 0.5, 0.4, 1.6, 0xfff3b0, 0.9, true);
+            }
+          } else {
+            tdx = (w.sp === 'in' ? w.dx : w.sx) - w.bx; tdz = (w.sp === 'in' ? w.dz : w.sz) - w.bz;
+            tl = Math.hypot(tdx, tdz);
+            turnToward(w, tdx, tdz, dt);
+            mv = Math.min(tl, 1.8 * dt);
+            if (tl > 0.001) { w.bx += tdx / tl * mv; w.bz += tdz / tl * mv; }
+            sw = Math.sin(t * 6.3 + w.phase) * 0.7;
+            w.parts.legL.rotation.x = sw; w.parts.legR.rotation.x = -sw;
+            w.parts.armL.rotation.x = -sw * 0.8; w.parts.armR.rotation.x = sw * 0.8;
+            w.g.position.y = 0.14;
+            if (tl < 0.06) {
+              if (w.sp === 'in') {
+                w.sp = 'inside'; w.stT = 3 + Math.random() * 3; w.inside = true; w.g.visible = false; poseReset(w);
+                fxSpawn(w.dx, 1.0, w.dz, 0, 0.6, 0, 0.5, 0.4, 1.6, 0xfff3b0, 0.9, true);
+              } else { w.state = 'walk'; poseReset(w); }
+            }
+          }
         } else {
           p = w.partner;
           turnToward(w, p.bx - w.bx, p.bz - w.bz, dt);
