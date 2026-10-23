@@ -1796,8 +1796,15 @@ window.startMap = function (RAW, AUTH) {
         else { gc = col(0.28 + 0.05 * n2, 0.42, 0.16 + 0.1 * n2); dc = col(0.08 + 0.02 * n2, 0.33, 0.19 + 0.06 * n2); w = (n1 - 0.66) / 0.2; }
         w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
         c = gc.lerp(dc, w);
+        var cy = 0.02 + ((ix + iz) & 1) * 0.004, cr = Math.min(G * 0.9, edge + 0.12), vb, sl;
+        if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) { /* sobre las faldas bajas del volcán: sigue su superficie y oculta el borde de la base */
+          vb = volcBump(x, z);
+          if (vb >= 0.34 * VOLC.H) return;
+          sl = Math.hypot(volcBump(x + 0.5, z) - volcBump(x - 0.5, z), volcBump(x, z + 0.5) - volcBump(x, z - 0.5));
+          cy = terrainH(x, z) + 0.1 + cr * sl * 0.9 + ((ix + iz) & 1) * 0.004;
+        }
         filled[k] = 1;
-        list.push({ x: x, z: z, y: 0.02 + ((ix + iz) & 1) * 0.004, c: c, r: Math.min(G * 0.9, edge + 0.12) });
+        list.push({ x: x, z: z, y: cy, c: c, r: cr });
       }
       /* Rellena huecos: cierra rendijas y cubre las zonas sin suelo rodeadas por suelo (islas de la base del estado) */
       function fillHoles(ia, ib, ja, jb) {
@@ -2437,10 +2444,10 @@ window.startMap = function (RAW, AUTH) {
         b = volcBump(x, z); y = th0(x, z) + b + 0.04;
         o = (i * S + j) * 3; pos[o] = x; pos[o + 1] = y; pos[o + 2] = z;
         fr = b / v.H;
-        c.setHex(0x203d29);
+        c.setHex(0x214030).lerp(new THREE.Color().setHSL(0.29, 0.4, 0.21), Math.max(0, Math.min(1, (1 - r / v.R) / 0.35)));
         rock = 0.5 + 0.5 * Math.sin(a * 9 + r * 0.8) * 0.4 + 0.1 * Math.sin(a * 23);
         c2.setHex(0x4a4540).lerp(new THREE.Color(0x6e665d), Math.max(0, Math.min(1, rock)));
-        c.lerp(c2, Math.max(0, Math.min(1, (fr - 0.04) / 0.14)));
+        c.lerp(c2, Math.max(0, Math.min(1, (fr - 0.08) / 0.22)));
         snowL = 0.5 + 0.06 * Math.sin(a * 5 + 1) + 0.045 * Math.sin(a * 11 + 2) + 0.03 * Math.sin(a * 23);
         if (fr > snowL - 0.03) c.lerp(new THREE.Color(0xe9eff7), Math.max(0, Math.min(1, (fr - snowL + 0.03) / 0.06)));
         if (r < v.rr) { t = r / v.rr; c.setHex(0x1a1411).lerp(new THREE.Color(0x3a2a20), t * t); }
