@@ -486,6 +486,38 @@ window.startMap = function (RAW, AUTH) {
   controls.screenSpacePanning = false;
   controls.autoRotate = false;
 
+  /* Cielo de atardecer/noche: degradado, estrellas que titilan y niebla ligera */
+  scene.fog = new THREE.FogExp2(0x2a1a4a, 0.00005);
+  var sky = new THREE.Mesh(new THREE.SphereGeometry(30000, 32, 20), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false,
+    vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'varying vec3 vP; void main(){' +
+      ' vec3 top = vec3(0.02, 0.04, 0.12); vec3 mid = vec3(0.10, 0.08, 0.30); vec3 hor = vec3(0.36, 0.17, 0.45); vec3 glow = vec3(1.0, 0.43, 0.66);' +
+      ' float y = vP.y; float u = clamp(y, 0.0, 1.0);' +
+      ' vec3 c = mix(hor, mid, smoothstep(0.0, 0.25, u)); c = mix(c, top, smoothstep(0.2, 0.9, u));' +
+      ' c += glow * exp(-abs(y) * 10.0) * 0.35;' +
+      ' c = mix(c, hor * 0.35, smoothstep(0.0, -0.3, y));' +
+      ' gl_FragColor = vec4(c, 1.0); }'
+  }));
+  sky.renderOrder = -2; sky.frustumCulled = false; sky.raycast = function () {};
+  scene.add(sky);
+  var starsA, starsB;
+  (function () {
+    var sr = mulberry32(90210), g, n, pos, i, a, y, r, pts;
+    function mk(count, size) {
+      pos = new Float32Array(count * 3);
+      for (i = 0; i < count; i++) {
+        y = 0.04 + sr() * 0.96; a = sr() * 6.2832; r = Math.sqrt(1 - y * y);
+        pos[i * 3] = Math.cos(a) * r * 25000; pos[i * 3 + 1] = y * 25000; pos[i * 3 + 2] = Math.sin(a) * r * 25000;
+      }
+      g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: size, sizeAttenuation: false, transparent: true, opacity: 0.9, depthWrite: false, fog: false }));
+      pts.renderOrder = -1; pts.frustumCulled = false; pts.raycast = function () {};
+      scene.add(pts);
+      return pts;
+    }
+    starsA = mk(260, 2.2); starsB = mk(260, 1.6);
+  })();
   scene.add(new THREE.AmbientLight(0x7a8fc0, 0.55));
   scene.add(new THREE.HemisphereLight(0x9db8ff, 0x1a2540, 0.35));
   var sun = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -1166,11 +1198,11 @@ window.startMap = function (RAW, AUTH) {
   var statesGroup = new THREE.Group();
   scene.add(statesGroup);
   var STATE_D = 5;
-  var stateMats = [new THREE.MeshLambertMaterial({ color: 0x3f8a68, emissive: 0x0a2a1c }), new THREE.MeshLambertMaterial({ color: 0x1f4a38 })];
-  var stateLineMat = new THREE.LineBasicMaterial({ color: 0x5fae8f });
-  /* Estados sin jugadores: tono apagado */
-  var stateMatsEmpty = [new THREE.MeshLambertMaterial({ color: 0x2a3f5c, emissive: 0x0a1424 }), new THREE.MeshLambertMaterial({ color: 0x1a2a40 })];
-  var stateLineEmpty = new THREE.LineBasicMaterial({ color: 0x3d5273 });
+  var stateMats = [new THREE.MeshLambertMaterial({ color: 0x1b3322 }), new THREE.MeshLambertMaterial({ color: 0x12221a })];
+  var stateLineMat = new THREE.LineBasicMaterial({ color: 0x2f5a3c });
+  /* Estados sin jugadores: gris piedra */
+  var stateMatsEmpty = [new THREE.MeshLambertMaterial({ color: 0x6b6f73 }), new THREE.MeshLambertMaterial({ color: 0x4a4d50 })];
+  var stateLineEmpty = new THREE.LineBasicMaterial({ color: 0x85898d });
   var NOMBRE_MAP = { 'Baja California Norte': 'Baja California', 'Coahuila de Zaragoza': 'Coahuila', 'Michoacán de Ocampo': 'Michoacán',
     'Veracruz de Ignacio de la Llave': 'Veracruz', 'México': 'Estado de México' };
   function ringPts(ring) { return ring.map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector2(g.x, -g.z); }); }
@@ -3545,6 +3577,10 @@ window.startMap = function (RAW, AUTH) {
     controls.target.z = clamp(controls.target.z, -1300, 1300);
     controls.target.y = clamp(controls.target.y, 0, 60);
 
+    sky.position.copy(camera.position);
+    starsA.position.copy(camera.position); starsB.position.copy(camera.position);
+    starsA.material.opacity = 0.65 + 0.3 * Math.sin(t * 1.3);
+    starsB.material.opacity = 0.65 + 0.3 * Math.sin(t * 1.7 + 2.0);
     sun.target.position.copy(controls.target);
     sun.position.copy(controls.target).add(SUN_OFF);
 
