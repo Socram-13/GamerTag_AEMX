@@ -1536,7 +1536,7 @@ window.startMap = function (RAW, AUTH) {
     function hexNorm(dx, dz) { var ax = Math.abs(dx), az = Math.abs(dz); return Math.max(ax, ax * 0.5 + az * 0.8660254); }
     function nzC(x, z, o) { return 0.5 + 0.25 * Math.sin(x * 0.45 + o) * Math.cos(z * 0.58 - o) + 0.25 * Math.sin((x + z) * 0.31 + o * 2.1); }
     /* Cobertura de vegetación en un hexágono vacío: >0 hacia el lado exterior (alejado del centro de la ciudad), con borde irregular */
-    function coverAt(h, x, z) { return ((x - h.x) * h.ox + (z - h.z) * h.oz) / A_PAD + 0.9 * (nzC(x, z, h.o) - 0.5) + 0.2; }
+    function coverAt(h, x, z) { if (h.noVeg) return -1; return ((x - h.x) * h.ox + (z - h.z) * h.oz) / A_PAD + 0.9 * (nzC(x, z, h.o) - 0.5) + 0.2; }
     function fillHexGrid() {
       districts.forEach(function (d) {
         d.cells.concat(d.extra).forEach(function (c) {
@@ -1551,7 +1551,7 @@ window.startMap = function (RAW, AUTH) {
         if (!d.list.length) return; /* distrito vacío: sin vegetación */
         d.extra.forEach(function (c) {
           var x = d.cx + c.x, z = d.cz + c.z, k = gk(Math.floor(x / CELL), Math.floor(z / CELL)), l = Math.hypot(c.x, c.z) || 1;
-          var h = { x: x, z: z, d: d, ox: c.x / l, oz: c.z / l, o: (x * 0.37 + z * 0.11) % 6.283 };
+          var h = { x: x, z: z, d: d, ox: c.x / l, oz: c.z / l, o: (x * 0.37 + z * 0.11) % 6.283, noVeg: d.storeHex === c };
           (invGrid[k] || (invGrid[k] = [])).push(h);
           invList.push(h);
         });
@@ -2641,11 +2641,16 @@ window.startMap = function (RAW, AUTH) {
     var stGlass = new THREE.MeshLambertMaterial({ color: 0x0b1a33, emissive: 0x06203a });
     var stDark = new THREE.MeshLambertMaterial({ color: 0x3a3f4c });
     var stGreen = new THREE.MeshLambertMaterial({ color: 0x2f9e55 });
-    var stSignTex = cyTex(256, 80, function (x, w, h) {
-      x.fillStyle = '#15171c'; x.fillRect(0, 0, w, h);
-      x.strokeStyle = '#00f0ff'; x.lineWidth = 5; x.strokeRect(4, 4, w - 8, h - 8);
-      x.fillStyle = '#ffffff'; x.font = 'bold 44px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.fillText('C.R.E.L.', w / 2, h / 2 + 3);
+    var stSignTex = cyTex(512, 160, function (x, w, h) {
+      x.fillStyle = '#080c18'; x.fillRect(0, 0, w, h);
+      x.strokeStyle = '#00f0ff'; x.lineWidth = 8; x.shadowColor = '#00f0ff'; x.shadowBlur = 14;
+      x.strokeRect(10, 10, w - 20, h - 20);
+      x.font = 'bold 88px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      /* Letras de neón: halo cian ancho + núcleo blanco brillante */
+      x.shadowColor = '#00f0ff'; x.shadowBlur = 40; x.fillStyle = '#7ff3ff';
+      x.fillText('C.R.E.L.', w / 2, h / 2 + 6); x.fillText('C.R.E.L.', w / 2, h / 2 + 6);
+      x.shadowBlur = 12; x.fillStyle = '#ffffff';
+      x.fillText('C.R.E.L.', w / 2, h / 2 + 6);
     });
     var stSignMat = new THREE.MeshBasicMaterial({ map: stSignTex });
     var stShopTex = cyTex(256, 128, function (x, w, h) {
@@ -2696,6 +2701,7 @@ window.startMap = function (RAW, AUTH) {
       s.rotation.y = Math.atan2(c.x, c.z); /* mira hacia afuera de la ciudad */
       d.group.add(s);
       d.store = s;
+      d.storeHex = best;
     });
   })();
 
