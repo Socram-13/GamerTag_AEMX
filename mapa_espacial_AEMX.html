@@ -1384,6 +1384,7 @@ window.startMap = function (RAW, AUTH) {
           if (ist === 1) p = (0.3 + 0.55 * Math.min(1, lastCover)) * (0.45 + 0.55 * patch);
           if (vr() > p) continue;
           if (crowded(x, z)) continue;
+          if (trailNear(x, z, 1.5)) continue;
           if (!onLand(x, z)) continue;
           k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k] || (placed[k] = [])).push([x, z]);
@@ -1480,6 +1481,7 @@ window.startMap = function (RAW, AUTH) {
           dm2 = nearestHex(it.x, it.z);
           if (dm2 < HEX_R + 1.2 || dm2 > HEX_R + 0.6 + RING * 0.5) continue;
           if (!onLand(it.x, it.z, 2.0)) continue;
+          if (trailNear(it.x, it.z, 3)) continue;
           ix = Math.floor(it.x / PCELL); iz = Math.floor(it.z / PCELL); bad = false;
           for (aa = -2; aa <= 2 && !bad; aa++) for (bb = -2; bb <= 2 && !bad; bb++) {
             ll = placed[gk(ix + aa, iz + bb)];
@@ -1685,11 +1687,142 @@ window.startMap = function (RAW, AUTH) {
       scene.add(mesh);
     });
   }
+  /* ---------- Senderos de tierra entre ciudades ---------- */
+  var trails = [], trailGrid = {}, trailsBuilt = false, TRAIL_W = 2.0;
+  function trailAdd(x0, z0, x1, z1) {
+    var seg = [x0, z0, x1, z1], pts = [[x0, z0], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2]], i, k;
+    for (i = 0; i < pts.length; i++) {
+      k = Math.floor(pts[i][0] / 4) + ',' + Math.floor(pts[i][1] / 4);
+      (trailGrid[k] || (trailGrid[k] = [])).push(seg);
+    }
+  }
+  function trailNear(x, z, r) {
+    var ix = Math.floor(x / 4), iz = Math.floor(z / 4), a, b, l, i, s, dx, dz, l2, t, px, pz;
+    for (a = -1; a <= 1; a++) for (b = -1; b <= 1; b++) {
+      l = trailGrid[(ix + a) + ',' + (iz + b)];
+      if (!l) continue;
+      for (i = 0; i < l.length; i++) {
+        s = l[i]; dx = s[2] - s[0]; dz = s[3] - s[1]; l2 = dx * dx + dz * dz;
+        t = l2 > 0 ? ((x - s[0]) * dx + (z - s[1]) * dz) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+        px = s[0] + t * dx; pz = s[1] + t * dz;
+        if ((x - px) * (x - px) + (z - pz) * (z - pz) < r * r) return true;
+      }
+    }
+    return false;
+  }
+  function trailRibbon(list, width, y, base, jit, rg) {
+    var pos = [], colr = [], idx = [], n = 0, li, pts, i, p, q, r0, tx, tz, l, nx, nz, c, j;
+    for (li = 0; li < list.length; li++) {
+      pts = list[li];
+      for (i = 0; i < pts.length; i++) {
+        q = pts[Math.max(0, i - 1)]; r0 = pts[Math.min(pts.length - 1, i + 1)]; p = pts[i];
+        tx = r0[0] - q[0]; tz = r0[1] - q[1]; l = Math.hypot(tx, tz) || 1; nx = -tz / l; nz = tx / l;
+        pos.push(p[0] + nx * width / 2, y, p[1] + nz * width / 2, p[0] - nx * width / 2, y, p[1] - nz * width / 2);
+        j = 1 - jit + rg() * jit * 2;
+        c = [base[0] * j, base[1] * j, base[2] * j];
+        colr.push(c[0], c[1], c[2], c[0], c[1], c[2]);
+        if (i > 0) { idx.push(n - 2, n - 1, n, n - 1, n + 1, n); }
+        n += 2;
+      }
+      if (n % 2 === 0 && li < list.length - 1) { /* separa tramos: se evita cerrar con el siguiente */ }
+    }
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
+  }
+  function buildTrails() {
+    if (trailsBuilt) return;
+    var ds = districts, nd = ds.length, names = Object.keys(statePolys), boxes = {}, rg = mulberry32(7771), i, j, k, cand = [], seen = {};
+    if (nd < 2 || !names.length) return;
+    names.forEach(function (nm) {
+      var b = [1e9, 1e9, -1e9, -1e9];
+      statePolys[nm].forEach(function (r) { r.forEach(function (q) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); }); });
+      boxes[nm] = b;
+    });
+    function land(x, z) {
+      var q, nm, b;
+      for (q = 0; q < names.length; q++) {
+        nm = names[q]; b = boxes[nm];
+        if (x < b[0] || x > b[2] || z < b[1] || z > b[3]) continue;
+        probe(statePolys[nm], x, z);
+        if (PR.inside) return true;
+      }
+      return false;
+    }
+    /* Candidatas: cada ciudad con sus 5 vecinas más cercanas */
+    for (i = 0; i < nd; i++) {
+      var near = [];
+      for (j = 0; j < nd; j++) if (j !== i) near.push({ j: j, d: Math.hypot(ds[i].cx - ds[j].cx, ds[i].cz - ds[j].cz) });
+      near.sort(function (a, b) { return a.d - b.d; });
+      for (k = 0; k < Math.min(5, near.length); k++) {
+        var key = Math.min(i, near[k].j) + '-' + Math.max(i, near[k].j);
+        if (!seen[key]) { seen[key] = 1; cand.push({ a: Math.min(i, near[k].j), b: Math.max(i, near[k].j), len: near[k].d }); }
+      }
+    }
+    /* Trazado de cada candidata: curva suave por tierra, sin cruzar otras ciudades */
+    var feas = [];
+    cand.forEach(function (e) {
+      var A = ds[e.a], B = ds[e.b], ux = (B.cx - A.cx) / e.len, uz = (B.cz - A.cz) / e.len, nx = -uz, nz = ux;
+      var s0 = A.r + 2, s1 = e.len - B.r - 2, m, amp, ph, att, pts, f, s, off, x, z, miss, c, ok;
+      if (s1 - s0 < 8) return;
+      m = Math.max(4, Math.ceil((s1 - s0) / 3));
+      amp = Math.min(10, (s1 - s0) * 0.05) * (rg() < 0.5 ? -1 : 1); ph = rg() * 6.283;
+      for (att = 0; att < 2; att++) {
+        pts = []; miss = 0; ok = true;
+        for (k = 0; k <= m; k++) {
+          f = k / m; s = s0 + (s1 - s0) * f;
+          off = att === 0 ? amp * Math.sin(Math.PI * f) * (1 + 0.4 * Math.sin(3.1 * Math.PI * f + ph)) : 0;
+          x = A.cx + ux * s + nx * off; z = A.cz + uz * s + nz * off;
+          if (!land(x, z)) { miss++; if (miss > 1) { ok = false; break; } }
+          pts.push([x, z]);
+        }
+        if (ok) {
+          for (c = 0; c < nd && ok; c++) {
+            if (c === e.a || c === e.b) continue;
+            for (k = 0; k < pts.length; k++) if (Math.hypot(pts[k][0] - ds[c].cx, pts[k][1] - ds[c].cz) < ds[c].r + 3) { ok = false; break; }
+          }
+        }
+        if (ok) { feas.push({ a: e.a, b: e.b, len: e.len, pts: pts }); return; }
+      }
+    });
+    /* Selección: árbol de mínima distancia (conecta todo lo posible) + las 2 rutas más cortas de cada ciudad */
+    var par = [], used = {}, chosen = [];
+    for (i = 0; i < nd; i++) par[i] = i;
+    function fnd(x) { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; }
+    feas.sort(function (a, b) { return a.len - b.len; });
+    feas.forEach(function (e, ei) { var ra = fnd(e.a), rb = fnd(e.b); if (ra !== rb) { par[ra] = rb; used[ei] = 1; } });
+    var cnt = [];
+    for (i = 0; i < nd; i++) cnt[i] = 0;
+    feas.forEach(function (e, ei) {
+      if (!used[ei] && cnt[e.a] < 2 && cnt[e.b] < 2) { used[ei] = 1; }
+      if (used[ei]) { cnt[e.a]++; cnt[e.b]++; }
+    });
+    feas.forEach(function (e, ei) { if (used[ei]) chosen.push(e); });
+    if (!chosen.length) return;
+    trailsBuilt = true;
+    var lines = [];
+    chosen.forEach(function (e) {
+      var q;
+      trails.push({ a: e.a, b: e.b, pts: e.pts });
+      lines.push(e.pts);
+      for (q = 1; q < e.pts.length; q++) trailAdd(e.pts[q - 1][0], e.pts[q - 1][1], e.pts[q][0], e.pts[q][1]);
+    });
+    var bMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    var tMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    var bm = new THREE.Mesh(trailRibbon(lines, TRAIL_W + 0.8, 0.06, [0.49, 0.42, 0.28], 0.06, rg), bMat);
+    var tm = new THREE.Mesh(trailRibbon(lines, TRAIL_W, 0.07, [0.72, 0.64, 0.48], 0.1, rg), tMat);
+    [bm, tm].forEach(function (mm) { mm.raycast = function () {}; mm.frustumCulled = false; scene.add(mm); });
+  }
+
   function fitDistricts() {
     var country = [toWorld(MAIN_LL), toWorld(BAJA_LL)];
     districts.forEach(function (d) {
       try { fitDistrict(d, statePolys[d.name] || country); } catch (e) { console.warn('No se pudo ajustar el distrito', d.name, e); }
     });
+    try { buildTrails(); } catch (e) { console.warn('No se pudieron crear los senderos', e); }
     try { buildVegetation(); } catch (e) { console.warn('No se pudo crear la vegetación', e); }
   }
   function addStatePoly(poly, nombre) {
@@ -2640,7 +2773,7 @@ window.startMap = function (RAW, AUTH) {
     var i, s, c;
     for (i = 0; i < 25; i++) {
       s = cowSpots[(Math.random() * cowSpots.length) | 0];
-      if (!cowFree(s[0], s[1])) continue;
+      if (!cowFree(s[0], s[1]) || trailNear(s[0], s[1], 3)) continue;
       c = makeCow();
       c.x = s[0]; c.z = s[1]; c.born = t;
       c.g.position.set(s[0], 0.02, s[1]);
