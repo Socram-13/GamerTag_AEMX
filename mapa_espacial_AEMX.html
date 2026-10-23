@@ -4040,14 +4040,14 @@ window.startMap = function (RAW, AUTH) {
   /* ---------- Cráter humeante: dura 1 min, con borde de tierra, suelo quemado y humo ---------- */
   var CRATER_LIFE = 60, CRATER_FADE = 6, CRATER_N = 3, craters = [], craterI = 0;
   function makeCrater() {
-    var RINGS = 9, SEGS = 36, R = 3.4, i, j, cols = new Float32Array((1 + RINGS * SEGS) * 3), g = new THREE.BufferGeometry(), idx = [], c = new THREE.Color(), q, a, f;
+    var RINGS = 12, SEGS = 36, R = 3.4, i, j, cols = new Float32Array((1 + RINGS * SEGS) * 3), g = new THREE.BufferGeometry(), idx = [], c = new THREE.Color(), q, a, f;
     var nv = 1 + RINGS * SEGS;
     for (i = 0; i < nv; i++) {
       if (i === 0) f = 0; else f = (Math.floor((i - 1) / SEGS) + 1) / RINGS; /* 0 centro … 1 borde */
       /* centro muy oscuro (quemado) → borde de tierra → ceniza en el contorno */
-      if (f < 0.55) c.setHex(0x0b0907).lerp(new THREE.Color(0x1d1611), f / 0.55);
-      else if (f < 0.8) c.setHex(0x3a2a1c).lerp(new THREE.Color(0x4a3825), (f - 0.55) / 0.25);
-      else c.setHex(0x4a3825).lerp(new THREE.Color(0x1a1612), (f - 0.8) / 0.2);
+      if (f < 0.8) c.setHex(0x040404);
+      else if (f < 0.9) c.setHex(0x040404).lerp(new THREE.Color(0xff7a1a), (f - 0.8) / 0.1);
+      else c.setHex(0xff7a1a).lerp(new THREE.Color(0x3a1a08), (f - 0.9) / 0.1);
       cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
     }
     for (j = 0; j < SEGS; j++) {
@@ -4060,7 +4060,7 @@ window.startMap = function (RAW, AUTH) {
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
     g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
     g.setIndex(idx);
-    var mat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    var mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     var m = new THREE.Mesh(g, mat);
     m.raycast = function () {}; m.frustumCulled = false; m.visible = false;
     scene.add(m);
@@ -4072,25 +4072,20 @@ window.startMap = function (RAW, AUTH) {
     craterI = (craterI + 1) % CRATER_N;
     cr.x = x; cr.z = z; cr.age = 0; cr.on = true; cr.sm = 0; cr.seed = Math.random() * 100;
     var pos = cr.g.attributes.position.array, i, j, f, a, rr, h, px, pz, rim, irr, o;
-    cr.gy = terrainH(x, z);
-    /* Pendiente local: en laderas el borde sube más para que el cráter no quede tapado por el relieve */
-    var sgx = (terrainH(x + 2, z) - terrainH(x - 2, z)) / 4, sgz = (terrainH(x, z + 2) - terrainH(x, z - 2)) / 4, slope = Math.min(0.6, Math.hypot(sgx, sgz)), rimH = 0.85 + 2.4 * slope, SM = 0.5;
-    cr.slope = slope;
-    function top(qx, qz) { /* altura máxima del terreno alrededor del punto: evita hundirse entre los vértices */
-      return Math.max(terrainH(qx, qz), terrainH(qx + SM, qz), terrainH(qx - SM, qz), terrainH(qx, qz + SM), terrainH(qx, qz - SM));
-    }
-    pos[0] = x; pos[1] = top(x, z) + 0.06; pos[2] = z;
+    /* Plano negro horizontal a una sola altura: la más alta del terreno bajo el cráter (no sigue los escalones) */
+    var FY = terrainH(x, z), k, kk, qa;
+    for (k = 1; k <= 3; k++) for (kk = 0; kk < 16; kk++) { qa = kk / 16 * 6.2832; FY = Math.max(FY, terrainH(x + Math.cos(qa) * cr.R * 1.2 * k / 3, z + Math.sin(qa) * cr.R * 1.2 * k / 3)); }
+    FY += 0.1;
+    cr.gy = FY; cr.slope = 0;
+    pos[0] = x; pos[1] = FY; pos[2] = z;
     for (i = 0; i < cr.RINGS; i++) {
       f = (i + 1) / cr.RINGS;
       for (j = 0; j < cr.SEGS; j++) {
         a = j / cr.SEGS * 6.2832;
-        irr = 1 + 0.12 * Math.sin(a * 3 + cr.seed) + 0.07 * Math.sin(a * 5 + cr.seed * 1.7);
+        irr = 1 + 0.08 * Math.sin(a * 3 + cr.seed) + 0.05 * Math.sin(a * 5 + cr.seed * 1.7);
         rr = f * cr.R * irr;
-        px = x + Math.cos(a) * rr; pz = z + Math.sin(a) * rr;
-        rim = Math.exp(-Math.pow((f - 0.68) / 0.16, 2)); /* borde levantado */
-        h = 0.06 + rimH * rim * (0.85 + 0.3 * Math.sin(a * 4 + cr.seed));
         o = (1 + i * cr.SEGS + j) * 3;
-        pos[o] = px; pos[o + 1] = top(px, pz) + h; pos[o + 2] = pz;
+        pos[o] = x + Math.cos(a) * rr; pos[o + 1] = FY; pos[o + 2] = z + Math.sin(a) * rr;
       }
     }
     cr.g.attributes.position.needsUpdate = true;
