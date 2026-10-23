@@ -3840,7 +3840,13 @@ window.startMap = function (RAW, AUTH) {
     cr.x = x; cr.z = z; cr.age = 0; cr.on = true; cr.sm = 0; cr.seed = Math.random() * 100;
     var pos = cr.g.attributes.position.array, i, j, f, a, rr, h, px, pz, rim, irr, o;
     cr.gy = terrainH(x, z);
-    pos[0] = x; pos[1] = cr.gy + 0.04; pos[2] = z;
+    /* Pendiente local: en laderas el borde sube más para que el cráter no quede tapado por el relieve */
+    var sgx = (terrainH(x + 2, z) - terrainH(x - 2, z)) / 4, sgz = (terrainH(x, z + 2) - terrainH(x, z - 2)) / 4, slope = Math.min(0.6, Math.hypot(sgx, sgz)), rimH = 0.55 + 2.2 * slope, SM = 0.5;
+    cr.slope = slope;
+    function top(qx, qz) { /* altura máxima del terreno alrededor del punto: evita hundirse entre los vértices */
+      return Math.max(terrainH(qx, qz), terrainH(qx + SM, qz), terrainH(qx - SM, qz), terrainH(qx, qz + SM), terrainH(qx, qz - SM));
+    }
+    pos[0] = x; pos[1] = top(x, z) + 0.06; pos[2] = z;
     for (i = 0; i < cr.RINGS; i++) {
       f = (i + 1) / cr.RINGS;
       for (j = 0; j < cr.SEGS; j++) {
@@ -3849,9 +3855,9 @@ window.startMap = function (RAW, AUTH) {
         rr = f * cr.R * irr;
         px = x + Math.cos(a) * rr; pz = z + Math.sin(a) * rr;
         rim = Math.exp(-Math.pow((f - 0.68) / 0.16, 2)); /* borde levantado */
-        h = 0.04 + 0.34 * rim * (0.85 + 0.3 * Math.sin(a * 4 + cr.seed));
+        h = 0.06 + rimH * rim * (0.85 + 0.3 * Math.sin(a * 4 + cr.seed));
         o = (1 + i * cr.SEGS + j) * 3;
-        pos[o] = px; pos[o + 1] = terrainH(px, pz) + h; pos[o + 2] = pz;
+        pos[o] = px; pos[o + 1] = top(px, pz) + h; pos[o + 2] = pz;
       }
     }
     cr.g.attributes.position.needsUpdate = true;
@@ -3901,7 +3907,7 @@ window.startMap = function (RAW, AUTH) {
     }
     placeCrater(u.x, u.z);
     if (!wreck) wreck = buildWreck();
-    wreck.position.set(u.x, gy + 0.1, u.z); wreck.rotation.y = Math.random() * 6.2832; wreck.visible = true;
+    wreck.position.set(u.x, Math.max(gy, terrainH(u.x + 1.6, u.z), terrainH(u.x - 1.6, u.z), terrainH(u.x, u.z + 1.6), terrainH(u.x, u.z - 1.6)) + 0.1, u.z); wreck.rotation.y = Math.random() * 6.2832; wreck.visible = true;
   }
   /* Reaparición: esfera con efecto glitch y después el OVNI */
   var glitch = null, GL_R = 2.2, GL_COLS = [0x00f0ff, 0xff2bd6, 0x39ff6a];
