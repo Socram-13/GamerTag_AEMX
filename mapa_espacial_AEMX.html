@@ -898,8 +898,8 @@ window.startMap = function (RAW, AUTH) {
     var toC = Math.hypot(d.cx - pad.x, d.cz - pad.z);
     var alpha = toC > 3 ? Math.atan2(d.cz - pad.z, d.cx - pad.x) : Math.random() * 6.283;
     var cycle = DR_FLIGHT + 10 + Math.random() * 15;
-    var dr = { g: g, d: d, pad: pad, rotors: rotors, leds: leds, alpha: alpha, R: 12 + Math.random() * 8,
-               cy: Math.max(pad.y + 8, 22), cycle: cycle, off: Math.random() * cycle, rs: 0, hdg: Math.atan2(-Math.sin(alpha + Math.PI), Math.cos(alpha + Math.PI)) };
+    var dr = { g: g, d: d, pad: pad, rotors: rotors, leds: leds, alpha: alpha, R: 24 + Math.random() * 12,
+               cy: pad.y + 4, cycle: cycle, off: Math.random() * cycle, rs: 0, hdg: Math.atan2(-Math.sin(alpha + Math.PI), Math.cos(alpha + Math.PI)) };
     g.position.copy(pad);
     g.rotation.y = dr.hdg;
     g.visible = false;
