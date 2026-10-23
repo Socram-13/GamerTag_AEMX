@@ -1472,6 +1472,23 @@ window.startMap = function (RAW, AUTH) {
       /* Garantiza suelo bajo cada planta */
       plants.forEach(function (pl) { addCell(Math.floor(pl.x / G), Math.floor(pl.z / G), true); });
       districts._rng.forEach(function (r) { fillHoles(r[0], r[1], r[2], r[3]); });
+      /* Puntos del campo para las vacas del OVNI: fuera de los hexágonos, dentro del estado y sin plantas cerca */
+      (function () {
+        var li, it, dm2, ix, iz, aa, bb, ll, pi, bad;
+        for (li = 0; li < list.length; li += 23) {
+          it = list[li];
+          dm2 = nearestHex(it.x, it.z);
+          if (dm2 < HEX_R + 1.2 || dm2 > HEX_R + 0.6 + RING * 0.5) continue;
+          if (!onLand(it.x, it.z, 2.0)) continue;
+          ix = Math.floor(it.x / PCELL); iz = Math.floor(it.z / PCELL); bad = false;
+          for (aa = -2; aa <= 2 && !bad; aa++) for (bb = -2; bb <= 2 && !bad; bb++) {
+            ll = placed[gk(ix + aa, iz + bb)];
+            if (!ll) continue;
+            for (pi = 0; pi < ll.length; pi++) if (Math.hypot(it.x - ll[pi][0], it.z - ll[pi][1]) < 2.2) { bad = true; break; }
+          }
+          if (!bad) cowSpots.push([it.x, it.z]);
+        }
+      })();
       if (!list.length) return;
       var pg = new THREE.CircleGeometry(1, 10);
       var gMat = new THREE.MeshLambertMaterial({ color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
@@ -2562,6 +2579,179 @@ window.startMap = function (RAW, AUTH) {
     node.style.zIndex = String(Math.max(1, 1000 - Math.round(Math.min(camera.position.distanceTo(wpos), 990))));
   }
 
+  /* ---------- OVNI que patrulla fuera de las ciudades y secuestra vacas ---------- */
+  var cowSpots = [], cows = [], cowRespawn = [], ufo = null, COWS_MAX = 10, UFO_CRUISE = 9, UFO_LOW = 6.5, UFO_SPEED = 16;
+  var cowWhite = new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }), cowBlack = new THREE.MeshLambertMaterial({ color: 0x1b1b1f });
+  var cowPink = new THREE.MeshLambertMaterial({ color: 0xe9a3a8 }), cowHorn = new THREE.MeshLambertMaterial({ color: 0xe8dcb0 });
+  var ufoHull = new THREE.MeshLambertMaterial({ color: 0x9aa4b8, emissive: 0x1a2030 });
+  var ufoDome = new THREE.MeshLambertMaterial({ color: 0x9ff3ff, emissive: 0x1a6a80, transparent: true, opacity: 0.8 });
+  var ufoUnder = new THREE.MeshBasicMaterial({ color: 0xb44cff });
+  var ufoBeamMat = new THREE.MeshBasicMaterial({ color: 0xb44cff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  var ufoRingMat = new THREE.MeshBasicMaterial({ color: 0xc77dff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  var ufoBeamGeo = new THREE.CylinderGeometry(0.35, 1, 1, 20, 1, true); ufoBeamGeo.translate(0, -0.5, 0);
+  var ufoRingGeo = new THREE.CircleGeometry(1, 24); ufoRingGeo.rotateX(-Math.PI / 2);
+  var ufoDomeGeo = new THREE.SphereGeometry(0.75, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+  var ufoLampMats = [0xff2bd6, 0xffe14d, 0x00f0ff].map(function (c) { return new THREE.MeshBasicMaterial({ color: c }); });
+  function noRay(o) { o.traverse(function (n) { n.raycast = function () {}; }); }
+
+  function makeCow() {
+    var g = new THREE.Group(), head = new THREE.Group(), m, i;
+    function bx(par, mat, px, py, pz, sx, sy, sz) { var q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); par.add(q); return q; }
+    bx(g, cowWhite, 0, 0.55, 0, 0.46, 0.46, 0.95);
+    bx(g, cowBlack, 0, 0.6, -0.12, 0.48, 0.28, 0.3);
+    bx(g, cowBlack, 0, 0.5, 0.27, 0.48, 0.2, 0.22);
+    bx(g, cowBlack, 0.08, 0.785, 0.02, 0.2, 0.03, 0.3);
+    for (i = 0; i < 4; i++) bx(g, cowWhite, (i % 2 ? 1 : -1) * 0.14, 0.16, (i < 2 ? 1 : -1) * 0.32, 0.1, 0.32, 0.1);
+    bx(g, cowBlack, 0, 0.62, -0.5, 0.04, 0.3, 0.04).rotation.x = 0.3;
+    head.position.set(0, 0.72, 0.5);
+    bx(head, cowWhite, 0, 0, 0.14, 0.28, 0.26, 0.28);
+    bx(head, cowPink, 0, -0.06, 0.3, 0.2, 0.12, 0.1);
+    bx(head, cowBlack, -0.1, 0.04, 0.29, 0.03, 0.03, 0.02); bx(head, cowBlack, 0.1, 0.04, 0.29, 0.03, 0.03, 0.02);
+    bx(head, cowHorn, -0.12, 0.17, 0.12, 0.04, 0.08, 0.04); bx(head, cowHorn, 0.12, 0.17, 0.12, 0.04, 0.08, 0.04);
+    g.add(head);
+    g.scale.setScalar(0.001);
+    noRay(g);
+    return { g: g, head: head, state: 'idle', ph: Math.random() * 6.283, born: 0, x: 0, z: 0 };
+  }
+
+  function cowFree(x, z) {
+    var i, c;
+    for (i = 0; i < cows.length; i++) { c = cows[i]; if (Math.hypot(c.x - x, c.z - z) < 10) return false; }
+    return true;
+  }
+
+  function spawnCow(t) {
+    var i, s, c;
+    for (i = 0; i < 25; i++) {
+      s = cowSpots[(Math.random() * cowSpots.length) | 0];
+      if (!cowFree(s[0], s[1])) continue;
+      c = makeCow();
+      c.x = s[0]; c.z = s[1]; c.born = t;
+      c.g.position.set(s[0], 0.02, s[1]);
+      c.g.rotation.y = Math.random() * 6.283;
+      scene.add(c.g);
+      cows.push(c);
+      return c;
+    }
+    return null;
+  }
+
+  function makeUfo() {
+    var g = new THREE.Group(), body = new THREE.Group(), lamps = [], m, i, a;
+    m = new THREE.Mesh(uCyl, ufoHull); m.scale.set(1.9, 0.16, 1.9); body.add(m);
+    m = new THREE.Mesh(uCyl, ufoHull); m.scale.set(1.25, 0.22, 1.25); m.position.y = 0.17; body.add(m);
+    m = new THREE.Mesh(ufoDomeGeo, ufoDome); m.position.y = 0.26; body.add(m);
+    m = new THREE.Mesh(uCyl, ufoUnder); m.scale.set(0.8, 0.06, 0.8); m.position.y = -0.1; body.add(m);
+    for (i = 0; i < 8; i++) {
+      a = i * Math.PI / 4;
+      m = new THREE.Mesh(uLamp, ufoLampMats[i % 3]); m.position.set(Math.cos(a) * 1.7, 0.02, Math.sin(a) * 1.7); body.add(m); lamps.push(m);
+    }
+    body.scale.setScalar(1.2);
+    g.add(body);
+    var beam = new THREE.Mesh(ufoBeamGeo, ufoBeamMat); beam.position.y = -0.2; beam.visible = false; g.add(beam);
+    var ring = new THREE.Mesh(ufoRingGeo, ufoRingMat); ring.visible = false;
+    noRay(g); ring.raycast = function () {};
+    scene.add(g); scene.add(ring);
+    return { g: g, body: body, beam: beam, ring: ring, lamps: lamps, x: 0, z: 0, y: UFO_CRUISE, tx: 0, tz: 0, ty: UFO_CRUISE, state: 'wander', T: 0, legs: 2, cow: null, rx: 0, rz: 0 };
+  }
+
+  function ufoPick(fx, fz) {
+    var i, s, d;
+    for (i = 0; i < 12; i++) {
+      s = cowSpots[(Math.random() * cowSpots.length) | 0];
+      d = Math.hypot(s[0] - fx, s[1] - fz);
+      if (d > 30 && d < 220) return s;
+    }
+    return cowSpots[(Math.random() * cowSpots.length) | 0];
+  }
+
+  function updateUfo(t, dt) {
+    var i, c, u, e, d, dx, dz, sp, st, ex, ez, bk = 0, best, bd, s;
+    if (!cowSpots.length) return;
+    if (!ufo) {
+      ufo = makeUfo();
+      s = ufoPick(0, 0); ufo.x = s[0]; ufo.z = s[1];
+      s = ufoPick(ufo.x, ufo.z); ufo.tx = s[0]; ufo.tz = s[1];
+      for (i = 0; i < COWS_MAX; i++) spawnCow(t + i * 0.15);
+    }
+    /* Reaparición de vacas secuestradas */
+    for (i = cowRespawn.length - 1; i >= 0; i--) {
+      if (t >= cowRespawn[i]) { cowRespawn.splice(i, 1); spawnCow(t); }
+    }
+    /* Vacas: nacen creciendo y pastan */
+    for (i = 0; i < cows.length; i++) {
+      c = cows[i];
+      if (c.state !== 'idle') continue;
+      u = Math.max(0, Math.min(1, (t - c.born) / 1.0));
+      c.g.scale.setScalar(0.9 * u * u * (3 - 2 * u) + 0.001);
+      c.head.rotation.x = 0.45 * Math.max(0, Math.sin(t * 0.7 + c.ph));
+    }
+    /* Movimiento del OVNI hacia su objetivo */
+    dx = ufo.tx - ufo.x; dz = ufo.tz - ufo.z; d = Math.hypot(dx, dz);
+    st = ufo.state;
+    if (st !== 'abduct') {
+      sp = Math.min(UFO_SPEED, 2 + d * 1.2);
+      if (d > 0.15) { e = Math.min(d, sp * dt); ufo.x += dx / d * e; ufo.z += dz / d * e; }
+      ex = d > 0.15 ? dx / d * (sp / UFO_SPEED) * 0.16 : 0; ez = d > 0.15 ? dz / d * (sp / UFO_SPEED) * 0.16 : 0;
+    } else { ex = 0; ez = 0; }
+    ufo.rx += (ez - ufo.rx) * Math.min(1, dt * 4);
+    ufo.rz += (-ex - ufo.rz) * Math.min(1, dt * 4);
+    ufo.y += (ufo.ty - ufo.y) * Math.min(1, dt * 2);
+    ufo.g.position.set(ufo.x, ufo.y + 0.25 * Math.sin(t * 2), ufo.z);
+    ufo.g.rotation.set(ufo.rx, 0, ufo.rz);
+    ufo.body.rotation.y += dt * 1.6;
+    for (i = 0; i < ufo.lamps.length; i++) ufo.lamps[i].scale.setScalar(0.8 + 0.5 * Math.max(0, Math.sin(t * 6 + i * 0.8)));
+
+    if (st === 'wander') {
+      ufo.ty = UFO_CRUISE;
+      if (d <= 0.15) {
+        ufo.legs--;
+        best = null; bd = 1e9;
+        if (ufo.legs <= 0) {
+          for (i = 0; i < cows.length; i++) {
+            c = cows[i];
+            if (c.state !== 'idle' || t - c.born < 1) continue;
+            u = Math.hypot(c.x - ufo.x, c.z - ufo.z);
+            if (u < bd) { bd = u; best = c; }
+          }
+        }
+        if (best) { ufo.cow = best; best.state = 'targeted'; ufo.tx = best.x; ufo.tz = best.z; ufo.state = 'approach'; }
+        else { s = ufoPick(ufo.x, ufo.z); ufo.tx = s[0]; ufo.tz = s[1]; if (ufo.legs <= 0) ufo.legs = 1; }
+      }
+    } else if (st === 'approach') {
+      ufo.ty = UFO_LOW;
+      if (d <= 0.15 && Math.abs(ufo.y - UFO_LOW) < 0.4) { ufo.state = 'abduct'; ufo.T = 0; ufo.cow.state = 'lifted'; ufo.beam.visible = true; ufo.ring.visible = true; ufo.ring.position.set(ufo.x, 0.08, ufo.z); }
+    } else if (st === 'abduct') {
+      ufo.T += dt;
+      bk = ufo.T < 0.8 ? ufo.T / 0.8 : ufo.T < 3.6 ? 1 : Math.max(0, 1 - (ufo.T - 3.6) / 0.7);
+      c = ufo.cow;
+      if (c && ufo.T > 0.8) {
+        u = Math.min(1, (ufo.T - 0.8) / 2.8); e = u * u * (3 - 2 * u);
+        c.g.position.y = 0.02 + e * (ufo.y - 1.0);
+        c.g.rotation.y += dt * (2 + e * 10);
+        c.g.rotation.z = Math.sin(ufo.T * 5) * 0.25 * e;
+        c.g.scale.setScalar(0.9 * (1 - 0.88 * e));
+        if (u >= 1) {
+          scene.remove(c.g);
+          cows.splice(cows.indexOf(c), 1);
+          cowRespawn.push(t + 10 + Math.random() * 8);
+          ufo.cow = null;
+        }
+      }
+      if (ufo.T >= 4.3) {
+        ufo.state = 'wander'; ufo.legs = 2 + ((Math.random() * 2) | 0);
+        s = ufoPick(ufo.x, ufo.z); ufo.tx = s[0]; ufo.tz = s[1];
+        ufo.beam.visible = false; ufo.ring.visible = false; bk = 0;
+      }
+    }
+    if (ufo.beam.visible) {
+      ufoBeamMat.opacity = 0.42 * bk * (0.85 + 0.15 * Math.sin(t * 14));
+      ufoRingMat.opacity = 0.55 * bk;
+      ufo.beam.scale.set(1.6, Math.max(0.1, ufo.y - 0.2), 1.6);
+      ufo.ring.scale.setScalar(1.6 * (0.9 + 0.1 * Math.sin(t * 10)));
+    }
+  }
+
   function blockedRects() {
     var out = [], sr = stage.getBoundingClientRect();
     ['.top', '#legend', '#card'].forEach(function (sel) {
@@ -2599,6 +2789,7 @@ window.startMap = function (RAW, AUTH) {
     for (n = 0; n < blinkers.length; n++) blinkers[n].mesh.scale.setScalar(0.85 + 0.35 * Math.sin(t * 3 + blinkers[n].phase));
     updateCyber(t);
     updateDrones(t, dt);
+    updateUfo(t, dt);
     updateRuins(t);
     if (selected) selRing.rotation.z = t * 0.8;
 
