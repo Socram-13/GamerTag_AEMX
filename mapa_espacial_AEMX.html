@@ -840,7 +840,7 @@ window.startMap = function (RAW, AUTH) {
     /* Corona dorada */
     put(prCrownBase, prGold, 0, 1.8, 0);
     for (k = 0; k < 5; k++) { ang = k / 5 * Math.PI * 2; put(prSpike, prGold, Math.cos(ang) * 0.175, 1.92, Math.sin(ang) * 0.175); }
-    a.scale.setScalar(0.75);
+    a.scale.setScalar(0.5);
     a.position.set(x, y, z);
     a.rotation.y = Math.PI; /* mira hacia afuera del balcón */
     g.add(a);
