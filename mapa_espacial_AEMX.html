@@ -2198,6 +2198,7 @@ window.startMap = function (RAW, AUTH) {
             if (c === e.a || c === e.b) continue;
             for (k = 0; k < pts.length; k++) if (Math.hypot(pts[k][0] - ds[c].cx, pts[k][1] - ds[c].cz) < ds[c].r + 3) { ok = false; break; }
           }
+          if (ok && VOLC) for (k = 0; k < pts.length; k++) if (Math.hypot(pts[k][0] - VOLC.x, pts[k][1] - VOLC.z) < VOLC.R * 0.85) { ok = false; break; }
         }
         if (ok) { feas.push({ a: e.a, b: e.b, len: e.len, pts: pts }); return; }
       }
@@ -2233,6 +2234,7 @@ window.startMap = function (RAW, AUTH) {
       }
       function blocked(x, z, a, b) {
         var q, d;
+        if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R * 0.85) return true;
         for (q = 0; q < nd; q++) {
           if (q === a || q === b) continue;
           d = ds[q];
@@ -2376,7 +2378,77 @@ window.startMap = function (RAW, AUTH) {
     poly.forEach(function (ring) { arr.push(simplifyRing(ring.map(function (c) { var g2 = geo(c[0], c[1]); return [g2.x, g2.z]; }), 0.35)); });
   }
   /* ---------- Relieve aproximado (sierras y volcanes) ---------- */
+  var VOLC = null; /* Popocatépetl: {x, z, R base, H altura, rr radio del cráter, D profundidad} */
   var terrainH = function () { return 0; }, reliefBuilt = false;
+  /* ---------- Volcán Popocatépetl: cono con cráter, nieve y fumarola ---------- */
+  function volcBump(x, z) {
+    var v = VOLC, r, b, m, k, d, dd, t;
+    if (!v) return 0;
+    r = Math.hypot(x - v.x, z - v.z);
+    if (r >= v.R) return 0;
+    b = r >= v.rr ? v.H * Math.pow(1 - r / v.R, 1.6) : v.H * Math.pow(1 - v.rr / v.R, 1.6) - v.D * (1 - (r / v.rr) * (r / v.rr));
+    m = 1; /* las faldas se aplanan cerca de las ciudades */
+    for (k = 0; k < districts.length; k++) {
+      d = districts[k]; dd = Math.hypot(x - d.cx, z - d.cz) - d.r - 2;
+      if (dd < 6) { t = Math.max(0, dd / 6); t = t * t * (3 - 2 * t); if (t < m) m = t; }
+    }
+    return b * m;
+  }
+  function buildVolcano() {
+    var g0 = geo(-98.622, 19.023), th0 = terrainH, N = 36, S = 72, nv = (N + 1) * S, pos = new Float32Array(nv * 3), col = new Float32Array(nv * 3), idx = [], c = new THREE.Color(), c2 = new THREE.Color();
+    var i, j, a, r, x, z, y, b, fr, o, snowL, t, rock, v;
+    VOLC = { x: g0.x, z: g0.z, R: 11, H: 8, rr: 1.8, D: 1.4, ty: 0, sm: 0, bt: 6, burst: 0 };
+    v = VOLC;
+    for (i = 0; i <= N; i++) {
+      r = v.R * Math.pow(i / N, 1.7);
+      for (j = 0; j < S; j++) {
+        a = j / S * 6.2832;
+        x = v.x + Math.cos(a) * r; z = v.z + Math.sin(a) * r;
+        b = volcBump(x, z); y = th0(x, z) + b + 0.04;
+        o = (i * S + j) * 3; pos[o] = x; pos[o + 1] = y; pos[o + 2] = z;
+        fr = b / v.H;
+        c.setHex(0x203d29);
+        rock = 0.5 + 0.5 * Math.sin(a * 9 + r * 0.8) * 0.4 + 0.1 * Math.sin(a * 23);
+        c2.setHex(0x4a4540).lerp(new THREE.Color(0x6e665d), Math.max(0, Math.min(1, rock)));
+        c.lerp(c2, Math.max(0, Math.min(1, (fr - 0.04) / 0.14)));
+        snowL = 0.5 + 0.06 * Math.sin(a * 5 + 1) + 0.045 * Math.sin(a * 11 + 2) + 0.03 * Math.sin(a * 23);
+        if (fr > snowL - 0.03) c.lerp(new THREE.Color(0xe9eff7), Math.max(0, Math.min(1, (fr - snowL + 0.03) / 0.06)));
+        if (r < v.rr) { t = r / v.rr; c.setHex(0x1a1411).lerp(new THREE.Color(0x3a2a20), t * t); }
+        col[o] = c.r; col[o + 1] = c.g; col[o + 2] = c.b;
+      }
+    }
+    for (i = 0; i < N; i++) for (j = 0; j < S; j++) {
+      a = i * S + j; b = i * S + (j + 1) % S; x = (i + 1) * S + j; z = (i + 1) * S + (j + 1) % S;
+      idx.push(a, b, x, b, z, x);
+    }
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    var m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+    m.raycast = function () {}; m.frustumCulled = false; m.name = 'volcan';
+    statesGroup.add(m);
+    v.ty = th0(v.x, v.z) + volcBump(v.x, v.z) + 0.2;
+    /* El terreno que ven el OVNI, los cráteres, etc. incluye ahora el volcán */
+    terrainH = function (qx, qz) { return th0(qx, qz) + volcBump(qx, qz); };
+  }
+  function volcanoStep(dt) {
+    var v = VOLC, r = Math.random, bst;
+    if (!v) return;
+    if (Math.hypot(camera.position.x - v.x, camera.position.z - v.z) > 900) return;
+    v.sm -= dt; v.bt -= dt;
+    if (v.bt <= 0) {
+      v.bt = 14 + r() * 14; v.burst = 2.4;
+      fxSpawn(v.x, v.ty + 0.6, v.z, 0, 0.3, 0, 0.9, 0.8, 4.5, 0xff7a2a, 0.85, true);
+    }
+    bst = v.burst > 0;
+    if (bst) { v.burst -= dt; if (r() < dt * 4) fxSpawn(v.x + (r() - 0.5) * 1.2, v.ty + 0.4, v.z + (r() - 0.5) * 1.2, 0, 0.5, 0, 0.5, 1.2, 3, 0xff6a1f, 0.55, true); }
+    if (v.sm <= 0) {
+      v.sm = bst ? 0.06 : 0.55;
+      fxSpawn(v.x + (r() - 0.5) * 1.4, v.ty, v.z + (r() - 0.5) * 1.4, 0.6 + r() * 0.4, (bst ? 3.2 : 1.6) + r() * 1.2, (r() - 0.5) * 0.3, bst ? 9 : 7 + r() * 3, 0.9, bst ? 6 : 4.5, bst ? 0x2e2e32 : 0x4a4a50, 0.5, false);
+    }
+  }
   function buildRelief() {
     if (reliefBuilt) return;
     var STEP = 8, VS = 2.6, HMAX = 15, FADE_CELLS = 3;
@@ -2394,7 +2466,7 @@ window.startMap = function (RAW, AUTH) {
       [0.7, 160, [[-103.5,25.5],[-102.5,24.0],[-101.8,22.5],[-101.6,21.0]]]
     ];
     var PEAKS = [ /* [altura real km, radio km, lon, lat] */
-      [5.6, 14, -97.27, 19.03], [5.4, 12, -98.62, 19.02], [5.2, 12, -98.64, 19.18], [4.6, 12, -99.76, 19.11],
+      [5.6, 14, -97.27, 19.03], [5.2, 12, -98.64, 19.18], [4.6, 12, -99.76, 19.11],
       [4.3, 14, -103.62, 19.51], [4.4, 11, -98.03, 19.23], [4.2, 11, -97.15, 19.49], [3.8, 10, -102.3, 19.4],
       [4.0, 10, -92.1, 15.13], [3.7, 10, -100.2, 24.87], [2.2, 10, -104.5, 21.12]
     ];
@@ -2531,6 +2603,7 @@ window.startMap = function (RAW, AUTH) {
     mesh.frustumCulled = false;
     mesh.name = 'relieve';
     statesGroup.add(mesh);
+    try { buildVolcano(); } catch (e) { console.warn('No se pudo crear el volcán', e); }
   }
   fetch('https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json')
     .then(function (r) { return r.json(); })
@@ -4923,6 +4996,7 @@ window.startMap = function (RAW, AUTH) {
     updateBullets(dt);
     updateFx(dt);
     craterStep(dt);
+    volcanoStep(dt);
     updateSea(t);
     AUD.update(t);
     /* Vista desde la torreta: cámara sobre ella, mirando hacia donde apuntan los cañones */
