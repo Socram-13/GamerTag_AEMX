@@ -1844,10 +1844,10 @@ window.startMap = function (RAW, AUTH) {
         }
       });
     });
-    var bMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
-    var tMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
-    var bm = new THREE.Mesh(trailRibbon(lines, TRAIL_W + 0.8, 0.06, 'grass', 0.05, rg), bMat);
-    var tm = new THREE.Mesh(trailRibbon(lines, TRAIL_W, 0.07, 'soil', 0.08, rg), tMat);
+    var bMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -0.8, polygonOffsetUnits: -0.8 });
+    var tMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1.2, polygonOffsetUnits: -1.2 });
+    var bm = new THREE.Mesh(trailRibbon(lines, TRAIL_W + 0.8, 0.008, 'grass', 0.05, rg), bMat);
+    var tm = new THREE.Mesh(trailRibbon(lines, TRAIL_W, 0.012, 'soil', 0.08, rg), tMat);
     [bm, tm].forEach(function (mm) { mm.raycast = function () {}; mm.frustumCulled = false; scene.add(mm); });
   }
 
