@@ -2959,7 +2959,7 @@ window.startMap = function (RAW, AUTH) {
     }
   }
   function carFire(U) {
-    var i, p, mz = new THREE.Vector3(car.fb ? 0.07 : -0.07, 0, 0.64);
+    var i, p, dx, dy, dz, d, mz = new THREE.Vector3(car.fb ? 0.07 : -0.07, 0, 0.64);
     car.fb = car.fb ? 0 : 1; car.fireT = 0.4;
     if (!bullets.length) {
       for (i = 0; i < BUL_N; i++) {
@@ -2971,23 +2971,36 @@ window.startMap = function (RAW, AUTH) {
     car.g.updateMatrixWorld(true);
     car.bar.localToWorld(mz);
     p = bullets[bulI]; bulI = (bulI + 1) % BUL_N;
-    p.on = true; p.life = 2; p.m.position.copy(mz); p.m.visible = true;
+    /* Línea recta hacia donde está el OVNI ahora, con dispersión: si se mueve, la bala falla */
+    dx = U.x - mz.x + (Math.random() - 0.5) * 0.08 * 60; dy = U.y - mz.y + (Math.random() - 0.5) * 0.08 * 60; dz = U.z - mz.z + (Math.random() - 0.5) * 0.08 * 60;
+    d = Math.hypot(dx, dy, dz) || 1;
+    p.vx = dx / d * BUL_SPEED; p.vy = dy / d * BUL_SPEED; p.vz = dz / d * BUL_SPEED; p.dist = 0;
+    p.on = true; p.life = 3; p.m.position.copy(mz); p.m.visible = true;
     fxSpawn(mz.x, mz.y, mz.z, 0, 0, 0, 0.12, 0.5, 0.15, 0xffe9a0, 1, true);
   }
   function updateBullets(dt) {
-    var i, p, U, dx, dy, dz, d, st;
+    var i, p, U, ox, oy, oz, nx, ny, nz, sx, sy, sz, l2, t, cx, cy, cz;
     for (i = 0; i < bullets.length; i++) {
       p = bullets[i];
       if (!p.on) continue;
       if (!ufo || ufoDown()) { p.on = false; p.m.visible = false; continue; }
       U = ufo.g.position;
-      dx = U.x - p.m.position.x; dy = U.y - p.m.position.y; dz = U.z - p.m.position.z;
-      d = Math.hypot(dx, dy, dz) || 0.001; st = BUL_SPEED * dt; p.life -= dt;
-      if (d <= st + 1.0) { ufoHit(p.m.position.x, p.m.position.y, p.m.position.z); p.on = false; p.m.visible = false; continue; }
-      if (p.life <= 0) { p.on = false; p.m.visible = false; continue; }
-      p.m.position.x += dx / d * st; p.m.position.y += dy / d * st; p.m.position.z += dz / d * st;
-      p.m.lookAt(U.x, U.y, U.z);
-      fxSpawn(p.m.position.x, p.m.position.y, p.m.position.z, 0, 0, 0, 0.15, 0.2, 0.02, 0xffb347, 0.7, true);
+      ox = p.m.position.x; oy = p.m.position.y; oz = p.m.position.z;
+      nx = ox + p.vx * dt; ny = oy + p.vy * dt; nz = oz + p.vz * dt;
+      /* Impacto: el tramo recorrido pasa a menos de 1.5 del OVNI */
+      sx = nx - ox; sy = ny - oy; sz = nz - oz; l2 = sx * sx + sy * sy + sz * sz || 1;
+      t = Math.max(0, Math.min(1, ((U.x - ox) * sx + (U.y - oy) * sy + (U.z - oz) * sz) / l2));
+      cx = ox + sx * t; cy = oy + sy * t; cz = oz + sz * t;
+      if (Math.hypot(U.x - cx, U.y - cy, U.z - cz) < 1.5) { ufoHit(cx, cy, cz); p.on = false; p.m.visible = false; continue; }
+      p.dist += BUL_SPEED * dt; p.life -= dt;
+      /* Falla: llega al alcance máximo o toca el suelo */
+      if (ny <= 0.1 || p.dist >= 90 || p.life <= 0) {
+        if (ny <= 0.1) fxSpawn(nx, 0.2, nz, 0, 0.8, 0, 0.3, 0.3, 1.0, 0xc8b48a, 0.6, false);
+        p.on = false; p.m.visible = false; continue;
+      }
+      p.m.position.set(nx, ny, nz);
+      p.m.lookAt(nx + p.vx, ny + p.vy, nz + p.vz);
+      fxSpawn(nx, ny, nz, 0, 0, 0, 0.15, 0.2, 0.02, 0xffb347, 0.7, true);
     }
   }
 
