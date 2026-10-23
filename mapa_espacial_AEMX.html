@@ -4060,7 +4060,7 @@ window.startMap = function (RAW, AUTH) {
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
     g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
     g.setIndex(idx);
-    var mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    var mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     var m = new THREE.Mesh(g, mat);
     m.raycast = function () {}; m.frustumCulled = false; m.visible = false;
     scene.add(m);
