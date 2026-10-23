@@ -1710,6 +1710,27 @@ window.startMap = function (RAW, AUTH) {
     }
     return false;
   }
+  /* Colores del suelo por región (los mismos tonos de la alfombra de vegetación) */
+  function trailZone(x, z) {
+    var lat = LAT0 - z / KZ, lon = LON0 + x / KX;
+    if (lat > 25.2 || (lon < -109.2 && lat > 22.3)) return 'arid';
+    if (lat < 19.3 || (lon > -91.5 && lat < 21.8)) return 'trop';
+    return 'temp';
+  }
+  function trailNz(x, z, f, o) { return 0.5 + 0.25 * Math.sin(x * f + o) * Math.cos(z * f * 1.3 - o) + 0.25 * Math.sin((x + z) * f * 0.7 + o * 2.1); }
+  function trailColor(kind, x, z) {
+    var zone = trailZone(x, z), n2 = trailNz(x, z, 0.61, 0.7), c = new THREE.Color();
+    if (kind === 'grass') {
+      if (zone === 'arid') c.setHSL(0.13 + 0.02 * n2, 0.3, 0.28 + 0.1 * n2);
+      else if (zone === 'trop') c.setHSL(0.32 + 0.03 * n2, 0.5, 0.17 + 0.1 * n2);
+      else c.setHSL(0.28 + 0.05 * n2, 0.42, 0.16 + 0.1 * n2);
+    } else {
+      if (zone === 'arid') c.setHSL(0.09 + 0.02 * n2, 0.34, 0.3 + 0.1 * n2);
+      else if (zone === 'trop') c.setHSL(0.08, 0.35, 0.25 + 0.05 * n2);
+      else c.setHSL(0.08 + 0.02 * n2, 0.33, 0.24 + 0.06 * n2);
+    }
+    return c;
+  }
   function trailRibbon(list, width, y, base, jit, rg) {
     var pos = [], colr = [], idx = [], n = 0, li, pts, i, p, q, r0, tx, tz, l, nx, nz, c, j;
     for (li = 0; li < list.length; li++) {
@@ -1719,7 +1740,8 @@ window.startMap = function (RAW, AUTH) {
         tx = r0[0] - q[0]; tz = r0[1] - q[1]; l = Math.hypot(tx, tz) || 1; nx = -tz / l; nz = tx / l;
         pos.push(p[0] + nx * width / 2, y, p[1] + nz * width / 2, p[0] - nx * width / 2, y, p[1] - nz * width / 2);
         j = 1 - jit + rg() * jit * 2;
-        c = [base[0] * j, base[1] * j, base[2] * j];
+        var cc = trailColor(base, p[0], p[1]);
+        c = [cc.r * j, cc.g * j, cc.b * j];
         colr.push(c[0], c[1], c[2], c[0], c[1], c[2]);
         if (i > 0) { idx.push(n - 2, n - 1, n, n - 1, n + 1, n); }
         n += 2;
@@ -1812,8 +1834,8 @@ window.startMap = function (RAW, AUTH) {
     });
     var bMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
     var tMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
-    var bm = new THREE.Mesh(trailRibbon(lines, TRAIL_W + 0.8, 0.06, [0.49, 0.42, 0.28], 0.06, rg), bMat);
-    var tm = new THREE.Mesh(trailRibbon(lines, TRAIL_W, 0.07, [0.72, 0.64, 0.48], 0.1, rg), tMat);
+    var bm = new THREE.Mesh(trailRibbon(lines, TRAIL_W + 0.8, 0.06, 'grass', 0.05, rg), bMat);
+    var tm = new THREE.Mesh(trailRibbon(lines, TRAIL_W, 0.07, 'soil', 0.08, rg), tMat);
     [bm, tm].forEach(function (mm) { mm.raycast = function () {}; mm.frustumCulled = false; scene.add(mm); });
   }
 
