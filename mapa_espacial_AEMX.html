@@ -3439,7 +3439,8 @@ window.startMap = function (RAW, AUTH) {
     a.parts.legL.rotation.x = -1.4; a.parts.legR.rotation.x = -1.4;
     a.parts.armL.rotation.x = -1.0; a.parts.armR.rotation.x = -1.0;
     g.add(a.g);
-    g.scale.setScalar(1.2);
+    a.g.scale.setScalar(0.425 / 0.75); /* mismo tamaño que los demás astronautas */
+    g.scale.setScalar(0.75);
     noRay(g);
     scene.add(g);
     for (i = 0; i < 10; i++) {
@@ -3508,7 +3509,7 @@ window.startMap = function (RAW, AUTH) {
     }
     car.g.position.set(car.x, 0.07 + 0.02 * Math.abs(Math.sin(t * 9)) * (car.v / CAR_SPEED), car.z);
     car.g.rotation.y = car.yaw;
-    for (i = 0; i < car.wheels.length; i++) car.wheels[i].rotation.x += car.v * dt / 0.3 / 1.2;
+    for (i = 0; i < car.wheels.length; i++) car.wheels[i].rotation.x += car.v * dt / 0.3 / 0.75;
     car.ast.parts.armL.rotation.x = -1.0 + 0.12 * Math.sin(t * 4); car.ast.parts.armR.rotation.x = -1.0 - 0.12 * Math.sin(t * 4);
     /* Torreta: apunta al OVNI */
     var A = U || (ufo && (ufo.state === 'crash' || ufo.state === 'wreck' || ufo.state === 'spawn') ? ufo.g.position : null);
@@ -3535,13 +3536,13 @@ window.startMap = function (RAW, AUTH) {
       car.pt = 0;
       p = carPuffs[car.pi]; car.pi = (car.pi + 1) % carPuffs.length;
       p.life = 0; p.m.visible = true;
-      p.m.position.set(car.x - Math.sin(car.yaw) * 1.1 + (Math.random() - 0.5) * 0.5, 0.15, car.z - Math.cos(car.yaw) * 1.1 + (Math.random() - 0.5) * 0.5);
+      p.m.position.set(car.x - Math.sin(car.yaw) * 0.7 + (Math.random() - 0.5) * 0.3, 0.12, car.z - Math.cos(car.yaw) * 0.7 + (Math.random() - 0.5) * 0.3);
     }
     for (i = 0; i < carPuffs.length; i++) {
       p = carPuffs[i];
       if (p.life >= 0.9) { if (p.m.visible) p.m.visible = false; continue; }
       p.life += dt; k = Math.min(1, p.life / 0.9);
-      p.m.scale.setScalar(0.12 + 0.45 * k); p.m.position.y = 0.15 + 0.35 * k; p.m.material.opacity = 0.32 * (1 - k);
+      p.m.scale.setScalar(0.08 + 0.28 * k); p.m.position.y = 0.12 + 0.25 * k; p.m.material.opacity = 0.32 * (1 - k);
     }
   }
 
