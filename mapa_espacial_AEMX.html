@@ -2700,7 +2700,7 @@ window.startMap = function (RAW, AUTH) {
   })();
 
   /* ---------- Astronautas que caminan por las calles entre hexágonos ---------- */
-  var walkers = [], wTmp = new THREE.Vector3(), shDoor = new THREE.Vector3(), shLoc = new THREE.Vector3();
+  var walkers = [], wTmp = new THREE.Vector3(), shDoor = new THREE.Vector3(), shLoc = new THREE.Vector3(), shC = new THREE.Vector3();
   var astSuit = new THREE.MeshLambertMaterial({ color: 0xe8f0ff });
   var astPack = new THREE.MeshLambertMaterial({ color: 0x9fb0c8 });
   var astVisor = new THREE.MeshLambertMaterial({ color: 0x1c2026, emissive: 0x050607 });
@@ -3113,7 +3113,10 @@ window.startMap = function (RAW, AUTH) {
             sw = Math.sin(t * 6.3 + w.phase) * 0.7;
             w.parts.legL.rotation.x = sw; w.parts.legR.rotation.x = -sw;
             w.parts.armL.rotation.x = -sw * 0.8; w.parts.armR.rotation.x = sw * 0.8;
-            w.g.position.y = 0.14;
+            /* Sube el escalón: la losa de la calle está a 0.14 y la base del hexágono a 0.34 (borde a ~3.2 del centro) */
+            shC.set(0, 0, 0); d.store.localToWorld(shC);
+            var hx = Math.abs(w.bx - shC.x), hz = Math.abs(w.bz - shC.z), ha = Math.max(hx, hx * 0.5 + hz * 0.8660254);
+            w.g.position.y = 0.14 + 0.2 * clamp((3.3 - ha) / 0.3, 0, 1);
             if (tl < 0.06) {
               if (w.sp === 'in') {
                 w.sp = 'inside'; w.stT = 3 + Math.random() * 3; w.inside = true; w.g.visible = false; poseReset(w);
