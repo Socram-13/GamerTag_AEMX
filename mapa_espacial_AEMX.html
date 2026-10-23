@@ -1891,12 +1891,16 @@ window.startMap = function (RAW, AUTH) {
     if (orange) {
       /* Moicano: cresta de picos sobre el casco, cada vez más inclinada hacia la frente; el último cae como flequillo */
       var hz = [-0.2, -0.1, 0, 0.1, 0.19, 0.26], hs = [0.9, 1.0, 1.1, 1.15, 1.2, 1.0], ht = [0.45, 0.65, 0.85, 1.05, 1.25, 1.6], hi;
-      for (hi = 0; hi < hz.length; hi++) {
-        m = new THREE.Mesh(gSpike, astHair);
-        m.position.set(0, 1.5 + Math.sqrt(0.09 - hz[hi] * hz[hi]) * 0.97, hz[hi]);
-        m.rotation.x = ht[hi];
-        m.scale.set(1, hs[hi], 1);
-        g.add(m);
+      var hxs = [0, -0.12, 0.12], hxi;
+      for (hxi = 0; hxi < hxs.length; hxi++) {
+        for (hi = 0; hi < hz.length; hi++) {
+          m = new THREE.Mesh(gSpike, astHair);
+          m.position.set(hxs[hxi], 1.5 + Math.sqrt(Math.max(0, 0.09 - hxs[hxi] * hxs[hxi] - hz[hi] * hz[hi])) * 0.97, hz[hi]);
+          m.rotation.x = ht[hi];
+          m.rotation.z = -hxs[hxi] * 1.5; /* laterales abiertos hacia afuera */
+          m.scale.set(1, hs[hi], 1);
+          g.add(m);
+        }
       }
     }
     function limb(geo, x, y, len) {
