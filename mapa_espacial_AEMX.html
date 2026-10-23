@@ -4073,9 +4073,14 @@ window.startMap = function (RAW, AUTH) {
     cr.x = x; cr.z = z; cr.age = 0; cr.on = true; cr.sm = 0; cr.seed = Math.random() * 100;
     var pos = cr.g.attributes.position.array, i, j, f, a, rr, h, px, pz, rim, irr, o;
     /* Plano negro horizontal a una sola altura: la más alta del terreno bajo el cráter (no sigue los escalones) */
-    var FY = terrainH(x, z), k, kk, qa;
-    for (k = 1; k <= 3; k++) for (kk = 0; kk < 16; kk++) { qa = kk / 16 * 6.2832; FY = Math.max(FY, terrainH(x + Math.cos(qa) * cr.R * 1.2 * k / 3, z + Math.sin(qa) * cr.R * 1.2 * k / 3)); }
-    FY += 0.1;
+    var FY = terrainH(x, z), gx, gz, RR = cr.R * 1.3, dk, dd;
+    for (gx = -RR; gx <= RR; gx += 2) for (gz = -RR; gz <= RR; gz += 2) if (gx * gx + gz * gz <= RR * RR) FY = Math.max(FY, terrainH(x + gx, z + gz));
+    FY += 0.15;
+    /* Dentro de una ciudad: sobre el escalón del hexágono (superficie ~0.345) */
+    for (dk = 0; dk < districts.length; dk++) {
+      dd = Math.hypot(x - districts[dk].cx, z - districts[dk].cz);
+      if (dd < districts[dk].r + cr.R * 1.3) { FY = Math.max(FY, 0.45); break; }
+    }
     cr.gy = FY; cr.slope = 0;
     pos[0] = x; pos[1] = FY; pos[2] = z;
     for (i = 0; i < cr.RINGS; i++) {
