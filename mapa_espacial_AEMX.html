@@ -3053,7 +3053,7 @@ window.startMap = function (RAW, AUTH) {
       }
     }
     sc = GL_R * gl.js;
-    if (T > 1.6) sc *= Math.max(0.001, 1 - (T - 1.6) / 0.4);
+    if (T > 4.6) sc *= Math.max(0.001, 1 - (T - 4.6) / 0.4);
     op = Math.min(1, T / 0.3);
     gl.core.material.opacity = 0.35 * op; gl.wire.material.opacity = 0.8 * op;
     gl.g.scale.setScalar(sc);
@@ -3071,6 +3071,7 @@ window.startMap = function (RAW, AUTH) {
     var u = ufo, s;
     glitch.g.visible = false;
     u.g.visible = true; u.blk = 0.5;
+    u.noFireUntil = clock.elapsedTime + 5; /* ventaja de 5 s: la torreta no dispara */
     u.legs = 2 + ((Math.random() * 2) | 0);
     s = ufoPick(u.x, u.z); u.tx = s[0]; u.tz = s[1];
     u.state = 'wander';
@@ -3108,7 +3109,7 @@ window.startMap = function (RAW, AUTH) {
       if (u.T >= 8) ufoRespawn();
     } else {
       glitchStep(u, dt);
-      if (u.T >= 2.0) ufoSpawnEnd();
+      if (u.T >= 5.0) ufoSpawnEnd();
     }
   }
   function carFire(U) {
@@ -3510,7 +3511,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < car.wheels.length; i++) car.wheels[i].rotation.x += car.v * dt / 0.3 / 1.2;
     car.ast.parts.armL.rotation.x = -1.0 + 0.12 * Math.sin(t * 4); car.ast.parts.armR.rotation.x = -1.0 - 0.12 * Math.sin(t * 4);
     /* Torreta: apunta al OVNI */
-    var A = U || (ufo && (ufo.state === 'crash' || ufo.state === 'wreck') ? ufo.g.position : null);
+    var A = U || (ufo && (ufo.state === 'crash' || ufo.state === 'wreck' || ufo.state === 'spawn') ? ufo.g.position : null);
     if (A) {
       hd = Math.hypot(A.x - car.x, A.z - car.z);
       car.tw += nAng(Math.atan2(A.x - car.x, A.z - car.z) - car.tw) * Math.min(1, dt * 5);
@@ -3522,7 +3523,7 @@ window.startMap = function (RAW, AUTH) {
     if (U) {
       if (car.fireT === undefined) car.fireT = 0;
       car.fireT -= dt;
-      if (car.fireT <= 0 && Math.hypot(Math.hypot(U.x - car.x, U.z - car.z), U.y - 1.5) <= CAR_RANGE && Math.abs(nAng(Math.atan2(U.x - car.x, U.z - car.z) - car.tw)) < 0.25) carFire(U);
+      if (car.fireT <= 0 && clock.elapsedTime >= (ufo.noFireUntil || 0) && Math.hypot(Math.hypot(U.x - car.x, U.z - car.z), U.y - 1.5) <= CAR_RANGE && Math.abs(nAng(Math.atan2(U.x - car.x, U.z - car.z) - car.tw)) < 0.25) carFire(U);
     }
     car.lamp.visible = Math.sin(t * 6) > 0;
     car.ring.rotation.y += dt * 1.2;
