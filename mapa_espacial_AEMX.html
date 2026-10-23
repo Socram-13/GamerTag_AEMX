@@ -2839,7 +2839,7 @@ window.startMap = function (RAW, AUTH) {
     var ring = new THREE.Mesh(ufoRingGeo, ufoRingMat); ring.visible = false;
     noRay(g); ring.raycast = function () {};
     scene.add(g); scene.add(ring);
-    return { g: g, body: body, beam: beam, ring: ring, lamps: lamps, x: 0, z: 0, y: UFO_CRUISE, tx: 0, tz: 0, ty: UFO_CRUISE, state: 'wander', T: 0, legs: 2, cow: null, rx: 0, rz: 0 };
+    return { g: g, body: body, beam: beam, ring: ring, lamps: lamps, x: 0, z: 0, y: UFO_CRUISE, tx: 0, tz: 0, ty: UFO_CRUISE, state: 'wander', T: 0, legs: 2, cow: null, rx: 0, rz: 0, hits: 0, shk: 0, sm: 0, vy: 0, cvx: 0, cvz: 0 };
   }
 
   function ufoPick(fx, fz) {
@@ -2850,6 +2850,145 @@ window.startMap = function (RAW, AUTH) {
       if (d > 30 && d < 220) return s;
     }
     return cowSpots[(Math.random() * cowSpots.length) | 0];
+  }
+
+  /* ---------- Daño del OVNI: impactos, humo, caída y explosión ---------- */
+  var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 55, FX_N = 140, BUL_N = 10, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
+  var fxGeo = new THREE.IcosahedronGeometry(1, 1), bulGeo = new THREE.SphereGeometry(1, 8, 6);
+  function ufoDown() { return !!ufo && (ufo.state === 'crash' || ufo.state === 'wreck'); }
+  function fxInit() {
+    var i, m;
+    if (fxPool.length) return;
+    for (i = 0; i < FX_N; i++) {
+      m = new THREE.Mesh(fxGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
+      m.visible = false; m.raycast = function () {}; m.frustumCulled = false; scene.add(m);
+      fxPool.push({ m: m, life: 0, max: 1, vx: 0, vy: 0, vz: 0, s0: 1, s1: 1, op: 1 });
+    }
+  }
+  function fxSpawn(x, y, z, vx, vy, vz, life, s0, s1, color, op, add) {
+    var p;
+    fxInit();
+    p = fxPool[fxI]; fxI = (fxI + 1) % FX_N;
+    p.life = 0; p.max = life; p.vx = vx; p.vy = vy; p.vz = vz; p.s0 = s0; p.s1 = s1; p.op = op;
+    p.m.material.color.setHex(color);
+    p.m.material.blending = add ? THREE.AdditiveBlending : THREE.NormalBlending;
+    p.m.position.set(x, y, z); p.m.scale.setScalar(s0); p.m.material.opacity = op; p.m.visible = true;
+  }
+  function updateFx(dt) {
+    var i, p, k;
+    for (i = 0; i < fxPool.length; i++) {
+      p = fxPool[i];
+      if (!p.m.visible) continue;
+      p.life += dt; k = p.life / p.max;
+      if (k >= 1) { p.m.visible = false; continue; }
+      p.m.position.x += p.vx * dt; p.m.position.y += p.vy * dt; p.m.position.z += p.vz * dt;
+      p.m.scale.setScalar(Math.max(0.01, p.s0 + (p.s1 - p.s0) * k));
+      p.m.material.opacity = p.op * (1 - k);
+    }
+  }
+  function ufoHit(x, y, z) {
+    if (!ufo || ufoDown()) return;
+    ufo.hits++; ufo.shk = 0.35;
+    fxSpawn(x, y, z, 0, 0, 0, 0.25, 0.4, 1.6, 0xffb347, 0.9, true);
+    if (ufo.hits >= UFO_HP) ufoCrash();
+  }
+  function ufoCrash() {
+    var c = ufo.cow;
+    if (c) { c.g.position.y = 0.02; c.g.rotation.x = 0; c.g.rotation.z = 0; c.g.scale.setScalar(0.9); c.state = 'idle'; c.born = clock.elapsedTime - 2; ufo.cow = null; }
+    ufo.beam.visible = false; ufo.ring.visible = false;
+    ufo.state = 'crash'; ufo.T = 0; ufo.vy = -1; ufo.sm = 0;
+    ufo.cvx = (Math.random() - 0.5) * 6; ufo.cvz = (Math.random() - 0.5) * 6;
+  }
+  function buildWreck() {
+    var g = new THREE.Group(), dark = new THREE.MeshLambertMaterial({ color: 0x23252c }), m;
+    m = new THREE.Mesh(uCyl, dark); m.scale.set(1.7, 0.3, 1.7); m.position.y = 0.2; m.rotation.z = 0.25; g.add(m);
+    m = new THREE.Mesh(uCyl, dark); m.scale.set(1.0, 0.25, 1.0); m.position.set(-0.3, 0.45, 0.2); m.rotation.x = 0.3; g.add(m);
+    m = new THREE.Mesh(ufoDomeGeo, ufoDome); m.position.set(1.5, 0.15, 0.6); m.rotation.z = 2.2; g.add(m);
+    m = new THREE.Mesh(uBox, dark); m.scale.set(0.5, 0.15, 0.9); m.position.set(-1.6, 0.1, -0.8); m.rotation.y = 0.6; g.add(m);
+    m = new THREE.Mesh(uBox, dark); m.scale.set(0.7, 0.12, 0.4); m.position.set(0.4, 0.08, -1.7); m.rotation.y = -0.4; g.add(m);
+    noRay(g); g.visible = false; scene.add(g);
+    return g;
+  }
+  function ufoExplode() {
+    var u = ufo, i, a, r;
+    u.state = 'wreck'; u.T = 0; u.sm = 0; u.g.visible = false;
+    fxSpawn(u.x, 1.2, u.z, 0, 0, 0, 0.6, 1, 9, 0xff8a1f, 0.95, true);
+    fxSpawn(u.x, 1.2, u.z, 0, 0, 0, 0.35, 0.5, 5, 0xfff2b0, 1, true);
+    for (i = 0; i < 14; i++) {
+      a = Math.random() * 6.2832; r = 2 + Math.random() * 5;
+      fxSpawn(u.x, 0.5, u.z, Math.cos(a) * r, 2 + Math.random() * 4, Math.sin(a) * r, 1.2 + Math.random() * 0.8, 0.8, 2.6 + Math.random() * 1.5, 0x2a2a2a, 0.75, false);
+    }
+    for (i = 0; i < 8; i++) {
+      a = Math.random() * 6.2832; r = 3 + Math.random() * 5;
+      fxSpawn(u.x, 0.6, u.z, Math.cos(a) * r, 3 + Math.random() * 5, Math.sin(a) * r, 0.5 + Math.random() * 0.4, 0.5, 0.1, 0xff7a1a, 0.95, true);
+    }
+    if (!wreck) wreck = buildWreck();
+    wreck.position.set(u.x, 0.1, u.z); wreck.rotation.y = Math.random() * 6.2832; wreck.visible = true;
+  }
+  function ufoRespawn() {
+    var u = ufo, s = ufoPick(u.x, u.z);
+    u.x = s[0]; u.z = s[1]; u.y = UFO_CRUISE; u.ty = UFO_CRUISE; u.rx = 0; u.rz = 0; u.hits = 0; u.shk = 0; u.vy = 0;
+    u.g.visible = true; u.g.rotation.set(0, 0, 0); u.g.position.set(u.x, u.y, u.z);
+    if (wreck) wreck.visible = false;
+    u.legs = 2 + ((Math.random() * 2) | 0);
+    s = ufoPick(u.x, u.z); u.tx = s[0]; u.tz = s[1];
+    u.state = 'wander';
+    fxSpawn(u.x, u.y, u.z, 0, 0, 0, 0.5, 0.5, 6, 0xb44cff, 0.8, true);
+  }
+  /* Caída (giro, humo y fuego) y restos humeantes hasta reaparecer */
+  function ufoCrashStep(t, dt) {
+    var u = ufo;
+    u.T += dt; u.sm -= dt;
+    if (u.state === 'crash') {
+      u.vy -= 7 * dt; u.y += u.vy * dt; u.x += u.cvx * dt; u.z += u.cvz * dt;
+      u.rz = Math.min(1.1, u.rz + dt * 1.2); u.rx = Math.min(0.6, u.rx + dt * 0.5);
+      u.g.position.set(u.x, u.y, u.z); u.g.rotation.set(u.rx, 0, u.rz);
+      u.body.rotation.y += dt * 8;
+      if (u.sm <= 0) {
+        u.sm = 0.03;
+        fxSpawn(u.x, u.y, u.z, (Math.random() - 0.5) * 2, 1.5, (Math.random() - 0.5) * 2, 0.9, 0.7, 2.4, 0x2b2b2b, 0.7, false);
+        fxSpawn(u.x, u.y - 0.1, u.z, 0, 0.5, 0, 0.35, 0.6, 0.2, 0xff7a1a, 0.9, true);
+      }
+      if (u.y <= 0.3) { u.y = 0.3; ufoExplode(); }
+    } else {
+      if (u.sm <= 0) {
+        u.sm = 0.18;
+        fxSpawn(u.x + (Math.random() - 0.5), 0.5, u.z + (Math.random() - 0.5), (Math.random() - 0.5) * 0.6, 1.6, (Math.random() - 0.5) * 0.6, 1.6, 0.6, 2.2, 0x33343a, 0.55, false);
+      }
+      if (u.T >= 8) ufoRespawn();
+    }
+  }
+  function carFire(U) {
+    var i, p, mz = new THREE.Vector3(car.fb ? 0.07 : -0.07, 0, 0.64);
+    car.fb = car.fb ? 0 : 1; car.fireT = 0.4;
+    if (!bullets.length) {
+      for (i = 0; i < BUL_N; i++) {
+        p = { m: new THREE.Mesh(bulGeo, new THREE.MeshBasicMaterial({ color: 0xffd24d, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })), on: false, life: 0 };
+        p.m.scale.set(0.18, 0.18, 0.8); p.m.visible = false; p.m.raycast = function () {}; p.m.frustumCulled = false; scene.add(p.m);
+        bullets.push(p);
+      }
+    }
+    car.g.updateMatrixWorld(true);
+    car.bar.localToWorld(mz);
+    p = bullets[bulI]; bulI = (bulI + 1) % BUL_N;
+    p.on = true; p.life = 2; p.m.position.copy(mz); p.m.visible = true;
+    fxSpawn(mz.x, mz.y, mz.z, 0, 0, 0, 0.12, 0.5, 0.15, 0xffe9a0, 1, true);
+  }
+  function updateBullets(dt) {
+    var i, p, U, dx, dy, dz, d, st;
+    for (i = 0; i < bullets.length; i++) {
+      p = bullets[i];
+      if (!p.on) continue;
+      if (!ufo || ufoDown()) { p.on = false; p.m.visible = false; continue; }
+      U = ufo.g.position;
+      dx = U.x - p.m.position.x; dy = U.y - p.m.position.y; dz = U.z - p.m.position.z;
+      d = Math.hypot(dx, dy, dz) || 0.001; st = BUL_SPEED * dt; p.life -= dt;
+      if (d <= st + 1.0) { ufoHit(p.m.position.x, p.m.position.y, p.m.position.z); p.on = false; p.m.visible = false; continue; }
+      if (p.life <= 0) { p.on = false; p.m.visible = false; continue; }
+      p.m.position.x += dx / d * st; p.m.position.y += dy / d * st; p.m.position.z += dz / d * st;
+      p.m.lookAt(U.x, U.y, U.z);
+      fxSpawn(p.m.position.x, p.m.position.y, p.m.position.z, 0, 0, 0, 0.15, 0.2, 0.02, 0xffb347, 0.7, true);
+    }
   }
 
   function updateUfo(t, dt) {
@@ -2873,6 +3012,7 @@ window.startMap = function (RAW, AUTH) {
       c.g.scale.setScalar(0.9 * u * u * (3 - 2 * u) + 0.001);
       c.head.rotation.x = 0.45 * Math.max(0, Math.sin(t * 0.7 + c.ph));
     }
+    if (ufo.state === 'crash' || ufo.state === 'wreck') { ufoCrashStep(t, dt); return; }
     /* Movimiento del OVNI hacia su objetivo */
     dx = ufo.tx - ufo.x; dz = ufo.tz - ufo.z; d = Math.hypot(dx, dz);
     st = ufo.state;
@@ -2884,7 +3024,17 @@ window.startMap = function (RAW, AUTH) {
     ufo.rx += (ez - ufo.rx) * Math.min(1, dt * 4);
     ufo.rz += (-ex - ufo.rz) * Math.min(1, dt * 4);
     ufo.y += (ufo.ty - ufo.y) * Math.min(1, dt * 2);
-    ufo.g.position.set(ufo.x, ufo.y + 0.25 * Math.sin(t * 2), ufo.z);
+    ufo.shk = Math.max(0, ufo.shk - dt); e = ufo.shk / 0.35;
+    ufo.g.position.set(ufo.x + Math.sin(t * 70) * 0.35 * e, ufo.y + 0.25 * Math.sin(t * 2), ufo.z + Math.cos(t * 63) * 0.35 * e);
+    /* Averiado: humo (desde 5 impactos) y fuego (desde 10) */
+    if (ufo.hits >= 5) {
+      ufo.sm -= dt;
+      if (ufo.sm <= 0) {
+        ufo.sm = Math.max(0.08, 0.4 - 0.03 * (ufo.hits - 5));
+        fxSpawn(ufo.g.position.x, ufo.g.position.y - 0.1, ufo.g.position.z, (Math.random() - 0.5), 1.2, (Math.random() - 0.5), 1.0, 0.5, 1.8, 0x3a3a3a, 0.6, false);
+        if (ufo.hits >= 10) fxSpawn(ufo.g.position.x, ufo.g.position.y - 0.2, ufo.g.position.z, 0, 0.8, 0, 0.35, 0.5, 0.15, 0xff7a1a, 0.9, true);
+      }
+    }
     ufo.g.rotation.set(ufo.rx, 0, ufo.rz);
     ufo.body.rotation.y += dt * 1.6;
     for (i = 0; i < ufo.lamps.length; i++) ufo.lamps[i].scale.setScalar(0.8 + 0.5 * Math.max(0, Math.sin(t * 6 + i * 0.8)));
@@ -3137,12 +3287,15 @@ window.startMap = function (RAW, AUTH) {
       car.path = edgePath(i, trails[i].a);
       car.x = car.path.pts[0][0]; car.z = car.path.pts[0][1];
     }
-    U = ufo ? ufo.g.position : null;
+    var down = ufoDown();
+    U = ufo && !down ? ufo.g.position : null;
 
     if (car.state === 'wait') {
       car.v *= Math.max(0, 1 - dt * 5);
       car.T += dt;
-      if (car.T > 0.7) { car.T = 0; if (carPlan(car.city, [car.x, car.z])) { car.state = 'drive'; car.v = 2; } }
+      if (car.T > 0.7) { car.T = 0; if (!down && carPlan(car.city, [car.x, car.z])) { car.state = 'drive'; car.v = 2; } }
+    } else if (down) {
+      car.v *= Math.max(0, 1 - dt * 5);
     } else {
       car.v += (CAR_SPEED - car.v) * Math.min(1, dt * 2);
       car.s += car.v * dt;
@@ -3193,6 +3346,12 @@ window.startMap = function (RAW, AUTH) {
       car.bar.rotation.x += (-el - car.bar.rotation.x) * Math.min(1, dt * 5);
     } else car.tw += nAng(car.yaw - car.tw) * Math.min(1, dt * 3);
     car.tur.rotation.y = car.tw - car.yaw;
+    /* Disparo: dentro del alcance y con la torreta alineada */
+    if (U) {
+      if (car.fireT === undefined) car.fireT = 0;
+      car.fireT -= dt;
+      if (car.fireT <= 0 && Math.hypot(Math.hypot(U.x - car.x, U.z - car.z), U.y - 1.5) <= CAR_RANGE && Math.abs(nAng(Math.atan2(U.x - car.x, U.z - car.z) - car.tw)) < 0.25) carFire(U);
+    }
     car.lamp.visible = Math.sin(t * 6) > 0;
     car.ring.rotation.y += dt * 1.2;
     car.cam.rotation.y = 0.6 * Math.sin(t * 1.2);
@@ -3261,6 +3420,8 @@ window.startMap = function (RAW, AUTH) {
     updateDrones(t, dt);
     updateUfo(t, dt);
     updateCar(t, dt);
+    updateBullets(dt);
+    updateFx(dt);
     updateRuins(t);
     if (selected) selRing.rotation.z = t * 0.8;
 
