@@ -742,7 +742,12 @@ window.startMap = function (RAW, AUTH) {
       w = presAst[i];
       w.armR.rotation.x = -2.6 + 0.12 * Math.sin(t * 3 + w.ph);
       w.armR.rotation.z = Math.sin(t * 9 + w.ph) * 0.45;
-      w.a.rotation.y = Math.PI + Math.sin(t * 0.8 + w.ph) * 0.2;
+      /* Camina de lado a lado por el borde del balcón, mirando hacia afuera y saludando */
+      var pa = t * 0.45 + w.ph, vN = Math.cos(pa), amp = Math.min(1, Math.abs(vN) * 1.6), sws = Math.sin(t * 7) * 0.55 * amp;
+      w.a.position.x = Math.sin(pa) * 1.1;
+      w.a.position.y = w.y0 + Math.abs(Math.sin(t * 7)) * 0.03 * amp;
+      w.a.rotation.y = Math.PI - 0.9 * vN;
+      w.legL.rotation.x = sws; w.legR.rotation.x = -sws;
     }
     for (i = 0; i < wallMats.length; i++) {
       w = wallMats[i];
@@ -827,7 +832,7 @@ window.startMap = function (RAW, AUTH) {
     put(dsGPack, prPack, 0, 0.98, -0.27);
     put(dsGHelmet, prSuit, 0, 1.5, 0);
     m = put(dsGVisor, prVisor, 0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75);
-    limb(dsGLeg, -0.13, 0.65, 0.55); limb(dsGLeg, 0.13, 0.65, 0.55);
+    var legL = limb(dsGLeg, -0.13, 0.65, 0.55), legR = limb(dsGLeg, 0.13, 0.65, 0.55);
     var armL = limb(dsGArm, -0.33, 1.2, 0.5), armR = limb(dsGArm, 0.33, 1.2, 0.5);
     armL.rotation.z = -0.12;
     /* Triángulo blanco bajo el cuello */
@@ -844,7 +849,7 @@ window.startMap = function (RAW, AUTH) {
     a.position.set(x, y, z);
     a.rotation.y = Math.PI; /* mira hacia afuera del balcón */
     g.add(a);
-    presAst.push({ a: a, armR: armR, ph: ph || 0 });
+    presAst.push({ a: a, armR: armR, legL: legL, legR: legR, y0: y, ph: ph || 0 });
   }
 
   /* ---------- Edificio en ruinas con incendio (usuarios baneados) ---------- */
@@ -1178,29 +1183,30 @@ window.startMap = function (RAW, AUTH) {
         pl.position.y = spireBase + 4.2;
         g.add(pl);
       }
-      /* Helipuerto en H volado sobre el frente y pantallas holográficas en los otros lados */
+      /* Helipuerto en H volado sobre la parte trasera y pantallas holográficas en los otros lados */
       var hfp = function (f) { return W * (1 - 0.45 * f) / 2; };
       var yb = 1.6 + r.top * 0.3, zc = hfp(0.3) + 1.35, k, j2;
-      cyBox(g, cyHull, 3.0, 0.22, 3.0, 0, yb, zc);
-      cyBox(g, N.yel, 3.12, 0.06, 3.12, 0, yb - 0.1, zc);
+      var hp = new THREE.Group(); hp.rotation.y = Math.PI; g.add(hp);
+      cyBox(hp, cyHull, 3.0, 0.22, 3.0, 0, yb, zc);
+      cyBox(hp, N.yel, 3.12, 0.06, 3.12, 0, yb - 0.1, zc);
       m2 = new THREE.Mesh(uDisc, off ? cyHeliOff : cyHeli);
       m2.scale.setScalar(1.25);
       m2.position.set(0, yb + 0.13, zc);
-      g.add(m2);
-      if (!off) g.userData.heli = { x: 0, y: yb + 0.15, z: zc };
+      hp.add(m2);
+      if (!off) g.userData.heli = { x: 0, y: yb + 0.15, z: -zc };
       m2 = new THREE.Mesh(uTorus, N.yel);
       m2.rotation.x = Math.PI / 2;
       m2.scale.setScalar(1.3);
       m2.position.set(0, yb + 0.14, zc);
-      g.add(m2);
+      hp.add(m2);
       for (k = -1; k <= 1; k += 2) {
         var sdy = 1.5, sdz = zc + 1.0 - hfp(0.3), sl = Math.sqrt(sdy * sdy + sdz * sdz);
-        m2 = cyBox(g, cyHull, 0.26, 0.26, sl, k * 1.1, yb - 0.1 - sdy / 2, hfp(0.3) + sdz / 2);
+        m2 = cyBox(hp, cyHull, 0.26, 0.26, sl, k * 1.1, yb - 0.1 - sdy / 2, hfp(0.3) + sdz / 2);
         m2.rotation.x = -Math.atan2(sdy, sdz);
         for (j2 = -1; j2 <= 1; j2 += 2) {
           m2 = new THREE.Mesh(uLamp, k < 0 ? N.mag : N.cyan);
           m2.position.set(k * 1.4, yb + 0.22, zc + j2 * 1.4);
-          g.add(m2);
+          hp.add(m2);
           if (!off) blinkers.push({ mesh: m2, phase: k + j2 + 2 });
         }
       }
@@ -1209,22 +1215,23 @@ window.startMap = function (RAW, AUTH) {
         cyHolo(g, W * 0.5 + 0.7, 1.6 + r.top * 0.7, 0, 1.9, hhp, Math.PI / 2);
         cyHolo(g, -(W * 0.5 + 0.7), 1.6 + r.top * 0.5, 0, 1.9, hhp, Math.PI / 2);
       }
-      /* Balcón trasero con barandal dorado, dos columnas con luz y, en el Palacio del presidente, el presidente saludando */
+      /* Balcón frontal con barandal dorado, dos columnas con luz y, en el Palacio del presidente, el presidente saludando */
+      var bk = new THREE.Group(); bk.rotation.y = Math.PI; g.add(bk);
       var zb = -2.65, gm = off ? cyGoldOff : cyGold, px2;
-      cyBox(g, gm, 3.4, 0.2, 2.3, 0, yb, zb);
-      cyBox(g, N.gold, 3.48, 0.05, 2.38, 0, yb - 0.12, zb);
-      cyBox(g, gm, 3.4, 0.07, 0.07, 0, yb + 0.58, zb - 1.12);
-      cyBox(g, gm, 0.07, 0.07, 2.3, -1.66, yb + 0.58, zb);
-      cyBox(g, gm, 0.07, 0.07, 2.3, 1.66, yb + 0.58, zb);
-      for (px2 = -1.2; px2 <= 1.21; px2 += 0.6) cyBox(g, gm, 0.05, 0.5, 0.05, px2, yb + 0.35, zb - 1.12);
+      cyBox(bk, gm, 3.4, 0.2, 2.3, 0, yb, zb);
+      cyBox(bk, N.gold, 3.48, 0.05, 2.38, 0, yb - 0.12, zb);
+      cyBox(bk, gm, 3.4, 0.07, 0.07, 0, yb + 0.58, zb - 1.12);
+      cyBox(bk, gm, 0.07, 0.07, 2.3, -1.66, yb + 0.58, zb);
+      cyBox(bk, gm, 0.07, 0.07, 2.3, 1.66, yb + 0.58, zb);
+      for (px2 = -1.2; px2 <= 1.21; px2 += 0.6) cyBox(bk, gm, 0.05, 0.5, 0.05, px2, yb + 0.35, zb - 1.12);
       for (k = -1; k <= 1; k += 2) {
-        cyCyl(g, gm, 0.1, 1.3, k * 1.66, yb + 0.75, zb - 1.12);
+        cyCyl(bk, gm, 0.1, 1.3, k * 1.66, yb + 0.75, zb - 1.12);
         m2 = new THREE.Mesh(uLamp, k < 0 ? N.mag : N.cyan);
         m2.position.set(k * 1.66, yb + 1.45, zb - 1.12);
-        g.add(m2);
+        bk.add(m2);
         if (!off) blinkers.push({ mesh: m2, phase: k + 3 });
       }
-      if (p.isPres) addPresident(g, 0, yb + 0.1, zb - 0.15, p.total % 5);
+      if (p.isPres) addPresident(bk, 0, yb + 0.1, zb - 0.9, p.total % 5);
       topY = spireBase + 4.4;
     }
     p.topY = topY;
