@@ -3059,7 +3059,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Daño del OVNI: impactos, humo, caída y explosión ---------- */
-  var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 110, FX_N = 220, BUL_N = 10, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
+  var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 110, FX_N = 500, BUL_N = 10, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
   var fxGeo = new THREE.IcosahedronGeometry(1, 1), bulGeo = new THREE.SphereGeometry(1, 8, 6);
   function ufoDown() { return !!ufo && (ufo.state === 'crash' || ufo.state === 'wreck' || ufo.state === 'spawn'); }
   function fxInit() {
@@ -3310,8 +3310,9 @@ window.startMap = function (RAW, AUTH) {
     if (ufo.hits >= 5) {
       ufo.sm -= dt;
       if (ufo.sm <= 0) {
-        ufo.sm = Math.max(0.08, 0.4 - 0.03 * (ufo.hits - 5));
-        fxSpawn(ufo.g.position.x, ufo.g.position.y - 0.1, ufo.g.position.z, (Math.random() - 0.5), 1.2, (Math.random() - 0.5), 1.0, 0.5, 1.8, 0x3a3a3a, 0.6, false);
+        ufo.sm = Math.max(0.04, 0.12 - 0.01 * (ufo.hits - 5));
+        fxSpawn(ufo.g.position.x, ufo.g.position.y - 0.1, ufo.g.position.z, (Math.random() - 0.5) * 0.6, 0.9, (Math.random() - 0.5) * 0.6, 3.5, 0.5, 2.6, 0x3a3a3a, 0.65, false);
+        if (ufo.hits >= 10) fxSpawn(ufo.g.position.x, ufo.g.position.y - 0.1, ufo.g.position.z, (Math.random() - 0.5) * 0.6, 1.1, (Math.random() - 0.5) * 0.6, 3.5, 0.6, 3.0, 0x2a2a2a, 0.7, false);
         if (ufo.hits >= 10) fxSpawn(ufo.g.position.x, ufo.g.position.y - 0.2, ufo.g.position.z, 0, 0.8, 0, 0.35, 0.5, 0.15, 0xff7a1a, 0.9, true);
       }
     }
@@ -3353,6 +3354,11 @@ window.startMap = function (RAW, AUTH) {
           cows.splice(cows.indexOf(c), 1);
           cowRespawn.push(t + 10 + Math.random() * 8);
           ufo.cow = null;
+          /* Abducir una vaca repara el OVNI por completo */
+          if (ufo.hits > 0) {
+            ufo.hits = 0; ufo.sm = 0;
+            for (i = 0; i < 14; i++) fxSpawn(ufo.g.position.x + (Math.random() - 0.5) * 1.2, ufo.g.position.y + (Math.random() - 0.5) * 0.6, ufo.g.position.z + (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2, 0.8, 0.3, 1.2, 0x9dffb8, 0.9, true);
+          }
         }
       }
       if (ufo.T >= 4.3) {
@@ -3552,7 +3558,7 @@ window.startMap = function (RAW, AUTH) {
     g.scale.setScalar(0.75);
     noRay(g);
     scene.add(g);
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 30; i++) {
       m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color: 0xc8b48a, transparent: true, opacity: 0, depthWrite: false }));
       m.visible = false; m.raycast = function () {}; scene.add(m);
       carPuffs.push({ m: m, life: 9 });
@@ -3641,17 +3647,17 @@ window.startMap = function (RAW, AUTH) {
     car.flag.rotation.y = 0.25 * Math.sin(t * 3);
     /* Polvo */
     car.pt += dt;
-    if (car.v > 3 && car.pt > 0.1) {
+    if (car.v > 3 && car.pt > 0.05) {
       car.pt = 0;
       p = carPuffs[car.pi]; car.pi = (car.pi + 1) % carPuffs.length;
       p.life = 0; p.m.visible = true;
-      p.m.position.set(car.x - Math.sin(car.yaw) * 0.7 + (Math.random() - 0.5) * 0.3, 0.12, car.z - Math.cos(car.yaw) * 0.7 + (Math.random() - 0.5) * 0.3);
+      p.m.position.set(car.x - Math.sin(car.yaw) * 0.7 + (Math.random() - 0.5) * 0.16, 0.12, car.z - Math.cos(car.yaw) * 0.7 + (Math.random() - 0.5) * 0.16);
     }
     for (i = 0; i < carPuffs.length; i++) {
       p = carPuffs[i];
-      if (p.life >= 0.9) { if (p.m.visible) p.m.visible = false; continue; }
-      p.life += dt; k = Math.min(1, p.life / 0.9);
-      p.m.scale.setScalar(0.08 + 0.28 * k); p.m.position.y = 0.12 + 0.25 * k; p.m.material.opacity = 0.32 * (1 - k);
+      if (p.life >= 2.2) { if (p.m.visible) p.m.visible = false; continue; }
+      p.life += dt; k = Math.min(1, p.life / 2.2);
+      p.m.scale.setScalar(0.1 + 0.22 * k); p.m.position.y = 0.12 + 0.15 * k; p.m.material.opacity = 0.45 * (1 - k);
     }
   }
 
