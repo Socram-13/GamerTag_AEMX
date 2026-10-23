@@ -1203,6 +1203,10 @@ window.startMap = function (RAW, AUTH) {
   /* Estados sin jugadores: gris piedra */
   var stateMatsEmpty = [new THREE.MeshLambertMaterial({ color: 0x6b6f73 }), new THREE.MeshLambertMaterial({ color: 0x4a4d50 })];
   var stateLineEmpty = new THREE.LineBasicMaterial({ color: 0x85898d });
+  /* Estados del norte con AEMX: color de su tierra, más oscuro que el suelo */
+  var NORTE = { 'Baja California': 1, 'Baja California Sur': 1, 'Sonora': 1, 'Sinaloa': 1, 'Chihuahua': 1, 'Coahuila': 1, 'Nuevo León': 1, 'Tamaulipas': 1 };
+  var stateMatsNorte = [new THREE.MeshLambertMaterial({ color: 0x4a3623 }), new THREE.MeshLambertMaterial({ color: 0x35261a })];
+  var stateLineNorte = new THREE.LineBasicMaterial({ color: 0x6b4f33 });
   var NOMBRE_MAP = { 'Baja California Norte': 'Baja California', 'Coahuila de Zaragoza': 'Coahuila', 'Michoacán de Ocampo': 'Michoacán',
     'Veracruz de Ignacio de la Llave': 'Veracruz', 'México': 'Estado de México' };
   function ringPts(ring) { return ring.map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector2(g.x, -g.z); }); }
@@ -1457,7 +1461,7 @@ window.startMap = function (RAW, AUTH) {
         zone = zoneOf(x, z);
         n1 = nz(x, z, 0.23, 4.1); n2 = nz(x, z, 0.61, 0.7);
         var gc, dc, w;
-        if (zone === 'arid') { gc = col(0.13 + 0.02 * n2, 0.3, 0.28 + 0.1 * n2); dc = col(0.09 + 0.02 * n2, 0.34, 0.25 + 0.1 * n2); w = (n1 - 0.4) / 0.25; }
+        if (zone === 'arid') { gc = col(0.085 + 0.015 * n2, 0.38, 0.3 + 0.08 * n2); dc = col(0.07 + 0.015 * n2, 0.4, 0.24 + 0.07 * n2); w = (n1 - 0.4) / 0.25; }
         else if (zone === 'trop') { gc = col(0.32 + 0.03 * n2, 0.5, 0.17 + 0.1 * n2); dc = col(0.08, 0.35, 0.2 + 0.05 * n2); w = (n1 - 0.72) / 0.2; }
         else { gc = col(0.28 + 0.05 * n2, 0.42, 0.16 + 0.1 * n2); dc = col(0.08 + 0.02 * n2, 0.33, 0.19 + 0.06 * n2); w = (n1 - 0.66) / 0.2; }
         w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
@@ -1561,7 +1565,7 @@ window.startMap = function (RAW, AUTH) {
             if (cv <= 0) continue;
             r = Math.min(GS * 0.85, clear + 0.06);
             zone = zoneOf(x, z); n1 = nzC(x, z, 1.9); n2 = nzC(x, z, 4.4);
-            if (zone === 'arid') { gc = col(0.13 + 0.02 * n2, 0.3, 0.29 + 0.08 * n2); dc = col(0.09 + 0.02 * n2, 0.34, 0.26 + 0.08 * n2); w = (n1 - 0.4) / 0.25; }
+            if (zone === 'arid') { gc = col(0.085 + 0.015 * n2, 0.38, 0.31 + 0.07 * n2); dc = col(0.07 + 0.015 * n2, 0.4, 0.25 + 0.07 * n2); w = (n1 - 0.4) / 0.25; }
             else if (zone === 'trop') { gc = col(0.32 + 0.03 * n2, 0.5, 0.2 + 0.08 * n2); dc = col(0.08, 0.35, 0.22); w = (n1 - 0.72) / 0.2; }
             else { gc = col(0.28 + 0.05 * n2, 0.42, 0.19 + 0.08 * n2); dc = col(0.08 + 0.02 * n2, 0.33, 0.21); w = (n1 - 0.66) / 0.2; }
             w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
@@ -1758,7 +1762,7 @@ window.startMap = function (RAW, AUTH) {
   function trailColor(kind, x, z) {
     var zone = trailZone(x, z), n2 = trailNz(x, z, 0.61, 0.7), c = new THREE.Color();
     if (kind === 'grass') {
-      if (zone === 'arid') c.setHSL(0.13 + 0.02 * n2, 0.3, 0.28 + 0.1 * n2);
+      if (zone === 'arid') c.setHSL(0.075 + 0.015 * n2, 0.38, 0.24 + 0.07 * n2);
       else if (zone === 'trop') c.setHSL(0.32 + 0.03 * n2, 0.5, 0.17 + 0.1 * n2);
       else c.setHSL(0.28 + 0.05 * n2, 0.42, 0.16 + 0.1 * n2);
     } else {
@@ -1900,13 +1904,13 @@ window.startMap = function (RAW, AUTH) {
     var sh = new THREE.Shape(ringPts(poly[0])), i;
     for (i = 1; i < poly.length; i++) sh.holes.push(new THREE.Path(ringPts(poly[i])));
     var emptySt = !(byCity[nombre] && byCity[nombre].length);
-    var mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: STATE_D, bevelEnabled: false }), emptySt ? stateMatsEmpty : stateMats);
+    var mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: STATE_D, bevelEnabled: false }), emptySt ? stateMatsEmpty : NORTE[nombre] ? stateMatsNorte : stateMats);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.y = -STATE_D;
     mesh.receiveShadow = true;
     statesGroup.add(mesh);
     var pts = poly[0].map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector3(g.x, 0.05, g.z); });
-    statesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), emptySt ? stateLineEmpty : stateLineMat));
+    statesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), emptySt ? stateLineEmpty : NORTE[nombre] ? stateLineNorte : stateLineMat));
     var arr = statePolys[nombre] || (statePolys[nombre] = []);
     poly.forEach(function (ring) { arr.push(simplifyRing(ring.map(function (c) { var g2 = geo(c[0], c[1]); return [g2.x, g2.z]; }), 0.35)); });
   }
