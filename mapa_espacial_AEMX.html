@@ -2390,14 +2390,14 @@ window.startMap = function (RAW, AUTH) {
     m = 1; /* las faldas se aplanan cerca de las ciudades */
     for (k = 0; k < districts.length; k++) {
       d = districts[k]; dd = Math.hypot(x - d.cx, z - d.cz) - d.r - 2;
-      if (dd < 6) { t = Math.max(0, dd / 6); t = t * t * (3 - 2 * t); if (t < m) m = t; }
+      if (dd < 10) { t = Math.max(0, dd / 10); t = t * t * (3 - 2 * t); if (t < m) m = t; }
     }
     return b * m;
   }
   function buildVolcano() {
-    var g0 = geo(-98.622, 19.023), th0 = terrainH, N = 36, S = 72, nv = (N + 1) * S, pos = new Float32Array(nv * 3), col = new Float32Array(nv * 3), idx = [], c = new THREE.Color(), c2 = new THREE.Color();
+    var g0 = geo(-98.622, 19.023), th0 = terrainH, N = 44, S = 96, nv = (N + 1) * S, pos = new Float32Array(nv * 3), col = new Float32Array(nv * 3), idx = [], c = new THREE.Color(), c2 = new THREE.Color();
     var i, j, a, r, x, z, y, b, fr, o, snowL, t, rock, v;
-    VOLC = { x: g0.x, z: g0.z, R: 11, H: 8, rr: 1.8, D: 1.4, ty: 0, sm: 0, bt: 6, burst: 0 };
+    VOLC = { x: g0.x, z: g0.z, R: 22, H: 16, rr: 3.6, D: 2.8, ty: 0, sm: 0, bt: 6, burst: 0 };
     v = VOLC;
     for (i = 0; i <= N; i++) {
       r = v.R * Math.pow(i / N, 1.7);
@@ -2440,13 +2440,13 @@ window.startMap = function (RAW, AUTH) {
     v.sm -= dt; v.bt -= dt;
     if (v.bt <= 0) {
       v.bt = 14 + r() * 14; v.burst = 2.4;
-      fxSpawn(v.x, v.ty + 0.6, v.z, 0, 0.3, 0, 0.9, 0.8, 4.5, 0xff7a2a, 0.85, true);
+      fxSpawn(v.x, v.ty + 1.2, v.z, 0, 0.6, 0, 0.9, 1.6, 9, 0xff7a2a, 0.85, true);
     }
     bst = v.burst > 0;
-    if (bst) { v.burst -= dt; if (r() < dt * 4) fxSpawn(v.x + (r() - 0.5) * 1.2, v.ty + 0.4, v.z + (r() - 0.5) * 1.2, 0, 0.5, 0, 0.5, 1.2, 3, 0xff6a1f, 0.55, true); }
+    if (bst) { v.burst -= dt; if (r() < dt * 4) fxSpawn(v.x + (r() - 0.5) * 2.4, v.ty + 0.8, v.z + (r() - 0.5) * 2.4, 0, 1, 0, 0.5, 2.4, 6, 0xff6a1f, 0.55, true); }
     if (v.sm <= 0) {
       v.sm = bst ? 0.06 : 0.55;
-      fxSpawn(v.x + (r() - 0.5) * 1.4, v.ty, v.z + (r() - 0.5) * 1.4, 0.6 + r() * 0.4, (bst ? 3.2 : 1.6) + r() * 1.2, (r() - 0.5) * 0.3, bst ? 9 : 7 + r() * 3, 0.9, bst ? 6 : 4.5, bst ? 0x2e2e32 : 0x4a4a50, 0.5, false);
+      fxSpawn(v.x + (r() - 0.5) * 2.8, v.ty, v.z + (r() - 0.5) * 2.8, 1.2 + r() * 0.8, (bst ? 6.4 : 3.2) + r() * 2.4, (r() - 0.5) * 0.6, bst ? 10 : 8 + r() * 3, 1.8, bst ? 12 : 9, bst ? 0x2e2e32 : 0x4a4a50, 0.5, false);
     }
   }
   function buildRelief() {
