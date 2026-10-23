@@ -4268,7 +4268,7 @@ window.startMap = function (RAW, AUTH) {
     g.scale.setScalar(0.75);
     noRay(g);
     scene.add(g);
-    for (i = 0; i < 60; i++) {
+    for (i = 0; i < 240; i++) {
       m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color: 0xc8b48a, transparent: true, opacity: 0, depthWrite: false }));
       m.visible = false; m.raycast = function () {}; scene.add(m);
       carPuffs.push({ m: m, life: 9 });
@@ -4360,25 +4360,31 @@ window.startMap = function (RAW, AUTH) {
     car.ring.rotation.y += dt * 1.2;
     car.cam.rotation.y = 0.6 * Math.sin(t * 1.2);
     car.flag.rotation.y = 0.25 * Math.sin(t * 3);
-    /* Polvo */
-    car.pt += dt;
-    if (car.v > 3 && car.pt > 0.05) {
-      car.pt = 0;
-      var sY = Math.sin(car.yaw), cY = Math.cos(car.yaw), side, px, pz;
-      for (side = -1; side <= 1; side += 2) {
-        p = carPuffs[car.pi]; car.pi = (car.pi + 1) % carPuffs.length;
-        px = car.x - sY * 0.85 + cY * side * 0.62 + (Math.random() - 0.5) * 0.12;
-        pz = car.z - cY * 0.85 - sY * side * 0.62 + (Math.random() - 0.5) * 0.12;
-        p.life = 0; p.m.visible = true;
-        p.by = terrainH(px, pz);
-        p.m.position.set(px, p.by + 0.12, pz);
+    /* Polvo: una nube cada DUST_STEP de distancia recorrida por llanta, para que la estela sea continua a cualquier velocidad */
+    var DUST_STEP = 0.35, DUST_LIFE = 1.2, ddx = car.x - (car.lx === undefined ? car.x : car.lx), ddz = car.z - (car.lz === undefined ? car.z : car.lz), dmv = Math.hypot(ddx, ddz), emit = 0;
+    car.lx = car.x; car.lz = car.z;
+    if (car.v > 3 && dmv > 1e-4 && dmv < 6) {
+      car.dd = (car.dd || 0) + dmv;
+      var sY = Math.sin(car.yaw), cY = Math.cos(car.yaw), side, px, pz, bk, ex, ez;
+      while (car.dd >= DUST_STEP && emit < 12) {
+        car.dd -= DUST_STEP; emit++;
+        bk = car.dd / dmv; ex = car.x - ddx * bk; ez = car.z - ddz * bk; /* posición intermedia dentro del recorrido de este cuadro */
+        for (side = -1; side <= 1; side += 2) {
+          p = carPuffs[car.pi]; car.pi = (car.pi + 1) % carPuffs.length;
+          px = ex - sY * 0.85 + cY * side * 0.62 + (Math.random() - 0.5) * 0.1;
+          pz = ez - cY * 0.85 - sY * side * 0.62 + (Math.random() - 0.5) * 0.1;
+          p.life = 0; p.m.visible = true;
+          p.by = terrainH(px, pz);
+          p.m.position.set(px, p.by + 0.12, pz);
+        }
       }
-    }
+      if (car.dd > DUST_STEP) car.dd = 0;
+    } else car.dd = 0;
     for (i = 0; i < carPuffs.length; i++) {
       p = carPuffs[i];
-      if (p.life >= 2.2) { if (p.m.visible) p.m.visible = false; continue; }
-      p.life += dt; k = Math.min(1, p.life / 2.2);
-      p.m.scale.setScalar(0.1 + 0.22 * k); p.m.position.y = (p.by || 0) + 0.12 + 0.15 * k; p.m.material.opacity = 0.45 * (1 - k);
+      if (p.life >= DUST_LIFE) { if (p.m.visible) p.m.visible = false; continue; }
+      p.life += dt; k = Math.min(1, p.life / DUST_LIFE);
+      p.m.scale.setScalar(0.15 + 0.3 * k); p.m.position.y = (p.by || 0) + 0.12 + 0.15 * k; p.m.material.opacity = 0.45 * (1 - k);
     }
   }
 
