@@ -1687,9 +1687,9 @@ window.startMap = function (RAW, AUTH) {
     }
     fillHexGrid();
     var W = {
-      temp: [['pine', 0.20], ['oak', 0.16], ['round', 0.14], ['birch', 0.08], ['jacaranda', 0.04], ['bush', 0.14], ['flower', 0.06], ['grass', 0.08], ['rock', 0.05], ['agave', 0.03], ['cactus', 0.02]],
+      temp: [['pine', 0.20], ['oak', 0.16], ['round', 0.11], ['birch', 0.08], ['jacaranda', 0.04], ['golden', 0.03], ['bush', 0.14], ['flower', 0.06], ['grass', 0.08], ['rock', 0.05], ['agave', 0.03], ['cactus', 0.02]],
       arid: [['cactus', 0.22], ['agave', 0.16], ['bush', 0.20], ['grass', 0.12], ['rock', 0.14], ['flower', 0.04], ['round', 0.05], ['palm', 0.05], ['pine', 0.02]],
-      trop: [['palm', 0.26], ['round', 0.22], ['oak', 0.10], ['bush', 0.16], ['flower', 0.10], ['grass', 0.10], ['jacaranda', 0.03], ['rock', 0.02], ['cactus', 0.01]]
+      trop: [['palm', 0.26], ['round', 0.19], ['oak', 0.10], ['bush', 0.16], ['flower', 0.10], ['grass', 0.10], ['jacaranda', 0.03], ['golden', 0.03], ['rock', 0.02], ['cactus', 0.01]]
     };
     function pickType(zone) {
       var l = W[zone], r = vr(), i, acc = 0;
@@ -1953,6 +1953,26 @@ window.startMap = function (RAW, AUTH) {
         part('trunk', 0, 0.45, 0, 1.2, 0.9, 1.2, trunkC);
         part('ico', 0, 1.2, 0, 0.72, 0.52, 0.72, c1);
         part('ico', 0.3, 1.05, 0.1, 0.42, 0.34, 0.42, c1);
+      } else if (pl.type === 'golden') {
+        /* Árbol dorado: tronco blanco retorcido, dos copas naranja-doradas con bordes escalonados y gotas colgantes */
+        var wh = col(0.12, 0.08, 0.88 + vr() * 0.06), g1 = col(0.115 + vr() * 0.015, 0.92, 0.52), g2 = col(0.095, 0.95, 0.45), g3 = col(0.13, 0.9, 0.6), cx, cy, cz, cs;
+        part('cyl', 0, 0.1, 0, 0.14, 0.2, 0.14, wh);
+        part('cyl', 0, 0.25, 0, 0.1, 0.5, 0.1, wh);
+        part('cyl', 0.086, 0.735, 0, 0.085, 0.5, 0.085, wh, 0, 0, -0.35);
+        part('cyl', 0.106, 1.185, 0, 0.07, 0.45, 0.07, wh, 0, 0, 0.3);
+        part('cyl', -0.2, 1.175, 0, 0.05, 0.69, 0.05, wh, 0, 0, 1.05);
+        part('cyl', 0.35, 1.2, 0, 0.05, 0.57, 0.05, wh, 0, 0, -0.785);
+        [[-0.5, 1.45, 0.0, 1], [0.55, 1.5, 0.05, 1.05]].forEach(function (cp) {
+          cx = cp[0]; cy = cp[1]; cz = cp[2]; cs = cp[3];
+          part('ico', cx, cy, cz, 0.6 * cs, 0.5 * cs, 0.58 * cs, g1);
+          part('ico', cx, cy - 0.27 * cs, cz, 0.68 * cs, 0.14, 0.66 * cs, g2);
+          part('ico', cx, cy - 0.4 * cs, cz, 0.5 * cs, 0.1, 0.48 * cs, g3);
+          for (kk = 0; kk < 3; kk++) part('ico0', cx + (vr() - 0.5) * 0.5, cy + 0.42 * cs, cz + (vr() - 0.5) * 0.4, 0.09, 0.07, 0.09, g3);
+          for (kk = 0; kk < 5; kk++) {
+            ang = kk / 5 * 6.2832 + vr() * 0.6;
+            part('cone', cx + Math.cos(ang) * 0.5 * cs, cy - 0.38 * cs, cz + Math.sin(ang) * 0.46 * cs, 0.07, 0.25 + vr() * 0.3, 0.07, g2, Math.PI, 0, 0);
+          }
+        });
       } else if (pl.type === 'palm') {
         c1 = col(0.36 + vr() * 0.04, 0.55, 0.27 + vr() * 0.08);
         c2 = col(0.08, 0.35, 0.35 + vr() * 0.08);
