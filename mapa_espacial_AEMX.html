@@ -3755,6 +3755,23 @@ window.startMap = function (RAW, AUTH) {
     }
     return best;
   }
+  /* Relieve bajo el OVNI: mira adelante en su ruta y alrededor de su cuerpo (radio ~4.6) */
+  function ufoNear(x, z) {
+    var R = 5, g = terrainH(x, z), h;
+    h = terrainH(x + R, z); if (h > g) g = h;
+    h = terrainH(x - R, z); if (h > g) g = h;
+    h = terrainH(x, z + R); if (h > g) g = h;
+    h = terrainH(x, z - R); if (h > g) g = h;
+    return g;
+  }
+  function ufoGround(x, z, dx, dz) {
+    var g = ufoNear(x, z), l = Math.hypot(dx, dz), ux = l > 1e-3 ? dx / l : 0, uz = l > 1e-3 ? dz / l : 0, k, a, h;
+    for (k = 1; k <= 5; k++) {
+      a = Math.min(l, 8 * k);
+      h = ufoNear(x + ux * a, z + uz * a); if (h > g) g = h;
+    }
+    return g;
+  }
   function ufoPick(fx, fz) {
     var i, s, d;
     for (i = 0; i < 12; i++) {
@@ -4131,7 +4148,8 @@ window.startMap = function (RAW, AUTH) {
     } else { ex = 0; ez = 0; }
     ufo.rx += (ez - ufo.rx) * Math.min(1, dt * 4);
     ufo.rz += (-ex - ufo.rz) * Math.min(1, dt * 4);
-    ufo.y += (ufo.ty - ufo.y) * Math.min(1, dt * 2);
+    ufo.y += (ufo.ty - ufo.y) * Math.min(1, dt * (ufo.ty > ufo.y ? 3.5 : 2));
+    ufo.y = Math.max(ufo.y, ufoNear(ufo.x, ufo.z) + 4); /* nunca atraviesa el relieve */
     ufo.shk = Math.max(0, ufo.shk - dt); e = ufo.shk / 0.35;
     ufo.g.position.set(ufo.x + Math.sin(t * 70) * 0.35 * e, ufo.y + 0.25 * Math.sin(t * 2), ufo.z + Math.cos(t * 63) * 0.35 * e);
     /* Averiado: humo (desde 5 impactos) y fuego (desde 10) */
@@ -4150,7 +4168,7 @@ window.startMap = function (RAW, AUTH) {
     updateUfoGlitch(t, dt);
 
     if (st === 'wander') {
-      ufo.ty = Math.max(UFO_CRUISE, ufoClear(ufo.x, ufo.z));
+      ufo.ty = Math.max(UFO_CRUISE, ufoClear(ufo.x, ufo.z)) + ufoGround(ufo.x, ufo.z, dx, dz);
       if (d <= 0.15) {
         ufo.legs--;
         best = null; bd = 1e9;
@@ -4166,7 +4184,7 @@ window.startMap = function (RAW, AUTH) {
         else { s = ufoPick(ufo.x, ufo.z); ufo.tx = s[0]; ufo.tz = s[1]; if (ufo.legs <= 0) ufo.legs = 1; }
       }
     } else if (st === 'approach') {
-      ufo.ty = d > 15 ? Math.max(UFO_LOW, ufoClear(ufo.x, ufo.z)) : UFO_LOW;
+      ufo.ty = (d > 15 ? Math.max(UFO_LOW, ufoClear(ufo.x, ufo.z)) : UFO_LOW) + ufoGround(ufo.x, ufo.z, dx, dz);
       if (d <= 0.15 && Math.abs(ufo.y - UFO_LOW) < 0.4) { ufo.state = 'abduct'; ufo.T = 0; ufo.cow.state = 'lifted'; ufo.beam.visible = true; ufo.ring.visible = true; ufo.ring.position.set(ufo.x, 0.08, ufo.z); AUD.moo(ufo.g.position); }
     } else if (st === 'abduct') {
       ufo.T += dt;
