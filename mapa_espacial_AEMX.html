@@ -3804,6 +3804,86 @@ window.startMap = function (RAW, AUTH) {
       fxSpawn(u.x, u.gy + 0.4, u.z, Math.cos(a) * rr, 2 + Math.random() * 3, Math.sin(a) * rr, 0.5, 0.14, 0.05, 0xffd24d, 1, true);
     }
   }
+  /* ---------- Cráter humeante: dura 1 min, con borde de tierra, suelo quemado y humo ---------- */
+  var CRATER_LIFE = 60, CRATER_FADE = 6, CRATER_N = 3, craters = [], craterI = 0;
+  function makeCrater() {
+    var RINGS = 9, SEGS = 36, R = 3.4, i, j, cols = new Float32Array((1 + RINGS * SEGS) * 3), g = new THREE.BufferGeometry(), idx = [], c = new THREE.Color(), q, a, f;
+    var nv = 1 + RINGS * SEGS;
+    for (i = 0; i < nv; i++) {
+      if (i === 0) f = 0; else f = (Math.floor((i - 1) / SEGS) + 1) / RINGS; /* 0 centro … 1 borde */
+      /* centro muy oscuro (quemado) → borde de tierra → ceniza en el contorno */
+      if (f < 0.55) c.setHex(0x0b0907).lerp(new THREE.Color(0x1d1611), f / 0.55);
+      else if (f < 0.8) c.setHex(0x3a2a1c).lerp(new THREE.Color(0x4a3825), (f - 0.55) / 0.25);
+      else c.setHex(0x4a3825).lerp(new THREE.Color(0x1a1612), (f - 0.8) / 0.2);
+      cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
+    }
+    for (j = 0; j < SEGS; j++) {
+      idx.push(0, 1 + j, 1 + (j + 1) % SEGS);
+      for (i = 0; i < RINGS - 1; i++) {
+        a = 1 + i * SEGS + j; q = 1 + i * SEGS + (j + 1) % SEGS;
+        idx.push(a, a + SEGS, q, q, a + SEGS, q + SEGS);
+      }
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    g.setIndex(idx);
+    var mat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    var m = new THREE.Mesh(g, mat);
+    m.raycast = function () {}; m.frustumCulled = false; m.visible = false;
+    scene.add(m);
+    return { m: m, g: g, mat: mat, RINGS: RINGS, SEGS: SEGS, R: R, on: false, age: 0, x: 0, z: 0, gy: 0, sm: 0, seed: 0 };
+  }
+  function placeCrater(x, z) {
+    var cr = craters[craterI];
+    if (!cr) cr = craters[craterI] = makeCrater();
+    craterI = (craterI + 1) % CRATER_N;
+    cr.x = x; cr.z = z; cr.age = 0; cr.on = true; cr.sm = 0; cr.seed = Math.random() * 100;
+    var pos = cr.g.attributes.position.array, i, j, f, a, rr, h, px, pz, rim, irr, o;
+    cr.gy = terrainH(x, z);
+    pos[0] = x; pos[1] = cr.gy + 0.04; pos[2] = z;
+    for (i = 0; i < cr.RINGS; i++) {
+      f = (i + 1) / cr.RINGS;
+      for (j = 0; j < cr.SEGS; j++) {
+        a = j / cr.SEGS * 6.2832;
+        irr = 1 + 0.12 * Math.sin(a * 3 + cr.seed) + 0.07 * Math.sin(a * 5 + cr.seed * 1.7);
+        rr = f * cr.R * irr;
+        px = x + Math.cos(a) * rr; pz = z + Math.sin(a) * rr;
+        rim = Math.exp(-Math.pow((f - 0.68) / 0.16, 2)); /* borde levantado */
+        h = 0.04 + 0.34 * rim * (0.85 + 0.3 * Math.sin(a * 4 + cr.seed));
+        o = (1 + i * cr.SEGS + j) * 3;
+        pos[o] = px; pos[o + 1] = terrainH(px, pz) + h; pos[o + 2] = pz;
+      }
+    }
+    cr.g.attributes.position.needsUpdate = true;
+    cr.g.computeVertexNormals();
+    cr.mat.opacity = 1; cr.m.visible = true;
+    /* Onda de polvo al explotar */
+    var n, rv;
+    for (n = 0; n < 22; n++) {
+      a = n / 22 * 6.2832 + Math.random() * 0.2; rv = 5 + Math.random() * 3;
+      fxSpawn(x + Math.cos(a) * 1.2, cr.gy + 0.35, z + Math.sin(a) * 1.2, Math.cos(a) * rv, 0.3 + Math.random() * 0.6, Math.sin(a) * rv, 1.3, 0.5, 2.6, 0x8a7a5a, 0.55, false);
+    }
+  }
+  function craterStep(dt) {
+    var i, cr, r = Math.random, left, intv, gx, gz;
+    for (i = 0; i < craters.length; i++) {
+      cr = craters[i];
+      if (!cr.on) continue;
+      cr.age += dt;
+      if (cr.age >= CRATER_LIFE) { cr.on = false; cr.m.visible = false; continue; }
+      left = CRATER_LIFE - cr.age;
+      cr.mat.opacity = left < CRATER_FADE ? Math.max(0, left / CRATER_FADE) : 1;
+      /* Humo: denso al principio, más tenue y espaciado al final */
+      cr.sm -= dt; intv = 0.18 + cr.age * 0.012;
+      if (cr.sm <= 0) {
+        cr.sm = intv;
+        gx = cr.x + (r() - 0.5) * 2.2; gz = cr.z + (r() - 0.5) * 2.2;
+        fxSpawn(gx, cr.gy + 0.25, gz, (r() - 0.5) * 0.4, 1.1 + r() * 0.7, (r() - 0.5) * 0.4, 3.4, 0.5, 2.0 + r() * 0.6, 0x3a3a3f, 0.42 * Math.max(0.35, left < CRATER_FADE ? left / CRATER_FADE : 1), false);
+      }
+      /* Brasas verdes los primeros segundos */
+      if (cr.age < 15 && r() < 0.06) fxSpawn(cr.x + (r() - 0.5) * 2, cr.gy + 0.2, cr.z + (r() - 0.5) * 2, (r() - 0.5) * 0.6, 1.2 + r() * 1.5, (r() - 0.5) * 0.6, 0.8, 0.14, 0.04, r() < 0.5 ? 0x39ff6a : 0xb6ff3d, 0.9, true);
+    }
+  }
   function ufoExplode() {
     var u = ufo, i, a, r;
     u.state = 'wreck'; u.T = 0; u.sm = 0; u.g.visible = false; u.gy = terrainH(u.x, u.z);
@@ -3819,6 +3899,7 @@ window.startMap = function (RAW, AUTH) {
       a = Math.random() * 6.2832; r = 3 + Math.random() * 5;
       fxSpawn(u.x, gy + 0.6, u.z, Math.cos(a) * r, 3 + Math.random() * 5, Math.sin(a) * r, 0.5 + Math.random() * 0.4, 0.5, 0.1, 0xff7a1a, 0.95, true);
     }
+    placeCrater(u.x, u.z);
     if (!wreck) wreck = buildWreck();
     wreck.position.set(u.x, gy + 0.1, u.z); wreck.rotation.y = Math.random() * 6.2832; wreck.visible = true;
   }
@@ -4451,6 +4532,7 @@ window.startMap = function (RAW, AUTH) {
     updateCar(t, dt);
     updateBullets(dt);
     updateFx(dt);
+    craterStep(dt);
     updateSea(t);
     AUD.update(t);
     /* Vista desde la torreta: cámara sobre ella, mirando hacia donde apuntan los cañones */
