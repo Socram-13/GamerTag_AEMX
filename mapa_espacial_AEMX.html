@@ -1198,7 +1198,8 @@ window.startMap = function (RAW, AUTH) {
   scene.add(plate);
 
   /* ---------- Mar: olas, espuma en la costa y color según profundidad ---------- */
-  var SEA_Y = -0.45, SEA_X0 = -2400, SEA_Z0 = -1800, SEA_W = 4800, SEA_H = 3600, SEA_TW = 384, SEA_TH = 288, SEA_MAXD = 480;
+  var SEA_Y = -0.45, SEA_X0 = -2800, SEA_Z0 = -3400, SEA_W = 6800, SEA_H = 5200, SEA_TW = 480, SEA_TH = 360, SEA_MAXD = 480;
+  var foreignRings = [], seaStatesOn = false;
   var SEA_COMMON_V = ['#include <common>', '#include <logdepthbuf_pars_vertex>'].join('\n');
   /* Textura de distancia a la costa: alimenta el degradado de profundidad (se recalcula con los estados) */
   var seaData = new Uint8Array(SEA_TW * SEA_TH);
@@ -1341,17 +1342,69 @@ window.startMap = function (RAW, AUTH) {
   }
   seaBuildFoam([mainW, bajaW], 18);
   /* Con los estados cargados, la costa es el borde verde real: degradado y espuma se rehacen sobre él */
-  function seaUseStates() {
-    var rings = [];
-    Object.keys(statePolys).forEach(function (k) { statePolys[k].forEach(function (r) { if (r.length > 3) rings.push(r); }); });
-    seaFillTex(rings.map(function (r) { return simplifyRing(r, 4); }));
-    seaBuildFoam(rings.map(function (r) { return simplifyRing(r, 1.5); }), 18);
+  function seaRefresh() {
+    var rings = [], foam = [];
+    if (seaStatesOn) {
+      Object.keys(statePolys).forEach(function (k) { statePolys[k].forEach(function (r) { if (r.length > 3) { rings.push(simplifyRing(r, 5)); foam.push(simplifyRing(r, 1.5)); } }); });
+    } else { rings = [mainW, bajaW]; foam = [mainW, bajaW]; }
+    foreignRings.forEach(function (r) { rings.push(r); foam.push(r); });
+    seaFillTex(rings);
+    seaBuildFoam(foam, 18);
   }
+  function seaUseStates() { seaStatesOn = true; seaRefresh(); }
   function updateSea(t) {
     sea.position.x = camera.position.x; sea.position.z = camera.position.z;
     seaU.uTime.value = REDUCED ? 0 : t;
   }
   updateSea(0);
+
+  /* ---------- Territorios vecinos vacíos: EE. UU., Guatemala y Belice (losas neutras, sin estados ni ciudades) ---------- */
+  var FOREIGN_D = 5, foreignGroup = new THREE.Group();
+  scene.add(foreignGroup);
+  var foreignMats = [new THREE.MeshLambertMaterial({ color: 0x3b4048 }), new THREE.MeshLambertMaterial({ color: 0x2a2e35 })];
+  var foreignLine = new THREE.LineBasicMaterial({ color: 0x8a94a6 });
+  var US_LL = [
+    [-117.12, 32.53], [-114.72, 32.72], [-114.78, 32.5], [-113.0, 31.3], [-111.07, 31.33], [-108.21, 31.33], [-108.21, 31.78], [-106.53, 31.78],
+    [-105.0, 30.65], [-104.4, 29.55], [-103.1, 28.97], [-102.4, 29.77], [-101.4, 29.77], [-100.9, 29.35], [-100.5, 28.7], [-99.5, 27.5],
+    [-99.1, 26.4], [-98.3, 26.1], [-97.15, 25.95],
+    [-97.35, 26.8], [-97.2, 27.8], [-96.4, 28.4], [-94.8, 29.3], [-93.85, 29.7], [-92.3, 29.55], [-91.2, 29.2], [-90.1, 29.1], [-89.2, 29.0],
+    [-89.5, 30.2], [-88.1, 30.25], [-86.5, 30.35], [-85.35, 29.7], [-84.0, 30.1], [-83.0, 29.1], [-82.8, 28.0], [-82.65, 27.0], [-81.8, 26.1],
+    [-81.1, 25.15], [-80.4, 25.2], [-80.1, 25.8], [-80.05, 26.8], [-80.55, 28.4], [-81.3, 29.9], [-81.4, 30.7], [-80.9, 32.0], [-79.2, 33.2],
+    [-77.95, 33.9], [-76.5, 34.6], [-75.5, 35.25], [-75.9, 36.9], [-75.1, 38.0], [-74.1, 39.6], [-73.9, 40.5], [-72.0, 41.0], [-70.6, 41.5],
+    [-71.0, 42.3], [-70.2, 43.65], [-68.9, 44.4], [-67.0, 44.8], [-67.8, 45.7], [-67.8, 47.1], [-69.2, 47.45], [-70.0, 46.4], [-71.5, 45.0],
+    [-74.7, 45.0], [-76.3, 44.2], [-79.2, 43.4], [-82.5, 45.3], [-84.5, 46.5], [-88.4, 48.3], [-89.6, 48.0], [-95.15, 49.0], [-123.3, 49.0],
+    [-122.8, 48.1], [-124.7, 48.4], [-124.1, 46.9], [-124.0, 44.0], [-124.5, 42.8], [-124.1, 40.4], [-123.8, 39.4], [-122.5, 37.8],
+    [-121.9, 36.6], [-120.6, 34.5], [-118.5, 34.0], [-117.3, 33.0]
+  ];
+  var GT_LL = [
+    [-92.2, 14.55], [-92.2, 15.25], [-91.7, 16.07], [-90.45, 16.07], [-91.43, 17.25], [-90.98, 17.82], [-89.15, 17.95], [-89.15, 15.9],
+    [-88.35, 15.9], [-88.25, 15.72], [-88.9, 15.1], [-89.35, 14.43], [-89.8, 14.05], [-90.1, 13.74], [-90.8, 13.85], [-91.5, 14.1]
+  ];
+  var BZ_LL = [
+    [-88.3, 18.5], [-89.15, 17.95], [-89.15, 15.9], [-88.35, 15.9], [-88.25, 16.5], [-88.05, 17.2], [-87.85, 18.0], [-87.9, 18.3], [-88.1, 18.45]
+  ];
+  /* La losa se mete ~15 km bajo México en la frontera (shiftIdx) para que no queden rendijas de mar entre estados y vecino */
+  function addForeign(ll, shiftIdx, frontier) {
+    var w = toWorld(ll), ex = shiftIdx.length ? offsetPoly(w, 15) : w, ring, mesh, line;
+    ring = w.map(function (p, i) { return shiftIdx.indexOf(i) >= 0 ? ex[i] : p; });
+    mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(toShape(ring), { depth: FOREIGN_D, bevelEnabled: false }), foreignMats);
+    mesh.rotation.x = -Math.PI / 2; mesh.position.y = -FOREIGN_D - 0.05;
+    mesh.receiveShadow = true; mesh.raycast = function () {};
+    foreignGroup.add(mesh);
+    if (frontier) {
+      line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(toWorld(frontier).map(function (p) { return new THREE.Vector3(p[0], 0.06, p[1]); })), foreignLine);
+      line.raycast = function () {}; foreignGroup.add(line);
+    }
+    foreignRings.push(ring);
+  }
+  (function () {
+    var i, sh = [];
+    for (i = 1; i <= 17; i++) sh.push(i);
+    addForeign(US_LL, sh, US_LL.slice(0, 19));
+    addForeign(GT_LL, [1, 2, 3, 4, 5], GT_LL.slice(0, 7));
+    addForeign(BZ_LL, [], [BZ_LL[0], BZ_LL[1]]);
+  })();
+  seaRefresh();
 
   /* ---------- Estados con miembros AEMX (GeoJSON) ---------- */
   var statesGroup = new THREE.Group();
@@ -3192,6 +3245,70 @@ window.startMap = function (RAW, AUTH) {
     return { g: g, body: body, beam: beam, ring: ring, lamps: lamps, x: 0, z: 0, y: UFO_CRUISE, tx: 0, tz: 0, ty: UFO_CRUISE, state: 'wander', T: 0, legs: 2, cow: null, rx: 0, rz: 0, hits: 0, shk: 0, sm: 0, vy: 0, cvx: 0, cvz: 0, blk: 0 };
   }
 
+  /* ---------- Glitch de reparación del OVNI: tembleque digital, separación RGB y escaneo ---------- */
+  var glGhostMats = [
+    new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0xff2bd6, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })
+  ];
+  var glScanMat = new THREE.MeshBasicMaterial({ color: 0x7cffb2, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  function ufoGlitchInit() {
+    var i, gm;
+    if (ufo.gl) return;
+    ufo.gl = { ghosts: [], scan: null, step: -1, gx: 0, gz: 0, sx: 1, sy: 1, blank: false, j0: 0, j1: 0, p: 0 };
+    for (i = 0; i < 2; i++) {
+      gm = ufo.body.clone(true);
+      (function (mat) { gm.traverse(function (o) { if (o.isMesh) { o.material = mat; o.raycast = function () {}; } }); })(glGhostMats[i]);
+      gm.visible = false; ufo.g.add(gm); ufo.gl.ghosts.push(gm);
+    }
+    ufo.gl.scan = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.5, 40, 1, true), glScanMat);
+    ufo.gl.scan.visible = false; ufo.gl.scan.raycast = function () {}; ufo.g.add(ufo.gl.scan);
+  }
+  function ufoGlitch(pow) {
+    if (!ufo) return;
+    ufoGlitchInit();
+    ufo.glPow = pow; ufo.glDur = ufo.glt = pow > 0.7 ? 1.7 : 1.0; ufo.gl.p = 0; ufo.gl.step = -1;
+  }
+  function ufoGlitchEnd(silent) {
+    var i, gl = ufo.gl, p = ufo.g.position;
+    ufo.glt = 0;
+    if (!gl) return;
+    ufo.body.position.set(0, 0, 0); ufo.body.scale.setScalar(2.4); ufo.body.visible = true;
+    gl.ghosts.forEach(function (g) { g.visible = false; });
+    gl.scan.visible = false; glScanMat.opacity = 0;
+    for (i = 0; i < ufo.lamps.length; i++) ufo.lamps[i].visible = true;
+    /* Destello final: el OVNI queda limpio */
+    if (!silent) for (i = 0; i < 10; i++) fxSpawn(p.x + (Math.random() - 0.5) * 3, p.y + Math.random() * 1.2, p.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, 0.5 + Math.random() * 1.5, (Math.random() - 0.5) * 3, 0.5, 0.5, 3.2, i % 2 ? 0xd8ffe8 : 0x7cffb2, 0.85, true);
+  }
+  function updateUfoGlitch(t, dt) {
+    var gl = ufo.gl, b = ufo.body, p = ufo.g.position, k, e, pr, step, i, n;
+    if (!gl || !(ufo.glt > 0)) return;
+    ufo.glt -= dt;
+    if (ufo.glt <= 0) { ufoGlitchEnd(false); return; }
+    k = ufo.glt / ufo.glDur; pr = 1 - k; e = Math.min(1, k * 1.15) * ufo.glPow;
+    step = (t * 20) | 0;
+    if (step !== gl.step) {
+      gl.step = step;
+      gl.gx = (Math.random() - 0.5) * 1.6 * e; gl.gz = (Math.random() - 0.5) * 1.6 * e;
+      gl.sx = 1 + (Math.random() - 0.5) * 0.7 * e; gl.sy = 1 + (Math.random() - 0.5) * 1.2 * e;
+      gl.blank = Math.random() < 0.3 * e;
+      gl.j0 = (0.5 + Math.random() * 1.6) * e; gl.j1 = (0.5 + Math.random() * 1.6) * e;
+    }
+    b.position.set(gl.gx, 0, gl.gz); b.scale.set(2.4 * gl.sx, 2.4 * gl.sy, 2.4 * gl.sx); b.visible = !gl.blank;
+    gl.ghosts[0].position.set(-gl.j0, 0.05, gl.j0 * 0.3);
+    gl.ghosts[1].position.set(gl.j1, -0.05, -gl.j1 * 0.3);
+    for (i = 0; i < 2; i++) { gl.ghosts[i].rotation.y = b.rotation.y; gl.ghosts[i].scale.copy(b.scale); gl.ghosts[i].visible = e > 0.04; }
+    for (i = 0; i < ufo.lamps.length; i++) ufo.lamps[i].visible = e < 0.15 || ((step + i) & 1) === 0;
+    /* Anillo de escaneo verde que sube por el casco */
+    gl.scan.visible = true; gl.scan.position.y = -0.7 + 2.6 * pr; gl.scan.scale.set(4.7, 1, 4.7);
+    glScanMat.opacity = 0.85 * Math.sin(Math.PI * Math.min(1, pr));
+    /* Partículas digitales */
+    gl.p -= dt;
+    if (gl.p <= 0) {
+      gl.p = 0.035;
+      for (n = 0; n < 2; n++) if (Math.random() < 0.4 + 0.6 * e) fxSpawn(p.x + (Math.random() - 0.5) * 8, p.y + (Math.random() - 0.3) * 2, p.z + (Math.random() - 0.5) * 8, 0, 1.5 + Math.random() * 2, 0, 0.6, 0.3, 0.05, Math.random() < 0.5 ? 0x3df0ff : 0x59ffb0, 0.95, true);
+    }
+  }
+
   /* Altura mínima para sobrevolar los edificios de las ciudades cercanas (se anticipa 25 antes del borde) */
   function ufoClear(x, z) {
     var best = 0, i, d, k, top;
@@ -3446,7 +3563,7 @@ window.startMap = function (RAW, AUTH) {
       c.g.scale.setScalar(0.9 * u * u * (3 - 2 * u) + 0.001);
       c.head.rotation.x = 0.45 * Math.max(0, Math.sin(t * 0.7 + c.ph));
     }
-    if (ufo.state === 'crash' || ufo.state === 'wreck' || ufo.state === 'spawn') { ufoCrashStep(t, dt); return; }
+    if (ufo.state === 'crash' || ufo.state === 'wreck' || ufo.state === 'spawn') { if (ufo.glt > 0) ufoGlitchEnd(true); ufoCrashStep(t, dt); return; }
     /* Parpadeo al materializarse */
     if (ufo.blk > 0) { ufo.blk -= dt; ufo.g.visible = ufo.blk <= 0 || ((t * 18) | 0) % 2 === 0; }
     /* Movimiento del OVNI hacia su objetivo */
@@ -3475,6 +3592,7 @@ window.startMap = function (RAW, AUTH) {
     ufo.g.rotation.set(ufo.rx, 0, ufo.rz);
     ufo.body.rotation.y += dt * 1.6;
     for (i = 0; i < ufo.lamps.length; i++) ufo.lamps[i].scale.setScalar(0.8 + 0.5 * Math.max(0, Math.sin(t * 6 + i * 0.8)));
+    updateUfoGlitch(t, dt);
 
     if (st === 'wander') {
       ufo.ty = Math.max(UFO_CRUISE, ufoClear(ufo.x, ufo.z));
@@ -3511,6 +3629,7 @@ window.startMap = function (RAW, AUTH) {
           cowRespawn.push(t + 10 + Math.random() * 8);
           ufo.cow = null;
           /* Abducir una vaca repara el OVNI por completo */
+          ufoGlitch(ufo.hits > 0 ? 1 : 0.4);
           if (ufo.hits > 0) {
             ufo.hits = 0; ufo.sm = 0;
             for (i = 0; i < 14; i++) fxSpawn(ufo.g.position.x + (Math.random() - 0.5) * 1.2, ufo.g.position.y + (Math.random() - 0.5) * 0.6, ufo.g.position.z + (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2, 0.8, 0.3, 1.2, 0x9dffb8, 0.9, true);
