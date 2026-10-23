@@ -2881,6 +2881,18 @@ window.startMap = function (RAW, AUTH) {
     return { g: g, body: body, beam: beam, ring: ring, lamps: lamps, x: 0, z: 0, y: UFO_CRUISE, tx: 0, tz: 0, ty: UFO_CRUISE, state: 'wander', T: 0, legs: 2, cow: null, rx: 0, rz: 0, hits: 0, shk: 0, sm: 0, vy: 0, cvx: 0, cvz: 0, blk: 0 };
   }
 
+  /* Altura mínima para sobrevolar los edificios de las ciudades cercanas (se anticipa 25 antes del borde) */
+  function ufoClear(x, z) {
+    var best = 0, i, d, k, top;
+    for (i = 0; i < districts.length; i++) {
+      d = districts[i];
+      if (!d.list.length) continue;
+      if (Math.hypot(x - d.cx, z - d.cz) > d.r + 25) continue;
+      if (d._top === undefined) { top = 0; for (k = 0; k < d.list.length; k++) top = Math.max(top, d.list[k].topY || 0); d._top = top; }
+      best = Math.max(best, d._top + 5);
+    }
+    return best;
+  }
   function ufoPick(fx, fz) {
     var i, s, d;
     for (i = 0; i < 12; i++) {
@@ -3152,7 +3164,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < ufo.lamps.length; i++) ufo.lamps[i].scale.setScalar(0.8 + 0.5 * Math.max(0, Math.sin(t * 6 + i * 0.8)));
 
     if (st === 'wander') {
-      ufo.ty = UFO_CRUISE;
+      ufo.ty = Math.max(UFO_CRUISE, ufoClear(ufo.x, ufo.z));
       if (d <= 0.15) {
         ufo.legs--;
         best = null; bd = 1e9;
@@ -3168,7 +3180,7 @@ window.startMap = function (RAW, AUTH) {
         else { s = ufoPick(ufo.x, ufo.z); ufo.tx = s[0]; ufo.tz = s[1]; if (ufo.legs <= 0) ufo.legs = 1; }
       }
     } else if (st === 'approach') {
-      ufo.ty = UFO_LOW;
+      ufo.ty = d > 15 ? Math.max(UFO_LOW, ufoClear(ufo.x, ufo.z)) : UFO_LOW;
       if (d <= 0.15 && Math.abs(ufo.y - UFO_LOW) < 0.4) { ufo.state = 'abduct'; ufo.T = 0; ufo.cow.state = 'lifted'; ufo.beam.visible = true; ufo.ring.visible = true; ufo.ring.position.set(ufo.x, 0.08, ufo.z); }
     } else if (st === 'abduct') {
       ufo.T += dt;
@@ -3357,7 +3369,7 @@ window.startMap = function (RAW, AUTH) {
     bx(new THREE.MeshLambertMaterial({ color: 0x1f9d55 }), 0, 0, -0.06, 0.012, 0.18, 0.1, flag);
     bx(cWhite, 0, 0, -0.16, 0.012, 0.18, 0.1, flag);
     bx(new THREE.MeshLambertMaterial({ color: 0xd62839 }), 0, 0, -0.26, 0.012, 0.18, 0.1, flag);
-    m = new THREE.Mesh(uLamp, new THREE.MeshBasicMaterial({ color: 0xffd23f })); m.scale.setScalar(0.5); m.position.set(0, 0, -0.16); flag.add(m);
+    m = new THREE.Mesh(uCyl, new THREE.MeshBasicMaterial({ color: 0xffd23f })); m.scale.set(0.04, 0.016, 0.04); m.rotation.z = Math.PI / 2; m.position.set(0, 0, -0.16); flag.add(m);
     cy(carHub, -0.45, 0.78, 0.6, 0.02, 0.5);
     cam = new THREE.Group(); cam.position.set(-0.45, 1.06, 0.6); g.add(cam);
     bx(carDark, 0, 0, 0, 0.12, 0.1, 0.1, cam); cy(cTire, 0, 0, 0.07, 0.035, 0.05, Math.PI / 2, 0, cam);
