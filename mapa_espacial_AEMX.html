@@ -1198,12 +1198,16 @@ window.startMap = function (RAW, AUTH) {
   scene.add(plate);
 
   /* ---------- Mar: olas, espuma en la costa y color según profundidad ---------- */
-  var SEA_Y = -3, SEA_X0 = -2400, SEA_Z0 = -1800, SEA_W = 4800, SEA_H = 3600, SEA_TW = 512, SEA_TH = 384, SEA_MAXD = 480;
+  var SEA_Y = -0.45, SEA_X0 = -2400, SEA_Z0 = -1800, SEA_W = 4800, SEA_H = 3600, SEA_TW = 384, SEA_TH = 288, SEA_MAXD = 480;
   var SEA_COMMON_V = ['#include <common>', '#include <logdepthbuf_pars_vertex>'].join('\n');
-  /* Textura de distancia a la costa (una vez): alimenta el degradado de profundidad */
-  var seaTex = (function () {
-    var data = new Uint8Array(SEA_TW * SEA_TH), segs = [], i, j, k, q, x, z, best, ax, az, dx, dz, l2, u, ex, ez, d2, a, b;
-    [mainW, bajaW].forEach(function (poly) {
+  /* Textura de distancia a la costa: alimenta el degradado de profundidad (se recalcula con los estados) */
+  var seaData = new Uint8Array(SEA_TW * SEA_TH);
+  var seaTex = new THREE.DataTexture(seaData, SEA_TW, SEA_TH, THREE.LuminanceFormat, THREE.UnsignedByteType);
+  seaTex.minFilter = seaTex.magFilter = THREE.LinearFilter; seaTex.generateMipmaps = false;
+  seaTex.wrapS = seaTex.wrapT = THREE.ClampToEdgeWrapping;
+  function seaFillTex(polys) {
+    var segs = [], i, j, k, q, x, z, best, ax, az, dx, dz, l2, u, ex, ez, d2, a, b;
+    polys.forEach(function (poly) {
       for (k = 0; k < poly.length; k++) { a = poly[k]; b = poly[(k + 1) % poly.length]; segs.push(a[0], a[1], b[0], b[1]); }
     });
     for (j = 0; j < SEA_TH; j++) {
@@ -1219,14 +1223,12 @@ window.startMap = function (RAW, AUTH) {
           d2 = ex * ex + ez * ez;
           if (d2 < best) best = d2;
         }
-        data[j * SEA_TW + i] = Math.min(255, Math.round(Math.sqrt(best) / SEA_MAXD * 255));
+        seaData[j * SEA_TW + i] = Math.min(255, Math.round(Math.sqrt(best) / SEA_MAXD * 255));
       }
     }
-    var tx = new THREE.DataTexture(data, SEA_TW, SEA_TH, THREE.LuminanceFormat, THREE.UnsignedByteType);
-    tx.minFilter = tx.magFilter = THREE.LinearFilter; tx.generateMipmaps = false;
-    tx.wrapS = tx.wrapT = THREE.ClampToEdgeWrapping; tx.needsUpdate = true;
-    return tx;
-  })();
+    seaTex.needsUpdate = true;
+  }
+  seaFillTex([mainW, bajaW]);
   var seaU = {
     uTime: { value: 0 }, uDist: { value: seaTex }, uMin: { value: new THREE.Vector2(SEA_X0, SEA_Z0) },
     uSize: { value: new THREE.Vector2(SEA_W, SEA_H) }, uMaxD: { value: SEA_MAXD }, uSunDir: { value: SUN_OFF.clone().normalize() }
@@ -1310,23 +1312,41 @@ window.startMap = function (RAW, AUTH) {
       '}'
     ].join('\n')
   });
-  [mainW, bajaW].forEach(function (poly) {
-    var outer = offsetPoly(poly, 16), n = poly.length, i, a, b, pos = new Float32Array(n * 6), au = new Float32Array(n * 2), idx = [];
-    for (i = 0; i < n; i++) {
-      pos[i * 6] = poly[i][0]; pos[i * 6 + 1] = SEA_Y + 0.35; pos[i * 6 + 2] = poly[i][1];
-      pos[i * 6 + 3] = outer[i][0]; pos[i * 6 + 4] = SEA_Y + 0.35; pos[i * 6 + 5] = outer[i][1];
-      au[i * 2] = 0; au[i * 2 + 1] = 1;
-      a = i * 2; b = ((i + 1) % n) * 2;
-      idx.push(a, a + 1, b, a + 1, b + 1, b);
-    }
-    var fg = new THREE.BufferGeometry();
+  var seaFoam = null;
+  function seaBuildFoam(polys, width) {
+    var np = 0, off = 0, y = SEA_Y + 0.33, idx = [], pos, au, fg;
+    if (seaFoam) { scene.remove(seaFoam); seaFoam.geometry.dispose(); seaFoam = null; }
+    polys = polys.filter(function (p) { return p.length > 2; });
+    polys.forEach(function (p) { np += p.length; });
+    pos = new Float32Array(np * 6); au = new Float32Array(np * 2);
+    polys.forEach(function (poly) {
+      var n = poly.length, outer = offsetPoly(poly, width), i, p, a, b;
+      for (i = 0; i < n; i++) {
+        p = (off + i) * 6;
+        pos[p] = poly[i][0]; pos[p + 1] = y; pos[p + 2] = poly[i][1];
+        pos[p + 3] = outer[i][0]; pos[p + 4] = y; pos[p + 5] = outer[i][1];
+        au[(off + i) * 2] = 0; au[(off + i) * 2 + 1] = 1;
+        a = (off + i) * 2; b = (off + (i + 1) % n) * 2;
+        idx.push(a, a + 1, b, a + 1, b + 1, b);
+      }
+      off += n;
+    });
+    fg = new THREE.BufferGeometry();
     fg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     fg.setAttribute('aU', new THREE.BufferAttribute(au, 1));
     fg.setIndex(idx);
-    var fm = new THREE.Mesh(fg, foamMat);
-    fm.renderOrder = -4; fm.frustumCulled = false; fm.raycast = function () {};
-    scene.add(fm);
-  });
+    seaFoam = new THREE.Mesh(fg, foamMat);
+    seaFoam.renderOrder = -4; seaFoam.frustumCulled = false; seaFoam.raycast = function () {};
+    scene.add(seaFoam);
+  }
+  seaBuildFoam([mainW, bajaW], 18);
+  /* Con los estados cargados, la costa es el borde verde real: degradado y espuma se rehacen sobre él */
+  function seaUseStates() {
+    var rings = [];
+    Object.keys(statePolys).forEach(function (k) { statePolys[k].forEach(function (r) { if (r.length > 3) rings.push(r); }); });
+    seaFillTex(rings.map(function (r) { return simplifyRing(r, 4); }));
+    seaBuildFoam(rings.map(function (r) { return simplifyRing(r, 1.5); }), 18);
+  }
   function updateSea(t) {
     sea.position.x = camera.position.x; sea.position.z = camera.position.z;
     seaU.uTime.value = REDUCED ? 0 : t;
@@ -2174,7 +2194,7 @@ window.startMap = function (RAW, AUTH) {
         polys.forEach(function (pl) { addStatePoly(pl, nombre); });
       });
       fitDistricts();
-      if (statesGroup.children.length) { plate.visible = false; rock.visible = false; }
+      if (statesGroup.children.length) { plate.visible = false; rock.visible = false; try { seaUseStates(); } catch (e) { console.warn('Mar: no se pudo ajustar a la costa', e); } }
     })
     .catch(function (e) { console.warn('No se pudo cargar el GeoJSON de estados:', e); fitDistricts(); });
   var rock = new THREE.Mesh(plateGeo, new THREE.MeshLambertMaterial({ color: 0x0a1326 }));
