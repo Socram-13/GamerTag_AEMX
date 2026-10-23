@@ -417,9 +417,8 @@ window.startMap = function (RAW, AUTH) {
     players.push({ uid: uid, name: String(u.username), city: estado, total: total, common: banned ? 0 : num(u.common), rare: banned ? 0 : num(u.rare), epic: banned ? 0 : num(u.epic), legendary: banned ? 0 : num(u.legendary), inactive: inactive && !banned, banned: banned });
   });
   /* Un distrito por estado, ubicado en su capital */
-  var usedStates = { 'Ciudad de México': true };
-  players.forEach(function (p) { usedStates[p.city] = true; });
-  CITIES = Object.keys(usedStates).map(function (n) { return [n, 0, ESTADO_COORDS[n][1], ESTADO_COORDS[n][0]]; });
+  /* Todos los estados tienen distrito: con jugadores o con un hexágono vacío */
+  CITIES = Object.keys(ESTADO_COORDS).map(function (n) { return [n, 0, ESTADO_COORDS[n][1], ESTADO_COORDS[n][0]]; });
   players.sort(function (a, b) { return ((a.banned ? 1 : 0) - (b.banned ? 1 : 0)) || (b.total - a.total); });
   var ranked = players.filter(function (p) { return !p.banned; });
   ranked.forEach(function (p, idx) { p.rank = idx + 1; p.isPres = idx === 0; });
@@ -1169,6 +1168,9 @@ window.startMap = function (RAW, AUTH) {
   var STATE_D = 5;
   var stateMats = [new THREE.MeshLambertMaterial({ color: 0x3f8a68, emissive: 0x0a2a1c }), new THREE.MeshLambertMaterial({ color: 0x1f4a38 })];
   var stateLineMat = new THREE.LineBasicMaterial({ color: 0x5fae8f });
+  /* Estados sin jugadores: tono apagado */
+  var stateMatsEmpty = [new THREE.MeshLambertMaterial({ color: 0x2a3f5c, emissive: 0x0a1424 }), new THREE.MeshLambertMaterial({ color: 0x1a2a40 })];
+  var stateLineEmpty = new THREE.LineBasicMaterial({ color: 0x3d5273 });
   var NOMBRE_MAP = { 'Baja California Norte': 'Baja California', 'Coahuila de Zaragoza': 'Coahuila', 'Michoacán de Ocampo': 'Michoacán',
     'Veracruz de Ignacio de la Llave': 'Veracruz', 'México': 'Estado de México' };
   function ringPts(ring) { return ring.map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector2(g.x, -g.z); }); }
@@ -1280,6 +1282,7 @@ window.startMap = function (RAW, AUTH) {
           (occGrid[k] || (occGrid[k] = [])).push([x, z]);
         });
         /* Todos los hexágonos vacíos quedan parcialmente consumidos, del lado exterior */
+        if (!d.list.length) return; /* distrito vacío: sin vegetación */
         d.extra.forEach(function (c) {
           var x = d.cx + c.x, z = d.cz + c.z, k = gk(Math.floor(x / CELL), Math.floor(z / CELL)), l = Math.hypot(c.x, c.z) || 1;
           var h = { x: x, z: z, d: d, ox: c.x / l, oz: c.z / l, o: (x * 0.37 + z * 0.11) % 6.283 };
@@ -1363,6 +1366,7 @@ window.startMap = function (RAW, AUTH) {
     }
     /* Muestreo en rejilla con jitter alrededor de cada distrito, solo dentro de su estado y fuera de cualquier hexágono */
     districts.forEach(function (d) {
+      if (!d.list.length) return;
       var rings = statePolys[d.name] || country, all = d.cells.concat(d.extra), i;
       var x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, ext = HEX_R + RING + 1;
       for (i = 0; i < all.length; i++) {
@@ -1459,6 +1463,7 @@ window.startMap = function (RAW, AUTH) {
         }
       }
       districts.forEach(function (d) {
+        if (!d.list.length) return;
         var all = d.cells.concat(d.extra), i, x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, ix, iz;
         for (i = 0; i < all.length; i++) {
           x0 = Math.min(x0, d.cx + all[i].x); x1 = Math.max(x1, d.cx + all[i].x);
@@ -1757,7 +1762,7 @@ window.startMap = function (RAW, AUTH) {
   }
   function buildTrails() {
     if (trailsBuilt) return;
-    var ds = districts, nd = ds.length, names = Object.keys(statePolys), boxes = {}, rg = mulberry32(7771), i, j, k, cand = [], seen = {};
+    var ds = districts, nd = ds.filter(function (q) { return q.list.length; }).length, names = Object.keys(statePolys), boxes = {}, rg = mulberry32(7771), i, j, k, cand = [], seen = {};
     if (nd < 2 || !names.length) return;
     names.forEach(function (nm) {
       var b = [1e9, 1e9, -1e9, -1e9];
@@ -1862,13 +1867,14 @@ window.startMap = function (RAW, AUTH) {
   function addStatePoly(poly, nombre) {
     var sh = new THREE.Shape(ringPts(poly[0])), i;
     for (i = 1; i < poly.length; i++) sh.holes.push(new THREE.Path(ringPts(poly[i])));
-    var mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: STATE_D, bevelEnabled: false }), stateMats);
+    var emptySt = !(byCity[nombre] && byCity[nombre].length);
+    var mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: STATE_D, bevelEnabled: false }), emptySt ? stateMatsEmpty : stateMats);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.y = -STATE_D;
     mesh.receiveShadow = true;
     statesGroup.add(mesh);
     var pts = poly[0].map(function (c) { var g = geo(c[0], c[1]); return new THREE.Vector3(g.x, 0.05, g.z); });
-    statesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), stateLineMat));
+    statesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), emptySt ? stateLineEmpty : stateLineMat));
     var arr = statePolys[nombre] || (statePolys[nombre] = []);
     poly.forEach(function (ring) { arr.push(simplifyRing(ring.map(function (c) { var g2 = geo(c[0], c[1]); return [g2.x, g2.z]; }), 0.35)); });
   }
@@ -1878,7 +1884,7 @@ window.startMap = function (RAW, AUTH) {
       gj.features.forEach(function (f) {
         var raw = (f.properties && (f.properties.name || f.properties.NAME_1)) || '';
         var nombre = NOMBRE_MAP[raw] || estadoCanonico(raw) || raw;
-        if (!estadosCon[nombre] || !f.geometry) return;
+        if (!ESTADO_COORDS[nombre] || !f.geometry) return;
         var g = f.geometry;
         var polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
         polys.forEach(function (pl) { addStatePoly(pl, nombre); });
@@ -1931,6 +1937,12 @@ window.startMap = function (RAW, AUTH) {
     var c = cityXY[name];
     return { name: name, list: list, cells: cells, extra: [], r: far + S, cx: c.x, cz: c.z };
   });
+  /* Estados sin jugadores: distrito con un solo hexágono vacío (siempre después de los ocupados) */
+  Object.keys(ESTADO_COORDS).forEach(function (name) {
+    if (byCity[name]) return;
+    var c = cityXY[name];
+    districts.push({ name: name, list: [], cells: [], extra: [{ x: 0, z: 0, d: 0 }], r: S, cx: c.x, cz: c.z });
+  });
 
   /* Hexágonos vacíos: los vecinos libres de las celdas ocupadas (un anillo alrededor de cada ciudad).
      Se descartan los que chocan con celdas de otras ciudades. */
@@ -1947,9 +1959,11 @@ window.startMap = function (RAW, AUTH) {
     }
     districts.forEach(function (d) {
       d.cells.forEach(function (c) { placed.push([d.cx + c.x, d.cz + c.z]); });
+      if (!d.list.length) placed.push([d.cx, d.cz]);
     });
     districts.forEach(function (d) {
       var seen = {}, far = 0, i;
+      if (!d.list.length) { d.r = S; return; }
       d.cells.forEach(function (c) { seen[key(c.x, c.z)] = true; });
       d.cells.forEach(function (c) {
         dirs.forEach(function (dd) {
@@ -2138,6 +2152,7 @@ window.startMap = function (RAW, AUTH) {
   var orangeDone = false;
   if (!REDUCED) {
     districts.forEach(function (d) {
+      if (!d.list.length) { d.walkers = []; return; }
       var streets = buildStreets(d);
       d.streets = streets;
       var nb = d.list.length;
@@ -2504,7 +2519,7 @@ window.startMap = function (RAW, AUTH) {
   }
   var pinRoots = [];
   districts.forEach(function (d) {
-    d.pin = makePin(0x3fd0ff);
+    d.pin = makePin(d.list.length ? 0x3fd0ff : 0x5b6b8a);
     d.pin.userData.d = d;
     pinRoots.push(d.pin);
     d.pin.position.set(d.cx, 0.35, d.cz);
