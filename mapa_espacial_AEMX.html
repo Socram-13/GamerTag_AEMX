@@ -2957,8 +2957,9 @@ window.startMap = function (RAW, AUTH) {
     return { pts: pts, cum: cum, len: L, from: from, end: end, kind: kind, idx: 0 };
   }
   function edgePath(ti, fromCity) {
-    var e = trails[ti], fw = e.a === fromCity;
-    return mkPath(fw ? e.pts.slice() : e.pts.slice().reverse(), fromCity, fw ? e.b : e.a, 'edge');
+    var e = trails[ti], fw = e.a === fromCity, q = mkPath(fw ? e.pts.slice() : e.pts.slice().reverse(), fromCity, fw ? e.b : e.a, 'edge');
+    q.ti = ti;
+    return q;
   }
   /* Vuelta por el anillo exterior de la ciudad, de la llegada a la salida más corta */
   function arcPath(c, pin, pout) {
@@ -2968,26 +2969,62 @@ window.startMap = function (RAW, AUTH) {
     for (k = 0; k <= n; k++) { f = k / n; a = a1 + da * f; r = r1 + (r2 - r1) * f; pts.push([d.cx + Math.cos(a) * r, d.cz + Math.sin(a) * r]); }
     return mkPath(pts, c, c, 'arc');
   }
-  /* En una ciudad: toma el sendero que más acerca al OVNI; si la ciudad ya es lo más cercano, espera */
-  function carPlan(c, pin) {
-    var U = ufo ? ufo.g.position : null, inc = [], ti, o, sc, bs = 1e18, best = -1, ep, ds = districts, d0, ra, aa, a1;
-    for (ti = 0; ti < trails.length; ti++) if (trails[ti].a === c || trails[ti].b === c) inc.push(ti);
-    if (!inc.length) return false;
-    if (U) {
-      for (ti = 0; ti < inc.length; ti++) {
-        o = trails[inc[ti]].a === c ? trails[inc[ti]].b : trails[inc[ti]].a;
-        sc = Math.hypot(ds[o].cx - U.x, ds[o].cz - U.z);
-        if (sc < bs) { bs = sc; best = inc[ti]; }
+  /* Dijkstra por los senderos desde la ciudad src (skip = sendero excluido) */
+  function trailLen(e) {
+    var L = 0, i;
+    if (e.L === undefined) { for (i = 1; i < e.pts.length; i++) L += Math.hypot(e.pts[i][0] - e.pts[i - 1][0], e.pts[i][1] - e.pts[i - 1][1]); e.L = L; }
+    return e.L;
+  }
+  function carDij(src, skip) {
+    var n = districts.length, dist = [], prev = [], pe = [], done = [], i, ti, u, bd, o, e, w;
+    for (i = 0; i < n; i++) { dist[i] = 1e18; prev[i] = -1; pe[i] = -1; done[i] = false; }
+    dist[src] = 0;
+    for (;;) {
+      u = -1; bd = 1e18;
+      for (i = 0; i < n; i++) if (!done[i] && dist[i] < bd) { bd = dist[i]; u = i; }
+      if (u < 0) break;
+      done[u] = true;
+      for (ti = 0; ti < trails.length; ti++) {
+        if (ti === skip) continue;
+        e = trails[ti];
+        if (e.a === u) o = e.b; else if (e.b === u) o = e.a; else continue;
+        w = bd + trailLen(e);
+        if (w < dist[o]) { dist[o] = w; prev[o] = u; pe[o] = ti; }
       }
-      if (Math.hypot(ds[c].cx - U.x, ds[c].cz - U.z) <= bs + 5) {
-        /* La ciudad ya es lo más cercano: rodea el anillo hasta el punto más cercano al OVNI */
+    }
+    return { dist: dist, prev: prev, pe: pe };
+  }
+  /* Ciudad alcanzable más cercana al OVNI */
+  function carGoal(dj, c, U) {
+    var ds = districts, bi = c, bd = Math.hypot(ds[c].cx - U.x, ds[c].cz - U.z), i, d;
+    for (i = 0; i < ds.length; i++) {
+      if (dj.dist[i] > 1e17) continue;
+      d = Math.hypot(ds[i].cx - U.x, ds[i].cz - U.z);
+      if (d < bd) { bd = d; bi = i; }
+    }
+    return bi;
+  }
+  /* En una ciudad: ruta más corta por los senderos hacia la ciudad más cercana al OVNI; si ya está en ella, rodea el anillo hasta el punto más cercano */
+  function carPlan(c, pin) {
+    var U = ufo ? ufo.g.position : null, inc = [], ti, best = -1, ep, ds = districts, dj, g, x, d0, ra, aa, a1;
+    if (U) {
+      dj = carDij(c, -1); g = carGoal(dj, c, U);
+      if (g !== c && Math.hypot(ds[g].cx - U.x, ds[g].cz - U.z) > Math.hypot(ds[c].cx - U.x, ds[c].cz - U.z) - 5) g = c;
+      if (g === c) {
         d0 = ds[c]; ra = Math.hypot(pin[0] - d0.cx, pin[1] - d0.cz);
         aa = Math.atan2(U.z - d0.cz, U.x - d0.cx); a1 = Math.atan2(pin[1] - d0.cz, pin[0] - d0.cx);
         if (ra < 1 || Math.abs(nAng(aa - a1)) * ra < 2) return false;
         car.path = arcPath(c, pin, [d0.cx + Math.cos(aa) * ra, d0.cz + Math.sin(aa) * ra]); car.next = null; car.s = 0;
         return true;
       }
-    } else best = inc[(Math.random() * inc.length) | 0];
+      x = g;
+      while (dj.prev[x] !== c) x = dj.prev[x];
+      best = dj.pe[x];
+    } else {
+      for (ti = 0; ti < trails.length; ti++) if (trails[ti].a === c || trails[ti].b === c) inc.push(ti);
+      if (!inc.length) return false;
+      best = inc[(Math.random() * inc.length) | 0];
+    }
     ep = edgePath(best, c);
     car.path = arcPath(c, pin, ep.pts[0]); car.next = ep; car.s = 0;
     return true;
@@ -3122,14 +3159,16 @@ window.startMap = function (RAW, AUTH) {
           else path = car.path;
         }
       }
-      /* Si el OVNI queda más cerca de la ciudad de atrás, da la vuelta en el mismo sendero */
+      /* Si por la ciudad de atrás llega antes a la ciudad más cercana al OVNI, da la vuelta en el mismo sendero */
       car.rt += dt;
       if (path && path.kind === 'edge' && U && car.rt > 1) {
         car.rt = 0;
-        dF = Math.hypot(ds[path.end].cx - U.x, ds[path.end].cz - U.z); dB = Math.hypot(ds[path.from].cx - U.x, ds[path.from].cz - U.z);
-        if (dB + 60 < dF && car.s > 6 && path.len - car.s > 6) {
-          pts = [[car.x, car.z]].concat(path.pts.slice(0, path.idx + 1).reverse());
-          car.path = mkPath(pts, path.end, path.from, 'edge'); car.s = 0; path = car.path;
+        if (car.s > 6 && path.len - car.s > 6 && path.ti !== undefined) {
+          var djF = carDij(path.end, -1), djB = carDij(path.from, path.ti), T = carGoal(djF, path.end, U);
+          if (djB.dist[T] < 1e17 && car.s + djB.dist[T] + 10 < path.len - car.s + djF.dist[T]) {
+            pts = [[car.x, car.z]].concat(path.pts.slice(0, path.idx + 1).reverse());
+            car.path = mkPath(pts, path.end, path.from, 'edge'); car.path.ti = path.ti; car.s = 0; path = car.path;
+          }
         }
       }
       if (path) {
