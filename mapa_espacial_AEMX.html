@@ -131,21 +131,21 @@
           <span class="me-sub"><b id="me-total"></b> parcelas · <span id="me-state"></span></span>
         </span>
       </button>
+      <div class="search">
+        <input id="q" type="search" placeholder="Busca un gamertag o ciudad" autocomplete="off" aria-label="Buscar jugador o ciudad">
+        <ul id="res" hidden></ul>
+      </div>
+      <div class="tools">
+        <button type="button" id="b-over">México</button>
+        <button type="button" id="b-pal">Palacio</button>
+        <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
+      </div>
       <!-- Controles anteriores: ocultos (se conservan por si se quieren recuperar) -->
       <div class="old-top" hidden>
         <div class="brand">
           <p class="eyebrow">Atlas Earth AEMX</p>
           <h1>Mapa espacial</h1>
           <p class="tag">Cargando datos…</p>
-        </div>
-        <div class="search">
-          <input id="q" type="search" placeholder="Busca un gamertag o ciudad" autocomplete="off" aria-label="Buscar jugador o ciudad">
-          <ul id="res" hidden></ul>
-        </div>
-        <div class="tools">
-          <button type="button" id="b-over">México</button>
-          <button type="button" id="b-pal">Palacio</button>
-          <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
         </div>
       </div>
     </header>
