@@ -4232,17 +4232,17 @@ window.startMap = function (RAW, AUTH) {
   /* ---------- Haz blanco: al pasar por una ciudad (a menos de 30), el OVNI ilumina la pared más cercana del edificio más próximo ---------- */
   var spot = null, SPOT_RANGE = 30;
   function makeSpot() {
-    var geo = new THREE.CylinderGeometry(0.3, 1.9, 1, 24, 1, true), disc = new THREE.CircleGeometry(1, 28), cm, hm, hm2, cone, halo, core;
+    var geo = new THREE.CylinderGeometry(0.3, 1.9, 1, 24, 1, true), cm, cone;
     geo.translate(0, -0.5, 0);
     function mat(o) { return new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); }
-    cm = mat(0); hm = mat(0); hm2 = mat(0);
-    cone = new THREE.Mesh(geo, cm); halo = new THREE.Mesh(disc, hm); core = new THREE.Mesh(disc, hm2);
-    [cone, halo, core].forEach(function (m) { m.visible = false; m.raycast = function () {}; m.frustumCulled = false; scene.add(m); });
-    return { cone: cone, halo: halo, core: core, cm: cm, hm: hm, hm2: hm2, k: 0, tm: 0, p: null, tx: 0, ty: 0, tz: 0, nx: 0, nz: 1, cx: 0, cy: 0, cz: 0, up: new THREE.Vector3(0, -1, 0), dir: new THREE.Vector3() };
+    cm = mat(0);
+    cone = new THREE.Mesh(geo, cm);
+    cone.visible = false; cone.raycast = function () {}; cone.frustumCulled = false; scene.add(cone);
+    return { cone: cone, cm: cm, k: 0, tm: 0, p: null, tx: 0, ty: 0, tz: 0, nx: 0, nz: 1, cx: 0, cy: 0, cz: 0, up: new THREE.Vector3(0, -1, 0), dir: new THREE.Vector3() };
   }
   function ufoSpotStep(t, dt) {
     if (!ufo || !ufo.g) return;
-    var sp = spot || (spot = makeSpot()), act = ufo.state === 'wander', i, j, d, b, dd, bdd, bd, bestD, best, dx, dz, ke, f, len, A = ufo.g.position, on, hw, ox, oz, sx, sz, ang;
+    var sp = spot || (spot = makeSpot()), act = ufo.state === 'wander', i, j, d, b, dd, bdd, bd, bestD, best, dx, dz, ke, f, len, A = ufo.g.position, on, hw, ox, oz, sx, sz;
     if (ufoDown()) sp.k = 0;
     if (act) {
       sp.tm -= dt;
@@ -4273,24 +4273,20 @@ window.startMap = function (RAW, AUTH) {
     }
     if (on && sp.k === 0) { sp.cx = sp.tx; sp.cy = sp.ty; sp.cz = sp.tz; }
     sp.k = Math.max(0, Math.min(1, sp.k + (on ? 1 : -1) * dt * 2));
-    if (sp.k <= 0) { sp.cone.visible = sp.halo.visible = sp.core.visible = false; return; }
+    if (sp.k <= 0) { sp.cone.visible = false; return; }
     f = Math.min(1, dt * 6);
     sp.cx += (sp.tx - sp.cx) * f; sp.cy += (sp.ty - sp.cy) * f; sp.cz += (sp.tz - sp.cz) * f;
     ke = sp.k * sp.k * (3 - 2 * sp.k);
     sp.dir.set(sp.cx - A.x, sp.cy - (A.y - 0.35), sp.cz - A.z);
     len = sp.dir.length();
-    if (len < 0.5) { sp.cone.visible = sp.halo.visible = sp.core.visible = false; return; }
+    if (len < 0.5) { sp.cone.visible = false; return; }
     sp.dir.divideScalar(len);
     sp.cone.position.set(A.x, A.y - 0.35, A.z);
     sp.cone.quaternion.setFromUnitVectors(sp.up, sp.dir);
     sp.cone.scale.set(1, len, 1);
     f = 0.9 + 0.1 * Math.sin(t * 11);
     sp.cm.opacity = 0.3 * ke * f;
-    ang = Math.atan2(sp.nx, sp.nz);
-    sp.halo.position.set(sp.cx + sp.nx * 0.1, sp.cy, sp.cz + sp.nz * 0.1); sp.halo.rotation.y = ang; sp.halo.scale.setScalar(2.4 * (0.95 + 0.05 * Math.sin(t * 7)));
-    sp.core.position.set(sp.cx + sp.nx * 0.12, sp.cy, sp.cz + sp.nz * 0.12); sp.core.rotation.y = ang; sp.core.scale.setScalar(1.2);
-    sp.hm.opacity = 0.32 * ke * f; sp.hm2.opacity = 0.55 * ke * f;
-    sp.cone.visible = sp.halo.visible = sp.core.visible = true;
+    sp.cone.visible = true;
   }
 
   /* ---------- Coche lunar con astronauta azul que persigue al OVNI por los senderos ---------- */
