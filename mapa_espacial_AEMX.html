@@ -1601,8 +1601,17 @@ window.startMap = function (RAW, AUTH) {
         c1 = col(0.36 + vr() * 0.04, 0.55, 0.27 + vr() * 0.08);
         c2 = col(0.08, 0.35, 0.35 + vr() * 0.08);
         part('trunk', 0, 0.85, 0, 0.8, 1.7, 0.8, c2, 0, 0, 0.08);
-        for (kk = 0; kk < 7; kk++) part('frond', 0.12, 1.68, 0, 1, 1, 1, c1, 0, 0, 0, [kk * Math.PI * 2 / 7 + vr() * 0.3, 0.95 + vr() * 0.25]);
-        part('ico0', 0.12, 1.64, 0, 0.1, 0.1, 0.1, col(0.08, 0.5, 0.2));
+        /* Copa centrada en la punta real del tronco inclinado (rz = 0.08 sobre su centro) */
+        var tx = -0.85 * Math.sin(0.08), ty = 0.85 + 0.85 * Math.cos(0.08), fa, ft, fl;
+        for (kk = 0; kk < 10; kk++) {
+          fa = kk * Math.PI * 2 / 10 + vr() * 0.25; ft = 0.7 + vr() * 0.3; fl = 0.9 + vr() * 0.4;
+          c3 = col(0.34 + vr() * 0.05, 0.55, 0.25 + vr() * 0.1);
+          /* Segmento 1: hoja plana y ancha; segmento 2: punta que cae en arco */
+          part('frond', tx, ty, 0, 0.35, fl, 2.6, c3, 0, 0, 0, [fa, ft]);
+          part('frond', tx - 1.1 * fl * Math.sin(ft) * Math.cos(fa), ty + 1.1 * fl * Math.cos(ft), 1.1 * fl * Math.sin(ft) * Math.sin(fa), 0.3, fl * 0.7, 2.1, c1, 0, 0, 0, [fa, ft + 0.8]);
+        }
+        /* Racimo de cocos bajo la copa */
+        for (kk = 0; kk < 3; kk++) part('ico0', tx + Math.cos(kk * 2.1) * 0.08, ty - 0.07, Math.sin(kk * 2.1) * 0.08, 0.075, 0.075, 0.075, col(0.08, 0.5, 0.2));
       } else if (pl.type === 'cactus') {
         c1 = col(0.4 + vr() * 0.05, 0.38, 0.3 + vr() * 0.08);
         part('cyl', 0, 0.5, 0, 0.15, 1.0, 0.15, c1);
