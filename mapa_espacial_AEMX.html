@@ -2253,6 +2253,153 @@ window.startMap = function (RAW, AUTH) {
     var arr = statePolys[nombre] || (statePolys[nombre] = []);
     poly.forEach(function (ring) { arr.push(simplifyRing(ring.map(function (c) { var g2 = geo(c[0], c[1]); return [g2.x, g2.z]; }), 0.35)); });
   }
+  /* ---------- Relieve aproximado (sierras y volcanes) ---------- */
+  function buildRelief() {
+    var STEP = 8, VS = 2.6, HMAX = 15, FADE_CELLS = 3;
+    var RIDGES = [ /* [altura real km, semiancho km, puntos lon/lat] */
+      [2.4, 70, [[-109.0,30.8],[-108.2,29.2],[-107.5,27.5],[-106.6,26.0],[-105.8,24.5],[-104.8,23.0],[-104.0,22.0]]],
+      [2.2, 55, [[-101.2,27.0],[-100.6,25.6],[-100.0,24.2],[-99.5,22.8],[-99.0,21.0],[-98.3,20.2]]],
+      [2.6, 55, [[-105.0,20.0],[-103.6,19.6],[-102.0,19.5],[-100.5,19.4],[-99.2,19.2],[-97.8,19.1],[-97.2,19.0]]],
+      [2.2, 55, [[-104.0,18.8],[-102.0,17.9],[-100.0,17.3],[-98.0,17.0],[-96.5,16.9]]],
+      [2.5, 40, [[-97.0,18.2],[-96.4,17.3]]],
+      [2.4, 40, [[-93.8,15.8],[-92.8,15.5],[-92.0,15.2],[-91.5,15.2]]],
+      [2.0, 40, [[-93.0,17.0],[-92.2,16.6],[-91.6,16.4]]],
+      [2.0, 28, [[-116.0,32.0],[-115.6,31.0],[-115.0,30.0]]],
+      [1.3, 25, [[-111.5,26.2],[-111.2,25.3],[-110.3,23.6]]],
+      [1.6, 20, [[-110.1,23.6],[-109.9,23.2]]],
+      [0.7, 160, [[-103.5,25.5],[-102.5,24.0],[-101.8,22.5],[-101.6,21.0]]]
+    ];
+    var PEAKS = [ /* [altura real km, radio km, lon, lat] */
+      [5.6, 14, -97.27, 19.03], [5.4, 12, -98.62, 19.02], [5.2, 12, -98.64, 19.18], [4.6, 12, -99.76, 19.11],
+      [4.3, 14, -103.62, 19.51], [4.4, 11, -98.03, 19.23], [4.2, 11, -97.15, 19.49], [3.8, 10, -102.3, 19.4],
+      [4.0, 10, -92.1, 15.13], [3.7, 10, -100.2, 24.87], [2.2, 10, -104.5, 21.12]
+    ];
+    var rw = RIDGES.map(function (r) { return { h: r[0], w: r[1], pts: r[2].map(function (q) { var g = geo(q[0], q[1]); return [g.x, g.z]; }) }; });
+    var pw = PEAKS.map(function (p) { var g = geo(p[2], p[3]); return { h: p[0], r: p[1], x: g.x, z: g.z }; });
+    function hash(i, j) { var n = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return n - Math.floor(n); }
+    function vn(x, z) {
+      var i = Math.floor(x), j = Math.floor(z), fx = x - i, fz = z - j;
+      fx = fx * fx * (3 - 2 * fx); fz = fz * fz * (3 - 2 * fz);
+      var a = hash(i, j), b = hash(i + 1, j), c = hash(i, j + 1), d = hash(i + 1, j + 1);
+      return a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz;
+    }
+    function fbm(x, z) { return vn(x, z) * 0.5 + vn(x * 2.1, z * 2.1) * 0.3 + vn(x * 4.3, z * 4.3) * 0.2; }
+    function elev(x, z) {
+      var best = 0, i, k, p, a, b, dx, dz, l2, u, d, s, h, q;
+      for (i = 0; i < rw.length; i++) {
+        p = rw[i].pts; d = 1e9;
+        for (k = 0; k < p.length - 1; k++) {
+          a = p[k]; b = p[k + 1]; dx = b[0] - a[0]; dz = b[1] - a[1]; l2 = dx * dx + dz * dz || 1;
+          u = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2));
+          s = Math.hypot(x - a[0] - u * dx, z - a[1] - u * dz); if (s < d) d = s;
+        }
+        q = d / rw[i].w;
+        if (q > 3) continue;
+        h = rw[i].h * (Math.exp(-q * q) + 0.35 * Math.exp(-q * q / 4.8));
+        h *= 0.45 + 1.1 * fbm(x / 55, z / 55);
+        h += rw[i].h * 0.22 * Math.exp(-q * q) * (1 - Math.abs(2 * vn(x / 14, z / 14) - 1));
+        if (h > best) best = h;
+      }
+      for (i = 0; i < pw.length; i++) {
+        d = Math.hypot(x - pw[i].x, z - pw[i].z) / pw[i].r;
+        if (d < 3.5) best += pw[i].h * Math.exp(-d * d * 1.1) * (0.9 + 0.2 * vn(x / 6, z / 6));
+      }
+      return best * VS;
+    }
+    /* Malla y máscara de tierra (unión de los estados) */
+    var names = Object.keys(statePolys), boxes = {}, X0 = -1650, Z0 = -1060, NX = Math.ceil(3250 / STEP) + 1, NZ = Math.ceil(2100 / STEP) + 1, i, j, k, n;
+    names.forEach(function (nm) {
+      var b = [1e9, 1e9, -1e9, -1e9];
+      statePolys[nm].forEach(function (r) { r.forEach(function (c) { b[0] = Math.min(b[0], c[0]); b[1] = Math.min(b[1], c[1]); b[2] = Math.max(b[2], c[0]); b[3] = Math.max(b[3], c[1]); }); });
+      boxes[nm] = b;
+    });
+    function stateAt(x, z) {
+      var q, nm, b, rings, r, ins, a, bq, m;
+      for (q = 0; q < names.length; q++) {
+        nm = names[q]; b = boxes[nm];
+        if (x < b[0] || x > b[2] || z < b[1] || z > b[3]) continue;
+        rings = statePolys[nm]; ins = false;
+        for (r = 0; r < rings.length; r++) {
+          m = rings[r];
+          for (a = 0, bq = m.length - 1; a < m.length; bq = a++) {
+            if ((m[a][1] > z) !== (m[bq][1] > z) && x < (m[bq][0] - m[a][0]) * (z - m[a][1]) / (m[bq][1] - m[a][1]) + m[a][0]) ins = !ins;
+          }
+        }
+        if (ins) return q + 1;
+      }
+      return 0;
+    }
+    var N = NX * NZ, st = new Uint8Array(N);
+    for (j = 0; j < NZ; j++) for (i = 0; i < NX; i++) st[j * NX + i] = stateAt(X0 + i * STEP, Z0 + j * STEP);
+    /* Cierre: rellena rendijas de 1 celda entre estados */
+    var st2 = st.slice();
+    for (j = 1; j < NZ - 1; j++) for (i = 1; i < NX - 1; i++) {
+      n = j * NX + i;
+      if (!st[n]) {
+        if (st[n - 1] && st[n + 1]) st2[n] = st[n - 1];
+        else if (st[n - NX] && st[n + NX]) st2[n] = st[n - NX];
+      }
+    }
+    st = st2;
+    /* Distancia (en celdas) a la costa, para que el relieve baje suave hacia el mar */
+    var dist = new Float32Array(N), BIG = 999;
+    for (n = 0; n < N; n++) dist[n] = st[n] ? BIG : 0;
+    for (j = 0; j < NZ; j++) for (i = 0; i < NX; i++) {
+      n = j * NX + i;
+      if (i > 0) dist[n] = Math.min(dist[n], dist[n - 1] + 1);
+      if (j > 0) dist[n] = Math.min(dist[n], dist[n - NX] + 1);
+    }
+    for (j = NZ - 1; j >= 0; j--) for (i = NX - 1; i >= 0; i--) {
+      n = j * NX + i;
+      if (i < NX - 1) dist[n] = Math.min(dist[n], dist[n + 1] + 1);
+      if (j < NZ - 1) dist[n] = Math.min(dist[n], dist[n + NX] + 1);
+    }
+    /* Alturas */
+    var H = new Float32Array(N), x, z, f, dm, dd, t;
+    for (j = 0; j < NZ; j++) for (i = 0; i < NX; i++) {
+      n = j * NX + i;
+      if (!st[n]) continue;
+      x = X0 + i * STEP; z = Z0 + j * STEP;
+      f = Math.min(1, dist[n] / FADE_CELLS); f = f * f * (3 - 2 * f);
+      if (f <= 0) continue;
+      dm = 1;
+      for (k = 0; k < districts.length; k++) { /* planos alrededor de las ciudades */
+        dd = Math.hypot(x - districts[k].cx, z - districts[k].cz) - districts[k].r;
+        if (dd < 60) { t = Math.max(0, Math.min(1, (dd - 10) / 50)); t = t * t * (3 - 2 * t); if (t < dm) dm = t; }
+      }
+      H[n] = Math.min(HMAX, elev(x, z)) * f * dm;
+    }
+    /* Geometría con color por altura (respeta el color de cada estado) */
+    var pos = new Float32Array(N * 3), col = new Float32Array(N * 3), c = new THREE.Color(), rock = new THREE.Color(0x8c8272), snow = new THREE.Color(0xf2f6ff), base, nm2;
+    for (j = 0; j < NZ; j++) for (i = 0; i < NX; i++) {
+      n = j * NX + i;
+      pos[n * 3] = X0 + i * STEP; pos[n * 3 + 1] = H[n] + 0.02; pos[n * 3 + 2] = Z0 + j * STEP;
+      nm2 = st[n] ? names[st[n] - 1] : null;
+      base = !nm2 ? 0x1b3322 : (!(byCity[nm2] && byCity[nm2].length) ? 0x6b6f73 : NORTE[nm2] ? 0x4a3623 : 0x1b3322);
+      c.setHex(base);
+      t = Math.min(1, H[n] / 6); c.lerp(rock, t * 0.75);
+      if (H[n] > 8) c.lerp(snow, Math.min(1, (H[n] - 8) / 4));
+      col[n * 3] = c.r; col[n * 3 + 1] = c.g; col[n * 3 + 2] = c.b;
+    }
+    var idx = [], a, b, d2, c2, EPS = 0.12;
+    for (j = 0; j < NZ - 1; j++) for (i = 0; i < NX - 1; i++) {
+      a = j * NX + i; b = a + 1; c2 = a + NX; d2 = c2 + 1;
+      if (!(st[a] && st[b] && st[c2] && st[d2])) continue;
+      if (Math.max(H[a], H[b], H[c2], H[d2]) < EPS) continue;
+      idx.push(a, c2, b, b, c2, d2);
+    }
+    if (!idx.length) return;
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    var mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    mesh.raycast = function () {};
+    mesh.frustumCulled = false;
+    mesh.name = 'relieve';
+    statesGroup.add(mesh);
+  }
   fetch('https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json')
     .then(function (r) { return r.json(); })
     .then(function (gj) {
@@ -2265,6 +2412,7 @@ window.startMap = function (RAW, AUTH) {
         polys.forEach(function (pl) { addStatePoly(pl, nombre); });
       });
       fitDistricts();
+      try { buildRelief(); } catch (e) { console.warn('No se pudo crear el relieve', e); }
       if (statesGroup.children.length) { plate.visible = false; rock.visible = false; try { seaUseStates(); } catch (e) { console.warn('Mar: no se pudo ajustar a la costa', e); } }
       if (window.__aemxHideGate) window.__aemxHideGate();
     })
