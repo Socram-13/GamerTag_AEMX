@@ -2876,7 +2876,7 @@ window.startMap = function (RAW, AUTH) {
     /* Movimiento del OVNI hacia su objetivo */
     dx = ufo.tx - ufo.x; dz = ufo.tz - ufo.z; d = Math.hypot(dx, dz);
     st = ufo.state;
-    if (st !== 'abduct') {
+    if (st !== 'abduct' && st !== 'rest') {
       sp = Math.min(UFO_SPEED, 2 + d * 1.2);
       if (d > 0.15) { e = Math.min(d, sp * dt); ufo.x += dx / d * e; ufo.z += dz / d * e; }
       ex = d > 0.15 ? dx / d * (sp / UFO_SPEED) * 0.16 : 0; ez = d > 0.15 ? dz / d * (sp / UFO_SPEED) * 0.16 : 0;
@@ -2926,9 +2926,15 @@ window.startMap = function (RAW, AUTH) {
         }
       }
       if (ufo.T >= 4.3) {
+        ufo.state = 'rest'; ufo.T = 0; ufo.tx = ufo.x; ufo.tz = ufo.z;
+        ufo.beam.visible = false; ufo.ring.visible = false; bk = 0;
+      }
+    } else if (st === 'rest') {
+      /* Tras abducir una vaca, espera 5 s quieto antes de moverse */
+      ufo.T += dt;
+      if (ufo.T >= 5) {
         ufo.state = 'wander'; ufo.legs = 2 + ((Math.random() * 2) | 0);
         s = ufoPick(ufo.x, ufo.z); ufo.tx = s[0]; ufo.tz = s[1];
-        ufo.beam.visible = false; ufo.ring.visible = false; bk = 0;
       }
     }
     if (ufo.beam.visible) {
@@ -2964,7 +2970,7 @@ window.startMap = function (RAW, AUTH) {
   }
   /* En una ciudad: toma el sendero que más acerca al OVNI; si la ciudad ya es lo más cercano, espera */
   function carPlan(c, pin) {
-    var U = ufo ? ufo.g.position : null, inc = [], ti, o, sc, bs = 1e18, best = -1, ep, ds = districts;
+    var U = ufo ? ufo.g.position : null, inc = [], ti, o, sc, bs = 1e18, best = -1, ep, ds = districts, d0, ra, aa, a1;
     for (ti = 0; ti < trails.length; ti++) if (trails[ti].a === c || trails[ti].b === c) inc.push(ti);
     if (!inc.length) return false;
     if (U) {
@@ -2973,7 +2979,14 @@ window.startMap = function (RAW, AUTH) {
         sc = Math.hypot(ds[o].cx - U.x, ds[o].cz - U.z);
         if (sc < bs) { bs = sc; best = inc[ti]; }
       }
-      if (Math.hypot(ds[c].cx - U.x, ds[c].cz - U.z) <= bs + 5) return false;
+      if (Math.hypot(ds[c].cx - U.x, ds[c].cz - U.z) <= bs + 5) {
+        /* La ciudad ya es lo más cercano: rodea el anillo hasta el punto más cercano al OVNI */
+        d0 = ds[c]; ra = Math.hypot(pin[0] - d0.cx, pin[1] - d0.cz);
+        aa = Math.atan2(U.z - d0.cz, U.x - d0.cx); a1 = Math.atan2(pin[1] - d0.cz, pin[0] - d0.cx);
+        if (ra < 1 || Math.abs(nAng(aa - a1)) * ra < 2) return false;
+        car.path = arcPath(c, pin, [d0.cx + Math.cos(aa) * ra, d0.cz + Math.sin(aa) * ra]); car.next = null; car.s = 0;
+        return true;
+      }
     } else best = inc[(Math.random() * inc.length) | 0];
     ep = edgePath(best, c);
     car.path = arcPath(c, pin, ep.pts[0]); car.next = ep; car.s = 0;
@@ -3098,7 +3111,11 @@ window.startMap = function (RAW, AUTH) {
       car.s += car.v * dt;
       path = car.path;
       while (path && car.s >= path.len) {
-        if (path.kind === 'arc') { car.s -= path.len; car.path = car.next; car.next = null; path = car.path; }
+        if (path.kind === 'arc') {
+          car.s -= path.len;
+          if (car.next) { car.path = car.next; car.next = null; path = car.path; }
+          else { car.x = path.pts[path.pts.length - 1][0]; car.z = path.pts[path.pts.length - 1][1]; car.state = 'wait'; car.T = 0; car.path = null; path = null; }
+        }
         else {
           car.city = path.end; car.s = 0;
           if (!carPlan(car.city, [car.x, car.z])) { car.state = 'wait'; car.T = 0; car.path = null; path = null; }
