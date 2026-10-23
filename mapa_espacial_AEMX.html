@@ -3354,9 +3354,10 @@ window.startMap = function (RAW, AUTH) {
     bx(cOrange, -0.3, 0.58, -0.25, 0.3, 0.14, 0.22);
     cy(carHub, 0.45, 0.9, -0.8, 0.012, 0.8);
     flag = new THREE.Group(); flag.position.set(0.45, 1.2, -0.8); g.add(flag);
-    bx(new THREE.MeshLambertMaterial({ color: 0x1f9d55 }), 0.06, 0, 0, 0.1, 0.18, 0.012, flag);
-    bx(cWhite, 0.16, 0, 0, 0.1, 0.18, 0.012, flag);
-    bx(new THREE.MeshLambertMaterial({ color: 0xd62839 }), 0.26, 0, 0, 0.1, 0.18, 0.012, flag);
+    bx(new THREE.MeshLambertMaterial({ color: 0x1f9d55 }), 0, 0, -0.06, 0.012, 0.18, 0.1, flag);
+    bx(cWhite, 0, 0, -0.16, 0.012, 0.18, 0.1, flag);
+    bx(new THREE.MeshLambertMaterial({ color: 0xd62839 }), 0, 0, -0.26, 0.012, 0.18, 0.1, flag);
+    m = new THREE.Mesh(uLamp, new THREE.MeshBasicMaterial({ color: 0xffd23f })); m.scale.setScalar(0.5); m.position.set(0, 0, -0.16); flag.add(m);
     cy(carHub, -0.45, 0.78, 0.6, 0.02, 0.5);
     cam = new THREE.Group(); cam.position.set(-0.45, 1.06, 0.6); g.add(cam);
     bx(carDark, 0, 0, 0, 0.12, 0.1, 0.1, cam); cy(cTire, 0, 0, 0.07, 0.035, 0.05, Math.PI / 2, 0, cam);
