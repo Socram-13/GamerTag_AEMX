@@ -3241,15 +3241,51 @@ window.startMap = function (RAW, AUTH) {
     return { g: g, body: body, beam: beam, ring: ring, lamps: lamps, x: 0, z: 0, y: UFO_CRUISE, tx: 0, tz: 0, ty: UFO_CRUISE, state: 'wander', T: 0, legs: 2, cow: null, rx: 0, rz: 0, hits: 0, shk: 0, sm: 0, vy: 0, cvx: 0, cvz: 0, blk: 0 };
   }
 
-  /* ---------- Sonido (Web Audio, todo sintetizado: sin archivos). Arranca con el primer toque o clic ---------- */
+  /* ---------- Sonido (Web Audio, todo sintetizado: sin archivos). Arranca con el primer toque o clic ----------
+     Audio espacial: cada sonido tiene distancia de referencia (volumen pleno) y alcance máximo (silencio).
+     Con la distancia baja el volumen (~1/d), se apagan los agudos (suena lejano) y se panea izquierda/derecha según la cámara. */
   var AUD = (function () {
-    var ctx = null, master = null, noiseBuf = null, on = true, vol = 0.55, L = {};
+    var ctx = null, master = null, noiseBuf = null, on = true, vol = 0.55, L = {}, hasPan = true;
+    /* [distancia de referencia, alcance máximo] por sonido */
+    var RNG = {
+      shot: [25, 350], hit: [30, 500], crash: [40, 900], explode: [60, 1800], moo: [20, 300],
+      glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900]
+    };
     try { on = localStorage.getItem('aemx-sound') !== '0'; } catch (e) {}
-    function sp(pos) {
-      var c = camera.position, d;
-      if (!pos) return 1;
-      d = Math.sqrt((c.x - pos.x) * (c.x - pos.x) + (c.y - pos.y) * (c.y - pos.y) + (c.z - pos.z) * (c.z - pos.z));
-      return Math.max(0.15, Math.min(1, 1.2 - d / 1800));
+    /* Calcula volumen, filtro y paneo de una fuente en pos; null si está fuera de alcance */
+    function spat(pos, rng) {
+      var c = camera.position, e = camera.matrixWorld.elements, dx, dy, dz, d, ref = rng[0], max = rng[1], g, t, f, s, pan;
+      if (!pos) return { g: 1, f: 18000, pan: 0 };
+      dx = pos.x - c.x; dy = pos.y - c.y; dz = pos.z - c.z;
+      d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d >= max) return null;
+      g = ref / Math.max(d, ref);
+      s = Math.min(1, Math.max(0, (d - max * 0.6) / (max * 0.4)));
+      g *= 1 - s * s * (3 - 2 * s);
+      if (g < 0.003) return null;
+      t = Math.min(1, d / max);
+      f = 18000 * Math.pow(0.03, Math.sqrt(t));
+      pan = d > 0.001 ? (dx * e[0] + dy * e[1] + dz * e[2]) / d * Math.min(1, d / 8) * 0.85 : 0;
+      return { g: g, f: f, pan: Math.max(-1, Math.min(1, pan)) };
+    }
+    /* Cadena de salida: ganancia -> pasa-bajos -> paneo -> master */
+    function mkBus(s) {
+      var g = ctx.createGain(), lp = ctx.createBiquadFilter(), pn = null, out = lp;
+      g.gain.value = s ? s.g : 0.0001;
+      lp.type = 'lowpass'; lp.Q.value = 0.7; lp.frequency.value = s ? s.f : 18000;
+      g.connect(lp);
+      if (hasPan && ctx.createStereoPanner) {
+        pn = ctx.createStereoPanner(); pn.pan.value = s ? s.pan : 0;
+        lp.connect(pn); out = pn;
+      }
+      out.connect(master);
+      return { g: g, lp: lp, pn: pn, input: g };
+    }
+    function setBus(b, s, tc, tau) {
+      if (!s) { b.g.gain.setTargetAtTime(0.0001, tc, tau); return; }
+      b.g.gain.setTargetAtTime(s.g, tc, tau);
+      b.lp.frequency.setTargetAtTime(s.f, tc, tau);
+      if (b.pn) b.pn.pan.setTargetAtTime(s.pan, tc, tau);
     }
     function osc(type, f, dest, v) {
       var o = ctx.createOscillator(), g = ctx.createGain();
@@ -3257,14 +3293,14 @@ window.startMap = function (RAW, AUTH) {
       o.connect(g); g.connect(dest); o.start();
       return { o: o, g: g };
     }
-    function loopNoise(filterType, f, v) {
+    function loopNoise(filterType, f, v, dest) {
       var s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
       s.buffer = noiseBuf; s.loop = true; fl.type = filterType; fl.frequency.value = f; g.gain.value = v;
-      s.connect(fl); fl.connect(g); g.connect(master); s.start();
+      s.connect(fl); fl.connect(g); g.connect(dest || master); s.start();
       return { f: fl, g: g };
     }
     function init() {
-      var AC = window.AudioContext || window.webkitAudioContext, comp, d, i, fl, a, b, lfo;
+      var AC = window.AudioContext || window.webkitAudioContext, comp, d, i, fl, lfo;
       if (ctx) { if (on && ctx.state === 'suspended') ctx.resume(); return; }
       if (!AC) return;
       try { ctx = new AC(); } catch (e) { ctx = null; return; }
@@ -3274,23 +3310,25 @@ window.startMap = function (RAW, AUTH) {
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
       d = noiseBuf.getChannelData(0);
       for (i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      /* Mar: oleaje suave */
+      /* Mar: oleaje ambiental (no depende de una posición) */
       L.sea = loopNoise('lowpass', 420, 0.0001);
-      /* Motor del carro */
+      /* Motor del carro (bus espacial propio) */
+      L.carBus = mkBus(null);
       fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 420;
-      L.carG = ctx.createGain(); L.carG.gain.value = 0.0001; fl.connect(L.carG); L.carG.connect(master);
+      L.carG = ctx.createGain(); L.carG.gain.value = 0.0001; fl.connect(L.carG); L.carG.connect(L.carBus.input);
       L.carA = osc('sawtooth', 50, fl, 1); L.carB = osc('square', 25, fl, 0.5);
-      /* OVNI: zumbido con temblor, tono de abducción, interferencia y alarma */
-      L.ufoG = ctx.createGain(); L.ufoG.gain.value = 0.0001; L.ufoG.connect(master);
+      /* OVNI: zumbido con temblor, tono de abducción, interferencia y alarma (un solo bus espacial) */
+      L.ufoBus = mkBus(null);
+      L.ufoG = ctx.createGain(); L.ufoG.gain.value = 0.0001; L.ufoG.connect(L.ufoBus.input);
       L.ufoA = osc('sine', 140, L.ufoG, 1); L.ufoB = osc('triangle', 143, L.ufoG, 0.8);
       lfo = osc('sine', 7, L.ufoG.gain, 0.006);
-      L.absG = ctx.createGain(); L.absG.gain.value = 0.0001; L.absG.connect(master);
+      L.absG = ctx.createGain(); L.absG.gain.value = 0.0001; L.absG.connect(L.ufoBus.input);
       L.absA = osc('sine', 220, L.absG, 1); L.absB = osc('triangle', 330, L.absG, 0.4);
-      L.crk = loopNoise('highpass', 2600, 0.0001);
-      L.alG = ctx.createGain(); L.alG.gain.value = 0.0001; L.alG.connect(master);
+      L.crk = loopNoise('highpass', 2600, 0.0001, L.ufoBus.input);
+      L.alG = ctx.createGain(); L.alG.gain.value = 0.0001; L.alG.connect(L.ufoBus.input);
       L.alA = osc('square', 760, L.alG, 1);
     }
-    function tone(type, f0, f1, dur, v, delay) {
+    function tone(type, f0, f1, dur, v, delay, dest) {
       var t0, o, g;
       if (!ctx || !on) return;
       v = Math.max(v, 0.0002);
@@ -3301,9 +3339,9 @@ window.startMap = function (RAW, AUTH) {
       g.gain.setValueAtTime(0.0001, t0);
       g.gain.exponentialRampToValueAtTime(v, t0 + Math.min(0.02, dur * 0.25));
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.05);
+      o.connect(g); g.connect(dest || master); o.start(t0); o.stop(t0 + dur + 0.05);
     }
-    function noise(dur, v, f0, f1, type, delay) {
+    function noise(dur, v, f0, f1, type, delay, dest) {
       var t0, s, fl, g;
       if (!ctx || !on) return;
       v = Math.max(v, 0.0002);
@@ -3312,22 +3350,28 @@ window.startMap = function (RAW, AUTH) {
       fl = ctx.createBiquadFilter(); fl.type = type || 'lowpass'; fl.frequency.setValueAtTime(f0, t0);
       if (f1) fl.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
       g = ctx.createGain(); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      s.connect(fl); fl.connect(g); g.connect(master); s.start(t0, Math.random() * 1.5); s.stop(t0 + dur + 0.05);
+      s.connect(fl); fl.connect(g); g.connect(dest || master); s.start(t0, Math.random() * 1.5); s.stop(t0 + dur + 0.05);
     }
-    function arp(v, delay) {
-      tone('sine', 660, 0, 0.22, 0.16 * v, delay);
-      tone('sine', 880, 0, 0.22, 0.16 * v, delay + 0.1);
-      tone('sine', 1320, 0, 0.5, 0.16 * v, delay + 0.2);
-      noise(0.6, 0.05 * v, 7000, 3000, 'highpass', delay + 0.05);
+    /* Crea un bus de un solo uso para un sonido puntual; null si no se oye */
+    function shotBus(pos, key) {
+      var s;
+      if (!ctx || !on) return null;
+      s = spat(pos, RNG[key]);
+      return s ? mkBus(s).input : null;
     }
-    function glitch(dur, pow, pos) {
-      var v, tm = 0, n = 0, k;
-      if (!ctx || !on) return;
-      v = sp(pos);
+    function arp(dest, delay) {
+      tone('sine', 660, 0, 0.22, 0.16, delay, dest);
+      tone('sine', 880, 0, 0.22, 0.16, delay + 0.1, dest);
+      tone('sine', 1320, 0, 0.5, 0.16, delay + 0.2, dest);
+      noise(0.6, 0.05, 7000, 3000, 'highpass', delay + 0.05, dest);
+    }
+    function glitch(dur, pow, pos, dest) {
+      var tm = 0, n = 0, k, b = dest || shotBus(pos, 'glitch');
+      if (!b) return;
       while (tm < dur && n < 90) {
         k = 1 - tm / dur;
-        tone('square', 120 + Math.random() * 1900, Math.random() < 0.4 ? 60 + Math.random() * 400 : 0, 0.03 + Math.random() * 0.04, 0.05 * pow * v * (0.4 + 0.6 * k), tm);
-        if (Math.random() < 0.3) noise(0.05, 0.12 * pow * v * k, 5000, 1500, 'bandpass', tm);
+        tone('square', 120 + Math.random() * 1900, Math.random() < 0.4 ? 60 + Math.random() * 400 : 0, 0.03 + Math.random() * 0.04, 0.05 * pow * (0.4 + 0.6 * k), tm, b);
+        if (Math.random() < 0.3) noise(0.05, 0.12 * pow * k, 5000, 1500, 'bandpass', tm, b);
         tm += 0.04 + Math.random() * 0.06; n++;
       }
     }
@@ -3338,26 +3382,28 @@ window.startMap = function (RAW, AUTH) {
       L.sea.g.gain.setTargetAtTime(0.05 * (0.7 + 0.3 * Math.sin(t * 0.7)) * Math.max(0.3, 1 - camera.position.y / 5000), tc, 0.3);
       L.sea.f.frequency.setTargetAtTime(380 + 160 * Math.sin(t * 0.5), tc, 0.3);
       if (car && car.g) {
-        r = Math.min(1.4, car.v / CAR_SPEED); s = sp(car.g.position);
-        L.carG.gain.setTargetAtTime((0.006 + 0.03 * Math.min(1, r * 1.5)) * s, tc, 0.1);
+        r = Math.min(1.4, car.v / CAR_SPEED);
+        setBus(L.carBus, spat(car.g.position, RNG.car), tc, 0.1);
+        L.carG.gain.setTargetAtTime(0.006 + 0.03 * Math.min(1, r * 1.5), tc, 0.1);
         L.carA.o.frequency.setTargetAtTime(46 + 60 * r, tc, 0.1);
         L.carB.o.frequency.setTargetAtTime(23 + 30 * r, tc, 0.1);
       } else L.carG.gain.setTargetAtTime(0.0001, tc, 0.1);
       u = ufo;
       act = !!u && u.g.visible && u.state !== 'crash' && u.state !== 'wreck' && u.state !== 'spawn';
       if (act) {
-        s = sp(u.g.position); p = u.state === 'abduct';
-        L.ufoG.gain.setTargetAtTime(0.028 * s, tc, 0.15);
+        s = spat(u.g.position, RNG.ufo); p = u.state === 'abduct';
+        setBus(L.ufoBus, s, tc, 0.1);
+        L.ufoG.gain.setTargetAtTime(0.028, tc, 0.15);
         L.ufoA.o.frequency.setTargetAtTime(140 + (p ? 25 : 0) + 6 * Math.sin(t * 3), tc, 0.1);
         L.ufoB.o.frequency.setTargetAtTime(143 + (p ? 26 : 0) + 6 * Math.sin(t * 3), tc, 0.1);
-        L.absG.gain.setTargetAtTime(p ? 0.03 * s : 0.0001, tc, 0.1);
+        L.absG.gain.setTargetAtTime(p ? 0.03 : 0.0001, tc, 0.1);
         if (p) {
           g = Math.max(0, Math.min(1, u.T / 3.6));
           L.absA.o.frequency.setTargetAtTime(220 + 900 * g, tc, 0.05);
           L.absB.o.frequency.setTargetAtTime(330 + 1350 * g, tc, 0.05);
         }
-        L.crk.g.gain.setTargetAtTime(u.hits >= 5 && Math.random() < 0.18 + (u.hits - 5) * 0.03 ? 0.03 * s : 0.0001, tc, 0.02);
-        L.alG.gain.setTargetAtTime(u.hits >= 10 && Math.sin(t * 9) > 0.3 ? 0.012 * s : 0.0001, tc, 0.01);
+        L.crk.g.gain.setTargetAtTime(u.hits >= 5 && Math.random() < 0.18 + (u.hits - 5) * 0.03 ? 0.03 : 0.0001, tc, 0.02);
+        L.alG.gain.setTargetAtTime(u.hits >= 10 && Math.sin(t * 9) > 0.3 ? 0.012 : 0.0001, tc, 0.01);
         L.alA.o.frequency.setTargetAtTime(Math.sin(t * 4.5) > 0 ? 880 : 760, tc, 0.01);
       } else {
         L.ufoG.gain.setTargetAtTime(0.0001, tc, 0.1); L.absG.gain.setTargetAtTime(0.0001, tc, 0.1);
@@ -3374,25 +3420,25 @@ window.startMap = function (RAW, AUTH) {
       },
       suspend: function () { if (ctx) ctx.suspend(); },
       resume: function () { if (ctx && on) ctx.resume(); },
-      shot: function (pos) { var v = sp(pos); noise(0.1, 0.3 * v, 2500, 800, 'bandpass'); tone('square', 1100, 180, 0.12, 0.12 * v); },
-      hit: function (pos) { var v = sp(pos); tone('triangle', 420, 120, 0.2, 0.3 * v); noise(0.12, 0.25 * v, 4000, 900, 'bandpass'); },
-      crash: function (pos) { var v = sp(pos); tone('sawtooth', 520, 60, 1.5, 0.14 * v); noise(1.5, 0.1 * v, 1500, 200, 'lowpass'); },
-      explode: function (pos) { var v = sp(pos); noise(1.4, 0.9 * v, 2200, 90, 'lowpass'); tone('sine', 110, 30, 0.9, 0.8 * v); noise(0.25, 0.4 * v, 6000, 1000, 'bandpass'); },
+      shot: function (pos) { var b = shotBus(pos, 'shot'); if (!b) return; noise(0.1, 0.3, 2500, 800, 'bandpass', 0, b); tone('square', 1100, 180, 0.12, 0.12, 0, b); },
+      hit: function (pos) { var b = shotBus(pos, 'hit'); if (!b) return; tone('triangle', 420, 120, 0.2, 0.3, 0, b); noise(0.12, 0.25, 4000, 900, 'bandpass', 0, b); },
+      crash: function (pos) { var b = shotBus(pos, 'crash'); if (!b) return; tone('sawtooth', 520, 60, 1.5, 0.14, 0, b); noise(1.5, 0.1, 1500, 200, 'lowpass', 0, b); },
+      explode: function (pos) { var b = shotBus(pos, 'explode'); if (!b) return; noise(1.4, 0.9, 2200, 90, 'lowpass', 0, b); tone('sine', 110, 30, 0.9, 0.8, 0, b); noise(0.25, 0.4, 6000, 1000, 'bandpass', 0, b); },
       moo: function (pos) {
-        var t0, o, fl, g, v;
-        if (!ctx || !on) return;
-        v = sp(pos); t0 = ctx.currentTime + 0.25;
+        var t0, o, fl, g, b = shotBus(pos, 'moo');
+        if (!b) return;
+        t0 = ctx.currentTime + 0.25;
         o = ctx.createOscillator(); o.type = 'sawtooth';
         o.frequency.setValueAtTime(150, t0); o.frequency.linearRampToValueAtTime(105, t0 + 0.9);
         fl = ctx.createBiquadFilter(); fl.type = 'bandpass'; fl.Q.value = 4;
         fl.frequency.setValueAtTime(420, t0); fl.frequency.linearRampToValueAtTime(700, t0 + 0.5);
         g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0);
-        g.gain.linearRampToValueAtTime(0.22 * v, t0 + 0.12); g.gain.linearRampToValueAtTime(0.0001, t0 + 0.95);
-        o.connect(fl); fl.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 1.0);
+        g.gain.linearRampToValueAtTime(0.22, t0 + 0.12); g.gain.linearRampToValueAtTime(0.0001, t0 + 0.95);
+        o.connect(fl); fl.connect(g); g.connect(b); o.start(t0); o.stop(t0 + 1.0);
       },
-      glitch: glitch,
-      repair: function (pow, pos, dur) { glitch(dur, pow, pos); arp(sp(pos), dur); },
-      chime: function (pos) { arp(sp(pos), 0); }
+      glitch: function (dur, pow, pos) { glitch(dur, pow, pos); },
+      repair: function (pow, pos, dur) { var b = shotBus(pos, 'glitch'); if (!b) return; glitch(dur, pow, pos, b); arp(b, dur); },
+      chime: function (pos) { var b = shotBus(pos, 'chime'); if (b) arp(b, 0); }
     };
   })();
   ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) { window.addEventListener(ev, function () { AUD.init(); }, { passive: true }); });
