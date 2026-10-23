@@ -2877,7 +2877,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Daño del OVNI: impactos, humo, caída y explosión ---------- */
-  var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 55, FX_N = 220, BUL_N = 10, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
+  var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 110, FX_N = 220, BUL_N = 10, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
   var fxGeo = new THREE.IcosahedronGeometry(1, 1), bulGeo = new THREE.SphereGeometry(1, 8, 6);
   function ufoDown() { return !!ufo && (ufo.state === 'crash' || ufo.state === 'wreck' || ufo.state === 'spawn'); }
   function fxInit() {
@@ -3394,7 +3394,7 @@ window.startMap = function (RAW, AUTH) {
     } else if (down) {
       car.v *= Math.max(0, 1 - dt * 5);
     } else {
-      car.v += (CAR_SPEED - car.v) * Math.min(1, dt * 2);
+      car.v += ((car.path && car.path.kind === 'edge' ? CAR_SPEED * 2 : CAR_SPEED) - car.v) * Math.min(1, dt * 2);
       car.s += car.v * dt;
       path = car.path;
       while (path && car.s >= path.len) {
@@ -3436,10 +3436,11 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < car.wheels.length; i++) car.wheels[i].rotation.x += car.v * dt / 0.3 / 1.2;
     car.ast.parts.armL.rotation.x = -1.0 + 0.12 * Math.sin(t * 4); car.ast.parts.armR.rotation.x = -1.0 - 0.12 * Math.sin(t * 4);
     /* Torreta: apunta al OVNI */
-    if (U) {
-      hd = Math.hypot(U.x - car.x, U.z - car.z);
-      car.tw += nAng(Math.atan2(U.x - car.x, U.z - car.z) - car.tw) * Math.min(1, dt * 5);
-      el = Math.min(1.2, Math.max(0, Math.atan2(U.y - 0.9, hd)));
+    var A = U || (ufo && (ufo.state === 'crash' || ufo.state === 'wreck') ? ufo.g.position : null);
+    if (A) {
+      hd = Math.hypot(A.x - car.x, A.z - car.z);
+      car.tw += nAng(Math.atan2(A.x - car.x, A.z - car.z) - car.tw) * Math.min(1, dt * 5);
+      el = Math.min(1.2, Math.max(0, Math.atan2(A.y - 0.9, hd)));
       car.bar.rotation.x += (-el - car.bar.rotation.x) * Math.min(1, dt * 5);
     } else car.tw += nAng(car.yaw - car.tw) * Math.min(1, dt * 3);
     car.tur.rotation.y = car.tw - car.yaw;
