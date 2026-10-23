@@ -4211,6 +4211,63 @@ window.startMap = function (RAW, AUTH) {
     }
   }
 
+  /* ---------- Haz blanco: al pasar por una ciudad, el OVNI ilumina el edificio más cercano ---------- */
+  var spot = null, SPOT_RANGE = 60;
+  function makeSpot() {
+    var geo = new THREE.CylinderGeometry(0.3, 1.9, 1, 24, 1, true), cm, hm, hm2, cone, halo, core;
+    geo.translate(0, -0.5, 0);
+    function mat(o) { return new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); }
+    cm = mat(0); hm = mat(0); hm2 = mat(0);
+    cone = new THREE.Mesh(geo, cm); halo = new THREE.Mesh(uDisc, hm); core = new THREE.Mesh(uDisc, hm2);
+    [cone, halo, core].forEach(function (m) { m.visible = false; m.raycast = function () {}; m.frustumCulled = false; scene.add(m); });
+    return { cone: cone, halo: halo, core: core, cm: cm, hm: hm, hm2: hm2, k: 0, tm: 0, has: false, tx: 0, ty: 0, tz: 0, cx: 0, cy: 0, cz: 0, up: new THREE.Vector3(0, -1, 0), dir: new THREE.Vector3() };
+  }
+  function ufoSpotStep(t, dt) {
+    if (!ufo || !ufo.g) return;
+    var sp = spot || (spot = makeSpot()), act = ufo.state === 'wander', i, j, d, p, dd, bdd, bd, bestD, best, dx, dz, ke, f, len, A = ufo.g.position, on;
+    if (ufoDown()) sp.k = 0;
+    if (act) {
+      sp.tm -= dt;
+      if (sp.tm <= 0) {
+        sp.tm = 0.25; bdd = 1e9; bestD = null; best = null; bd = 1e9;
+        for (i = 0; i < districts.length; i++) {
+          d = districts[i];
+          if (!d.list || !d.list.length) continue;
+          dd = Math.hypot(ufo.x - d.cx, ufo.z - d.cz);
+          if (dd < d.r + SPOT_RANGE && dd < bdd) { bdd = dd; bestD = d; }
+        }
+        if (bestD) {
+          for (j = 0; j < bestD.list.length; j++) {
+            p = bestD.list[j]; dx = p.x - ufo.x; dz = p.z - ufo.z; dd = dx * dx + dz * dz;
+            if (dd < bd) { bd = dd; best = p; }
+          }
+        }
+        sp.has = !!best;
+        if (best) { sp.tx = best.x; sp.ty = best.topY || 3; sp.tz = best.z; }
+      }
+    }
+    on = act && sp.has;
+    if (on && sp.k === 0) { sp.cx = sp.tx; sp.cy = sp.ty; sp.cz = sp.tz; }
+    sp.k = Math.max(0, Math.min(1, sp.k + (on ? 1 : -1) * dt * 2));
+    if (sp.k <= 0) { sp.cone.visible = sp.halo.visible = sp.core.visible = false; return; }
+    f = Math.min(1, dt * 5);
+    sp.cx += (sp.tx - sp.cx) * f; sp.cy += (sp.ty - sp.cy) * f; sp.cz += (sp.tz - sp.cz) * f;
+    ke = sp.k * sp.k * (3 - 2 * sp.k);
+    sp.dir.set(sp.cx - A.x, sp.cy - (A.y - 0.35), sp.cz - A.z);
+    len = sp.dir.length();
+    if (len < 0.5) { sp.cone.visible = sp.halo.visible = sp.core.visible = false; return; }
+    sp.dir.divideScalar(len);
+    sp.cone.position.set(A.x, A.y - 0.35, A.z);
+    sp.cone.quaternion.setFromUnitVectors(sp.up, sp.dir);
+    sp.cone.scale.set(1, len, 1);
+    f = 0.9 + 0.1 * Math.sin(t * 11);
+    sp.cm.opacity = 0.3 * ke * f;
+    sp.halo.position.set(sp.cx, sp.cy + 0.08, sp.cz); sp.halo.scale.setScalar(2.6 * (0.95 + 0.05 * Math.sin(t * 7)));
+    sp.core.position.set(sp.cx, sp.cy + 0.1, sp.cz); sp.core.scale.setScalar(1.3);
+    sp.hm.opacity = 0.32 * ke * f; sp.hm2.opacity = 0.55 * ke * f;
+    sp.cone.visible = sp.halo.visible = sp.core.visible = true;
+  }
+
   /* ---------- Coche lunar con astronauta azul que persigue al OVNI por los senderos ---------- */
   var car = null, carPuffs = [], CAR_SPEED = 14;
   var carBody = new THREE.MeshLambertMaterial({ color: 0xd8dce4 }), carDark = new THREE.MeshLambertMaterial({ color: 0x3a3f4c });
@@ -4568,6 +4625,7 @@ window.startMap = function (RAW, AUTH) {
     updateCyber(t);
     updateDrones(t, dt);
     updateUfo(t, dt);
+    ufoSpotStep(t, dt);
     updateCar(t, dt);
     updateBullets(dt);
     updateFx(dt);
