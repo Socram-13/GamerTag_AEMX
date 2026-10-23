@@ -2981,24 +2981,87 @@ window.startMap = function (RAW, AUTH) {
   }
 
   function makeCar() {
-    var g = new THREE.Group(), wheels = [], m, i, pv, tur, bar, a, lampM;
-    function bx(mat, px, py, pz, sx, sy, sz, par) { var q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); (par || g).add(q); return q; }
+    var g = new THREE.Group(), wheels = [], m, i, k, pv, tur, bar, a, lampM, ring, cam, flag, sx, sz, ang, cv, cx2, nm;
+    function bx(mat, px, py, pz, sx2, sy2, sz2, par) { var q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx2, sy2, sz2); (par || g).add(q); return q; }
+    function cy(mat, px, py, pz, r, len, rx, rz, par) { var q = new THREE.Mesh(uCyl, mat); q.position.set(px, py, pz); q.scale.set(r, len, r); q.rotation.set(rx || 0, 0, rz || 0); (par || g).add(q); return q; }
+    var cBlue = new THREE.MeshLambertMaterial({ color: 0x2f6bff }), cTire = new THREE.MeshLambertMaterial({ color: 0x20232b });
+    var cOrange = new THREE.MeshLambertMaterial({ color: 0xf26a1b }), cWhite = new THREE.MeshLambertMaterial({ color: 0xeeeeee });
+    var cLight = new THREE.MeshBasicMaterial({ color: 0xfff3b0 }), cTail = new THREE.MeshBasicMaterial({ color: 0xff3b5c });
+    var cSolar = (typeof solarMat !== 'undefined') ? solarMat : carDark;
     g.rotation.order = 'YXZ';
+
+    /* Carrocería */
+    bx(carDark, 0, 0.34, 0, 0.8, 0.08, 1.5);
     bx(carBody, 0, 0.42, 0, 1.0, 0.16, 1.7);
-    bx(carDark, 0, 0.56, 0.0, 0.5, 0.12, 0.4);
-    bx(carDark, 0, 0.58, 0.5, 0.8, 0.12, 0.1);
+    bx(carBody, 0, 0.53, 0.72, 0.9, 0.1, 0.46).rotation.x = 0.18;
+    bx(cBlue, 0, 0.505, -0.05, 0.14, 0.012, 1.3);
+    bx(carDark, 0, 0.38, 0.92, 1.1, 0.1, 0.1); bx(carDark, 0, 0.38, -0.92, 1.1, 0.1, 0.1);
+    bx(cLight, -0.35, 0.47, 0.9, 0.14, 0.1, 0.05); bx(cLight, 0.35, 0.47, 0.9, 0.14, 0.1, 0.05);
+    bx(cTail, -0.4, 0.47, -0.88, 0.12, 0.08, 0.04); bx(cTail, 0.4, 0.47, -0.88, 0.12, 0.08, 0.04);
+    /* Número en los costados */
+    cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    cx2 = cv.getContext('2d'); cx2.fillStyle = '#2f6bff'; cx2.font = 'bold 44px sans-serif'; cx2.textAlign = 'center'; cx2.textBaseline = 'middle'; cx2.fillText('07', 32, 34);
+    nm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true });
+    m = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), nm); m.position.set(0.505, 0.43, 0.3); m.rotation.y = Math.PI / 2; g.add(m);
+    m = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), nm); m.position.set(-0.505, 0.43, 0.3); m.rotation.y = -Math.PI / 2; g.add(m);
+
+    /* Ruedas: neumático con rodadura, llanta de 8 radios, tapón, suspensión y guardabarros */
     for (i = 0; i < 4; i++) {
-      pv = new THREE.Group(); pv.position.set((i % 2 ? 1 : -1) * 0.62, 0.3, (i < 2 ? 1 : -1) * 0.6);
-      m = new THREE.Mesh(uCyl, carDark); m.scale.set(0.3, 0.14, 0.3); m.rotation.z = Math.PI / 2; pv.add(m);
-      bx(carHub, 0, 0, 0, 0.16, 0.08, 0.52, pv); bx(carHub, 0, 0, 0, 0.16, 0.52, 0.08, pv);
+      sx = i % 2 ? 1 : -1; sz = i < 2 ? 1 : -1;
+      pv = new THREE.Group(); pv.position.set(sx * 0.62, 0.3, sz * 0.6);
+      cy(cTire, 0, 0, 0, 0.3, 0.16, 0, Math.PI / 2, pv);
+      for (k = 0; k < 10; k++) {
+        ang = k / 10 * Math.PI * 2;
+        bx(cTire, 0, Math.cos(ang) * 0.3, Math.sin(ang) * 0.3, 0.17, 0.05, 0.07, pv).rotation.x = -ang;
+      }
+      cy(carHub, sx * 0.01, 0, 0, 0.19, 0.18, 0, Math.PI / 2, pv);
+      for (k = 0; k < 4; k++) bx(carHub, sx * 0.01, 0, 0, 0.19, 0.05, 0.4, pv).rotation.x = k * Math.PI / 4;
+      cy(cWhite, sx * 0.09, 0, 0, 0.07, 0.04, 0, Math.PI / 2, pv);
       g.add(pv); wheels.push(pv);
+      bx(carHub, sx * 0.56, 0.34, sz * 0.6, 0.14, 0.05, 0.07);
+      cy(cOrange, sx * 0.53, 0.44, sz * 0.6, 0.03, 0.2);
+      bx(carBody, sx * 0.62, 0.64, sz * 0.6, 0.22, 0.04, 0.7);
     }
-    m = new THREE.Mesh(uCyl, carTur); m.scale.set(0.24, 0.1, 0.24); m.position.set(0, 0.55, -0.55); g.add(m);
-    tur = new THREE.Group(); tur.position.set(0, 0.65, -0.55); g.add(tur);
+
+    /* Cabina: asiento, tablero, volante y jaula antivuelco */
+    bx(carDark, 0, 0.56, 0.0, 0.5, 0.12, 0.4);
+    bx(carDark, 0, 0.78, -0.17, 0.5, 0.4, 0.08);
+    bx(carDark, 0, 0.62, 0.5, 0.8, 0.16, 0.14);
+    bx(new THREE.MeshBasicMaterial({ color: 0x00f0ff }), -0.22, 0.71, 0.42, 0.16, 0.08, 0.02).rotation.x = -0.4;
+    bx(new THREE.MeshBasicMaterial({ color: 0x7cffb2 }), 0, 0.71, 0.42, 0.16, 0.08, 0.02).rotation.x = -0.4;
+    bx(new THREE.MeshBasicMaterial({ color: 0xffe14d }), 0.22, 0.71, 0.42, 0.16, 0.08, 0.02).rotation.x = -0.4;
+    m = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.018, 6, 14), carDark); m.position.set(0, 0.72, 0.34); m.rotation.x = -1.0; g.add(m);
+    bx(carDark, 0, 0.66, 0.4, 0.04, 0.04, 0.2).rotation.x = -0.6;
+    for (i = 0; i < 4; i++) bx(carHub, (i % 2 ? 1 : -1) * 0.38, 0.83, i < 2 ? 0.38 : -0.25, 0.04, 0.66, 0.04);
+    bx(carHub, 0, 1.16, 0.38, 0.8, 0.04, 0.04); bx(carHub, 0, 1.16, -0.25, 0.8, 0.04, 0.04);
+    bx(carHub, -0.38, 1.16, 0.065, 0.04, 0.04, 0.67); bx(carHub, 0.38, 1.16, 0.065, 0.04, 0.04, 0.67);
+    bx(cSolar, 0, 1.2, 0.065, 0.9, 0.03, 0.7);
+
+    /* Equipo: tanques, caja de herramientas, bandera y cámara giratoria */
+    cy(cWhite, -0.34, 0.62, -0.62, 0.1, 0.5, Math.PI / 2, 0); cy(cWhite, 0.34, 0.62, -0.62, 0.1, 0.5, Math.PI / 2, 0);
+    bx(cOrange, -0.3, 0.58, -0.25, 0.3, 0.14, 0.22);
+    cy(carHub, 0.45, 0.9, -0.8, 0.012, 0.8);
+    flag = new THREE.Group(); flag.position.set(0.45, 1.2, -0.8); g.add(flag);
+    bx(new THREE.MeshLambertMaterial({ color: 0x1f9d55 }), 0.06, 0, 0, 0.1, 0.18, 0.012, flag);
+    bx(cWhite, 0.16, 0, 0, 0.1, 0.18, 0.012, flag);
+    bx(new THREE.MeshLambertMaterial({ color: 0xd62839 }), 0.26, 0, 0, 0.1, 0.18, 0.012, flag);
+    cy(carHub, -0.45, 0.78, 0.6, 0.02, 0.5);
+    cam = new THREE.Group(); cam.position.set(-0.45, 1.06, 0.6); g.add(cam);
+    bx(carDark, 0, 0, 0, 0.12, 0.1, 0.1, cam); cy(cTire, 0, 0, 0.07, 0.035, 0.05, Math.PI / 2, 0, cam);
+
+    /* Torreta: base con soporte, anillo giratorio, cabeza con vainas y doble cañón */
+    cy(carTur, 0, 0.55, -0.55, 0.24, 0.1);
+    ring = new THREE.Group(); ring.position.set(0, 0.58, -0.55); g.add(ring);
+    for (k = 0; k < 6; k++) { ang = k / 6 * Math.PI * 2; bx(carHub, Math.cos(ang) * 0.27, 0, Math.sin(ang) * 0.27, 0.08, 0.04, 0.08, ring); }
+    cy(carTur, 0, 0.6, -0.55, 0.17, 0.1);
+    tur = new THREE.Group(); tur.position.set(0, 0.7, -0.55); g.add(tur);
     bx(carTur, 0, 0, 0, 0.34, 0.16, 0.34, tur);
-    bar = new THREE.Group(); bar.position.set(0, 0.04, 0.12); tur.add(bar);
-    m = new THREE.Mesh(uCyl, carDark); m.scale.set(0.05, 0.55, 0.05); m.rotation.x = Math.PI / 2; m.position.z = 0.3; bar.add(m);
+    bx(carDark, -0.2, 0, 0.02, 0.08, 0.12, 0.2, tur); bx(carDark, 0.2, 0, 0.02, 0.08, 0.12, 0.2, tur);
+    bar = new THREE.Group(); bar.position.set(0, 0.03, 0.12); tur.add(bar);
+    cy(carDark, -0.07, 0, 0.3, 0.04, 0.55, Math.PI / 2, 0, bar); cy(carDark, 0.07, 0, 0.3, 0.04, 0.55, Math.PI / 2, 0, bar);
+    bx(carHub, -0.07, 0, 0.58, 0.07, 0.07, 0.05, bar); bx(carHub, 0.07, 0, 0.58, 0.07, 0.07, 0.05, bar);
     lampM = new THREE.Mesh(uLamp, carLamp); lampM.position.set(0, 0.13, -0.1); lampM.scale.setScalar(0.6); tur.add(lampM);
+
     a = makeAstronaut('blue');
     a.g.position.set(0, 0.34, 0.1);
     a.parts.legL.rotation.x = -1.4; a.parts.legR.rotation.x = -1.4;
@@ -3012,7 +3075,7 @@ window.startMap = function (RAW, AUTH) {
       m.visible = false; m.raycast = function () {}; scene.add(m);
       carPuffs.push({ m: m, life: 9 });
     }
-    return { g: g, wheels: wheels, tur: tur, bar: bar, lamp: lampM, ast: a, path: null, next: null, s: 0, v: 0, x: 0, z: 0, yaw: 0, tw: 0, state: 'drive', city: 0, T: 0, rt: 0, pt: 0, pi: 0 };
+    return { g: g, wheels: wheels, tur: tur, bar: bar, lamp: lampM, ring: ring, cam: cam, flag: flag, ast: a, path: null, next: null, s: 0, v: 0, x: 0, z: 0, yaw: 0, tw: 0, state: 'drive', city: 0, T: 0, rt: 0, pt: 0, pi: 0 };
   }
 
   function updateCar(t, dt) {
@@ -3075,6 +3138,9 @@ window.startMap = function (RAW, AUTH) {
     } else car.tw += nAng(car.yaw - car.tw) * Math.min(1, dt * 3);
     car.tur.rotation.y = car.tw - car.yaw;
     car.lamp.visible = Math.sin(t * 6) > 0;
+    car.ring.rotation.y += dt * 1.2;
+    car.cam.rotation.y = 0.6 * Math.sin(t * 1.2);
+    car.flag.rotation.y = 0.25 * Math.sin(t * 3);
     /* Polvo */
     car.pt += dt;
     if (car.v > 3 && car.pt > 0.1) {
