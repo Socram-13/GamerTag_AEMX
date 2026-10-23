@@ -139,6 +139,7 @@
       </div>
       <div class="tools">
         <button type="button" id="b-over">México</button>
+        <button type="button" id="b-relief" aria-pressed="false" title="Activar o desactivar el relieve topográfico">Relieve</button>
         <button type="button" id="b-pal">Palacio</button>
         <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
         <button type="button" id="b-snd" aria-pressed="true" aria-label="Activar o desactivar el sonido" title="Activar o desactivar el sonido">🔊</button>
@@ -2979,6 +2980,142 @@ window.startMap = function (RAW, AUTH) {
     controls.target.set(0, 0, 0);
     controls.update();
   })();
+
+  /* ---------- Relieve topográfico opcional (DEM Terrarium) ----------
+     Capa independiente: no sustituye el motor 3D ni los datos de AEMX.
+     Se carga bajo demanda para no añadir consumo de red al mapa inicial. */
+  var reliefGroup = new THREE.Group();
+  reliefGroup.visible = false;
+  scene.add(reliefGroup);
+  var reliefLoading = false, reliefReady = false;
+  var RELIEF_ZOOM = 5, RELIEF_COLS = 176, RELIEF_ROWS = 224;
+  var RELIEF_EXAGGERATION = 0.00019; // 1 m de elevación = 0.00019 unidades 3D
+  var reliefButton = document.getElementById('b-relief');
+  function reliefTileXY(lon, lat, z) {
+    var n = Math.pow(2, z), latR = lat * Math.PI / 180;
+    return { x: (lon + 180) / 360 * n,
+      y: (1 - Math.asinh(Math.tan(latR)) / Math.PI) / 2 * n };
+  }
+  function reliefInside(poly, lon, lat) {
+    var inside = false, j = poly.length - 1;
+    for (var i = 0; i < poly.length; i++) {
+      var xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+      if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi)) inside = !inside;
+      j = i;
+    }
+    return inside;
+  }
+  function reliefOnMexico(lon, lat) {
+    return reliefInside(MAIN_LL, lon, lat) || reliefInside(BAJA_LL, lon, lat);
+  }
+  function reliefStateColor(lon, lat, x, z) {
+    var names = Object.keys(statePolys || {}), name, hit;
+    for (var i = 0; i < names.length; i++) {
+      name = names[i];
+      hit = probe(statePolys[name], x, z);
+      if (hit && hit.inside) {
+        if (NORTE[name]) return [0x4a / 255, 0x36 / 255, 0x23 / 255];
+        if (!(byCity[name] && byCity[name].length)) return [0x6b / 255, 0x6f / 255, 0x73 / 255];
+        return [0x1b / 255, 0x33 / 255, 0x22 / 255];
+      }
+    }
+    return [0x1b / 255, 0x33 / 255, 0x22 / 255];
+  }
+  function reliefLoadTile(tx, ty, z, cache) {
+    var key = z + '/' + tx + '/' + ty;
+    if (cache[key]) return cache[key];
+    cache[key] = new Promise(function (resolve) {
+      var img = new Image(); img.crossOrigin = 'anonymous';
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas'); c.width = c.height = 256;
+          var cx = c.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0);
+          resolve({ data: cx.getImageData(0, 0, 256, 256).data });
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = function () { resolve(null); };
+      img.src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + key + '.png';
+    });
+    return cache[key];
+  }
+  async function buildRelief() {
+    if (reliefLoading || reliefReady) return;
+    reliefLoading = true;
+    reliefButton.disabled = true; reliefButton.textContent = 'Cargando…';
+    try {
+      var lonMin = -118.2, lonMax = -86.5, latMin = 14.0, latMax = 33.2;
+      var n = Math.pow(2, RELIEF_ZOOM), tileSet = {}, tilePromises = [], seen = {};
+      for (var r = 0; r <= RELIEF_ROWS; r++) {
+        var lat = latMax - (latMax - latMin) * r / RELIEF_ROWS;
+        for (var c = 0; c <= RELIEF_COLS; c++) {
+          var lon = lonMin + (lonMax - lonMin) * c / RELIEF_COLS;
+          var tp = reliefTileXY(lon, lat, RELIEF_ZOOM), tx = Math.max(0, Math.min(n - 1, Math.floor(tp.x))), ty = Math.max(0, Math.min(n - 1, Math.floor(tp.y)));
+          var key = RELIEF_ZOOM + '/' + tx + '/' + ty;
+          if (!seen[key]) { seen[key] = true; tilePromises.push(reliefLoadTile(tx, ty, RELIEF_ZOOM, tileSet)); }
+        }
+      }
+      await Promise.all(tilePromises);
+      var tileKeys = Object.keys(tileSet);
+      for (var ti = 0; ti < tileKeys.length; ti++) tileSet[tileKeys[ti]] = await tileSet[tileKeys[ti]];
+      var positions = [], colors = [], indices = [], gridIndex = new Int32Array((RELIEF_ROWS + 1) * (RELIEF_COLS + 1));
+      gridIndex.fill(-1);
+      function elevAt(lon, lat) {
+        var q = reliefTileXY(lon, lat, RELIEF_ZOOM), tx = Math.max(0, Math.min(n - 1, Math.floor(q.x))), ty = Math.max(0, Math.min(n - 1, Math.floor(q.y)));
+        var tile = tileSet[RELIEF_ZOOM + '/' + tx + '/' + ty];
+        if (!tile || !tile.data) return 0;
+        var px = Math.max(0, Math.min(255, Math.floor((q.x - tx) * 256))), py = Math.max(0, Math.min(255, Math.floor((q.y - ty) * 256))), k = (py * 256 + px) * 4, d = tile.data;
+        return d[k] * 256 + d[k + 1] + d[k + 2] / 256 - 32768;
+      }
+      for (var rr = 0; rr <= RELIEF_ROWS; rr++) {
+        var la = latMax - (latMax - latMin) * rr / RELIEF_ROWS;
+        for (var cc = 0; cc <= RELIEF_COLS; cc++) {
+          var lo = lonMin + (lonMax - lonMin) * cc / RELIEF_COLS;
+          if (!reliefOnMexico(lo, la)) continue;
+          var world = geo(lo, la), elevation = elevAt(lo, la), idx = positions.length / 3;
+          gridIndex[rr * (RELIEF_COLS + 1) + cc] = idx;
+          positions.push(world.x, Math.max(-0.12, elevation) * RELIEF_EXAGGERATION + 0.035, world.z);
+          var colr = reliefStateColor(lo, la, world.x, world.z);
+          colors.push(colr[0], colr[1], colr[2]);
+        }
+      }
+      function triIfLand(a, b, d) {
+        if (a >= 0 && b >= 0 && d >= 0) indices.push(a, b, d);
+      }
+      for (var r2 = 0; r2 < RELIEF_ROWS; r2++) {
+        var latMid = latMax - (latMax - latMin) * (r2 + 0.5) / RELIEF_ROWS;
+        for (var c2 = 0; c2 < RELIEF_COLS; c2++) {
+          var lonMid = lonMin + (lonMax - lonMin) * (c2 + 0.5) / RELIEF_COLS;
+          if (!reliefOnMexico(lonMid, latMid)) continue;
+          var a = gridIndex[r2 * (RELIEF_COLS + 1) + c2], b = gridIndex[r2 * (RELIEF_COLS + 1) + c2 + 1];
+          var d = gridIndex[(r2 + 1) * (RELIEF_COLS + 1) + c2], e = gridIndex[(r2 + 1) * (RELIEF_COLS + 1) + c2 + 1];
+          triIfLand(a, d, b); triIfLand(b, d, e);
+        }
+      }
+      if (!indices.length) throw new Error('No se pudo construir la malla del terreno.');
+      var geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      geom.setIndex(indices); geom.computeVertexNormals();
+      var mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.88, depthWrite: false });
+      var mesh = new THREE.Mesh(geom, mat); mesh.receiveShadow = true; mesh.renderOrder = 2; mesh.raycast = function () {};
+      reliefGroup.add(mesh);
+      reliefReady = true; reliefGroup.visible = true;
+      reliefButton.textContent = 'Relieve ✓'; reliefButton.setAttribute('aria-pressed', 'true');
+      reliefButton.title = 'Relieve topográfico activado; pulsa para ocultarlo';
+    } catch (err) {
+      console.warn('No se pudo cargar el relieve topográfico:', err);
+      reliefButton.textContent = 'Reintentar relieve';
+      reliefButton.title = 'No se pudieron descargar los datos de elevación. Revisa la conexión.';
+    } finally {
+      reliefLoading = false; reliefButton.disabled = false;
+    }
+  }
+  reliefButton.addEventListener('click', function () {
+    if (!reliefReady) { buildRelief(); return; }
+    reliefGroup.visible = !reliefGroup.visible;
+    reliefButton.setAttribute('aria-pressed', reliefGroup.visible ? 'true' : 'false');
+    reliefButton.textContent = reliefGroup.visible ? 'Relieve ✓' : 'Relieve';
+  });
 
   /* ---------- Selección y tarjeta ---------- */
   var card = document.getElementById('card');
