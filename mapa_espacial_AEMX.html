@@ -113,19 +113,29 @@
   <div id="labels"></div>
   <div class="hud">
     <header class="top">
-      <div class="brand">
-        <p class="eyebrow">Atlas Earth AEMX</p>
-        <h1>Mapa espacial</h1>
-        <p class="tag">Cargando datos…</p>
-      </div>
-      <div class="search">
-        <input id="q" type="search" placeholder="Busca un gamertag o ciudad" autocomplete="off" aria-label="Buscar jugador o ciudad">
-        <ul id="res" hidden></ul>
-      </div>
-      <div class="tools">
-        <button type="button" id="b-over">México</button>
-        <button type="button" id="b-pal">Palacio</button>
-        <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
+      <button type="button" class="me" id="me" aria-label="Mi perfil" hidden>
+        <span class="me-av" id="me-av"><span id="me-ini"></span></span>
+        <span class="me-txt">
+          <span class="me-name" id="me-name"></span>
+          <span class="me-sub"><b id="me-total"></b> parcelas · <span id="me-state"></span></span>
+        </span>
+      </button>
+      <!-- Controles anteriores: ocultos (se conservan por si se quieren recuperar) -->
+      <div class="old-top" hidden>
+        <div class="brand">
+          <p class="eyebrow">Atlas Earth AEMX</p>
+          <h1>Mapa espacial</h1>
+          <p class="tag">Cargando datos…</p>
+        </div>
+        <div class="search">
+          <input id="q" type="search" placeholder="Busca un gamertag o ciudad" autocomplete="off" aria-label="Buscar jugador o ciudad">
+          <ul id="res" hidden></ul>
+        </div>
+        <div class="tools">
+          <button type="button" id="b-over">México</button>
+          <button type="button" id="b-pal">Palacio</button>
+          <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
+        </div>
       </div>
     </header>
     <footer class="bottom">
