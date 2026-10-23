@@ -2847,13 +2847,13 @@ window.startMap = function (RAW, AUTH) {
   var cowPink = new THREE.MeshLambertMaterial({ color: 0xe9a3a8 }), cowHorn = new THREE.MeshLambertMaterial({ color: 0xe8dcb0 });
   var ufoHull = new THREE.MeshLambertMaterial({ color: 0x9aa4b8, emissive: 0x1a2030 });
   var ufoDome = new THREE.MeshLambertMaterial({ color: 0x9ff3ff, emissive: 0x1a6a80, transparent: true, opacity: 0.8 });
-  var ufoUnder = new THREE.MeshBasicMaterial({ color: 0xb44cff });
+  var ufoUnder = new THREE.MeshBasicMaterial({ color: 0xffffff });
   var ufoBeamMat = new THREE.MeshBasicMaterial({ color: 0xb44cff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   var ufoRingMat = new THREE.MeshBasicMaterial({ color: 0xc77dff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   var ufoBeamGeo = new THREE.CylinderGeometry(0.35, 1, 1, 20, 1, true); ufoBeamGeo.translate(0, -0.5, 0);
   var ufoRingGeo = new THREE.CircleGeometry(1, 24); ufoRingGeo.rotateX(-Math.PI / 2);
   var ufoDomeGeo = new THREE.SphereGeometry(0.75, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-  var ufoLampMats = [0xff2bd6, 0xffe14d, 0x00f0ff].map(function (c) { return new THREE.MeshBasicMaterial({ color: c }); });
+  var ufoLampMats = [0x39ff6a, 0x7cff3d, 0x00ff9d].map(function (c) { return new THREE.MeshBasicMaterial({ color: c }); });
   function noRay(o) { o.traverse(function (n) { n.raycast = function () {}; }); }
 
   function makeCow() {
