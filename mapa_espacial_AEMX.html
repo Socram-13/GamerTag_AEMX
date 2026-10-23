@@ -3443,7 +3443,7 @@ window.startMap = function (RAW, AUTH) {
       },
       suspend: function () { if (ctx) ctx.suspend(); },
       resume: function () { if (ctx && on) ctx.resume(); },
-      shot: function (pos) { var b = shotBus(pos, 'shot'); if (!b) return; noise(0.1, 0.3, 2500, 800, 'bandpass', 0, b); tone('square', 1100, 180, 0.12, 0.12, 0, b); },
+      shot: function (pos) { var b = shotBus(pos, 'shot'); if (!b) return; noise(0.06, 0.5, 6000, 1500, 'highpass', 0, b); noise(0.25, 0.45, 1800, 200, 'lowpass', 0, b); tone('sine', 160, 45, 0.15, 0.5, 0, b); },
       hit: function (pos) { var b = shotBus(pos, 'hit'); if (!b) return; tone('triangle', 420, 120, 0.2, 0.3, 0, b); noise(0.12, 0.25, 4000, 900, 'bandpass', 0, b); },
       crash: function (pos) { var b = shotBus(pos, 'crash'); if (!b) return; tone('sawtooth', 520, 60, 1.5, 0.14, 0, b); noise(1.5, 0.1, 1500, 200, 'lowpass', 0, b); },
       explode: function (pos) { var b = shotBus(pos, 'explode'); if (!b) return; noise(1.4, 0.9, 2200, 90, 'lowpass', 0, b); tone('sine', 110, 30, 0.9, 0.8, 0, b); noise(0.25, 0.4, 6000, 1000, 'bandpass', 0, b); },
