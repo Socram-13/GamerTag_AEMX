@@ -4269,7 +4269,9 @@ window.startMap = function (RAW, AUTH) {
       dx = ufo.x - b.x; dz = ufo.z - b.z; ox = Math.abs(dx) - hw; oz = Math.abs(dz) - hw;
       if (ox >= oz) { sx = dx < 0 ? -1 : 1; sp.nx = sx; sp.nz = 0; sp.tx = b.x + sx * hw; sp.tz = b.z + Math.max(-hw, Math.min(hw, dz)); }
       else { sz = dz < 0 ? -1 : 1; sp.nx = 0; sp.nz = sz; sp.tz = b.z + sz * hw; sp.tx = b.x + Math.max(-hw, Math.min(hw, dx)); }
-      sp.ty = BASE + Math.max(1.4, Math.min((b.topY || 3) - 0.6, (b.topY || 3) * 0.55));
+      /* Apunta a la base de la pared, un poco hacia adentro: el edificio tapa el final del haz y parece atravesarlo */
+      sp.ty = BASE;
+      sp.tx -= sp.nx * 1.2; sp.tz -= sp.nz * 1.2;
     }
     if (on && sp.k === 0) { sp.cx = sp.tx; sp.cy = sp.ty; sp.cz = sp.tz; }
     sp.k = Math.max(0, Math.min(1, sp.k + (on ? 1 : -1) * dt * 2));
