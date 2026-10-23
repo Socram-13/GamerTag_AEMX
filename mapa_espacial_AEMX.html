@@ -738,17 +738,6 @@ window.startMap = function (RAW, AUTH) {
       w.legL.rotation.x = 0.7 * sw;
       w.legR.rotation.x = -0.7 * sw;
     }
-    for (i = 0; i < presAst.length; i++) {
-      w = presAst[i];
-      w.armR.rotation.x = -2.6 + 0.12 * Math.sin(t * 3 + w.ph);
-      w.armR.rotation.z = Math.sin(t * 9 + w.ph) * 0.45;
-      /* Camina de lado a lado por el borde del balcón, mirando hacia afuera y saludando */
-      var pa = t * 0.45 + w.ph, vN = Math.cos(pa), amp = Math.min(1, Math.abs(vN) * 1.6), sws = Math.sin(t * 7) * 0.55 * amp;
-      w.a.position.x = Math.sin(pa) * 1.1;
-      w.a.position.y = w.y0 + Math.abs(Math.sin(t * 7)) * 0.03 * amp;
-      w.a.rotation.y = Math.PI - 0.9 * vN;
-      w.legL.rotation.x = sws; w.legR.rotation.x = -sws;
-    }
     for (i = 0; i < wallMats.length; i++) {
       w = wallMats[i];
       w.m.emissiveIntensity = 0.95 + 0.35 * Math.pow(Math.max(0, Math.sin(t * 0.9 + w.ph)), 3);
@@ -809,7 +798,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Astronauta presidente: traje negro formal, triángulo blanco, banda tricolor y corona; saluda siempre ---------- */
-  var presAst = [];
+  var presAst = [], prP = new THREE.Vector3(), prT = new THREE.Vector3(), prM = new THREE.Vector3();
   var prSuit = new THREE.MeshLambertMaterial({ color: 0x15171c, emissive: 0x05060a });
   var prPack = new THREE.MeshLambertMaterial({ color: 0x2a2d34 });
   var prVisor = new THREE.MeshLambertMaterial({ color: 0x2d7bff, emissive: 0x0a3a99 });
@@ -835,6 +824,12 @@ window.startMap = function (RAW, AUTH) {
     var legL = limb(dsGLeg, -0.13, 0.65, 0.55), legR = limb(dsGLeg, 0.13, 0.65, 0.55);
     var armL = limb(dsGArm, -0.33, 1.2, 0.5), armR = limb(dsGArm, 0.33, 1.2, 0.5);
     armL.rotation.z = -0.12;
+    /* Pistola dorada en la mano derecha (solo se ve al disparar) */
+    var gun = new THREE.Group(), gm1, muz = new THREE.Object3D();
+    gun.visible = false; armR.add(gun);
+    gm1 = new THREE.Mesh(uBox, prGold); gm1.scale.set(0.07, 0.34, 0.09); gm1.position.set(0, -0.67, 0.02); gun.add(gm1);
+    gm1 = new THREE.Mesh(uBox, prGold); gm1.scale.set(0.07, 0.1, 0.2); gm1.position.set(0, -0.55, -0.1); gun.add(gm1);
+    muz.position.set(0, -0.86, 0.02); armR.add(muz);
     /* Triángulo blanco bajo el cuello */
     put(prTriGeo, prWhite, 0, 1.23, 0.178);
     /* Banda tricolor cruzada al pecho */
@@ -849,7 +844,7 @@ window.startMap = function (RAW, AUTH) {
     a.position.set(x, y, z);
     a.rotation.y = Math.PI; /* mira hacia afuera del balcón */
     g.add(a);
-    presAst.push({ a: a, armR: armR, legL: legL, legR: legR, y0: y, ph: ph || 0 });
+    presAst.push({ a: a, armR: armR, legL: legL, legR: legR, y0: y, ph: ph || 0, gun: gun, muz: muz, pa: ph || 0, wk: 1, k: 0, eng: false, yaw: Math.PI, ax: -1.6, az: 0, fireT: 0 });
   }
 
   /* ---------- Edificio en ruinas con incendio (usuarios baneados) ---------- */
@@ -3971,7 +3966,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Daño del OVNI: impactos, humo, caída y explosión ---------- */
-  var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 110, FX_N = 500, BUL_N = 10, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
+  var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 110, FX_N = 500, BUL_N = 16, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
   var fxGeo = new THREE.IcosahedronGeometry(1, 1), bulGeo = new THREE.SphereGeometry(1, 8, 6);
   function ufoDown() { return !!ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck' || ufo.state === 'spawn'); }
   function fxInit() {
@@ -4253,9 +4248,9 @@ window.startMap = function (RAW, AUTH) {
       if (u.T >= 5.0) ufoSpawnEnd();
     }
   }
-  function carFire(U) {
-    var i, p, dx, dy, dz, d, mz = new THREE.Vector3(car.fb ? 0.07 : -0.07, 0, 0.64);
-    car.fb = car.fb ? 0 : 1; car.fireT = 0.4;
+  /* Dispara una bala desde mz hacia donde está el OVNI ahora (con dispersión: si se mueve, puede fallar) */
+  function fireBullet(mz, U) {
+    var i, p, dx, dy, dz, d;
     if (!bullets.length) {
       for (i = 0; i < BUL_N; i++) {
         p = { m: new THREE.Mesh(bulGeo, new THREE.MeshBasicMaterial({ color: 0xffd24d, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })), on: false, life: 0 };
@@ -4263,10 +4258,7 @@ window.startMap = function (RAW, AUTH) {
         bullets.push(p);
       }
     }
-    car.g.updateMatrixWorld(true);
-    car.bar.localToWorld(mz);
     p = bullets[bulI]; bulI = (bulI + 1) % BUL_N;
-    /* Línea recta hacia donde está el OVNI ahora, con dispersión: si se mueve, la bala falla */
     dx = U.x - mz.x; dy = U.y - mz.y; dz = U.z - mz.z;
     d = Math.hypot(dx, dy, dz) || 1;
     dx += (Math.random() - 0.5) * 0.06 * d; dy += (Math.random() - 0.5) * 0.06 * d; dz += (Math.random() - 0.5) * 0.06 * d;
@@ -4275,6 +4267,13 @@ window.startMap = function (RAW, AUTH) {
     p.on = true; p.life = 3; p.m.position.copy(mz); p.m.visible = true;
     fxSpawn(mz.x, mz.y, mz.z, 0, 0, 0, 0.12, 0.5, 0.15, 0xffe9a0, 1, true);
     AUD.shot(mz);
+  }
+  function carFire(U) {
+    var mz = new THREE.Vector3(car.fb ? 0.07 : -0.07, 0, 0.64);
+    car.fb = car.fb ? 0 : 1; car.fireT = 0.4;
+    car.g.updateMatrixWorld(true);
+    car.bar.localToWorld(mz);
+    fireBullet(mz, U);
   }
   function updateBullets(dt) {
     var i, p, U, ox, oy, oz, nx, ny, nz, sx, sy, sz, l2, t, cx, cy, cz;
@@ -4776,6 +4775,56 @@ window.startMap = function (RAW, AUTH) {
     }
   }
 
+  /* Presidente: camina saludando por el balcón; si el OVNI pasa por el frente, saca la pistola y le dispara */
+  function updatePresident(t, dt) {
+    var i, w, a, U, dx, dy, dz, d3, ok, k, vN, amp, sws, ty, df, vx, vy, vz, vl, rx, rz;
+    for (i = 0; i < presAst.length; i++) {
+      w = presAst[i]; a = w.a;
+      a.getWorldPosition(prP);
+      U = ufo && !ufoDown() && ufo.g.visible && clock.elapsedTime >= (ufo.noFireUntil || 0) ? ufo.g.position : null;
+      ok = false;
+      if (U) {
+        dx = U.x - prP.x; dz = U.z - prP.z; dy = U.y - (prP.y + 0.9);
+        d3 = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        ok = dz > (w.eng ? -2 : 2) && d3 < (w.eng ? 68 : 55); /* al frente del Palacio y a tiro */
+      }
+      w.eng = ok;
+      w.wk += ((ok ? 0 : 1) - w.wk) * Math.min(1, dt * 4);
+      w.k += ((ok ? 1 : 0) - w.k) * Math.min(1, dt * 6);
+      k = w.k;
+      /* Camina de lado a lado (se detiene al apuntar) */
+      w.pa += dt * 0.45 * w.wk;
+      vN = Math.cos(w.pa); amp = Math.min(1, Math.abs(vN) * 1.6) * w.wk; sws = Math.sin(t * 7) * 0.55 * amp;
+      a.position.x = Math.sin(w.pa) * 1.1;
+      a.position.y = w.y0 + Math.abs(Math.sin(t * 7)) * 0.03 * amp;
+      w.legL.rotation.x = sws; w.legR.rotation.x = -sws;
+      ty = ok ? Math.atan2(dx, dz) - Math.PI : Math.PI - 0.9 * vN * w.wk;
+      df = nAng(ty - w.yaw);
+      w.yaw += df * Math.min(1, dt * (ok ? 8 : 5));
+      a.rotation.y = w.yaw;
+      a.updateMatrixWorld(true);
+      /* Brazo: saludo, o apuntando al OVNI */
+      if (ok) {
+        prT.copy(U); a.worldToLocal(prT);
+        vx = prT.x - 0.33; vy = prT.y - 1.2; vz = prT.z;
+        vl = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1; vx /= vl; vy /= vl; vz /= vl;
+        w.az = Math.asin(Math.max(-1, Math.min(1, vx))); w.ax = Math.atan2(-vz, -vy);
+      }
+      rx = -2.6 + 0.12 * Math.sin(t * 3 + w.ph); rz = Math.sin(t * 9 + w.ph) * 0.45;
+      w.armR.rotation.x = rx + (w.ax - rx) * k;
+      w.armR.rotation.z = rz + (w.az - rz) * k;
+      w.gun.visible = k > 0.2;
+      /* Disparo: ya apuntando, en ráfagas */
+      w.fireT -= dt;
+      if (ok && k > 0.85 && w.fireT <= 0) {
+        w.fireT = 0.3 + Math.random() * 0.15;
+        a.updateMatrixWorld(true);
+        w.muz.getWorldPosition(prM);
+        fireBullet(prM, U);
+      }
+    }
+  }
+
   function blockedRects() {
     var out = [], sr = stage.getBoundingClientRect();
     ['.top', '#legend', '#card'].forEach(function (sel) {
@@ -4838,6 +4887,7 @@ window.startMap = function (RAW, AUTH) {
     updateUfo(t, dt);
     ufoSpotStep(t, dt);
     updateCar(t, dt);
+    updatePresident(t, dt);
     updateBullets(dt);
     updateFx(dt);
     craterStep(dt);
