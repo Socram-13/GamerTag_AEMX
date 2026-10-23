@@ -798,7 +798,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Astronauta presidente: traje negro formal, triángulo blanco, banda tricolor y corona; saluda siempre ---------- */
-  var presAst = [], prP = new THREE.Vector3(), prT = new THREE.Vector3(), prM = new THREE.Vector3();
+  var presAst = [], prL = new THREE.Vector3(), prP = new THREE.Vector3(), prT = new THREE.Vector3(), prM = new THREE.Vector3();
   var prSuit = new THREE.MeshLambertMaterial({ color: 0x15171c, emissive: 0x05060a });
   var prPack = new THREE.MeshLambertMaterial({ color: 0x2a2d34 });
   var prVisor = new THREE.MeshLambertMaterial({ color: 0x2d7bff, emissive: 0x0a3a99 });
@@ -844,7 +844,7 @@ window.startMap = function (RAW, AUTH) {
     a.position.set(x, y, z);
     a.rotation.y = Math.PI; /* mira hacia afuera del balcón */
     g.add(a);
-    presAst.push({ a: a, armR: armR, legL: legL, legR: legR, y0: y, ph: ph || 0, gun: gun, muz: muz, pa: ph || 0, wk: 1, k: 0, eng: false, yaw: Math.PI, ax: -1.6, az: 0, fireT: 0 });
+    presAst.push({ a: a, armR: armR, legL: legL, legR: legR, y0: y, ph: ph || 0, gun: gun, muz: muz, pa: ph || 0, wk: 1, k: 0, eng: false, yaw: Math.PI, ax: -1.6, az: 0, fireT: 0, vx: 0, vy: 0, vz: 0, pu: false, pux: 0, puy: 0, puz: 0 });
   }
 
   /* ---------- Edificio en ruinas con incendio (usuarios baneados) ---------- */
@@ -4249,8 +4249,8 @@ window.startMap = function (RAW, AUTH) {
     }
   }
   /* Dispara una bala desde mz hacia donde está el OVNI ahora (con dispersión: si se mueve, puede fallar) */
-  function fireBullet(mz, U) {
-    var i, p, dx, dy, dz, d;
+  function fireBullet(mz, U, spread) {
+    var i, p, dx, dy, dz, d, sp = spread === undefined ? 0.06 : spread;
     if (!bullets.length) {
       for (i = 0; i < BUL_N; i++) {
         p = { m: new THREE.Mesh(bulGeo, new THREE.MeshBasicMaterial({ color: 0xffd24d, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })), on: false, life: 0 };
@@ -4261,7 +4261,7 @@ window.startMap = function (RAW, AUTH) {
     p = bullets[bulI]; bulI = (bulI + 1) % BUL_N;
     dx = U.x - mz.x; dy = U.y - mz.y; dz = U.z - mz.z;
     d = Math.hypot(dx, dy, dz) || 1;
-    dx += (Math.random() - 0.5) * 0.06 * d; dy += (Math.random() - 0.5) * 0.06 * d; dz += (Math.random() - 0.5) * 0.06 * d;
+    dx += (Math.random() - 0.5) * sp * d; dy += (Math.random() - 0.5) * sp * d; dz += (Math.random() - 0.5) * sp * d;
     d = Math.hypot(dx, dy, dz) || 1;
     p.vx = dx / d * BUL_SPEED; p.vy = dy / d * BUL_SPEED; p.vz = dz / d * BUL_SPEED; p.dist = 0;
     p.on = true; p.life = 3; p.m.position.copy(mz); p.m.visible = true;
@@ -4788,6 +4788,13 @@ window.startMap = function (RAW, AUTH) {
         d3 = Math.sqrt(dx * dx + dy * dy + dz * dz);
         ok = dz > (w.eng ? -2 : 2) && d3 < (w.eng ? 68 : 55); /* al frente del Palacio y a tiro */
       }
+      /* Velocidad estimada del OVNI (suavizada) para calcular el adelanto */
+      if (U && w.pu && dt > 0) {
+        w.vx += ((U.x - w.pux) / dt - w.vx) * Math.min(1, dt * 6);
+        w.vy += ((U.y - w.puy) / dt - w.vy) * Math.min(1, dt * 6);
+        w.vz += ((U.z - w.puz) / dt - w.vz) * Math.min(1, dt * 6);
+      } else { w.vx = 0; w.vy = 0; w.vz = 0; }
+      if (U) { w.pu = true; w.pux = U.x; w.puy = U.y; w.puz = U.z; } else w.pu = false;
       w.eng = ok;
       w.wk += ((ok ? 0 : 1) - w.wk) * Math.min(1, dt * 4);
       w.k += ((ok ? 1 : 0) - w.k) * Math.min(1, dt * 6);
@@ -4817,10 +4824,15 @@ window.startMap = function (RAW, AUTH) {
       /* Disparo: ya apuntando, en ráfagas */
       w.fireT -= dt;
       if (ok && k > 0.85 && w.fireT <= 0) {
-        w.fireT = 0.3 + Math.random() * 0.15;
+        w.fireT = 0.25 + Math.random() * 0.1;
         a.updateMatrixWorld(true);
         w.muz.getWorldPosition(prM);
-        fireBullet(prM, U);
+        /* Apunta con adelanto: calcula dónde estará el OVNI cuando llegue la bala y casi sin dispersión */
+        prL.copy(U);
+        for (var it = 0; it < 3; it++) {
+          prL.set(U.x + w.vx * (prL.distanceTo(prM) / BUL_SPEED), U.y + w.vy * (prL.distanceTo(prM) / BUL_SPEED), U.z + w.vz * (prL.distanceTo(prM) / BUL_SPEED));
+        }
+        fireBullet(prM, prL, 0.012);
       }
     }
   }
