@@ -1832,6 +1832,18 @@ window.startMap = function (RAW, AUTH) {
       lines.push(e.pts);
       for (q = 1; q < e.pts.length; q++) trailAdd(e.pts[q - 1][0], e.pts[q - 1][1], e.pts[q][0], e.pts[q][1]);
     });
+    var ringDone = {};
+    chosen.forEach(function (e) {
+      [e.a, e.b].forEach(function (ci) {
+        if (ringDone[ci]) return;
+        ringDone[ci] = 1;
+        var dd = ds[ci], R = dd.r + 2, nn = Math.max(12, Math.ceil(2 * Math.PI * R / 3)), q, a0, a1;
+        for (q = 0; q < nn; q++) {
+          a0 = q / nn * 6.2832; a1 = (q + 1) / nn * 6.2832;
+          trailAdd(dd.cx + Math.cos(a0) * R, dd.cz + Math.sin(a0) * R, dd.cx + Math.cos(a1) * R, dd.cz + Math.sin(a1) * R);
+        }
+      });
+    });
     var bMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
     var tMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     var bm = new THREE.Mesh(trailRibbon(lines, TRAIL_W + 0.8, 0.06, 'grass', 0.05, rg), bMat);
@@ -2056,14 +2068,18 @@ window.startMap = function (RAW, AUTH) {
   var astPackO = new THREE.MeshLambertMaterial({ color: 0xa8440c });
   var astVisorO = new THREE.MeshLambertMaterial({ color: 0x08090b, emissive: 0x020203 });
   var astHair = new THREE.MeshLambertMaterial({ color: 0xf7c92b, emissive: 0x3a2c00 });
+  /* Astronauta del coche lunar: traje azul y visor oscuro */
+  var astSuitBl = new THREE.MeshLambertMaterial({ color: 0x2f6bff });
+  var astPackBl = new THREE.MeshLambertMaterial({ color: 0x1d3f9e });
+  var astVisorBl = new THREE.MeshLambertMaterial({ color: 0x08090b, emissive: 0x020203 });
   var gSpike = new THREE.ConeGeometry(0.065, 0.3, 5);
   var gTorso = new THREE.BoxGeometry(0.5, 0.6, 0.32), gLeg = new THREE.BoxGeometry(0.2, 0.55, 0.22);
   var gArm = new THREE.BoxGeometry(0.14, 0.5, 0.14), gHelmet = new THREE.SphereGeometry(0.3, 14, 10);
   var gVisor = new THREE.SphereGeometry(0.18, 14, 10), gPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
 
   function makeAstronaut(kind) {
-    var black = kind === true, orange = kind === 'orange';
-    var g = new THREE.Group(), m, suit = orange ? astSuitO : black ? astSuitB : astSuit, pack = orange ? astPackO : black ? astPackB : astPack, vis = orange ? astVisorO : black ? astVisorB : astVisor;
+    var black = kind === true, orange = kind === 'orange', blue = kind === 'blue';
+    var g = new THREE.Group(), m, suit = blue ? astSuitBl : orange ? astSuitO : black ? astSuitB : astSuit, pack = blue ? astPackBl : orange ? astPackO : black ? astPackB : astPack, vis = blue ? astVisorBl : orange ? astVisorO : black ? astVisorB : astVisor;
     g.rotation.order = 'YXZ';
     m = new THREE.Mesh(gTorso, suit); m.position.y = 0.95; g.add(m);
     m = new THREE.Mesh(gPack, pack); m.position.set(0, 0.98, -0.26); g.add(m);
@@ -2923,6 +2939,158 @@ window.startMap = function (RAW, AUTH) {
     }
   }
 
+  /* ---------- Coche lunar con astronauta azul que persigue al OVNI por los senderos ---------- */
+  var car = null, carPuffs = [], CAR_SPEED = 14;
+  var carBody = new THREE.MeshLambertMaterial({ color: 0xd8dce4 }), carDark = new THREE.MeshLambertMaterial({ color: 0x3a3f4c });
+  var carHub = new THREE.MeshLambertMaterial({ color: 0x9aa2b2 }), carTur = new THREE.MeshLambertMaterial({ color: 0x6b7280 });
+  var carLamp = new THREE.MeshBasicMaterial({ color: 0xff3b5c }), puffGeo = new THREE.IcosahedronGeometry(1, 0);
+  function nAng(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
+  function mkPath(pts, from, end, kind) {
+    var cum = [0], i, L = 0;
+    for (i = 1; i < pts.length; i++) { L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); cum.push(L); }
+    return { pts: pts, cum: cum, len: L, from: from, end: end, kind: kind, idx: 0 };
+  }
+  function edgePath(ti, fromCity) {
+    var e = trails[ti], fw = e.a === fromCity;
+    return mkPath(fw ? e.pts.slice() : e.pts.slice().reverse(), fromCity, fw ? e.b : e.a, 'edge');
+  }
+  /* Vuelta por el anillo exterior de la ciudad, de la llegada a la salida más corta */
+  function arcPath(c, pin, pout) {
+    var d = districts[c], a1 = Math.atan2(pin[1] - d.cz, pin[0] - d.cx), a2 = Math.atan2(pout[1] - d.cz, pout[0] - d.cx);
+    var r1 = Math.hypot(pin[0] - d.cx, pin[1] - d.cz), r2 = Math.hypot(pout[0] - d.cx, pout[1] - d.cz), da = nAng(a2 - a1);
+    var n = Math.max(1, Math.ceil(Math.abs(da) * Math.max(r1, r2) / 3)), pts = [], k, f, a, r;
+    for (k = 0; k <= n; k++) { f = k / n; a = a1 + da * f; r = r1 + (r2 - r1) * f; pts.push([d.cx + Math.cos(a) * r, d.cz + Math.sin(a) * r]); }
+    return mkPath(pts, c, c, 'arc');
+  }
+  /* En una ciudad: toma el sendero que más acerca al OVNI; si la ciudad ya es lo más cercano, espera */
+  function carPlan(c, pin) {
+    var U = ufo ? ufo.g.position : null, inc = [], ti, o, sc, bs = 1e18, best = -1, ep, ds = districts;
+    for (ti = 0; ti < trails.length; ti++) if (trails[ti].a === c || trails[ti].b === c) inc.push(ti);
+    if (!inc.length) return false;
+    if (U) {
+      for (ti = 0; ti < inc.length; ti++) {
+        o = trails[inc[ti]].a === c ? trails[inc[ti]].b : trails[inc[ti]].a;
+        sc = Math.hypot(ds[o].cx - U.x, ds[o].cz - U.z);
+        if (sc < bs) { bs = sc; best = inc[ti]; }
+      }
+      if (Math.hypot(ds[c].cx - U.x, ds[c].cz - U.z) <= bs + 5) return false;
+    } else best = inc[(Math.random() * inc.length) | 0];
+    ep = edgePath(best, c);
+    car.path = arcPath(c, pin, ep.pts[0]); car.next = ep; car.s = 0;
+    return true;
+  }
+
+  function makeCar() {
+    var g = new THREE.Group(), wheels = [], m, i, pv, tur, bar, a, lampM;
+    function bx(mat, px, py, pz, sx, sy, sz, par) { var q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); (par || g).add(q); return q; }
+    g.rotation.order = 'YXZ';
+    bx(carBody, 0, 0.42, 0, 1.0, 0.16, 1.7);
+    bx(carDark, 0, 0.56, 0.0, 0.5, 0.12, 0.4);
+    bx(carDark, 0, 0.58, 0.5, 0.8, 0.12, 0.1);
+    for (i = 0; i < 4; i++) {
+      pv = new THREE.Group(); pv.position.set((i % 2 ? 1 : -1) * 0.62, 0.3, (i < 2 ? 1 : -1) * 0.6);
+      m = new THREE.Mesh(uCyl, carDark); m.scale.set(0.3, 0.14, 0.3); m.rotation.z = Math.PI / 2; pv.add(m);
+      bx(carHub, 0, 0, 0, 0.16, 0.08, 0.52, pv); bx(carHub, 0, 0, 0, 0.16, 0.52, 0.08, pv);
+      g.add(pv); wheels.push(pv);
+    }
+    m = new THREE.Mesh(uCyl, carTur); m.scale.set(0.24, 0.1, 0.24); m.position.set(0, 0.55, -0.55); g.add(m);
+    tur = new THREE.Group(); tur.position.set(0, 0.65, -0.55); g.add(tur);
+    bx(carTur, 0, 0, 0, 0.34, 0.16, 0.34, tur);
+    bar = new THREE.Group(); bar.position.set(0, 0.04, 0.12); tur.add(bar);
+    m = new THREE.Mesh(uCyl, carDark); m.scale.set(0.05, 0.55, 0.05); m.rotation.x = Math.PI / 2; m.position.z = 0.3; bar.add(m);
+    lampM = new THREE.Mesh(uLamp, carLamp); lampM.position.set(0, 0.13, -0.1); lampM.scale.setScalar(0.6); tur.add(lampM);
+    a = makeAstronaut('blue');
+    a.g.position.set(0, 0.34, 0.1);
+    a.parts.legL.rotation.x = -1.4; a.parts.legR.rotation.x = -1.4;
+    a.parts.armL.rotation.x = -1.0; a.parts.armR.rotation.x = -1.0;
+    g.add(a.g);
+    g.scale.setScalar(1.2);
+    noRay(g);
+    scene.add(g);
+    for (i = 0; i < 10; i++) {
+      m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color: 0xc8b48a, transparent: true, opacity: 0, depthWrite: false }));
+      m.visible = false; m.raycast = function () {}; scene.add(m);
+      carPuffs.push({ m: m, life: 9 });
+    }
+    return { g: g, wheels: wheels, tur: tur, bar: bar, lamp: lampM, ast: a, path: null, next: null, s: 0, v: 0, x: 0, z: 0, yaw: 0, tw: 0, state: 'drive', city: 0, T: 0, rt: 0, pt: 0, pi: 0 };
+  }
+
+  function updateCar(t, dt) {
+    var i, U, path, seg, f, x, z, tx, tz, ds = districts, k, dF, dB, p, hd, el, pts;
+    if (!trails.length) return;
+    if (!car) {
+      car = makeCar();
+      i = (Math.random() * trails.length) | 0;
+      car.path = edgePath(i, trails[i].a);
+      car.x = car.path.pts[0][0]; car.z = car.path.pts[0][1];
+    }
+    U = ufo ? ufo.g.position : null;
+
+    if (car.state === 'wait') {
+      car.v *= Math.max(0, 1 - dt * 5);
+      car.T += dt;
+      if (car.T > 0.7) { car.T = 0; if (carPlan(car.city, [car.x, car.z])) { car.state = 'drive'; car.v = 2; } }
+    } else {
+      car.v += (CAR_SPEED - car.v) * Math.min(1, dt * 2);
+      car.s += car.v * dt;
+      path = car.path;
+      while (path && car.s >= path.len) {
+        if (path.kind === 'arc') { car.s -= path.len; car.path = car.next; car.next = null; path = car.path; }
+        else {
+          car.city = path.end; car.s = 0;
+          if (!carPlan(car.city, [car.x, car.z])) { car.state = 'wait'; car.T = 0; car.path = null; path = null; }
+          else path = car.path;
+        }
+      }
+      /* Si el OVNI queda más cerca de la ciudad de atrás, da la vuelta en el mismo sendero */
+      car.rt += dt;
+      if (path && path.kind === 'edge' && U && car.rt > 1) {
+        car.rt = 0;
+        dF = Math.hypot(ds[path.end].cx - U.x, ds[path.end].cz - U.z); dB = Math.hypot(ds[path.from].cx - U.x, ds[path.from].cz - U.z);
+        if (dB + 60 < dF && car.s > 6 && path.len - car.s > 6) {
+          pts = [[car.x, car.z]].concat(path.pts.slice(0, path.idx + 1).reverse());
+          car.path = mkPath(pts, path.end, path.from, 'edge'); car.s = 0; path = car.path;
+        }
+      }
+      if (path) {
+        while (path.idx < path.pts.length - 2 && path.cum[path.idx + 1] <= car.s) path.idx++;
+        seg = path.cum[path.idx + 1] - path.cum[path.idx];
+        f = seg > 0 ? Math.min(1, Math.max(0, (car.s - path.cum[path.idx]) / seg)) : 0;
+        x = path.pts[path.idx][0]; z = path.pts[path.idx][1];
+        tx = path.pts[path.idx + 1][0] - x; tz = path.pts[path.idx + 1][1] - z;
+        car.x = x + tx * f; car.z = z + tz * f;
+        if (Math.abs(tx) + Math.abs(tz) > 1e-6) car.yaw += nAng(Math.atan2(tx, tz) - car.yaw) * Math.min(1, dt * 6);
+      }
+    }
+    car.g.position.set(car.x, 0.07 + 0.02 * Math.abs(Math.sin(t * 9)) * (car.v / CAR_SPEED), car.z);
+    car.g.rotation.y = car.yaw;
+    for (i = 0; i < car.wheels.length; i++) car.wheels[i].rotation.x += car.v * dt / 0.3 / 1.2;
+    car.ast.parts.armL.rotation.x = -1.0 + 0.12 * Math.sin(t * 4); car.ast.parts.armR.rotation.x = -1.0 - 0.12 * Math.sin(t * 4);
+    /* Torreta: apunta al OVNI */
+    if (U) {
+      hd = Math.hypot(U.x - car.x, U.z - car.z);
+      car.tw += nAng(Math.atan2(U.x - car.x, U.z - car.z) - car.tw) * Math.min(1, dt * 5);
+      el = Math.min(1.2, Math.max(0, Math.atan2(U.y - 0.9, hd)));
+      car.bar.rotation.x += (-el - car.bar.rotation.x) * Math.min(1, dt * 5);
+    } else car.tw += nAng(car.yaw - car.tw) * Math.min(1, dt * 3);
+    car.tur.rotation.y = car.tw - car.yaw;
+    car.lamp.visible = Math.sin(t * 6) > 0;
+    /* Polvo */
+    car.pt += dt;
+    if (car.v > 3 && car.pt > 0.1) {
+      car.pt = 0;
+      p = carPuffs[car.pi]; car.pi = (car.pi + 1) % carPuffs.length;
+      p.life = 0; p.m.visible = true;
+      p.m.position.set(car.x - Math.sin(car.yaw) * 1.1 + (Math.random() - 0.5) * 0.5, 0.15, car.z - Math.cos(car.yaw) * 1.1 + (Math.random() - 0.5) * 0.5);
+    }
+    for (i = 0; i < carPuffs.length; i++) {
+      p = carPuffs[i];
+      if (p.life >= 0.9) { if (p.m.visible) p.m.visible = false; continue; }
+      p.life += dt; k = Math.min(1, p.life / 0.9);
+      p.m.scale.setScalar(0.12 + 0.45 * k); p.m.position.y = 0.15 + 0.35 * k; p.m.material.opacity = 0.32 * (1 - k);
+    }
+  }
+
   function blockedRects() {
     var out = [], sr = stage.getBoundingClientRect();
     ['.top', '#legend', '#card'].forEach(function (sel) {
@@ -2970,6 +3138,7 @@ window.startMap = function (RAW, AUTH) {
     updateCyber(t);
     updateDrones(t, dt);
     updateUfo(t, dt);
+    updateCar(t, dt);
     updateRuins(t);
     if (selected) selRing.rotation.z = t * 0.8;
 
