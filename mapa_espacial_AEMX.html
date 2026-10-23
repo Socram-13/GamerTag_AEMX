@@ -1565,10 +1565,19 @@ window.startMap = function (RAW, AUTH) {
       pts.push([all[i].x, all[i].z]);
       for (k = 0; k < 6; k++) pts.push([all[i].x + HEX_R * Math.sin(k * Math.PI / 3), all[i].z + HEX_R * Math.cos(k * Math.PI / 3)]);
     }
+    var vg = geo(VOLC_LL[0], VOLC_LL[1]), VR = VOLC_BASE + 2;
     for (it = 0; it < 80; it++) {
       var bad = 0, vx = 0, vz = 0, vl = 0, x, z, l, f, nx, nz, nl;
       for (i = 0; i < pts.length; i++) {
         x = d.cx + ox + pts[i][0]; z = d.cz + oz + pts[i][1];
+        /* Base del volcán: empuja la ciudad hacia afuera */
+        l = Math.hypot(x - vg.x, z - vg.z);
+        if (l < VR) {
+          if (l < 0.0001) { nx = VR; nz = 0; } else { nx = (x - vg.x) / l * (VR - l); nz = (z - vg.z) / l * (VR - l); }
+          bad++;
+          nl = Math.hypot(nx, nz);
+          if (nl > vl) { vl = nl; vx = nx; vz = nz; }
+        }
         probe(rings, x, z);
         nx = 0; nz = 0;
         if (!PR.inside) {
@@ -2378,6 +2387,7 @@ window.startMap = function (RAW, AUTH) {
     poly.forEach(function (ring) { arr.push(simplifyRing(ring.map(function (c) { var g2 = geo(c[0], c[1]); return [g2.x, g2.z]; }), 0.35)); });
   }
   /* ---------- Relieve aproximado (sierras y volcanes) ---------- */
+  var VOLC_LL = [-98.622, 19.023], VOLC_BASE = 22; /* posición y radio de la base del Popocatépetl (las ciudades se apartan de ella) */
   var VOLC = null; /* Popocatépetl: {x, z, R base, H altura, rr radio del cráter, D profundidad} */
   var terrainH = function () { return 0; }, reliefBuilt = false;
   /* ---------- Volcán Popocatépetl: cono con cráter, nieve y fumarola ---------- */
@@ -2387,17 +2397,12 @@ window.startMap = function (RAW, AUTH) {
     r = Math.hypot(x - v.x, z - v.z);
     if (r >= v.R) return 0;
     b = r >= v.rr ? v.H * Math.pow(1 - r / v.R, 1.6) : v.H * Math.pow(1 - v.rr / v.R, 1.6) - v.D * (1 - (r / v.rr) * (r / v.rr));
-    m = 1; /* las faldas se aplanan cerca de las ciudades */
-    for (k = 0; k < districts.length; k++) {
-      d = districts[k]; dd = Math.hypot(x - d.cx, z - d.cz) - d.r - 2;
-      if (dd < 10) { t = Math.max(0, dd / 10); t = t * t * (3 - 2 * t); if (t < m) m = t; }
-    }
-    return b * m;
+    return b; /* las ciudades se apartan de la base en fitDistrict, no hace falta aplanar */
   }
   function buildVolcano() {
-    var g0 = geo(-98.622, 19.023), th0 = terrainH, N = 44, S = 96, nv = (N + 1) * S, pos = new Float32Array(nv * 3), col = new Float32Array(nv * 3), idx = [], c = new THREE.Color(), c2 = new THREE.Color();
+    var g0 = geo(VOLC_LL[0], VOLC_LL[1]), th0 = terrainH, N = 44, S = 96, nv = (N + 1) * S, pos = new Float32Array(nv * 3), col = new Float32Array(nv * 3), idx = [], c = new THREE.Color(), c2 = new THREE.Color();
     var i, j, a, r, x, z, y, b, fr, o, snowL, t, rock, v;
-    VOLC = { x: g0.x, z: g0.z, R: 22, H: 16, rr: 3.6, D: 2.8, ty: 0, sm: 0, bt: 6, burst: 0 };
+    VOLC = { x: g0.x, z: g0.z, R: VOLC_BASE, H: 16, rr: 3.6, D: 2.8, ty: 0, sm: 0, bt: 6, burst: 0 };
     v = VOLC;
     for (i = 0; i <= N; i++) {
       r = v.R * Math.pow(i / N, 1.7);
