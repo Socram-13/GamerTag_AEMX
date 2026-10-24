@@ -5657,7 +5657,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var vegObs = null, botVG = null, bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 35, BOT_HUNT_D = 15, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
+  var BOT_RANGE = 35, BOT_HUNT_D = 6, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
