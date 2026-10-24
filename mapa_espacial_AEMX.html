@@ -5817,8 +5817,8 @@ window.startMap = function (RAW, AUTH) {
       var clouds = [];
       for (i = 0; i < 8; i++) {
         var cs = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: rain ? 0x2f3747 : 0x5b6578, transparent: true, opacity: 0, depthWrite: false, fog: false }));
-        var sz = rnd(140, 230); cs.scale.set(sz, sz * 0.65, 1);
-        cs.position.set(d.cx + rnd(-55, 55), H * 0.7 + rnd(0, 8), d.cz + rnd(-55, 55)); group.add(cs); clouds.push(cs);
+        var sz = rnd(140, 230); cs.scale.set(sz, sz * 0.2, 1);
+        cs.position.set(d.cx + rnd(-55, 55), 62 + rnd(0, 6), d.cz + rnd(-55, 55)); group.add(cs); clouds.push(cs);
       }
       var ev = { d: d, rain: rain, drops: drops, N: N, H: H, len: len, geo: geo2, mat: mat, lines: lines, clouds: clouds, age: 0, dur: dur, wind: rnd(-3, 3) };
       events.push(ev); return ev;
