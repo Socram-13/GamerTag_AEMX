@@ -3180,7 +3180,8 @@ window.startMap = function (RAW, AUTH) {
   var gArm = new THREE.BoxGeometry(0.14, 0.5, 0.14), gHelmet = new THREE.SphereGeometry(0.3, 14, 10);
   var gVisor = new THREE.SphereGeometry(0.18, 14, 10), gPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
 
-  function makeAstronaut(kind) {
+  var astAll = [], gLegH = new THREE.BoxGeometry(0.2, 0.275, 0.22), gArmH = new THREE.BoxGeometry(0.14, 0.25, 0.14);
+  function makeAstronaut(kind, noBend) {
     var black = kind === true, orange = kind === 'orange', blue = kind === 'blue';
     var g = new THREE.Group(), m, suit = blue ? astSuitBl : orange ? astSuitO : black ? astSuitB : astSuit, pack = blue ? astPackBl : orange ? astPackO : black ? astPackB : astPack, vis = blue ? astVisorBl : orange ? astVisorO : black ? astVisorB : astVisor;
     g.rotation.order = 'YXZ';
@@ -3213,8 +3214,31 @@ window.startMap = function (RAW, AUTH) {
       return piv;
     }
     var parts = { legL: limb(gLeg, -0.13, 0.65, 0.55), legR: limb(gLeg, 0.13, 0.65, 0.55), armL: limb(gArm, -0.33, 1.2, 0.5), armR: limb(gArm, 0.33, 1.2, 0.5) };
+    if (!noBend) {
+      /* Rodillas y codos: cada extremidad se parte en dos mitades con una articulación en medio */
+      var jn = [['legL', gLegH, 0.55], ['legR', gLegH, 0.55], ['armL', gArmH, 0.5], ['armR', gArmH, 0.5]], ji, pv, up, jt, lo;
+      for (ji = 0; ji < 4; ji++) {
+        pv = parts[jn[ji][0]]; up = pv.children[0]; up.geometry = jn[ji][1]; up.position.y = -jn[ji][2] / 4;
+        jt = new THREE.Group(); jt.position.y = -jn[ji][2] / 2;
+        lo = new THREE.Mesh(jn[ji][1], up.material); lo.position.y = -jn[ji][2] / 4; jt.add(lo); pv.add(jt);
+        parts[jn[ji][0] + 'J'] = jt;
+      }
+      astAll.push(parts);
+    }
     g.scale.setScalar(0.425);
     return { g: g, parts: parts };
+  }
+
+  /* Las articulaciones se derivan de la pose de cadera/hombro de cada animación */
+  function updateAstJoints() {
+    var i, p, x;
+    for (i = 0; i < astAll.length; i++) {
+      p = astAll[i];
+      x = p.legL.rotation.x; p.legLJ.rotation.x = x < -0.7 ? Math.min(1.5, -x * 0.95) : 0.3 * Math.max(0, x) + 0.3 * Math.max(0, -x);
+      x = p.legR.rotation.x; p.legRJ.rotation.x = x < -0.7 ? Math.min(1.5, -x * 0.95) : 0.3 * Math.max(0, x) + 0.3 * Math.max(0, -x);
+      x = p.armL.rotation.x; p.armLJ.rotation.x = x < -2.0 ? -0.15 : -Math.min(0.9, 0.12 + 0.35 * Math.max(0, -x));
+      x = p.armR.rotation.x; p.armRJ.rotation.x = x < -2.0 ? -0.15 : -Math.min(0.9, 0.12 + 0.35 * Math.max(0, -x));
+    }
   }
 
   /* Grafo de calles: los vértices y aristas de los hexágonos de cada distrito */
@@ -5443,7 +5467,7 @@ window.startMap = function (RAW, AUTH) {
     });
     lampM = new THREE.Mesh(uLamp, carLamp); lampM.position.set(0, 0.13, -0.1); lampM.scale.setScalar(0.6); tur.add(lampM);
 
-    a = makeAstronaut('blue');
+    a = makeAstronaut('blue', true);
     a.g.position.set(0, 0.10, 0.1);
     a.parts.legL.rotation.x = -1.4; a.parts.legR.rotation.x = -1.4;
     a.parts.armL.rotation.x = -1.0; a.parts.armR.rotation.x = -1.0;
@@ -5936,7 +5960,7 @@ window.startMap = function (RAW, AUTH) {
     nv.st++; st = nv.st; gci = gi % NX; gcj = (gi / NX) | 0;
     botHN.length = 0; botHF.length = 0;
     nv.g[si] = 0; nv.stamp[si] = st; nv.par[si] = -1; botHPush(si, 0);
-    while (botHN.length && n < 150000) {
+    while (botHN.length && n < 260000) {
       cur = botHPop();
       if (nv.closed[cur] === st) continue;
       nv.closed[cur] = st; n++;
@@ -5987,7 +6011,7 @@ window.startMap = function (RAW, AUTH) {
     comp = BN.comp[bi]; ui = botCell(U.x, U.z);
     if (ui >= 0 && BN.pass[ui] && BN.comp[ui] === comp) return { x: U.x, z: U.z };
     dx = b.x - U.x; dz = b.z - U.z; L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
-    for (d = 0; d <= L && d < 700; d += 6) {
+    for (d = 0; d <= L; d += 6) {
       x = U.x + dx * d; z = U.z + dz * d; ui = botCell(x, z);
       if (ui >= 0 && BN.pass[ui] && BN.comp[ui] === comp) return { x: x, z: z };
     }
@@ -6017,8 +6041,30 @@ window.startMap = function (RAW, AUTH) {
     b.rp = { p: p, cx: cx, cz: cz, lx: lx, lz: lz, roofY: botRoofY(p, lx, lz) };
     return botSetGoal(cx, cz, 'roof');
   }
+  /* Recorre las ciudades con jugadores una por una: va a la más cercana que aún no ha revisado */
+  function botPickCity() {
+    var b = bot, c = [], i, d, k, a, x, z, dx, dz, L, tries;
+    if (!b.vis) b.vis = [];
+    for (i = 0; i < districts.length; i++) {
+      d = districts[i]; if (!d.list.length) continue;
+      if (Math.hypot(d.cx - b.x, d.cz - b.z) < d.r + 30 && b.vis.indexOf(d) < 0) b.vis.push(d);
+      if (b.vis.indexOf(d) < 0) c.push(d);
+    }
+    if (!c.length) { b.vis = []; return false; }
+    c.sort(function (p, q) { return Math.hypot(p.cx - b.x, p.cz - b.z) - Math.hypot(q.cx - b.x, q.cz - b.z); });
+    for (i = 0; i < c.length && i < 8; i++) {
+      d = c[i]; dx = b.x - d.cx; dz = b.z - d.cz; L = Math.hypot(dx, dz) || 1; a = Math.atan2(dz, dx);
+      for (tries = 0; tries < 14; tries++) {
+        k = a + (tries % 2 ? 1 : -1) * Math.ceil(tries / 2) * 0.45; x = d.cx + Math.cos(k) * (d.r + 8); z = d.cz + Math.sin(k) * (d.r + 8);
+        if (botFree(x, z) && botSetGoal(x, z, 'patrol')) { b.vis.push(d); b.jog = true; return true; }
+      }
+      b.vis.push(d); /* inalcanzable por tierra: se descarta */
+    }
+    return false;
+  }
   function botPick() {
     var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown() && !ufoOverVolc()) ? ufo.g.position : null, toward = !!Up && Math.hypot(Up.x - b.x, Up.z - b.z) < 500 && Math.random() < 0.7;
+    if (Math.random() < 0.55 && botPickCity()) return;
     if (Math.random() < 0.5 && botPickRoof(60)) return;
     for (i = 0; i < 30; i++) {
       a = toward ? Math.atan2(Up.z - b.z, Up.x - b.x) + (Math.random() - 0.5) * 1.2 : Math.random() * 6.2832; r = 25 + Math.random() * 70; x = b.x + Math.cos(a) * r; z = b.z + Math.sin(a) * r;
@@ -6112,7 +6158,7 @@ window.startMap = function (RAW, AUTH) {
       if (b.hasUp && dt > 0) { b.uv.set((U.x - b.up.x) / dt, (U.y - b.up.y) / dt, (U.z - b.up.z) / dt); if (b.uv.length() > 60) b.uv.set(0, 0, 0); }
       b.up.copy(U); b.hasUp = true;
     } else b.hasUp = false;
-    thr = !!U && now >= b.noHunt && Math.hypot(U.x - b.x, U.z - b.z) <= BOT_CHASE_R;
+    thr = !!U && now >= b.noHunt;
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
     if (b.boostT > 0) { b.boostT -= dt; if (b.boostT <= 0 || b.mode !== 'walk' || !b.goal) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; } }
     else if (b.boostCD > 0) b.boostCD -= dt;
@@ -6123,8 +6169,8 @@ window.startMap = function (RAW, AUTH) {
         if (dh > BOT_HUNT_D) {
           if (now >= b.huntHold && b.gtype !== 'roof' && (b.gtype !== 'hunt' || now >= b.replanT)) {
             tgt2 = botHuntPoint(U);
-            if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) b.replanT = now + 2.5;
-            else { b.noHunt = now + 6; if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; } }
+            if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) b.replanT = now + (dh > 200 ? 7 : 2.5);
+            else { b.noHunt = now + 8; if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; } }
           }
         } else if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; b.path = null; }
       } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; }
@@ -6378,7 +6424,7 @@ window.startMap = function (RAW, AUTH) {
   var wInner = new THREE.MeshLambertMaterial({ color: 0x15171c });
   var wEye = new THREE.MeshBasicMaterial({ color: 0x000000 });
   function makeWanderer() {
-    var a = makeAstronaut(), g = a.g, m, mouth = 1.0, cape, hand;
+    var a = makeAstronaut(undefined, true), g = a.g, m, mouth = 1.0, cape, hand;
     g.children[2].visible = false; g.children[3].visible = false; /* se quita el casco normal y su visor */
     /* Casco de Pac-Man con la boca hacia el frente (+z) */
     var pg = new THREE.SphereGeometry(0.34, 20, 14, Math.PI / 2 + mouth / 2, Math.PI * 2 - mouth); pg.rotateZ(Math.PI / 2); /* la boca se abre en vertical (mandíbula arriba y abajo), al frente */
@@ -7015,7 +7061,7 @@ window.startMap = function (RAW, AUTH) {
     updateUfo(t, dt);
     ufoSpotStep(t, dt);
     updateCar(t, dt);
-    updateBot(t, dt);
+    updateBot(t, dt); updateAstJoints();
     updateWanderer(t, dt);
     updatePresident(t, dt);
     updateBullets(dt);
