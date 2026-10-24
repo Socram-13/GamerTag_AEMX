@@ -6460,7 +6460,7 @@ window.startMap = function (RAW, AUTH) {
       if (!trails.length || !roots.length || (!landAt && now < 30)) return;
       botInit(); b = bot;
     }
-    U = (ufo && !ufoDown() && !ufoOverVolc()) ? ufo.g.position : null;
+    U = (ufo && !ufoDown() && !ufoOverVolc() && now >= (ufo.noFireUntil || 0) && !(b.wk && (b.circ || b.scan || b.gtype === 'wreck' || b.gtype === 'wreckp'))) ? ufo.g.position : null; /* ignora al OVNI nuevo mientras revisa el cráter (hasta que desaparezca) y durante su 5 s de ventaja */
     if (U) {
       if (b.hasUp && dt > 0) { b.uv.set((U.x - b.up.x) / dt, (U.y - b.up.y) / dt, (U.z - b.up.z) / dt); if (b.uv.length() > 60) b.uv.set(0, 0, 0); }
       b.up.copy(U); b.hasUp = true;
