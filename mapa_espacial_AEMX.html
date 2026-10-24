@@ -4722,6 +4722,12 @@ window.startMap = function (RAW, AUTH) {
           c.visible = false;
           fxSpawn(ufo.g.position.x, ufo.g.position.y - 0.4, ufo.g.position.z, 0, 0, 0, 0.5, 0.6, 3, 0xfff2b0, 0.9, true);
           AUD.chime(ufo.g.position);
+          /* La hamburguesa sana al OVNI por completo, igual que la vaca */
+          ufoGlitch(ufo.hits > 0 ? 1 : 0.4);
+          if (ufo.hits > 0) {
+            ufo.hits = 0; ufo.sm = 0;
+            for (i = 0; i < 14; i++) fxSpawn(ufo.g.position.x + (Math.random() - 0.5) * 1.2, ufo.g.position.y + (Math.random() - 0.5) * 0.6, ufo.g.position.z + (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2, 0.8, 0.3, 1.2, 0x9dffb8, 0.9, true);
+          }
         }
       } else {
         ufo.beam.visible = false; ufo.ring.visible = false; bk = 0;
