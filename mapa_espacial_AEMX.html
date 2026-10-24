@@ -5624,7 +5624,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var vegObs = null, botVG = null, bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 90, BOT_HUNT_D = 55, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 135, BOT_BOOST_CD = 8, BOT_CHASE_R = 400;
+  var BOT_RANGE = 60, BOT_HUNT_D = 55, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 85, BOT_BOOST_CD = 8, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
@@ -5864,26 +5864,32 @@ window.startMap = function (RAW, AUTH) {
   /* Libre = tierra (nunca agua), fuera de edificios */
   function botFree(x, z) {
     if (landAt && !(landAt(x, z) && landAt(x + 0.5, z) && landAt(x - 0.5, z) && landAt(x, z + 0.5) && landAt(x, z - 0.5))) return false;
+    if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false; /* el volcán está vedado */
     return !botBld(x, z, 0) && !botVeg(x, z);
   }
   function botSlopeOK(x0, z0, x1, z1) { var d = Math.hypot(x1 - x0, z1 - z0) || 1; return Math.abs(terrainH(x1, z1) - terrainH(x0, z0)) / d < 0.9; }
+  var botBlk = 0;
+  /* Sondea el rumbo h hasta 'look' de distancia con el ancho del cuerpo (centro y ±0.5 a los lados); guarda en botBlk dónde se topa */
   function botClear(b, h, look) {
-    var sx = Math.sin(h), cz = Math.cos(h), k, px, pz;
-    for (k = 1; k <= 3; k++) {
-      px = b.x + sx * look * k / 3; pz = b.z + cz * look * k / 3;
-      if (!botFree(px, pz)) return false;
-      if (k === 3 && !botSlopeOK(b.x, b.z, px, pz)) return false;
+    var sx = Math.sin(h), cz = Math.cos(h), k, f, px, pz, n = Math.max(3, Math.ceil(look / 1.1));
+    botBlk = look;
+    for (k = 1; k <= n; k++) {
+      f = look * k / n; px = b.x + sx * f; pz = b.z + cz * f;
+      if (!botFree(px, pz) || (k % 2 === 0 && (!botFree(px + cz * 0.5, pz - sx * 0.5) || !botFree(px - cz * 0.5, pz + sx * 0.5)))) { botBlk = f; return false; }
+      if ((k === n || k === (n >> 1)) && !botSlopeOK(b.x, b.z, px, pz)) { botBlk = f; return false; }
     }
     return true;
   }
   /* Rumbo libre más cercano al deseado; recuerda de qué lado rodeó el obstáculo */
   function botSteer(b, want, look) {
     var offs = [0, 0.35, 0.7, 1.05, 1.5, 2.0, 2.6], i, s, h, sg;
+    b.blockD = look;
     for (i = 0; i < offs.length; i++) {
       for (s = 0; s < (i ? 2 : 1); s++) {
         sg = i ? (s ? -1 : 1) * b.side : 0;
         h = want + sg * offs[i];
         if (botClear(b, h, look)) { if (i) b.side = sg; return h; }
+        if (i === 0) b.blockD = botBlk;
       }
     }
     return null;
@@ -5916,6 +5922,7 @@ window.startMap = function (RAW, AUTH) {
     var i, j, k, x, z, id = 0, best = 0, sizes = [0], qs, qe, q, n, ci, cj, di, dj, ni, nj, m;
     for (j = 0; j < NZ; j++) for (i = 0; i < NX; i++) {
       k = j * NX + i; x = X0 + (i + 0.5) * C; z = Z0 + (j + 0.5) * C;
+      if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 3) continue;
       if (landAt(x, z) && landAt(x + 2.5, z) && landAt(x - 2.5, z) && landAt(x, z + 2.5) && landAt(x, z - 2.5)) { pass[k] = 1; H[k] = terrainH(x, z); }
     }
     for (k = 0; k < N; k++) {
@@ -6252,10 +6259,11 @@ window.startMap = function (RAW, AUTH) {
           want = Math.atan2(tw.x - b.x, tw.z - b.z);
           spd = (b.gtype === 'hunt' || b.gtype === 'wreck') ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
           if (gd < 3) spd = Math.min(spd, 3.2);
-          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
+          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
-            if (gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
+            if (b.wxBad || gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
           }
           if (b.rec > 0) {
             /* Recuperación de atasco: retrocede en diagonal hacia el lado libre y luego replanifica la ruta */
@@ -6268,17 +6276,17 @@ window.startMap = function (RAW, AUTH) {
               if (!botSetGoal(b.goal.x, b.goal.z, b.gtype)) { b.goal = null; b.gtype = ''; b.path = null; b.recN = 0; b.idle = 0.3; }
             }
           } else {
-          hd = botSteer(b, want, 1.4 + b.v * 0.22);
+          hd = botSteer(b, want, 3 + b.v * 0.8);
           if (hd === null) { b.v *= Math.max(0, 1 - dt * 6); b.yaw += b.side * dt * 2.5; }
           else {
-            b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 8);
-            tg = spd * Math.max(0.2, Math.cos(nAng(hd - b.yaw)));
+            b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 12);
+            tg = spd * Math.max(0.2, Math.cos(nAng(hd - b.yaw))) * Math.max(0.35, Math.min(1, (b.blockD - 1.2) / (b.v * 0.5 + 2)));
             b.v += (tg - b.v) * Math.min(1, dt * 5);
           }
           steps = Math.max(1, Math.ceil(b.v * dt / 0.5));
           for (i = 0; i < steps; i++) {
             nx = b.x + Math.sin(b.yaw) * b.v * dt / steps; nz = b.z + Math.cos(b.yaw) * b.v * dt / steps;
-            if (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz)) { b.x = nx; b.z = nz; } else { b.v *= 0.5; break; }
+            if (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz)) { b.x = nx; b.z = nz; } else { b.v *= 0.5; b.bump = (b.bump || 0) + 1; break; }
           }
           /* Detector rápido: casi sin avanzar en 0.8 s teniendo meta → retrocede, rodea y replanifica; al tercer intento cambia de meta */
           b.st = (b.st || 0) + dt;
@@ -6454,15 +6462,21 @@ window.startMap = function (RAW, AUTH) {
     }
     b.eyeMat.color.setHex(b.boostT > 0 ? 0xc8ffe0 : 0x3dff7a);
     b.g.updateMatrixWorld(true);
-    b.fxT -= dt;
-    if (b.flame > 0.15 && b.fxT <= 0) {
-      b.fxT = 0.035;
+    /* Llama continua: se siembran varias partículas pequeñas a lo largo del trayecto recorrido en este cuadro, para que no queden círculos separados */
+    var fdx = b.x - (b.px === undefined ? b.x : b.px), fdy = b.y - (b.py === undefined ? b.y : b.py), fdz = b.z - (b.pz === undefined ? b.z : b.pz), fn, fj;
+    b.px = b.x; b.py = b.y; b.pz = b.z;
+    if (b.flame > 0.15) {
+      fn = Math.max(1, Math.min(8, Math.ceil(Math.hypot(fdx, fdy, fdz) / 0.1)));
       for (i = 0; i < 2; i++) {
         bkTmpA.set(0, -0.3, 0); b.nozzles[i].localToWorld(bkTmpA);
-        fxSpawn(bkTmpA.x, bkTmpA.y, bkTmpA.z, (Math.random() - 0.5) * 0.4, -0.8, (Math.random() - 0.5) * 0.4, 0.22, 0.06, 0.012, b.boostT > 0 ? 0x5ad8ff : 0x7dffd0, 0.85, true);
+        for (fj = 0; fj < fn; fj++) {
+          fxSpawn(bkTmpA.x - fdx * fj / fn, bkTmpA.y - fdy * fj / fn, bkTmpA.z - fdz * fj / fn, (Math.random() - 0.5) * 0.3, -0.9, (Math.random() - 0.5) * 0.3, 0.26, 0.09, 0.015, b.boostT > 0 ? 0x5ad8ff : 0x7dffd0, 0.85, true);
+        }
         if (b.mode !== 'walk' && Math.random() < 0.5) fxSpawn(bkTmpA.x, bkTmpA.y, bkTmpA.z, (Math.random() - 0.5) * 0.6, -0.4, (Math.random() - 0.5) * 0.6, 0.8, 0.04, 0.2, 0xb4b4b4, 0.3, false);
       }
-      if (b.boostT > 0) {
+      b.fxT -= dt;
+      if (b.boostT > 0 && b.fxT <= 0) {
+        b.fxT = 0.035;
         bkTmpA.set(b.x - Math.sin(b.yaw) * 0.5, b.y + 0.45, b.z - Math.cos(b.yaw) * 0.5);
         fxSpawn(bkTmpA.x, bkTmpA.y, bkTmpA.z, 0, 0, 0, 0.4, 0.1, 0.015, 0x4dffb0, 0.5, true);
         fxSpawn(bkTmpA.x, b.y + 0.1, bkTmpA.z, 0, 0.2, 0, 0.5, 0.07, 0.25, 0xc8b48a, 0.3, false);
@@ -7068,7 +7082,19 @@ window.startMap = function (RAW, AUTH) {
       updateFogEvents(dt, t); updateGhosts(dt, t); updatePuddles(dt); updateRings(dt);
       AUD.setRain(Math.min(1, sa), Math.min(1, sb));
     }
-    return { update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
+    /* ¿Hay lluvia o niebla en este punto? (el robot no usa el hiperimpulso ahí) */
+    function bad(x, z) {
+      var i, d, fe;
+      for (i = 0; i < events.length; i++) if (events[i].area && inArea(events[i].area, x, z)) return true;
+      for (i = 0; i < fogEvents.length; i++) { fe = fogEvents[i]; if (Math.hypot(x - fe.d.cx, z - fe.d.cz) < 64) return true; }
+      for (i = 0; i < districts.length; i++) {
+        d = districts[i]; if (d.list.length) continue;
+        if (statePolys[d.name] && statePolys[d.name].length) { if (inPoly(statePolys[d.name], x, z)) return true; }
+        else if (Math.hypot(x - d.cx, z - d.cz) < 40) return true;
+      }
+      return false;
+    }
+    return { bad: bad, update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
   })();
   window.__aemxClima = WX; /* prueba manual: __aemxClima.start('rain','Veracruz',60) */
 
