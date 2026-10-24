@@ -6161,6 +6161,17 @@ window.startMap = function (RAW, AUTH) {
             spd = BOT_BOOST;
             if (gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
           }
+          if (b.rec > 0) {
+            /* Recuperación de atasco: retrocede en diagonal hacia el lado libre y luego replanifica la ruta */
+            b.rec -= dt; b.v = 2.6; b.yaw += nAng(b.recDir + 3.1416 - b.yaw) * Math.min(1, dt * 6);
+            nx = b.x + Math.sin(b.recDir) * 2.6 * dt; nz = b.z + Math.cos(b.recDir) * 2.6 * dt;
+            if (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz)) { b.x = nx; b.z = nz; }
+            else { b.recDir += b.side * 0.9; }
+            if (b.rec <= 0) {
+              b.v = 0; b.sx = b.x; b.sz = b.z; b.st = 0;
+              if (!botSetGoal(b.goal.x, b.goal.z, b.gtype)) { b.goal = null; b.gtype = ''; b.path = null; b.recN = 0; b.idle = 0.3; }
+            }
+          } else {
           hd = botSteer(b, want, 1.4 + b.v * 0.22);
           if (hd === null) { b.v *= Math.max(0, 1 - dt * 6); b.yaw += b.side * dt * 2.5; }
           else {
@@ -6173,11 +6184,22 @@ window.startMap = function (RAW, AUTH) {
             nx = b.x + Math.sin(b.yaw) * b.v * dt / steps; nz = b.z + Math.cos(b.yaw) * b.v * dt / steps;
             if (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz)) { b.x = nx; b.z = nz; } else { b.v *= 0.5; break; }
           }
+          /* Detector rápido: casi sin avanzar en 0.8 s teniendo meta → retrocede, rodea y replanifica; al tercer intento cambia de meta */
+          b.st = (b.st || 0) + dt;
+          if (b.st >= 0.8) {
+            if (b.sx !== undefined && Math.hypot(b.x - b.sx, b.z - b.sz) < 0.35 && spd > 1) {
+              b.recN = (b.recN || 0) + 1; b.side = -b.side;
+              if (b.recN >= 3) { b.recN = 0; if (b.gtype === 'hunt') b.noHunt = now + 4; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 0.3; }
+              else { b.rec = 0.9; b.recDir = b.yaw + 3.1416 + b.side * 0.9; b.boostT = 0; }
+            } else if (b.sx !== undefined && Math.hypot(b.x - b.sx, b.z - b.sz) > 1.5) b.recN = 0;
+            b.sx = b.x; b.sz = b.z; b.st = 0;
+          }
           /* Atasco: si no se acerca en ~3.6 s, cambia de objetivo (y deja de perseguir un rato) */
           b.pt += dt;
           if (b.pt >= 1.2) {
             b.stuck = (b.lastGD - dw < 0.5) ? b.stuck + 1 : 0; b.lastGD = dw; b.pt = 0;
             if (b.stuck >= 3) { b.stuck = 0; if (b.gtype === 'hunt') b.noHunt = now + 4; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 0.3; }
+          }
           }
         }
       } else {
