@@ -4016,9 +4016,9 @@ window.startMap = function (RAW, AUTH) {
       if (wand) {
         deselect();
         var ws = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
-        ws.radius = 40; ws.phi = 0.95;
+        ws.radius = 14; ws.phi = 0.95;
         wandOff.setFromSpherical(ws);
-        flyTo(wand.x, Math.max(0, terrainH(wand.x, wand.z)) + 1, wand.z, 40, 0.95);
+        flyTo(wand.x, Math.max(0, terrainH(wand.x, wand.z)) + 1, wand.z, 14, 0.95);
         wandFollow = true;
       }
     } else if (m.kind === 't') {
@@ -5600,7 +5600,7 @@ window.startMap = function (RAW, AUTH) {
       i = (Math.random() * trails.length) | 0;
       W.path = edgePath(i, trails[i].a); W.last = i; W.s = Math.random() * W.path.len * 0.5;
     }
-    a = W.a; W.s += 2.4 * dt; path = W.path;
+    a = W.a; W.s += 1.2 * dt; path = W.path;
     while (path && W.s >= path.len) {
       W.s -= path.len;
       if (path.kind === 'arc') { W.path = W.next; W.next = null; path = W.path; W.s = 0; }
@@ -5641,11 +5641,11 @@ window.startMap = function (RAW, AUTH) {
     if (!vis) return;
     gy = Math.max(0, terrainH(x, z)) + 0.06;
     a.g.rotation.y = W.yaw;
-    a.g.position.set(x, gy + hopY + Math.abs(Math.sin(t * 5)) * 0.03, z);
+    a.g.position.set(x, gy + hopY + Math.abs(Math.sin(t * 3)) * 0.03, z);
     if (hopY > 0.02) { /* en el aire: brazo libre arriba y piernas recogidas */
       a.parts.legL.rotation.x = -0.8; a.parts.legR.rotation.x = -0.5; a.parts.armL.rotation.x = -2.4; a.parts.armR.rotation.x = -0.6;
     } else {
-      sw = Math.sin(t * 5) * 0.55;
+      sw = Math.sin(t * 3) * 0.5;
       a.parts.legL.rotation.x = sw; a.parts.legR.rotation.x = -sw; a.parts.armL.rotation.x = -sw * 0.8; a.parts.armR.rotation.x = -0.3 + sw * 0.15;
     }
     W.hand.rotation.x = -a.parts.armR.rotation.x;
