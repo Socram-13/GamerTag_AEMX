@@ -6390,7 +6390,7 @@ window.startMap = function (RAW, AUTH) {
             }
           }
           if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
-          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 10; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
             if (b.wxBad || gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
@@ -6411,6 +6411,7 @@ window.startMap = function (RAW, AUTH) {
           else {
             b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 12);
             tg = spd * Math.max(0.2, Math.cos(nAng(hd - b.yaw))) * Math.max(0.35, Math.min(1, (b.blockD - 1.2) / (b.v * 0.5 + 2)));
+            if ((b.bh || 0) > 0.15 && b.boostT <= 0) tg = Math.max(tg, 16); /* conserva el impulso mientras cae */
             b.v += (tg - b.v) * Math.min(1, dt * 5);
           }
           steps = Math.max(1, Math.ceil(b.v * dt / 0.5));
@@ -6441,8 +6442,8 @@ window.startMap = function (RAW, AUTH) {
         b.lastGD = 1e9; b.pt = 0;
       }
       /* Hiperimpulso en arco: sube suavemente hasta ~2.2 a mitad del impulso y baja al terminar; si se corta antes, cae al suelo */
-      if (b.boostT > 0) { pf = 1 - b.boostT / 5; b.bh = (b.bh || 0) + (4 * 2.2 * pf * (1 - pf) - (b.bh || 0)) * Math.min(1, dt * 10); }
-      else if ((b.bh || 0) > 0) b.bh = Math.max(0, b.bh - 7 * dt);
+      if (b.boostT > 0) { b.bh = (b.bh || 0) + (6 - (b.bh || 0)) * Math.min(1, dt * 2.2); b.bvy = 0; } /* el impulso la eleva hasta ~6 y vuela alto */
+      else if ((b.bh || 0) > 0) { b.bvy = (b.bvy || 0) - 9 * dt; b.bh = Math.max(0, b.bh + b.bvy * dt); if (b.bh <= 0) b.bvy = 0; } /* se agota: cae en arco */
       b.y += (botGround(b.x, b.z) + (b.bh || 0) - b.y) * Math.min(1, dt * 14);
       b.air += (0 - b.air) * Math.min(1, dt * 6);
     } else if (b.mode === 'jetUp' || b.mode === 'jetDown') {
