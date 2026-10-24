@@ -5836,10 +5836,11 @@ window.startMap = function (RAW, AUTH) {
       pts.forEach(function (q) { addFog(q[0], q[1], sp * rnd(2.0, 2.8)); });
     }
     function buildFog(t) {
+      var n0;
       districts.forEach(function (d) {
         if (d.list.length || fogDone[d.name]) return;
-        if (statePolys[d.name] && statePolys[d.name].length) { fogDone[d.name] = 1; fogState(d, true); }
-        else if (t > 15) { fogDone[d.name] = 1; fogState(d, false); } /* sin forma del estado: respaldo alrededor de la ciudad */
+        if (statePolys[d.name] && statePolys[d.name].length) { fogDone[d.name] = 1; n0 = fogs.length; fogState(d, true); addGhosts(fogs.slice(n0), null); }
+        else if (t > 15) { fogDone[d.name] = 1; n0 = fogs.length; fogState(d, false); addGhosts(fogs.slice(n0), null); } /* sin forma del estado: respaldo alrededor de la ciudad */
       });
     }
 
@@ -5921,6 +5922,88 @@ window.startMap = function (RAW, AUTH) {
       }
     }
 
+    /* Fantasmas entre la niebla: siluetas translúcidas que flotan, aparecen y desaparecen, y se alejan de la cámara */
+    var cv5 = document.createElement('canvas'); cv5.width = 128; cv5.height = 192;
+    (function () {
+      var c = cv5.getContext('2d'), g = c.createLinearGradient(0, 10, 0, 185), x, i;
+      g.addColorStop(0, 'rgba(245,250,255,0.95)'); g.addColorStop(1, 'rgba(200,215,235,0.35)');
+      c.fillStyle = g; c.beginPath(); c.moveTo(14, 185); c.lineTo(14, 70); c.arc(64, 66, 50, Math.PI, 0); c.lineTo(114, 185);
+      for (i = 0; i < 4; i++) { x = 114 - (i + 1) * 25; c.quadraticCurveTo(114 - i * 25 - 12.5, i % 2 ? 168 : 190, x, 185); }
+      c.closePath(); c.fill();
+      c.fillStyle = 'rgba(20,24,40,0.85)';
+      c.beginPath(); c.ellipse(46, 70, 7, 11, 0, 0, 6.2832); c.fill();
+      c.beginPath(); c.ellipse(82, 70, 7, 11, 0, 0, 6.2832); c.fill();
+      c.beginPath(); c.ellipse(64, 104, 8, 12, 0, 0, 6.2832); c.fill();
+    })();
+    var ghostTex = new THREE.CanvasTexture(cv5), ghosts = [];
+    function addGhosts(src, fe) {
+      var n = 2 + Math.floor(Math.random() * 3), i, it, sp;
+      if (!src.length) return;
+      for (i = 0; i < n; i++) {
+        it = src[Math.floor(Math.random() * src.length)];
+        sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ghostTex, color: 0xeaf1ff, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+        sp.scale.set(4.2, 6.3, 1); sp.visible = false; group.add(sp);
+        ghosts.push({ sp: sp, ax: it.b.x, az: it.b.z, ph: rnd(0, 6.28), per: rnd(14, 30), fe: fe, ox: 0, oz: 0, dead: false });
+      }
+    }
+    function updateGhosts(dt, t) {
+      var cp = camera.position, k, g, x, z, y, dx, dz, d, c, a, fe, fade, near;
+      for (k = ghosts.length - 1; k >= 0; k--) {
+        g = ghosts[k];
+        if (g.dead) { group.remove(g.sp); g.sp.material.dispose(); ghosts.splice(k, 1); continue; }
+        fe = g.fe; fade = fe ? Math.min(1, fe.age / 10, (fe.dur - fe.age) / 12) : 1;
+        x = g.ax + Math.sin(t * 0.12 + g.ph) * 9 + g.ox; z = g.az + Math.cos(t * 0.09 + g.ph) * 9 + g.oz;
+        dx = x - cp.x; dz = z - cp.z; d = Math.sqrt(dx * dx + dz * dz);
+        if (d > 220 || cp.y > 260) { g.sp.visible = false; continue; }
+        if (d < 16 && d > 0.01) { g.ox += dx / d * 8 * dt; g.oz += dz / d * 8 * dt; } /* se aleja de la cámara */
+        else { g.ox *= 1 - 0.25 * dt; g.oz *= 1 - 0.25 * dt; }
+        y = 3.4 + 0.5 * Math.sin(t * 0.8 + g.ph);
+        c = 0.5 + 0.5 * Math.sin(t * 6.2832 / g.per + g.ph); /* aparece y se desvanece */
+        a = Math.max(0, Math.min(1, (c - 0.35) / 0.45)); a = a * a * (3 - 2 * a) * 0.55;
+        near = Math.max(0, Math.min(1, (220 - Math.sqrt(dx * dx + dz * dz + (y - cp.y) * (y - cp.y))) / 80)) * Math.max(0, Math.min(1, (d - 5) / 10));
+        g.sp.position.set(x, y, z);
+        g.sp.material.opacity = a * fade * near;
+        g.sp.visible = g.sp.material.opacity > 0.01;
+      }
+    }
+
+    /* Niebla natural al azar: zonas de sierra, valles y costa; dura de 1 a 4 minutos */
+    var FOGZ = ['Estado de México', 'Puebla', 'Hidalgo', 'Tlaxcala', 'Chiapas', 'Oaxaca', 'Chihuahua', 'Durango', 'Veracruz', 'Tamaulipas', 'Michoacán', 'Morelos', 'Querétaro', 'Jalisco'];
+    var fogEvents = [], nextFog = rnd(15, 40);
+    function startFog(name, dur) {
+      var d = byName(name), i, ang, rd, sz, sp, b, list = [];
+      if (!d || !d.list.length) return null; /* los estados sin jugadores ya tienen su niebla fija */
+      for (i = 0; i < fogEvents.length; i++) if (fogEvents[i].d === d) return null;
+      for (i = 0; i < events.length; i++) if (events[i].d === d) return null;
+      for (i = 0; i < 18; i++) {
+        ang = rnd(0, 6.2832); rd = 52 * Math.sqrt(Math.random()); sz = rnd(45, 75);
+        sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: 0x8d96a3, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+        sp.scale.set(sz, sz * 0.5, 1);
+        b = { x: d.cx + Math.cos(ang) * rd, z: d.cz + Math.sin(ang) * rd, y: rnd(1.6, 4.5) };
+        sp.position.set(b.x, b.y, b.z); group.add(sp);
+        list.push({ sp: sp, b: b, ph: rnd(0, 6.28), amp: rnd(1.5, 3.5), base: rnd(0.5, 0.7) });
+      }
+      var fe = { d: d, list: list, age: 0, dur: dur };
+      addGhosts(list, fe);
+      fogEvents.push(fe); return fe;
+    }
+    function updateFogEvents(dt, t) {
+      var k, i, fe, f, fade, dd, cp = camera.position;
+      nextFog -= dt;
+      if (nextFog <= 0) { if (fogEvents.length < 2) startFog(FOGZ[Math.floor(Math.random() * FOGZ.length)], rnd(60, 240)); nextFog = rnd(60, 180); }
+      for (k = fogEvents.length - 1; k >= 0; k--) {
+        fe = fogEvents[k]; fe.age += dt;
+        if (fe.age >= fe.dur) { fe.list.forEach(function (q) { group.remove(q.sp); q.sp.material.dispose(); }); ghosts.forEach(function (g) { if (g.fe === fe) g.dead = true; }); fogEvents.splice(k, 1); continue; }
+        fade = Math.min(1, fe.age / 10, (fe.dur - fe.age) / 12);
+        for (i = 0; i < fe.list.length; i++) {
+          f = fe.list[i]; dd = Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140));
+          f.sp.position.x = f.b.x + Math.sin(t * 0.05 + f.ph) * f.amp;
+          f.sp.position.z = f.b.z + Math.cos(t * 0.04 + f.ph) * f.amp;
+          f.sp.material.opacity = f.base * fade * dd * (0.9 + 0.1 * Math.sin(t * 0.3 + f.ph));
+        }
+      }
+    }
+
     function startEvent(kind, name, dur) {
       var d = byName(name); if (!d) return null;
       var rain = kind === 'rain', N = rain ? 1100 : 1500, R = rain ? 48 : 58, H = 55, len = rain ? 3.2 : 1.1, vel = rain ? 90 : 24;
@@ -5955,6 +6038,7 @@ window.startMap = function (RAW, AUTH) {
     function pickEvent() {
       var rain = Math.random() < 0.55, list = rain ? RAIN : DRIZ, name = list[Math.floor(Math.random() * list.length)];
       for (var i = 0; i < events.length; i++) if (events[i].d.name === name) return;
+      for (var i2 = 0; i2 < fogEvents.length; i2++) if (fogEvents[i2].d.name === name) return;
       startEvent(rain ? 'rain' : 'drizzle', name, rnd(60, 240)); /* de 1 a 4 minutos */
     }
 
@@ -5991,10 +6075,10 @@ window.startMap = function (RAW, AUTH) {
         ev.geo.attributes.position.needsUpdate = true;
         for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].material.opacity = (ev.rain ? 0.75 : 0.55) * fade * (0.92 + 0.08 * Math.sin(t * 0.4 + j)) * Math.min(1, far * 1.4) * (j >= 20 ? 0.6 : 1);
       }
-      updatePuddles(dt); updateRings(dt);
+      updateFogEvents(dt, t); updateGhosts(dt, t); updatePuddles(dt); updateRings(dt);
       AUD.setRain(Math.min(1, sa), Math.min(1, sb));
     }
-    return { update: update, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
+    return { update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
   })();
   window.__aemxClima = WX; /* prueba manual: __aemxClima.start('rain','Veracruz',60) */
 
