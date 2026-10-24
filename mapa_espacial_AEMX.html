@@ -1435,7 +1435,117 @@ window.startMap = function (RAW, AUTH) {
     seaFillTex(rings);
     seaBuildFoam(foam, 18);
   }
-  function seaUseStates() { seaStatesOn = true; seaRefresh(); }
+  function seaUseStates() { seaStatesOn = true; seaRefresh(); try { buildSwash(); } catch (e) { console.warn("Oleaje: no se pudo crear la franja de agua", e); } }
+  /* ---------- Oleaje sobre la playa: franja de agua de 2 unidades que sube y baja sobre la arena (solo en costa real) ---------- */
+  var swashMesh = null, SWASH_W = 2.0, SWASH_Y = 0.095;
+  var swashMat = new THREE.ShaderMaterial({
+    uniforms: seaU, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: [
+      SEA_COMMON_V,
+      'attribute float aU; varying float vU; varying vec3 vWorld;',
+      'void main() {',
+      '  vU = aU; vec4 wp = modelMatrix * vec4(position, 1.0); vWorld = wp.xyz;',
+      '  gl_Position = projectionMatrix * viewMatrix * wp;',
+      '  #include <logdepthbuf_vertex>',
+      '}'
+    ].join('\n'),
+    fragmentShader: [
+      '#include <logdepthbuf_pars_fragment>',
+      'uniform float uTime; varying float vU; varying vec3 vWorld;',
+      'float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+      'float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);',
+      '  return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y); }',
+      'void main() {',
+      '  #include <logdepthbuf_fragment>',
+      '  float t = uTime; float u = vU;',
+      '  float n = vn(vWorld.xz * 0.35 + vec2(t * 0.04, 0.0));',
+      '  float n2 = vn(vWorld.xz * 2.2 - vec2(t * 0.12, t * 0.07));',
+      /* el frente del agua sube hasta las 2 unidades y se retira hasta ~1 */
+      '  float front = 0.72 + 0.26 * sin(t * 0.85 + n * 5.0) + 0.05 * (n2 - 0.5);',
+      '  float cover = 1.0 - smoothstep(front - 0.1, front + 0.03, u);',
+      '  float foam = (1.0 - smoothstep(0.0, 0.07, abs(u - front))) * (0.55 + 0.45 * n2);',
+      '  float wet = 0.3 * (1.0 - smoothstep(0.35, 1.0, u));',
+      '  vec3 water = mix(vec3(0.10, 0.62, 0.68), vec3(0.16, 0.74, 0.78), u);',
+      '  vec3 wetc = vec3(0.36, 0.30, 0.22);',
+      '  vec3 col = mix(wetc, water, cover);',
+      '  col = mix(col, vec3(0.93, 0.99, 1.0), foam * 0.85);',
+      '  float a = max(wet * (1.0 - cover), cover * (0.5 + 0.12 * n2)) + foam * 0.6;',
+      '  a *= 1.0 - smoothstep(0.92, 1.0, u) * (1.0 - cover);',
+      '  gl_FragColor = vec4(col, clamp(a, 0.0, 0.85));',
+      '}'
+    ].join('\n')
+  });
+  function buildSwash() {
+    var names = Object.keys(statePolys), boxes = {}, pos = [], au = [], idx = [], nv = 0;
+    if (swashMesh) { scene.remove(swashMesh); swashMesh.geometry.dispose(); swashMesh = null; }
+    if (!names.length) return;
+    names.forEach(function (nm) {
+      var b = [1e9, 1e9, -1e9, -1e9];
+      statePolys[nm].forEach(function (r) { r.forEach(function (c) { b[0] = Math.min(b[0], c[0]); b[1] = Math.min(b[1], c[1]); b[2] = Math.max(b[2], c[0]); b[3] = Math.max(b[3], c[1]); }); });
+      boxes[nm] = b;
+    });
+    function landPt(x, z) {
+      var i, nm, b;
+      for (i = 0; i < names.length; i++) {
+        nm = names[i]; b = boxes[nm];
+        if (x < b[0] - 1 || x > b[2] + 1 || z < b[1] - 1 || z > b[3] + 1) continue;
+        probe(statePolys[nm], x, z);
+        if (PR.inside) return true;
+      }
+      for (i = 0; i < foreignRings.length; i++) if (ptInRing(x, z, foreignRings[i])) return true;
+      return false;
+    }
+    names.forEach(function (nm) {
+      statePolys[nm].forEach(function (ring0) {
+        var ring = simplifyRing(ring0, 0.6), n = ring.length, i, a, b, dx, dz, l, nx, nz, mx, mz, sg = [], start, cnt, run, j, p, q, m1, m2, k, c, v0;
+        if (n < 4) return;
+        /* Segmentos de costa: un lado es tierra y el otro mar; guarda la normal hacia tierra */
+        for (i = 0; i < n; i++) {
+          a = ring[i]; b = ring[(i + 1) % n]; dx = b[0] - a[0]; dz = b[1] - a[1]; l = Math.hypot(dx, dz);
+          if (l < 1e-6) { sg.push(null); continue; }
+          nx = -dz / l; nz = dx / l; mx = (a[0] + b[0]) / 2; mz = (a[1] + b[1]) / 2;
+          var lp = landPt(mx + nx * 1.2, mz + nz * 1.2), ln = landPt(mx - nx * 1.2, mz - nz * 1.2);
+          if (lp === ln) sg.push(null);
+          else sg.push(lp ? [nx, nz] : [-nx, -nz]);
+        }
+        start = -1;
+        for (i = 0; i < n; i++) if (!sg[i]) { start = i; break; }
+        if (start < 0) start = 0;
+        run = [];
+        for (k = 1; k <= n + 1; k++) {
+          i = (start + k) % n;
+          if (k <= n && sg[i]) { run.push(i); continue; }
+          if (run.length) {
+            /* Cinta de la polilínea run: vértices run[0]..run[last]+1 con inglete suave */
+            var pts = [], nrm = [];
+            for (j = 0; j < run.length; j++) { pts.push(ring[run[j]]); nrm.push(sg[run[j]]); }
+            pts.push(ring[(run[run.length - 1] + 1) % n]);
+            v0 = nv;
+            for (j = 0; j < pts.length; j++) {
+              m1 = nrm[Math.max(0, j - 1)]; m2 = nrm[Math.min(nrm.length - 1, j)];
+              var sx = m1[0] + m2[0], sz = m1[1] + m2[1], sl = Math.hypot(sx, sz) || 1, dd = (m1[0] * m2[0] + m1[1] * m2[1]);
+              var kk;
+              kk = Math.min(2.2, 1 / Math.max(0.45, Math.sqrt(Math.max(0, (1 + dd) / 2))));
+              sx = sx / sl * kk * SWASH_W; sz = sz / sl * kk * SWASH_W;
+              pos.push(pts[j][0], SWASH_Y, pts[j][1], pts[j][0] + sx, SWASH_Y, pts[j][1] + sz);
+              au.push(0, 1); nv += 2;
+              if (j > 0) { c = v0 + (j - 1) * 2; idx.push(c, c + 1, c + 2, c + 1, c + 3, c + 2); }
+            }
+            run = [];
+          }
+        }
+      });
+    });
+    if (!idx.length) return;
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('aU', new THREE.Float32BufferAttribute(au, 1));
+    g.setIndex(idx);
+    swashMesh = new THREE.Mesh(g, swashMat);
+    swashMesh.renderOrder = 3; swashMesh.frustumCulled = false; swashMesh.raycast = function () {};
+    scene.add(swashMesh);
+  }
+
   function updateSea(t) {
     sea.position.x = camera.position.x; sea.position.z = camera.position.z;
     seaU.uTime.value = REDUCED ? 0 : t;
@@ -1828,7 +1938,7 @@ window.startMap = function (RAW, AUTH) {
           if (edge < 1.2) sc.lerp(col(0.1, 0.4, 0.5), 0.55 * (1 - edge / 1.2));
           sm = sm * sm * (3 - 2 * sm);
           c = sc.lerp(c, sm);
-          if (edge > 1.8 && edge < 3.4) sandSpots.push({ x: x, z: z, ang: coastAng });
+          if (edge > 2.8 && edge < 4.0) sandSpots.push({ x: x, z: z, ang: coastAng });
         }
         var cy = 0.046 + ((ix + iz) & 1) * 0.004, cr = Math.min(G * 0.9, edge + 0.12), vb, sl; /* por encima de los senderos (0.028–0.032): el sendero queda debajo de la vegetación */
         if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) { /* sobre las faldas bajas del volcán: sigue su superficie y oculta el borde de la base */
