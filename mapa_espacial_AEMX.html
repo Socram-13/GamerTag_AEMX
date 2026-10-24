@@ -3176,11 +3176,19 @@ window.startMap = function (RAW, AUTH) {
   var astPackBl = new THREE.MeshLambertMaterial({ color: 0x1d3f9e });
   var astVisorBl = new THREE.MeshLambertMaterial({ color: 0x08090b, emissive: 0x020203 });
   var gSpike = new THREE.ConeGeometry(0.065, 0.3, 5);
-  var gTorso = new THREE.BoxGeometry(0.5, 0.6, 0.32), gLeg = new THREE.BoxGeometry(0.2, 0.55, 0.22);
-  var gArm = new THREE.BoxGeometry(0.14, 0.5, 0.14), gHelmet = new THREE.SphereGeometry(0.3, 14, 10);
-  var gVisor = new THREE.SphereGeometry(0.18, 14, 10), gPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
+  /* Cápsula redondeada (radio r, alto total h), escalada en x/z para darle forma de torso, mochila o extremidad */
+  function capsGeo(r, h, sx, sz) {
+    var pts = [], k, a, N = 6, g;
+    for (k = 0; k <= N; k++) { a = -Math.PI / 2 + k / N * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(0.0001, r * Math.cos(a)), -h / 2 + r + r * Math.sin(a))); }
+    for (k = 0; k <= N; k++) { a = k / N * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(0.0001, r * Math.cos(a)), h / 2 - r + r * Math.sin(a))); }
+    g = new THREE.LatheGeometry(pts, 14); g.scale(sx, 1, sz); return g;
+  }
+  var gTorso = capsGeo(0.22, 0.62, 1.1, 0.75), gLeg = capsGeo(0.1, 0.55, 1, 1.1);
+  var gArm = capsGeo(0.07, 0.5, 1, 1), gHelmet = new THREE.SphereGeometry(0.3, 14, 10);
+  var gVisor = new THREE.SphereGeometry(0.18, 14, 10), gPack = capsGeo(0.1, 0.5, 2, 1);
+  var gJL = new THREE.SphereGeometry(0.1, 10, 8), gJA = new THREE.SphereGeometry(0.072, 10, 8);
 
-  var astAll = [], gLegH = new THREE.BoxGeometry(0.2, 0.275, 0.22), gArmH = new THREE.BoxGeometry(0.14, 0.25, 0.14);
+  var astAll = [], gLegH = capsGeo(0.1, 0.285, 1, 1.1), gArmH = capsGeo(0.07, 0.26, 1, 1);
   function makeAstronaut(kind, noBend) {
     var black = kind === true, orange = kind === 'orange', blue = kind === 'blue';
     var g = new THREE.Group(), m, suit = blue ? astSuitBl : orange ? astSuitO : black ? astSuitB : astSuit, pack = blue ? astPackBl : orange ? astPackO : black ? astPackB : astPack, vis = blue ? astVisorBl : orange ? astVisorO : black ? astVisorB : astVisor;
@@ -3220,7 +3228,7 @@ window.startMap = function (RAW, AUTH) {
       for (ji = 0; ji < 4; ji++) {
         pv = parts[jn[ji][0]]; up = pv.children[0]; up.geometry = jn[ji][1]; up.position.y = -jn[ji][2] / 4;
         jt = new THREE.Group(); jt.position.y = -jn[ji][2] / 2;
-        lo = new THREE.Mesh(jn[ji][1], up.material); lo.position.y = -jn[ji][2] / 4; jt.add(lo); pv.add(jt);
+        lo = new THREE.Mesh(jn[ji][1], up.material); lo.position.y = -jn[ji][2] / 4; jt.add(lo); jt.add(new THREE.Mesh(ji < 2 ? gJL : gJA, up.material)); pv.add(jt);
         parts[jn[ji][0] + 'J'] = jt;
       }
       astAll.push(parts);
@@ -4618,9 +4626,9 @@ window.startMap = function (RAW, AUTH) {
       p.m.material.opacity = p.op * (1 - k);
     }
   }
-  function ufoHit(x, y, z) {
+  function ufoHit(x, y, z, w) {
     if (!ufo || ufoDown() || ufoOverVolc()) return;
-    ufo.hits++; ufo.shk = 0.35;
+    ufo.hits += (w || 1); ufo.shk = 0.35; ufo.lastHit = clock.elapsedTime;
     AUD.hit(ufo.g.position);
     fxSpawn(x, y, z, 0, 0, 0, 0.25, 0.4, 1.6, 0xffb347, 0.9, true);
     if (ufo.hits >= UFO_HP) ufoCrash();
@@ -4917,7 +4925,7 @@ window.startMap = function (RAW, AUTH) {
       sx = nx - ox; sy = ny - oy; sz = nz - oz; l2 = sx * sx + sy * sy + sz * sz || 1;
       t = Math.max(0, Math.min(1, ((U.x - ox) * sx + (U.y - oy) * sy + (U.z - oz) * sz) / l2));
       cx = ox + sx * t; cy = oy + sy * t; cz = oz + sz * t;
-      if (Math.hypot(U.x - cx, U.y - cy, U.z - cz) < 1.8) { ufoHit(cx, cy, cz); p.on = false; p.m.visible = false; continue; }
+      if (Math.hypot(U.x - cx, U.y - cy, U.z - cz) < 1.8) { ufoHit(cx, cy, cz, 0.45); p.on = false; p.m.visible = false; continue; }
       p.dist += BUL_SPEED * dt; p.life -= dt;
       /* Falla: llega al alcance máximo o toca el suelo */
       if (ny <= 0.1 || p.dist >= 90 || p.life <= 0) {
@@ -5075,6 +5083,8 @@ window.startMap = function (RAW, AUTH) {
     ufo.y += (ufo.ty - ufo.y) * Math.min(1, dt * (ufo.ty > ufo.y ? 3.5 : 2));
     ufo.y = Math.max(ufo.y, ufoNear(ufo.x, ufo.z) + 4); /* nunca atraviesa el relieve */
     ufo.shk = Math.max(0, ufo.shk - dt); e = ufo.shk / 0.35;
+    /* Reparación: tras 8 s sin recibir daño recupera vida poco a poco */
+    if (ufo.hits > 0 && t - (ufo.lastHit || 0) > 8) ufo.hits = Math.max(0, ufo.hits - 0.25 * dt);
     /* Con la alarma (10+ impactos) cabecea: sube y baja y se ladea, más fuerte cuanto más dañado */
     ufo.dk = (ufo.dk || 0) + ((ufo.hits >= 10 ? (ufo.hits - 9) / 5 : 0) - (ufo.dk || 0)) * Math.min(1, dt * 3);
     ufo.g.position.set(ufo.x + Math.sin(t * 70) * 0.35 * e, ufo.y + 0.25 * Math.sin(t * 2) + ufo.dk * (1.0 + 0.8 * Math.sin(t * 2.3)) * 1.6 * Math.sin(t * 2.3 + 0.5), ufo.z + Math.cos(t * 63) * 0.35 * e);
@@ -5742,6 +5752,7 @@ window.startMap = function (RAW, AUTH) {
   /* Edificios como obstáculos: huella real (con los bloques laterales de los módulos) + margen, en una rejilla de celdas */
   function botInitObs() {
     botObs = {}; botList = [];
+    scene.updateMatrixWorld(true); /* matrices del mundo al día: si no, las cajas salen en coordenadas locales del distrito */
     roots.forEach(function (b) {
       var p = b.userData.p, W, bb = new THREE.Box3(), mb = new THREE.Box3(), a, c, k, x0, x1, z0, z1, lim;
       if (!p || p.tier === undefined) return;
@@ -6085,7 +6096,8 @@ window.startMap = function (RAW, AUTH) {
     return m;
   }
   /* Cinemática inversa de un brazo (hombro, codo, mano): deja en qs/qe las rotaciones para que la mano llegue a (tx,ty,tz) */
-  var bkS = new THREE.Vector3(), bkD = new THREE.Vector3(), bkP = new THREE.Vector3(), bkEl = new THREE.Vector3(), bkTc = new THREE.Vector3(), bkDn = new THREE.Vector3(0, -1, 0), bkQ3 = new THREE.Quaternion(), bkQ4 = new THREE.Quaternion();
+  var bkSc3 = new THREE.Vector3(), bkSc4 = new THREE.Vector3(), bkSc5 = new THREE.Vector3(), bkSc6 = new THREE.Vector3(), bkM = new THREE.Matrix4(), bkQw = new THREE.Quaternion(), bkQe = new THREE.Quaternion();
+  var bkSc1 = new THREE.Vector3(), bkSc2 = new THREE.Vector3(), bkS = new THREE.Vector3(), bkD = new THREE.Vector3(), bkP = new THREE.Vector3(), bkEl = new THREE.Vector3(), bkTc = new THREE.Vector3(), bkDn = new THREE.Vector3(0, -1, 0), bkQ3 = new THREE.Quaternion(), bkQ4 = new THREE.Quaternion();
   function botIK(sx, tx, ty, tz, qs, qe) {
     var l1 = 0.31, l2 = 0.29, dist, A;
     bkS.set(sx * 0.27, 0.43, 0); bkD.set(tx, ty, tz).sub(bkS); dist = Math.min(bkD.length(), l1 + l2 - 0.005); bkD.normalize();
@@ -6108,6 +6120,7 @@ window.startMap = function (RAW, AUTH) {
     b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = Math.random() * 6.2832; b.aimYaw = b.yaw; b.aimPitch = 0.05; b.v = 0; b.vy = 0;
     b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false; b.roofCD = 0; b.kneel = 0; b.hold = 0; b.runK = 0; b.flyK = 0; b.path = null; b.pi = 0; b.replanT = 0; b.huntHold = 0;
     b.stuck = 0; b.pt = 0; b.lastGD = 1e9; b.noHunt = 0; b.fireT = 0; b.burst = 0; b.los = true; b.losT = 0; b.losBlock = 0; b.fxT = 0; b.dustT = 0;
+    b.spot = new THREE.Mesh(new THREE.CircleGeometry(3.4, 28), new THREE.MeshBasicMaterial({ color: 0x44ff88, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); b.spot.rotation.x = -Math.PI / 2; b.spot.visible = false; b.spot.renderOrder = 3; noRay(b.spot); scene.add(b.spot);
     b.scQs = new THREE.Quaternion(); b.scQe = new THREE.Quaternion(); b.scan = false; b.scanK = 0; b.scanT = 0; b.wk = null; b.wkT = 0; b.hitT = -99; b.wkFx = 0;
     b.up = new THREE.Vector3(); b.uv = new THREE.Vector3(); b.hasUp = false; b.rp = null; b.jph = 0; b.perchT = 0; b.maxPerch = 8; b.aiming = false;
     bot = b;
@@ -6142,7 +6155,7 @@ window.startMap = function (RAW, AUTH) {
         U = ufo.g.position; sx = nx - ox; sy = ny - oy; sz = nz - oz; l2 = sx * sx + sy * sy + sz * sz || 1;
         t = Math.max(0, Math.min(1, ((U.x - ox) * sx + (U.y - oy) * sy + (U.z - oz) * sz) / l2));
         cx = ox + sx * t; cy2 = oy + sy * t; cz = oz + sz * t;
-        if (Math.hypot(U.x - cx, U.y - cy2, U.z - cz) < 1.8) { ufoHit(cx, cy2, cz); bot.hitT = clock.elapsedTime; fxSpawn(cx, cy2, cz, 0, 0, 0, 0.3, 0.3, 1.3, 0x7dffa0, 0.9, true); p.on = false; p.m.visible = false; continue; }
+        if (Math.hypot(U.x - cx, U.y - cy2, U.z - cz) < 1.8) { ufoHit(cx, cy2, cz, 0.3); bot.hitT = clock.elapsedTime; fxSpawn(cx, cy2, cz, 0, 0, 0, 0.3, 0.3, 1.3, 0x7dffa0, 0.9, true); p.on = false; p.m.visible = false; continue; }
       }
       p.dist += BOT_LASER_V * dt;
       bp = botBld(nx, nz, -0.55);
@@ -6326,7 +6339,7 @@ window.startMap = function (RAW, AUTH) {
     } else if (b.scan && b.wk && b.mode === 'walk') {
       wd = Math.hypot(b.wk.x - b.x, b.wk.z - b.z); wa = Math.atan2(b.wk.x - b.x, b.wk.z - b.z);
       b.scanT += dt;
-      yT = wa + 0.4 * Math.sin(b.scanT * 1.6);
+      yT = wa;
       pT = Math.max(-0.6, Math.min(0.3, Math.atan2(terrainH(b.wk.x, b.wk.z) + 0.3 - (b.y + 0.52), wd)));
       b.yaw += nAng(wa - b.yaw) * Math.min(1, dt * 3);
       b.v *= Math.max(0, 1 - dt * 6);
@@ -6394,11 +6407,25 @@ window.startMap = function (RAW, AUTH) {
 
     /* Haz del escáner y chispas sobre los restos */
     if (b.scanK > 0.3 && b.wk) {
-      wd = Math.min(14, Math.hypot(b.wk.x - b.x, b.wk.z - b.z)) / 0.33;
-      b.beam.visible = true; b.beam.scale.set(wd * 0.9, wd, wd * 0.9); b.beam.material.opacity = (0.2 + 0.1 * Math.sin(t * 28)) * b.scanK;
+      /* El cono nace en la mano, apunta al centro del cráter y se abre para que sus rayos laterales caigan en el borde cercano y en el opuesto: el haz atraviesa el suelo y dibuja el cráter */
+      b.g.updateMatrixWorld(true);
+      b.beam.getWorldPosition(bkSc1);
+      wk2 = terrainH(b.wk.x, b.wk.z) + 0.1;
+      bkSc2.set(b.wk.x, wk2, b.wk.z);
+      wd = Math.max(1.5, Math.hypot(b.wk.x - bkSc1.x, b.wk.z - bkSc1.z)); /* distancia horizontal al centro */
+      var hh = bkSc1.y - wk2, a0 = Math.atan2(hh, wd), aN = Math.atan2(hh, Math.max(0.3, wd - 3.4)), aF = Math.atan2(hh, wd + 3.4);
+      var tv = Math.tan(Math.max(0.06, aN - a0, a0 - aF)), th = 3.4 / wd; /* semiaperturas vertical y horizontal */
+      bkSc3.copy(bkSc2).sub(bkSc1); var dl = bkSc3.length() || 1; bkSc3.divideScalar(dl); /* dirección D */
+      bkSc4.set(0, 1, 0).cross(bkSc3).normalize(); /* X: horizontal, perpendicular al haz */
+      bkSc5.copy(bkSc3).negate(); /* Y: el cono crece hacia -Y */
+      bkM.makeBasis(bkSc4, bkSc5, bkSc6.crossVectors(bkSc4, bkSc5));
+      bkQw.setFromRotationMatrix(bkM); b.arms[1].el.getWorldQuaternion(bkQe); b.beam.quaternion.copy(bkQe.invert()).multiply(bkQw);
+      wa = dl * 1.45 / 0.33; /* largo local: pasa de largo el suelo y queda oculto bajo el relieve */
+      b.beam.visible = true; b.beam.scale.set(wa * th / 0.2, wa, wa * tv / 0.2); b.beam.material.opacity = (0.2 + 0.08 * Math.sin(t * 28)) * b.scanK;
+      b.spot.visible = true; b.spot.position.set(b.wk.x, wk2 + 0.12, b.wk.z); b.spot.material.opacity = (0.28 + 0.12 * Math.sin(t * 9)) * b.scanK;
       b.wkFx -= dt;
       if (b.wkFx <= 0) { b.wkFx = 0.2; fxSpawn(b.wk.x + (Math.random() - 0.5) * 3, terrainH(b.wk.x, b.wk.z) + 0.4, b.wk.z + (Math.random() - 0.5) * 3, 0, 0.8, 0, 0.7, 0.1, 0.03, 0x7dffa0, 0.7, true); }
-    } else b.beam.visible = false;
+    } else { b.beam.visible = false; b.spot.visible = false; }
 
     /* Llamas de la mochila y efectos */
     var fT = (b.mode === 'jetUp' || b.mode === 'jetDown') ? (b.mode === 'jetUp' && b.jph === 0 ? 1 : 0.55) : (b.boostT > 0 ? 0.85 : 0);
