@@ -5815,10 +5815,10 @@ window.startMap = function (RAW, AUTH) {
       var mat = new THREE.LineBasicMaterial({ color: rain ? 0x9fd4ff : 0xd6e8ff, transparent: true, opacity: 0, depthWrite: false, fog: false });
       var lines = new THREE.LineSegments(geo2, mat); lines.frustumCulled = false; group.add(lines);
       var clouds = [];
-      for (i = 0; i < 5; i++) {
-        var cs = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: rain ? 0x4a5568 : 0x7d8aa0, transparent: true, opacity: 0, depthWrite: false, fog: false }));
-        var sz = rnd(55, 95); cs.scale.set(sz, sz * 0.6, 1);
-        cs.position.set(d.cx + rnd(-30, 30), H + rnd(2, 10), d.cz + rnd(-30, 30)); group.add(cs); clouds.push(cs);
+      for (i = 0; i < 8; i++) {
+        var cs = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: rain ? 0x2f3747 : 0x5b6578, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+        var sz = rnd(140, 230); cs.scale.set(sz, sz * 0.65, 1);
+        cs.position.set(d.cx + rnd(-55, 55), H * 0.7 + rnd(0, 8), d.cz + rnd(-55, 55)); group.add(cs); clouds.push(cs);
       }
       var ev = { d: d, rain: rain, drops: drops, N: N, H: H, len: len, geo: geo2, mat: mat, lines: lines, clouds: clouds, age: 0, dur: dur, wind: rnd(-3, 3) };
       events.push(ev); return ev;
@@ -5858,7 +5858,7 @@ window.startMap = function (RAW, AUTH) {
         }
         ev.lines.position.set(0, 0, 0);
         ev.geo.attributes.position.needsUpdate = true;
-        for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].material.opacity = (ev.rain ? 0.34 : 0.24) * fade * (0.9 + 0.1 * Math.sin(t * 0.4 + j)) * Math.min(1, far * 1.4);
+        for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].material.opacity = (ev.rain ? 0.75 : 0.55) * fade * (0.92 + 0.08 * Math.sin(t * 0.4 + j)) * Math.min(1, far * 1.4);
       }
     }
     return { update: update, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
