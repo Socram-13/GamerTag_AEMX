@@ -4647,10 +4647,10 @@ window.startMap = function (RAW, AUTH) {
           cowRespawn.push(t + 10 + Math.random() * 8);
           ufo.cow = null;
           if (VOLC) { ufo.carry = c; c.state = 'carried'; c.fall = false; } else scene.remove(c.g); /* con volcán: se la lleva */
-          /* Abducir una vaca repara el OVNI por completo */
+          /* Abducir una vaca repara la mitad del daño del OVNI (la hamburguesa lo repara por completo) */
           ufoGlitch(ufo.hits > 0 ? 1 : 0.4);
           if (ufo.hits > 0) {
-            ufo.hits = 0; ufo.sm = 0;
+            ufo.hits = Math.floor(ufo.hits / 2); ufo.sm = 0;
             for (i = 0; i < 14; i++) fxSpawn(ufo.g.position.x + (Math.random() - 0.5) * 1.2, ufo.g.position.y + (Math.random() - 0.5) * 0.6, ufo.g.position.z + (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2, 0.8, 0.3, 1.2, 0x9dffb8, 0.9, true);
           }
         }
