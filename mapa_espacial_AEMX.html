@@ -5709,24 +5709,66 @@ window.startMap = function (RAW, AUTH) {
     return { g: g, body: body, upper: upper, shell: shell, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat };
   }
 
-  /* Edificios como obstáculos: rejilla de celdas con su medio ancho + margen */
+  /* Edificios como obstáculos: huella real (con los bloques laterales de los módulos) + margen, en una rejilla de celdas */
   function botInitObs() {
     botObs = {}; botList = [];
     roots.forEach(function (b) {
-      var p = b.userData.p, W, hw, x0, x1, z0, z1, a, c, k;
+      var p = b.userData.p, W, bb = new THREE.Box3(), mb = new THREE.Box3(), a, c, k, x0, x1, z0, z1, lim;
       if (!p || p.tier === undefined) return;
-      W = TIER_W[p.tier] || 3.4; hw = W / 2 + 0.55;
-      p._bhw = hw; p._broot = b; botList.push(p);
-      x0 = Math.floor((p.x - hw - 1) / BOT_CELL); x1 = Math.floor((p.x + hw + 1) / BOT_CELL);
-      z0 = Math.floor((p.z - hw - 1) / BOT_CELL); z1 = Math.floor((p.z + hw + 1) / BOT_CELL);
+      W = TIER_W[p.tier] || 3.4; lim = W / 2 + 4;
+      b.updateMatrixWorld(true);
+      b.traverse(function (o) {
+        if (!o.isMesh || !o.geometry) return;
+        mb.setFromObject(o);
+        if (mb.isEmpty() || mb.min.y > BASE + 2.0 || mb.max.y < BASE + 0.1) return;
+        bb.union(mb);
+      });
+      p._x0 = Math.max(p.x - lim, Math.min(bb.min.x, p.x - W / 2)) - 0.55; p._x1 = Math.min(p.x + lim, Math.max(bb.max.x, p.x + W / 2)) + 0.55;
+      p._z0 = Math.max(p.z - lim, Math.min(bb.min.z, p.z - W / 2)) - 0.55; p._z1 = Math.min(p.z + lim, Math.max(bb.max.z, p.z + W / 2)) + 0.55;
+      p._broot = b; botList.push(p);
+      x0 = Math.floor((p._x0 - 1) / BOT_CELL); x1 = Math.floor((p._x1 + 1) / BOT_CELL);
+      z0 = Math.floor((p._z0 - 1) / BOT_CELL); z1 = Math.floor((p._z1 + 1) / BOT_CELL);
       for (a = x0; a <= x1; a++) for (c = z0; c <= z1; c++) { k = a + ',' + c; (botObs[k] || (botObs[k] = [])).push(p); }
     });
   }
   function botBld(x, z, pad) {
-    var l = botObs && botObs[Math.floor(x / BOT_CELL) + ',' + Math.floor(z / BOT_CELL)], i, p, h;
+    var l = botObs && botObs[Math.floor(x / BOT_CELL) + ',' + Math.floor(z / BOT_CELL)], i, p, d = pad || 0;
     if (!l) return null;
-    for (i = 0; i < l.length; i++) { p = l[i]; h = p._bhw + (pad || 0); if (Math.abs(x - p.x) < h && Math.abs(z - p.z) < h) return p; }
+    for (i = 0; i < l.length; i++) { p = l[i]; if (x > p._x0 - d && x < p._x1 + d && z > p._z0 - d && z < p._z1 + d) return p; }
     return null;
+  }
+  /* Distancia al edificio (con margen) más cercano */
+  function botClear2(x, z) {
+    var cx = Math.floor(x / BOT_CELL), cz = Math.floor(z / BOT_CELL), a, c, l, i, p, dx, dz, m = 99;
+    for (a = -1; a <= 1; a++) for (c = -1; c <= 1; c++) {
+      l = botObs[(cx + a) + ',' + (cz + c)];
+      if (!l) continue;
+      for (i = 0; i < l.length; i++) { p = l[i]; dx = Math.max(p._x0 - x, 0, x - p._x1); dz = Math.max(p._z0 - z, 0, z - p._z1); m = Math.min(m, Math.hypot(dx, dz)); }
+    }
+    return m;
+  }
+  /* ¿Se puede volar en línea recta a la altura yF sin chocar con otro edificio más alto? */
+  function botSegOK(ax, az, bx2, bz, yF, own) {
+    var n = Math.ceil(Math.hypot(bx2 - ax, bz - az) / 0.7), k, p;
+    for (k = 1; k <= n; k++) { p = botBld(ax + (bx2 - ax) * k / n, az + (bz - az) * k / n, 0); if (p && p !== own && BASE + p.topY * 0.8 > yF) return false; }
+    return true;
+  }
+  /* Punto de bajada: el sitio más despejado cerca del edificio (calles o fuera de la ciudad), sin chocar con otros edificios ni vegetación */
+  function botPickDescent(rp) {
+    var p = rp.p, k, r, ang, x, z, cl, sc, best = null, bs = -1e9;
+    for (k = 0; k < 24; k++) {
+      ang = k / 24 * 6.2832;
+      for (r = 3.0; r <= 10; r += 0.8) {
+        x = p.x + Math.sin(ang) * r; z = p.z + Math.cos(ang) * r;
+        if (!botFree(x, z)) continue;
+        cl = botClear2(x, z);
+        if (cl < 0.45) continue;
+        if (!botSegOK(rp.lx, rp.lz, x, z, rp.roofY + 0.8, p)) continue;
+        sc = Math.min(cl, 3) * 1.5 - r * 0.12;
+        if (sc > bs) { bs = sc; best = [x, z]; }
+      }
+    }
+    rp.dx = best ? best[0] : rp.cx; rp.dz = best ? best[1] : rp.cz;
   }
   var BOT_VR = { pine: 0.22, oak: 0.22, round: 0.22, birch: 0.2, jacaranda: 0.22, golden: 0.22, palm: 0.18, cactus: 0.2, rock: 0.3, bush: 0.25, agave: 0.22 };
   function botBuildVeg() {
@@ -5953,7 +5995,7 @@ window.startMap = function (RAW, AUTH) {
   }
   /* Elige un edificio cercano para subir a su azotea con la mochila; el punto de despegue queda junto a la pared */
   function botPickRoof(maxD) {
-    var b = bot, i, p, cand = [], dd, W, base, k, ang, cx, cz, found = false, angs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
+    var b = bot, i, p, cand = [], dd, W, base, k, ang, cx, cz, r2, found = false, angs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
     for (i = 0; i < botList.length; i++) {
       p = botList[i];
       if (p.tier === 6 || p.tier === 0 || p.isPres || b.rp && b.rp.p === p) continue;
@@ -5964,8 +6006,11 @@ window.startMap = function (RAW, AUTH) {
     p = cand[(Math.random() * cand.length) | 0]; W = TIER_W[p.tier] || 3.4;
     base = Math.atan2(b.x - p.x, b.z - p.z);
     for (k = 0; k < angs.length && !found; k++) {
-      ang = base + angs[k]; cx = p.x + Math.sin(ang) * (W / 2 + 1.0); cz = p.z + Math.cos(ang) * (W / 2 + 1.0);
-      if (botFree(cx, cz)) found = true;
+      ang = base + angs[k];
+      for (r2 = W / 2 + 0.9; r2 <= W / 2 + 4.5 && !found; r2 += 0.4) {
+        cx = p.x + Math.sin(ang) * r2; cz = p.z + Math.cos(ang) * r2;
+        if (botFree(cx, cz) && botClear2(cx, cz) > 0.35) found = true;
+      }
     }
     if (!found) return false;
     var lx = p.x + Math.sin(ang) * 0.22 * W, lz = p.z + Math.cos(ang) * 0.22 * W;
@@ -6162,7 +6207,7 @@ window.startMap = function (RAW, AUTH) {
           b.y += 2.2 * dt;
           if (b.y >= rp.roofY + 0.8) b.jph = 1;
         } else if (b.jph === 1) {
-          ex = rp.cx - b.x; ez = rp.cz - b.z; pd = Math.hypot(ex, ez);
+          ex = rp.dx - b.x; ez = rp.dz - b.z; pd = Math.hypot(ex, ez);
           if (pd < 0.15) { b.jph = 2; b.vy = 0; }
           else { b.x += ex / pd * Math.min(pd, 3.2 * dt); b.z += ez / pd * Math.min(pd, 3.2 * dt); b.yaw += nAng(Math.atan2(ex, ez) - b.yaw) * Math.min(1, dt * 6); }
         } else {
@@ -6173,7 +6218,7 @@ window.startMap = function (RAW, AUTH) {
       }
     } else { /* perch: sobre la azotea, vigila y dispara */
       b.v = 0; b.perchT += dt; b.air += (0 - b.air) * Math.min(1, dt * 6); b.y = b.rp.roofY;
-      if (b.perchT > b.maxPerch && (!thr || b.perchT > 25)) { b.mode = 'jetDown'; b.jph = 0; }
+      if (b.perchT > b.maxPerch && (!thr || b.perchT > 25)) { botPickDescent(b.rp); b.mode = 'jetDown'; b.jph = 0; }
     }
 
     /* Puntería: sigue al OVNI con algo de adelanto; si no hay amenaza, vigila de lado a lado */
