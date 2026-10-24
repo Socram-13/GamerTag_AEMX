@@ -6479,10 +6479,13 @@ window.startMap = function (RAW, AUTH) {
     else if (b.boostCD > 0 && b.mode === 'walk' && (b.bh || 0) <= 0.05) b.boostCD -= dt; /* el enfriamiento cuenta desde que toca el suelo */
 
     /* Restos del OVNI: va a revisarlos (sobre todo si él lo derribó) y se detiene fuera del cráter */
-    var wOn = !!ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck'), wx, wz, wd, wa, wk2, wr;
-    if (!wOn) { if (b.scan || b.circ) { b.scan = false; b.idle = 1; } b.circ = false; b.wk = null; if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; } }
-    if (thr) b.circ = false;
-    else if (ufo.state !== 'crash' && !b.wk) b.wk = { x: ufo.x, z: ufo.z };
+    var wOn0 = !!ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck'), wOn, wx, wz, wd, wa, wk2, wr, ck;
+    if (wOn0 && ufo.state !== 'crash' && !b.wk) b.wk = { x: ufo.x, z: ufo.z };
+    /* el cráter sigue ahí un rato aunque los restos ya hayan desaparecido: se queda patrullándolo hasta que se borre */
+    if (b.wk && !b.wkC) for (ck = 0; ck < craters.length; ck++) if (craters[ck].on && Math.hypot(craters[ck].x - b.wk.x, craters[ck].z - b.wk.z) < 2) b.wkC = craters[ck];
+    wOn = wOn0 || !!(b.wk && b.wkC && b.wkC.on);
+    if (!wOn) { if (b.scan || b.circ) { b.scan = false; b.idle = 1; } b.circ = false; b.wk = null; b.wkC = null; if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; } }
+    if (thr) { b.circ = false; if (!wOn0) { b.wk = null; b.wkC = null; } }
     if (b.wk && b.mode === 'perch') b.maxPerch = Math.min(b.maxPerch, b.perchT);
     /* Terminó el escaneo: se acerca y patrulla alrededor del cráter hasta que desaparezca */
     if (b.circ && b.wk && b.mode === 'walk' && !b.goal && !thr) {
