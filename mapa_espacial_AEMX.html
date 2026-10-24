@@ -1796,7 +1796,7 @@ window.startMap = function (RAW, AUTH) {
         else { gc = col(0.28 + 0.05 * n2, 0.42, 0.16 + 0.1 * n2); dc = col(0.08 + 0.02 * n2, 0.33, 0.19 + 0.06 * n2); w = (n1 - 0.66) / 0.2; }
         w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
         c = gc.lerp(dc, w);
-        var cy = 0.02 + ((ix + iz) & 1) * 0.004, cr = Math.min(G * 0.9, edge + 0.12), vb, sl;
+        var cy = 0.046 + ((ix + iz) & 1) * 0.004, cr = Math.min(G * 0.9, edge + 0.12), vb, sl; /* por encima de los senderos (0.028–0.032): el sendero queda debajo de la vegetación */
         if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) { /* sobre las faldas bajas del volcán: sigue su superficie y oculta el borde de la base */
           vb = volcBump(x, z);
           if (vb >= 0.34 * VOLC.H) return;
@@ -4416,8 +4416,9 @@ window.startMap = function (RAW, AUTH) {
     AUD.shot(mz);
   }
   function carFire(U) {
-    var mz = new THREE.Vector3(car.fb ? 0.07 : -0.07, 0, 0.64);
-    car.fb = car.fb ? 0 : 1; car.fireT = 0.4;
+    var ci = car.fb ? 1 : 0, mz = new THREE.Vector3(ci ? 0.25 : -0.25, 0, 0.8);
+    car.fb = ci ? 0 : 1; car.fireT = 0.4; /* un cañón por vez, alternando izquierda y derecha */
+    car.cannons[ci].position.z = -0.12; /* retroceso */
     car.g.updateMatrixWorld(true);
     car.bar.localToWorld(mz);
     fireBullet(mz, U);
@@ -4971,8 +4972,15 @@ window.startMap = function (RAW, AUTH) {
     bx(carTur, 0, 0, 0, 0.34, 0.16, 0.34, tur);
     bx(carDark, -0.2, 0, 0.02, 0.08, 0.12, 0.2, tur); bx(carDark, 0.2, 0, 0.02, 0.08, 0.12, 0.2, tur);
     bar = new THREE.Group(); bar.position.set(0, 0.03, 0.12); tur.add(bar);
-    cy(carDark, -0.07, 0, 0.3, 0.04, 0.55, Math.PI / 2, 0, bar); cy(carDark, 0.07, 0, 0.3, 0.04, 0.55, Math.PI / 2, 0, bar);
-    bx(carHub, -0.07, 0, 0.58, 0.07, 0.07, 0.05, bar); bx(carHub, 0.07, 0, 0.58, 0.07, 0.07, 0.05, bar);
+    /* Dos cañones, uno a cada lado de la cabeza (como las ametralladoras de las alas de un avión de la Segunda Guerra) */
+    var cnL = new THREE.Group(), cnR = new THREE.Group(), cannons = [cnL, cnR];
+    cnL.position.set(-0.25, 0, 0); cnR.position.set(0.25, 0, 0); bar.add(cnL); bar.add(cnR);
+    cannons.forEach(function (cn) {
+      bx(carDark, 0, 0, 0.12, 0.1, 0.1, 0.3, cn);                 /* caja del arma */
+      cy(carHub, 0, 0, 0.3, 0.06, 0.26, Math.PI / 2, 0, cn);      /* camisa de enfriamiento */
+      cy(carDark, 0, 0, 0.44, 0.04, 0.6, Math.PI / 2, 0, cn);     /* cañón */
+      bx(carHub, 0, 0, 0.75, 0.08, 0.08, 0.06, cn);               /* boca */
+    });
     lampM = new THREE.Mesh(uLamp, carLamp); lampM.position.set(0, 0.13, -0.1); lampM.scale.setScalar(0.6); tur.add(lampM);
 
     a = makeAstronaut('blue');
@@ -4989,7 +4997,7 @@ window.startMap = function (RAW, AUTH) {
       m.visible = false; m.raycast = function () {}; scene.add(m);
       carPuffs.push({ m: m, life: 9 });
     }
-    return { g: g, wheels: wheels, tur: tur, bar: bar, lamp: lampM, ring: ring, cam: cam, flag: flag, ast: a, path: null, next: null, s: 0, v: 0, x: 0, z: 0, yaw: 0, tw: 0, state: 'drive', city: 0, T: 0, rt: 0, pt: 0, pi: 0 };
+    return { g: g, wheels: wheels, tur: tur, bar: bar, cannons: cannons, lamp: lampM, ring: ring, cam: cam, flag: flag, ast: a, path: null, next: null, s: 0, v: 0, x: 0, z: 0, yaw: 0, tw: 0, state: 'drive', city: 0, T: 0, rt: 0, pt: 0, pi: 0 };
   }
 
   function updateCar(t, dt) {
@@ -5074,6 +5082,7 @@ window.startMap = function (RAW, AUTH) {
     }
     car.lamp.visible = Math.sin(t * 6) > 0;
     car.ring.rotation.y += dt * 1.2;
+    car.cannons[0].position.z += (0 - car.cannons[0].position.z) * Math.min(1, dt * 14); car.cannons[1].position.z += (0 - car.cannons[1].position.z) * Math.min(1, dt * 14);
     car.cam.rotation.y = 0.6 * Math.sin(t * 1.2);
     car.flag.rotation.y = 0.25 * Math.sin(t * 3);
     /* Polvo: una nube cada DUST_STEP de distancia recorrida por llanta, para que la estela sea continua a cualquier velocidad */
