@@ -1907,6 +1907,7 @@ window.startMap = function (RAW, AUTH) {
       for (q = plants.length - 1; q > 0; q--) { var j = Math.floor(vr() * (q + 1)), tmp2 = plants[q]; plants[q] = plants[j]; plants[j] = tmp2; }
       plants.length = VMAX;
     }
+    vegObs = plants; /* el robot esquiva árboles, cactus, rocas y arbustos */
     /* Alfombra continua de suelo (césped / pasto seco / tierra) que cubre toda el área con vegetación */
     (function () {
       var G = 0.8, cells = {}, filled = {}, list = [], sandList = [], ext = HEX_R + RING * 1.2 + 2;
@@ -5573,7 +5574,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
-  var bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
+  var vegObs = null, botVG = null, bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
   var BOT_RANGE = 90, BOT_HUNT_D = 55, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 120, BOT_BOLT_MAX = 135, BOT_BOOST_CD = 8;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
@@ -5703,7 +5704,7 @@ window.startMap = function (RAW, AUTH) {
     solveArm(-1, new THREE.Vector3(0.12, 0.45, 0.45));
     solveArm(1, new THREE.Vector3(0.12, 0.39, 0.35));
 
-    g.scale.setScalar(0.36);
+    g.scale.setScalar(0.33);
     noRay(g); scene.add(g);
     return { g: g, body: body, upper: upper, shell: shell, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat };
   }
@@ -5727,6 +5728,27 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < l.length; i++) { p = l[i]; h = p._bhw + (pad || 0); if (Math.abs(x - p.x) < h && Math.abs(z - p.z) < h) return p; }
     return null;
   }
+  var BOT_VR = { pine: 0.22, oak: 0.22, round: 0.22, birch: 0.2, jacaranda: 0.22, golden: 0.22, palm: 0.18, cactus: 0.2, rock: 0.3, bush: 0.25, agave: 0.22 };
+  function botBuildVeg() {
+    botVG = {};
+    vegObs.forEach(function (pl) {
+      var r = BOT_VR[pl.type], k;
+      if (!r) return;
+      k = Math.floor(pl.x / 4) + ',' + Math.floor(pl.z / 4);
+      (botVG[k] || (botVG[k] = [])).push([pl.x, pl.z, (r + 0.15) * (r + 0.15)]);
+    });
+  }
+  /* Vegetación sólida (troncos, cactus, rocas, arbustos): el pasto y las flores se pisan */
+  function botVeg(x, z) {
+    var cx = Math.floor(x / 4), cz = Math.floor(z / 4), a, c, l, i, q, dx, dz;
+    if (!botVG) { if (!vegObs) return false; botBuildVeg(); }
+    for (a = -1; a <= 1; a++) for (c = -1; c <= 1; c++) {
+      l = botVG[(cx + a) + ',' + (cz + c)];
+      if (!l) continue;
+      for (i = 0; i < l.length; i++) { q = l[i]; dx = x - q[0]; dz = z - q[1]; if (dx * dx + dz * dz < q[2]) return true; }
+    }
+    return false;
+  }
   function botHexIn(dx, dz, a) { var ax = Math.abs(dx), az = Math.abs(dz); return ax <= a && ax * 0.5 + az * 0.8660254 <= a; }
   /* Altura del suelo: relieve, y sobre la losa (0.14) o el pad (0.34) de los hexágonos de las ciudades */
   function botGround(x, z) {
@@ -5745,7 +5767,7 @@ window.startMap = function (RAW, AUTH) {
   /* Libre = tierra (nunca agua), fuera de edificios */
   function botFree(x, z) {
     if (landAt && !(landAt(x, z) && landAt(x + 0.5, z) && landAt(x - 0.5, z) && landAt(x, z + 0.5) && landAt(x, z - 0.5))) return false;
-    return !botBld(x, z, 0);
+    return !botBld(x, z, 0) && !botVeg(x, z);
   }
   function botSlopeOK(x0, z0, x1, z1) { var d = Math.hypot(x1 - x0, z1 - z0) || 1; return Math.abs(terrainH(x1, z1) - terrainH(x0, z0)) / d < 0.9; }
   function botClear(b, h, look) {
@@ -6013,7 +6035,7 @@ window.startMap = function (RAW, AUTH) {
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
       b.aiming = true;
       yT = Math.atan2(pred.x - b.x, pred.z - b.z);
-      pT = Math.atan2(pred.y - (b.y + 0.57), Math.hypot(pred.x - b.x, pred.z - b.z));
+      pT = Math.atan2(pred.y - (b.y + 0.52), Math.hypot(pred.x - b.x, pred.z - b.z));
       pT = Math.max(-0.5, Math.min(1.1, pT));
     } else { yT = b.yaw + (b.mode === 'walk' && b.v > 1 ? 0.35 * Math.sin(t * 0.8) : 1.3 * Math.sin(t * 0.5)); pT = 0.06; }
     b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 7);
