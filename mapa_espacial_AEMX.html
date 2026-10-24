@@ -6805,7 +6805,7 @@ window.startMap = function (RAW, AUTH) {
     } else if (b.trk && !b.ball) {
       b.aiming = true; yT = Math.atan2(b.trk.x - b.x, b.trk.z - b.z);
       pT = Math.max(-0.5, Math.min(1.1, Math.atan2(b.trk.y - (b.y + 0.52), Math.hypot(b.trk.x - b.x, b.trk.z - b.z))));
-    } else if (b.wk && b.mode === 'walk' && !b.scan && (b.gtype === 'wreck' || b.gtype === 'wreckp') && !b.ball && b.boostT <= 0) {
+    } else if (b.wk && b.mode === 'walk' && !b.scan && (b.circ || b.gtype === 'wreck' || b.gtype === 'wreckp') && !b.ball && b.boostT <= 0) {
       b.aiming = true; yT = Math.atan2(b.wk.x - b.x, b.wk.z - b.z);
       pT = Math.max(-0.6, Math.min(0.3, Math.atan2(terrainH(b.wk.x, b.wk.z) + 0.3 - (b.y + 0.52), Math.hypot(b.wk.x - b.x, b.wk.z - b.z))));
     } else if (b.wxDense && b.mode === 'walk' && !b.scan && !b.ball && b.boostT <= 0 && b.v > 0.3) {
