@@ -6172,7 +6172,7 @@ window.startMap = function (RAW, AUTH) {
     if (ui >= 0 && BN.pass[ui] && BN.comp[ui] === comp) return { x: U.x, z: U.z };
     /* El OVNI va sobre el mar: calcula con su rumbo a qué ciudad se dirige y va a esperarlo a esa ciudad (si hay camino por tierra) */
     var us = Math.hypot(b.uv.x, b.uv.z), ux, uz, dd2, cs, sc2, bsc = 1e9, bd = null, di2, an0, ti, tx, tz, ci2;
-    if (us > 3) {
+    if (us > 3 && !b.alienT) { /* (los aliens van por tierra: no se predice ciudad de destino) */
       ux = b.uv.x / us; uz = b.uv.z / us;
       for (di2 = 0; di2 < districts.length; di2++) {
         dd2 = districts[di2]; if (!dd2.list.length) continue;
@@ -6444,6 +6444,7 @@ window.startMap = function (RAW, AUTH) {
         cx = ox + sx * t; cy2 = oy + sy * t; cz = oz + sz * t;
         if (Math.hypot(U.x - cx, U.y - cy2, U.z - cz) < 1.8) { ufoHit(cx, cy2, cz, 0.3); bot.hitT = clock.elapsedTime; fxSpawn(cx, cy2, cz, 0, 0, 0, 0.3, 0.3, 1.3, 0x7dffa0, 0.9, true); p.on = false; p.m.visible = false; continue; }
       }
+      if (ALN && ALN.bolt(ox, oy, oz, nx, ny, nz)) { p.on = false; p.m.visible = false; continue; }
       p.dist += BOT_LASER_V * dt;
       bp = botBld(nx, nz, -0.55);
       if (ny <= Math.max(0, terrainH(nx, nz)) + 0.05 || (bp && bp !== p.own && ny < botTop(bp)) || p.dist >= BOT_BOLT_MAX) {
@@ -6460,7 +6461,9 @@ window.startMap = function (RAW, AUTH) {
       if (!trails.length || !roots.length || (!landAt && now < 30)) return;
       botInit(); b = bot;
     }
-    U = (ufo && !ufoDown() && !ufoOverVolc() && now >= (ufo.noFireUntil || 0) && !(b.wk && (b.circ || b.scan || b.gtype === 'wreck' || b.gtype === 'wreckp'))) ? ufo.g.position : null; /* ignora al OVNI nuevo mientras revisa el cráter (hasta que desaparezca) y durante su 5 s de ventaja */
+    var AT = (typeof ALN !== 'undefined' && ALN) ? ALN.pick(b.x, b.z, now) : null; /* invasión alienígena: tiene prioridad sobre el OVNI */
+    b.alienT = !!AT;
+    U = AT || ((ufo && !ufoDown() && !ufoOverVolc() && now >= (ufo.noFireUntil || 0) && !(b.wk && (b.circ || b.scan || b.gtype === 'wreck' || b.gtype === 'wreckp'))) ? ufo.g.position : null); /* ignora al OVNI nuevo mientras revisa el cráter (hasta que desaparezca) y durante su 5 s de ventaja */
     if (U) {
       if (b.hasUp && dt > 0) { b.uv.set((U.x - b.up.x) / dt, (U.y - b.up.y) / dt, (U.z - b.up.z) / dt); if (b.uv.length() > 60) b.uv.set(0, 0, 0); }
       b.up.copy(U); b.hasUp = true;
@@ -6520,7 +6523,7 @@ window.startMap = function (RAW, AUTH) {
         }
       }
     }
-    if (thr && b.mode === 'walk' && (b.boostT > 0 || (b.glr || 0) > 0) && U.y <= 40 && (!landAt || landAt(U.x, U.z)) && !ufoOverVolc() && Math.hypot(dh, U.y - (b.y + 1.0)) < 14) botStartRide();
+    if (thr && b.mode === 'walk' && (b.boostT > 0 || (b.glr || 0) > 0) && U.y <= 40 && (!landAt || landAt(U.x, U.z)) && !ufoOverVolc() && !b.alienT && Math.hypot(dh, U.y - (b.y + 1.0)) < 14) botStartRide();
     if (b.mode === 'walk') {
       /* Objetivo: perseguir al OVNI hasta quedar en alcance; si no hay amenaza, patrullar libremente */
       if (thr) {
@@ -6957,13 +6960,13 @@ window.startMap = function (RAW, AUTH) {
     }
 
     /* Disparo: ráfagas de 3 láseres verdes si hay alcance, línea de tiro y el rifle ya apunta */
-    if (b.aiming && pred && !b.ball && d3 <= botRng() && now >= (ufo.noFireUntil || 0)) {
+    if (b.aiming && pred && !b.ball && d3 <= botRng() && (b.alienT || now >= (ufo.noFireUntil || 0))) {
       b.fireT -= dt;
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
       canShoot = b.los && errY < 0.45 && errP < 0.45 && b.hold > 0.5; /* el láser sale directo al objetivo: no espera a terminar de girar el rifle */
       if (canShoot && b.fireT <= 0) {
-        botShoot(bkMuz, U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
+        botShoot(bkMuz, b.alienT ? pred : U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
         b.fireT = 0.12; /* fuego continuo, sin pausa entre ráfagas */
       }
     }
@@ -7694,6 +7697,225 @@ window.startMap = function (RAW, AUTH) {
   })();
   window.__aemxClima = WX; /* prueba manual: __aemxClima.start('rain','Veracruz',60) */
 
+  /* ---------- Invasión alienígena: grises sin armas dentro de un estado cercado por un holograma rojo; el robot los caza ---------- */
+  var ALN = (function () {
+    var grp = new THREE.Group(); scene.add(grp);
+    var eyeM = new THREE.MeshPhongMaterial({ color: 0x050608, specular: 0x8899aa, shininess: 120 });
+    var gHead = new THREE.SphereGeometry(0.17, 14, 10), gChin = new THREE.SphereGeometry(0.075, 8, 6), gEye = new THREE.SphereGeometry(0.05, 8, 6), gNeck = new THREE.CylinderGeometry(0.028, 0.034, 0.1, 6), gTor = new THREE.CylinderGeometry(0.075, 0.05, 0.3, 8), gArmU = new THREE.CylinderGeometry(0.019, 0.016, 0.23, 5), gLegU = new THREE.CylinderGeometry(0.03, 0.022, 0.22, 6), gHand = new THREE.BoxGeometry(0.03, 0.07, 0.025), gFoot = new THREE.BoxGeometry(0.05, 0.03, 0.1), gBeam = new THREE.CylinderGeometry(0.9, 0.9, 70, 16, 1, true);
+    var SC = 0.62, SKIN0 = 0x1c1b14;
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+    function inPoly(rings, x, z) {
+      var ins = false, r, m, a, b;
+      for (r = 0; r < rings.length; r++) { m = rings[r]; for (a = 0, b = m.length - 1; a < m.length; b = a++) if ((m[a][1] > z) !== (m[b][1] > z) && x < (m[b][0] - m[a][0]) * (z - m[a][1]) / (m[b][1] - m[a][1]) + m[a][0]) ins = !ins; }
+      return ins;
+    }
+    /* Gris: cabeza grande, ojos negros almendrados, cuerpo delgado con brazos largos */
+    function mk() {
+      var skin = new THREE.MeshLambertMaterial({ color: 0xa39f8c, emissive: SKIN0 }), g = new THREE.Group(), o = { skin: skin, arm: [], leg: [] }, m, i, s, sh, el, hp, kn;
+      g.rotation.order = 'YXZ';
+      m = new THREE.Mesh(gTor, skin); m.position.y = 0.59; g.add(m);
+      m = new THREE.Mesh(gNeck, skin); m.position.y = 0.79; g.add(m);
+      var head = new THREE.Group(); head.position.y = 0.97; g.add(head);
+      m = new THREE.Mesh(gHead, skin); m.scale.set(1, 1.15, 0.95); head.add(m);
+      m = new THREE.Mesh(gChin, skin); m.position.set(0, -0.15, 0.07); head.add(m);
+      for (s = -1; s <= 1; s += 2) { m = new THREE.Mesh(gEye, eyeM); m.position.set(s * 0.075, -0.015, 0.14); m.scale.set(1.6, 0.8, 0.5); m.rotation.z = s * 0.45; head.add(m); }
+      o.head = head;
+      for (i = 0; i < 2; i++) {
+        s = i ? 1 : -1;
+        sh = new THREE.Group(); sh.position.set(s * 0.1, 0.72, 0); g.add(sh);
+        m = new THREE.Mesh(gArmU, skin); m.position.y = -0.115; sh.add(m);
+        el = new THREE.Group(); el.position.y = -0.23; sh.add(el);
+        m = new THREE.Mesh(gArmU, skin); m.position.y = -0.115; el.add(m);
+        m = new THREE.Mesh(gHand, skin); m.position.y = -0.255; el.add(m);
+        o.arm.push({ sh: sh, el: el });
+        hp = new THREE.Group(); hp.position.set(s * 0.045, 0.44, 0); g.add(hp);
+        m = new THREE.Mesh(gLegU, skin); m.position.y = -0.11; hp.add(m);
+        kn = new THREE.Group(); kn.position.y = -0.22; hp.add(kn);
+        m = new THREE.Mesh(gLegU, skin); m.position.y = -0.11; kn.add(m);
+        m = new THREE.Mesh(gFoot, skin); m.position.set(0, -0.225, 0.025); kn.add(m);
+        o.leg.push({ th: hp, kn: kn });
+      }
+      g.scale.setScalar(0.001); o.g = g; noRay(g);
+      return o;
+    }
+    /* Pared holográfica roja: una cinta vertical siguiendo todas las fronteras del estado */
+    var wcv = document.createElement('canvas'); wcv.width = wcv.height = 128;
+    (function () {
+      var c = wcv.getContext('2d'), gr = c.createLinearGradient(0, 128, 0, 0), x, y;
+      gr.addColorStop(0, 'rgba(255,70,70,0.95)'); gr.addColorStop(0.07, 'rgba(255,50,50,0.55)'); gr.addColorStop(0.6, 'rgba(255,40,40,0.2)'); gr.addColorStop(1, 'rgba(255,40,40,0)');
+      c.fillStyle = gr; c.fillRect(0, 0, 128, 128);
+      c.fillStyle = 'rgba(255,160,160,0.3)';
+      for (x = 0; x < 128; x += 32) c.fillRect(x, 0, 2, 128);
+      for (y = 4; y < 128; y += 21) c.fillRect(0, y, 128, 1.5);
+    })();
+    var wtex = new THREE.CanvasTexture(wcv); wtex.wrapS = THREE.RepeatWrapping;
+    var WALL_H = 16;
+    function buildWall(rings) {
+      var pos = [], uv = [], idx = [], vi = 0;
+      rings.forEach(function (rg) {
+        var pts = [], i, last = null, c, u = 0, prev = null, y0;
+        for (i = 0; i < rg.length; i++) { c = rg[i]; if (last && Math.hypot(c[0] - last[0], c[1] - last[1]) < 1.5) continue; pts.push(c); last = c; }
+        if (pts.length < 3) return;
+        pts.push(pts[0]);
+        for (i = 0; i < pts.length; i++) {
+          c = pts[i]; if (prev) u += Math.hypot(c[0] - prev[0], c[1] - prev[1]); prev = c;
+          y0 = Math.max(0, terrainH(c[0], c[1])) - 0.6;
+          pos.push(c[0], y0, c[1], c[0], y0 + WALL_H, c[1]); uv.push(u / 10, 0, u / 10, 1);
+          if (i > 0) { idx.push(vi - 2, vi, vi - 1, vi - 1, vi, vi + 1); }
+          vi += 2;
+        }
+      });
+      var geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      geo.setIndex(idx);
+      var mat = new THREE.MeshBasicMaterial({ map: wtex, color: 0xff3a3a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, fog: false });
+      var mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; noRay(mesh); grp.add(mesh);
+      return mesh;
+    }
+    var inv = null, nextAt = 60 + Math.random() * 40, lastName = '', cur = null, pickT = 0, tpos = new THREE.Vector3();
+    function free(a, x, z) { return inPoly(inv.rings, x, z) && botFree(x, z); }
+    function okSpawn(x, z) { return inPoly(inv.rings, x, z) && inPoly(inv.rings, x + 4, z) && inPoly(inv.rings, x - 4, z) && inPoly(inv.rings, x, z + 4) && inPoly(inv.rings, x, z - 4) && botFree(x, z); }
+    function start(name) {
+      var rings = statePolys[name], bb = [1e9, 1e9, -1e9, -1e9], n, nc, c, cl = [], i, tries, x, z, an, rr, al;
+      if (inv || !rings || !rings.length || !bot) return false;
+      rings.forEach(function (rg) { rg.forEach(function (p) { bb[0] = Math.min(bb[0], p[0]); bb[1] = Math.min(bb[1], p[1]); bb[2] = Math.max(bb[2], p[0]); bb[3] = Math.max(bb[3], p[1]); }); });
+      inv = { name: name, rings: rings, al: [], wall: null, wk: 0, end: false, t: 0 };
+      nc = 2 + ((Math.random() * 2) | 0);
+      for (tries = 0; tries < 300 && cl.length < nc; tries++) { x = rnd(bb[0], bb[2]); z = rnd(bb[1], bb[3]); if (okSpawn(x, z)) cl.push([x, z]); }
+      n = 6 + ((Math.random() * 5) | 0);
+      for (i = 0; i < n && cl.length; i++) {
+        c = cl[i % cl.length];
+        for (tries = 0; tries < 40; tries++) {
+          an = rnd(0, 6.2832); rr = rnd(0, 12); x = c[0] + Math.sin(an) * rr; z = c[1] + Math.cos(an) * rr;
+          if (okSpawn(x, z)) break;
+        }
+        if (tries >= 40) continue;
+        al = { o: mk(), x: x, z: z, y: botGround(x, z), yaw: rnd(0, 6.28), s: 'spawn', age: -rnd(0, 1.2), hp: 2, flash: 0, ph: rnd(0, 6.28), wait: rnd(0.5, 3), tx: x, tz: z, gk: 0, fk: 0, side: Math.random() < 0.5 ? 1 : -1, hd: 0, pickT: 0, sp: 0, dy: 0, beam: null };
+        al.beam = new THREE.Mesh(gBeam, new THREE.MeshBasicMaterial({ color: 0x9dffb8, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+        al.beam.position.set(x, al.y + 35, z); noRay(al.beam); grp.add(al.beam); grp.add(al.o.g); inv.al.push(al);
+      }
+      if (inv.al.length < 3) { stopNow(); return false; }
+      inv.wall = buildWall(rings);
+      lastName = name; cur = null; pickT = 0;
+      return true;
+    }
+    function dispose(o) { grp.remove(o.g); o.skin.dispose(); }
+    function stopNow() {
+      if (!inv) return;
+      inv.al.forEach(function (a) { dispose(a.o); if (a.beam) { grp.remove(a.beam); a.beam.material.dispose(); } });
+      if (inv.wall) { grp.remove(inv.wall); inv.wall.geometry.dispose(); inv.wall.material.dispose(); }
+      inv = null; cur = null; nextAt = clock.elapsedTime + 90 + Math.random() * 90;
+    }
+    /* Rumbo de huida: el más cercano a "alejarse del robot" que no choca con la frontera, el agua ni los edificios */
+    function flee(a, want) {
+      var offs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2, 3.14], i, h, o;
+      for (i = 0; i < offs.length; i++) {
+        o = offs[i] * a.side; h = want + o;
+        if (free(a, a.x + Math.sin(h) * 3.2, a.z + Math.cos(h) * 3.2) && free(a, a.x + Math.sin(h) * 1.6, a.z + Math.cos(h) * 1.6)) { if (i && Math.abs(offs[i]) < 1.6) a.side = o < 0 ? -1 : 1; return h; }
+      }
+      return null;
+    }
+    function nAngl(d) { while (d > Math.PI) d -= 6.2832; while (d < -Math.PI) d += 6.2832; return d; }
+    function step(a, dt, t) {
+      var g = a.o.g, B = bot, d, sp = 0, h, nx, nz, i, am, sc, ph;
+      a.age += dt;
+      if (a.s === 'dying') {
+        a.dy += dt; g.rotation.x = -Math.min(1.45, a.dy * 4); sc = SC * Math.max(0.001, 1 - Math.max(0, a.dy - 0.6) / 0.8);
+        g.scale.setScalar(sc); g.position.set(a.x, a.y + 0.04, a.z); a.o.skin.emissive.setHex(a.dy < 0.4 ? 0xff3010 : SKIN0);
+        if (a.dy > 1.4) a.gone = true;
+        return;
+      }
+      if (a.age < 0) { g.visible = false; return; }
+      g.visible = true;
+      if (a.s === 'spawn') {
+        sc = Math.max(0.001, Math.min(1, (a.age - 0.5) / 1.0)); g.scale.setScalar(SC * sc);
+        a.beam.material.opacity = 0.55 * Math.sin(Math.min(1, a.age / 2.4) * Math.PI);
+        if (a.age > 2.4) { a.s = 'live'; grp.remove(a.beam); a.beam.material.dispose(); a.beam = null; }
+        else { g.position.set(a.x, a.y, a.z); g.rotation.y = a.yaw; return; }
+      }
+      if (a.flash > 0) { a.flash -= dt; a.o.skin.emissive.setHex(a.flash > 0 ? 0xff2a1a : SKIN0); }
+      d = B ? Math.hypot(a.x - B.x, a.z - B.z) : 999;
+      if (d < 38) {
+        a.pickT -= dt;
+        if (a.pickT <= 0) { a.pickT = 0.12; a.hd = flee(a, Math.atan2(a.x - B.x, a.z - B.z)); }
+        if (a.hd !== null) { sp = (d < 20 ? 5.6 : 4.4) + (a.flash > 0 ? 1.5 : 0); a.yaw += nAngl(a.hd - a.yaw) * Math.min(1, dt * 9); }
+      } else if (a.wait > 0) { a.wait -= dt; }
+      else {
+        if (Math.hypot(a.tx - a.x, a.tz - a.z) < 0.8) { a.wait = rnd(1, 3.5); an2(a); }
+        else { sp = 1.3; a.yaw += nAngl(Math.atan2(a.tx - a.x, a.tz - a.z) - a.yaw) * Math.min(1, dt * 4); }
+      }
+      if (sp > 0) {
+        nx = a.x + Math.sin(a.yaw) * sp * dt; nz = a.z + Math.cos(a.yaw) * sp * dt;
+        if (free(a, nx, nz)) { a.x = nx; a.z = nz; } else { sp = 0; if (d >= 38) { a.wait = 0.8; a.tx = a.x; a.tz = a.z; } }
+      }
+      a.y += (botGround(a.x, a.z) - a.y) * Math.min(1, dt * 12);
+      a.sp = sp; a.gk += ((sp > 0.1 ? 1 : 0) - a.gk) * Math.min(1, dt * 8); a.fk += ((sp > 3 ? 1 : 0) - a.fk) * Math.min(1, dt * 6);
+      if (sp > 0.1) a.ph += dt * (2.2 + sp * 1.9);
+      am = Math.min(0.9, 0.2 + sp * 0.13) * a.gk;
+      for (i = 0; i < 2; i++) {
+        ph = a.ph + i * Math.PI;
+        a.o.leg[i].th.rotation.x = Math.sin(ph) * am; a.o.leg[i].kn.rotation.x = Math.max(0, Math.cos(ph)) * am * 1.3;
+        a.o.arm[i].sh.rotation.x = -Math.sin(ph) * am * (0.8 + 0.7 * a.fk); a.o.arm[i].el.rotation.x = -(0.15 + 0.7 * a.fk) * a.gk;
+      }
+      a.o.head.rotation.y = 0.35 * Math.sin(t * 0.6 + a.ph) * (1 - a.gk); a.o.head.rotation.z = 0.1 * Math.sin(t * 0.9 + a.ph);
+      g.rotation.x = 0.22 * a.fk; g.rotation.y = a.yaw; g.position.set(a.x, a.y, a.z); g.scale.setScalar(SC);
+    }
+    function an2(a) { var k, an, rr, x, z; for (k = 0; k < 8; k++) { an = rnd(0, 6.28); rr = rnd(4, 12); x = a.x + Math.sin(an) * rr; z = a.z + Math.cos(an) * rr; if (free(a, x, z)) { a.tx = x; a.tz = z; return; } } a.tx = a.x; a.tz = a.z; }
+    function update(dt, t) {
+      var i, a, live = 0, names, nm;
+      if (!inv) {
+        if (t >= nextAt && bot && landAt) {
+          names = Object.keys(statePolys).filter(function (n) { return statePolys[n] && statePolys[n].length && n !== lastName; });
+          if (names.length) { nm = names[(Math.random() * names.length) | 0]; if (!start(nm)) nextAt = t + 10; }
+        }
+        return;
+      }
+      inv.t += dt; inv.wk = inv.end ? Math.max(0, inv.wk - dt / 2) : Math.min(1, inv.wk + dt / 1.5);
+      if (inv.wall) { inv.wall.material.opacity = inv.wk * (0.62 + 0.16 * Math.sin(t * 3)); wtex.offset.x = -t * 0.04; }
+      for (i = inv.al.length - 1; i >= 0; i--) {
+        a = inv.al[i]; step(a, dt, t);
+        if (a.gone) { dispose(a.o); inv.al.splice(i, 1); continue; }
+        if (a.s !== 'dying') live++;
+      }
+      if (!live && !inv.end) inv.end = true;
+      if (inv.end && inv.wk <= 0.001 && !inv.al.length) stopNow();
+    }
+    /* Objetivo del robot: el alien vivo más cercano (con algo de histéresis para no cambiar a cada rato) */
+    function pick(bx, bz, now) {
+      var i, a, d, bd = 1e9, cd = 1e9, best = null;
+      if (!inv || inv.end) return null;
+      if (now >= pickT || (cur && cur.s === 'dying')) {
+        pickT = now + 0.5;
+        for (i = 0; i < inv.al.length; i++) {
+          a = inv.al[i]; if (a.s !== 'live') continue;
+          d = Math.hypot(a.x - bx, a.z - bz); if (a === cur) cd = d; if (d < bd) { bd = d; best = a; }
+        }
+        if (!cur || cur.s !== 'live' || bd < cd * 0.7) cur = best;
+      }
+      if (!cur || cur.s !== 'live') return null;
+      return tpos.set(cur.x, cur.y + 0.4, cur.z);
+    }
+    /* Impacto de un láser del robot (segmento ox→nx): 2 disparos derriban a un alien */
+    function bolt(ox, oy, oz, nx, ny, nz) {
+      var i, a, sx = nx - ox, sy = ny - oy, sz = nz - oz, l2 = sx * sx + sy * sy + sz * sz || 1, t, cx, cy, cz, k;
+      if (!inv) return false;
+      for (i = 0; i < inv.al.length; i++) {
+        a = inv.al[i]; if (a.s !== 'live') continue;
+        t = Math.max(0, Math.min(1, ((a.x - ox) * sx + (a.y + 0.4 - oy) * sy + (a.z - oz) * sz) / l2));
+        cx = ox + sx * t; cy = oy + sy * t; cz = oz + sz * t;
+        if (Math.hypot(a.x - cx, a.y + 0.4 - cy, a.z - cz) < 1.0) {
+          a.hp--; a.flash = 0.3; fxSpawn(cx, cy, cz, 0, 0, 0, 0.3, 0.3, 1.1, 0x7dffa0, 0.9, true);
+          if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.4 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
+          return true;
+        }
+      }
+      return false;
+    }
+    return { update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk } : null; }, list: function () { return inv ? inv.al : []; } };
+  })();
+  window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
+
   function frame() {
     requestAnimationFrame(frame);
     var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, k, n;
@@ -7817,6 +8039,7 @@ window.startMap = function (RAW, AUTH) {
     var botFps = !!(turretCam && turretMode === 'bot' && bot), wantNear = botFps ? 0.08 : 0.5;
     if (bot) bot.shell.visible = !botFps;
     if (camera.near !== wantNear) { camera.near = wantNear; camera.updateProjectionMatrix(); }
+    try { ALN.update(dt, t); } catch (e) { ALN.update = function () {}; console.warn('Invasión desactivada:', e); }
     try { WX.update(dt, t); } catch (e) { WX.update = function () {}; console.warn("Clima desactivado:", e); }
     renderer.render(scene, camera);
   }
