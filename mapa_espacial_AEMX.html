@@ -5856,13 +5856,36 @@ window.startMap = function (RAW, AUTH) {
     var DRIZ = ['Ciudad de México', 'Estado de México', 'Hidalgo', 'Tlaxcala', 'Puebla', 'Morelos', 'Querétaro', 'Veracruz', 'Michoacán', 'Chihuahua', 'Durango', 'Jalisco'];
     var events = [], nextAt = 12 + Math.random() * 25;
 
+    /* Área de un estado: su forma real (o un círculo de respaldo si no cargó) */
+    function makeArea(d, R) {
+      var rings = statePolys[d.name];
+      return rings && rings.length ? { rings: rings, fx: d.cx, fz: d.cz } : { cx: d.cx, cz: d.cz, r: R, fx: d.cx, fz: d.cz };
+    }
+    function areaEst(a) { if (a.rings) { randIn(a); return (a.bb[2] - a.bb[0]) * (a.bb[3] - a.bb[1]) * 0.55; } return Math.PI * a.r * a.r; }
+    function distToArea(a, x, z) {
+      var best = 1e9, rg, m, i, j, ax, az, dx, dz, l2, u, d;
+      if (a.rings) { randIn(a); if (x < a.bb[0] - 250 || x > a.bb[2] + 250 || z < a.bb[1] - 250 || z > a.bb[3] + 250) return 999; }
+      if (inArea(a, x, z)) return 0;
+      if (!a.rings) return Math.max(0, Math.hypot(x - a.cx, z - a.cz) - a.r);
+      for (rg = 0; rg < a.rings.length; rg++) {
+        m = a.rings[rg];
+        for (i = 0, j = m.length - 1; i < m.length; j = i++) {
+          ax = m[j][0]; az = m[j][1]; dx = m[i][0] - ax; dz = m[i][1] - az; l2 = dx * dx + dz * dz;
+          u = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+          d = Math.hypot(x - (ax + u * dx), z - (az + u * dz));
+          if (d < best) best = d;
+        }
+      }
+      return best;
+    }
+
     /* Charcos: aparecen en suelo plano de tierra mientras llueve, crecen poco a poco y se secan al terminar */
     function spawnPuddles(ev) {
-      var n = ev.rain ? 14 : 9, i, tries, a, r, x, z, m, mt;
+      var n = Math.min(60, Math.round((ev.rain ? 14 : 9) * Math.max(1, ev.est / 7238))), i, tries, q, x, z, m, mt;
       for (i = 0; i < n; i++) {
         for (tries = 0; tries < 10; tries++) {
-          a = rnd(0, 6.2832); r = ev.R * 0.9 * Math.sqrt(Math.random());
-          x = ev.d.cx + Math.cos(a) * r; z = ev.d.cz + Math.sin(a) * r;
+          q = randIn(ev.area); if (!q) continue;
+          x = q[0]; z = q[1];
           if (landAt && !landAt(x, z)) continue;
           if (Math.abs(terrainH(x, z)) > 0.6) continue;
           break;
@@ -5903,7 +5926,7 @@ window.startMap = function (RAW, AUTH) {
       if (i >= rings.length) return;
       a = rnd(0, 6.2832); d = 24 * Math.sqrt(Math.random());
       x = tg.x + Math.cos(a) * d; z = tg.z + Math.sin(a) * d;
-      if (Math.hypot(x - ev.d.cx, z - ev.d.cz) > ev.R * 0.95) return;
+      if (!inArea(ev.area, x, z)) return;
       if (landAt && !landAt(x, z)) return;
       if (Math.abs(terrainH(x, z)) > 0.6) return;
       r = rings[i]; r.on = true; r.age = 0; r.life = rnd(0.5, 0.9); r.size = ev.rain ? rnd(0.7, 1.3) : rnd(0.45, 0.8); r.a = ev.rain ? 0.6 : 0.4;
@@ -5914,7 +5937,7 @@ window.startMap = function (RAW, AUTH) {
       if (near) {
         for (k = 0; k < events.length; k++) {
           ev = events[k];
-          if (Math.hypot(tg.x - ev.d.cx, tg.z - ev.d.cz) > ev.R + 20) continue;
+          if (distToArea(ev.area, tg.x, tg.z) > 20) continue;
           f = Math.min(1, ev.age / 8, (ev.dur - ev.age) / 10);
           ev.acc = (ev.acc || 0) + (ev.rain ? 45 : 18) * Math.max(0, f) * dt;
           while (ev.acc >= 1) { ev.acc -= 1; spawnRing(ev, tg); }
@@ -6046,28 +6069,29 @@ window.startMap = function (RAW, AUTH) {
 
     function startEvent(kind, name, dur) {
       var d = byName(name); if (!d) return null;
-      var rain = kind === 'rain', N = rain ? 1100 : 1500, R = rain ? 48 : 58, H = 55, len = rain ? 3.2 : 1.1, vel = rain ? 90 : 24;
-      var pos = new Float32Array(N * 6), drops = [], i, a;
-      for (i = 0; i < N; i++) { a = rnd(0, 6.2832); var rr = R * Math.sqrt(Math.random()); drops.push({ x: Math.cos(a) * rr, z: Math.sin(a) * rr, y: rnd(0, H), v: vel * rnd(0.8, 1.2) }); }
+      var rain = kind === 'rain', N = rain ? 1100 : 1500, Rf = rain ? 48 : 58, H = 55, len = rain ? 3.2 : 1.1, vel = rain ? 90 : 24;
+      var area = makeArea(d, Rf), est = areaEst(area), kk = Math.max(1, est / 7238), nS = Math.min(80, Math.round(20 * kk)), nH = Math.min(30, Math.round(6 * kk));
+      var pos = new Float32Array(N * 6), drops = [], i, q;
+      for (i = 0; i < N; i++) drops.push({ x: d.cx, z: d.cz, y: -100, v: vel * rnd(0.8, 1.2), on: false, seen: false });
       var geo2 = new THREE.BufferGeometry(); geo2.setAttribute('position', new THREE.BufferAttribute(pos, 3));
       var mat = new THREE.LineBasicMaterial({ color: rain ? 0x9fd4ff : 0xd6e8ff, transparent: true, opacity: 0, depthWrite: false, fog: false });
       var lines = new THREE.LineSegments(geo2, mat); lines.frustumCulled = false; group.add(lines);
       var clouds = [], ccol = rain ? 0x2f3747 : 0x5b6578, cy = 62;
-      /* 20 piezas verticales (se ven de lado), repartidas en círculo y encimadas */
-      for (i = 0; i < 20; i++) {
+      /* Piezas verticales (se ven de lado), repartidas por todo el estado y encimadas */
+      for (i = 0; i < nS; i++) {
         var cs = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: ccol, transparent: true, opacity: 0, depthWrite: false, fog: false }));
-        var sz = rnd(90, 150), ang = rnd(0, 6.2832), rd = R * 0.8 * Math.sqrt(Math.random());
+        var sz = rnd(90, 150); q = randIn(area) || [d.cx, d.cz];
         cs.scale.set(sz, sz * 0.2, 1);
-        cs.position.set(d.cx + Math.cos(ang) * rd, cy + rnd(0, 6), d.cz + Math.sin(ang) * rd); group.add(cs); clouds.push(cs);
+        cs.position.set(q[0], cy + rnd(0, 6), q[1]); group.add(cs); clouds.push(cs);
       }
-      /* 6 capas horizontales (cubren los huecos al verse desde arriba) */
-      for (i = 0; i < 6; i++) {
+      /* Capas horizontales (cubren los huecos al verse desde arriba) */
+      for (i = 0; i < nH; i++) {
         var pm = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ map: puff, color: ccol, transparent: true, opacity: 0, depthWrite: false, fog: false, side: THREE.DoubleSide }));
-        var ps = R * rnd(1.5, 2.1), pa = rnd(0, 6.2832), pr = R * 0.45 * Math.sqrt(Math.random());
+        var ps = Rf * rnd(1.5, 2.1); q = randIn(area) || [d.cx, d.cz];
         pm.rotation.x = -Math.PI / 2; pm.scale.set(ps, ps, 1);
-        pm.position.set(d.cx + Math.cos(pa) * pr, cy + 1 + i * 1.2, d.cz + Math.sin(pa) * pr); group.add(pm); clouds.push(pm);
+        pm.position.set(q[0], cy + 1 + (i % 6) * 1.2, q[1]); group.add(pm); clouds.push(pm);
       }
-      var ev = { d: d, rain: rain, drops: drops, N: N, R: R, H: H, len: len, geo: geo2, mat: mat, lines: lines, clouds: clouds, age: 0, dur: dur, wind: rnd(-3, 3), cpos: new THREE.Vector3(d.cx, 0, d.cz), alive: true };
+      var ev = { d: d, rain: rain, drops: drops, N: N, R: Rf, Rf: Rf, H: H, len: len, geo: geo2, mat: mat, lines: lines, clouds: clouds, nS: nS, area: area, est: est, age: 0, dur: dur, wind: rnd(-3, 3), cpos: new THREE.Vector3(d.cx, 0, d.cz), alive: true };
       events.push(ev); spawnPuddles(ev); return ev;
     }
     function endEvent(ev) {
@@ -6096,24 +6120,33 @@ window.startMap = function (RAW, AUTH) {
       for (k = events.length - 1; k >= 0; k--) {
         var ev = events[k]; ev.age += dt;
         if (ev.age >= ev.dur) { endEvent(ev); events.splice(k, 1); continue; }
-        var fade = Math.min(1, ev.age / 8, (ev.dur - ev.age) / 10), p = ev.geo.attributes.position.array, dr, o = 0, a2, r2;
-        /* Sonido: como el mar, solo de cerca (pleno dentro y a <10 del borde, silencio a 70; con la cámara baja) */
-        var hd = Math.max(0, Math.hypot(cp.x - ev.d.cx, cp.z - ev.d.cz) - ev.R), hx = Math.min(1, Math.max(0, (hd - 10) / 60)), hy = Math.min(1, Math.max(0, (cp.y - 80) / 420)), lv;
+        var fade = Math.min(1, ev.age / 8, (ev.dur - ev.age) / 10), p = ev.geo.attributes.position.array, dr, o = 0, a2, r2, tg = controls.target, qx, qz;
+        /* Sonido: como el mar, solo de cerca (pleno dentro del estado y a <10 de su borde, silencio a 70; con la cámara baja) */
+        var hd = distToArea(ev.area, cp.x, cp.z), hx = Math.min(1, Math.max(0, (hd - 10) / 60)), hy = Math.min(1, Math.max(0, (cp.y - 80) / 420)), lv;
         hx = 1 - hx * hx * (3 - 2 * hx); hy = 1 - hy * hy * (3 - 2 * hy); lv = fade * hx * hy;
         if (ev.rain) sa += lv; else sb += lv;
         var far = Math.max(0.25, Math.min(1, cp.distanceTo(ev.cpos) / 120));
         ev.mat.opacity = (ev.rain ? 0.6 : 0.4) * fade;
-        for (j = 0; j < ev.N; j++) {
-          dr = ev.drops[j]; dr.y -= dr.v * dt; dr.x += ev.wind * dt;
-          if (dr.y < 0.3 || dr.x * dr.x + dr.z * dr.z > ev.R * ev.R) {
-            a2 = rnd(0, 6.2832); r2 = ev.R * Math.sqrt(Math.random());
-            dr.y = ev.H * rnd(0.7, 1); dr.x = Math.cos(a2) * r2; dr.z = Math.sin(a2) * r2;
+        /* Gotas: solo alrededor de donde miras, dentro del estado */
+        ev.lines.visible = distToArea(ev.area, tg.x, tg.z) < ev.Rf;
+        if (ev.lines.visible) {
+          for (j = 0; j < ev.N; j++) {
+            dr = ev.drops[j];
+            if (dr.on) { dr.y -= dr.v * dt; dr.x += ev.wind * dt; }
+            if (!dr.on || dr.y < 0.3 || (dr.x - tg.x) * (dr.x - tg.x) + (dr.z - tg.z) * (dr.z - tg.z) > ev.Rf * ev.Rf) {
+              a2 = rnd(0, 6.2832); r2 = ev.Rf * Math.sqrt(Math.random());
+              qx = tg.x + Math.cos(a2) * r2; qz = tg.z + Math.sin(a2) * r2;
+              if (inArea(ev.area, qx, qz)) { dr.on = true; dr.x = qx; dr.z = qz; dr.y = dr.seen ? ev.H * rnd(0.7, 1) : rnd(0, ev.H); dr.seen = true; }
+              else { dr.on = false; dr.y = -100; }
+            }
+            if (dr.on) {
+              p[o++] = dr.x; p[o++] = dr.y; p[o++] = dr.z;
+              p[o++] = dr.x - ev.wind * 0.04 * ev.len; p[o++] = dr.y + ev.len; p[o++] = dr.z;
+            } else { p[o++] = 0; p[o++] = -100; p[o++] = 0; p[o++] = 0; p[o++] = -100; p[o++] = 0; }
           }
-          p[o++] = ev.d.cx + dr.x; p[o++] = dr.y; p[o++] = ev.d.cz + dr.z;
-          p[o++] = ev.d.cx + dr.x - ev.wind * 0.04 * ev.len; p[o++] = dr.y + ev.len; p[o++] = ev.d.cz + dr.z;
+          ev.geo.attributes.position.needsUpdate = true;
         }
-        ev.geo.attributes.position.needsUpdate = true;
-        for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].material.opacity = (ev.rain ? 0.75 : 0.55) * fade * (0.92 + 0.08 * Math.sin(t * 0.4 + j)) * Math.min(1, far * 1.4) * (j >= 20 ? 0.6 : 1);
+        for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].material.opacity = (ev.rain ? 0.75 : 0.55) * fade * (0.92 + 0.08 * Math.sin(t * 0.4 + j)) * Math.min(1, far * 1.4) * (j >= ev.nS ? 0.6 : 1);
       }
       updateFogEvents(dt, t); updateGhosts(dt, t); updatePuddles(dt); updateRings(dt);
       AUD.setRain(Math.min(1, sa), Math.min(1, sb));
