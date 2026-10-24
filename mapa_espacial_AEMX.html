@@ -6741,7 +6741,12 @@ window.startMap = function (RAW, AUTH) {
     /* Puntería: sigue al OVNI con algo de adelanto; si no hay amenaza, vigila de lado a lado */
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
-    b.g.position.set(b.x, b.y, b.z); b.g.rotation.y = b.yaw; b.g.rotation.z = (b.mode === 'lift' && b.lift && b.lift.ph === 2) ? 0.09 * Math.sin(t * 1.7) : 0;
+    var swz = (b.mode === 'lift' && b.lift && b.lift.ph === 2) ? 0.09 * Math.sin(t * 1.7) : 0, swx = 0, swy = 0;
+    if (swz) { /* colgado: el balanceo gira alrededor de la mano que sujeta el dron, no de los pies */
+      var pvx = 0.115, pvy = 0.70, sdx = pvx - (pvx * Math.cos(swz) - pvy * Math.sin(swz)); swy = pvy - (pvx * Math.sin(swz) + pvy * Math.cos(swz));
+      swx = sdx * Math.cos(b.yaw); var swzz = -sdx * Math.sin(b.yaw); b.g.position.set(b.x + swx, b.y + swy, b.z + swzz);
+    } else b.g.position.set(b.x, b.y, b.z);
+    b.g.rotation.y = b.yaw; b.g.rotation.z = swz;
     if (thr && (d3 <= botRng() + 5 || (b.mode === 'walk' && b.gtype === 'hunt' && d3 < 260)) && b.boostT <= 0 && !b.ball && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch')) {
       pd = d3 / BOT_LASER_V * 0.85;
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
