@@ -1940,18 +1940,18 @@ window.startMap = function (RAW, AUTH) {
           c = sc.lerp(c, sm);
           if (edge > 2.8 && edge < 4.0) sandSpots.push({ x: x, z: z, ang: coastAng });
         }
-        var cy = 0.046 + ((ix + iz) & 1) * 0.004, cr = Math.min(G * 0.9, edge + 0.12), vb, sl; /* por encima de los senderos (0.028–0.032): el sendero queda debajo de la vegetación */
+        var cy = 0.046, cr = Math.min(G * 0.9, edge + 0.12), vb, sl; /* por encima de los senderos (0.028–0.032): el sendero queda debajo de la vegetación */
         if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) { /* sobre las faldas bajas del volcán: sigue su superficie y oculta el borde de la base */
           vb = volcBump(x, z);
           if (vb >= 0.34 * VOLC.H) return;
           sl = Math.hypot(volcBump(x + 0.5, z) - volcBump(x - 0.5, z), volcBump(x, z + 0.5) - volcBump(x, z - 0.5));
-          cy = terrainH(x, z) + 0.1 + cr * sl * 0.9 + ((ix + iz) & 1) * 0.004;
+          cy = terrainH(x, z) + 0.1 + cr * sl * 0.9;
         }
         filled[k] = 1;
         if (isSand) { /* la arena es una malla de cuadros que encajan sin traslaparse (evita el parpadeo entre capas) */
           var qs = Math.min(G, 2 * (edge + 0.1) / 1.4142);
           sandList.push({ x: x, z: z, y: Math.max(0, terrainH(x, z)) + 0.07, s: Math.max(0.2, qs), c: c });
-        } else list.push({ x: x, z: z, y: cy, c: c, r: cr });
+        } else list.push({ x: x, z: z, y: cy, c: c, s: Math.max(0.2, Math.min(G, 2 * (edge + 0.1) / 1.4142)) }); /* cuadros que encajan sin traslaparse, como la arena (evita círculos y parpadeo) */
       }
       /* Rellena huecos: cierra rendijas y cubre las zonas sin suelo rodeadas por suelo (islas de la base del estado) */
       function fillHoles(ia, ib, ja, jb) {
@@ -2030,14 +2030,14 @@ window.startMap = function (RAW, AUTH) {
         sm2.frustumCulled = false; sm2.raycast = function () {}; scene.add(sm2);
       }
       if (!list.length) return;
-      var pg = new THREE.CircleGeometry(1, 10);
-      var gMat = new THREE.MeshLambertMaterial({ color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      var pg = new THREE.PlaneGeometry(1, 1); pg.rotateX(-Math.PI / 2);
+      var gMat = new THREE.MeshLambertMaterial({ color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
       var gm = new THREE.InstancedMesh(pg, gMat, list.length), dummy = new THREE.Object3D(), i, it;
       for (i = 0; i < list.length; i++) {
         it = list[i];
         dummy.position.set(it.x, it.y, it.z);
-        dummy.rotation.set(-Math.PI / 2, 0, 0);
-        dummy.scale.set(it.r, it.r, 1);
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(it.s * 1.01, 1, it.s * 1.01);
         dummy.updateMatrix();
         gm.setMatrixAt(i, dummy.matrix); gm.setColorAt(i, it.c);
       }
@@ -2049,18 +2049,18 @@ window.startMap = function (RAW, AUTH) {
     })();
     /* Césped y tierra sobre la losa de los hexágonos vacíos: capa continua que cubre su lado exterior hasta el borde de la base */
     (function () {
-      var items = [], dummy = new THREE.Object3D(), bg = new THREE.CircleGeometry(1, 9), GS = 0.5;
+      var items = [], dummy = new THREE.Object3D(), bg = new THREE.PlaneGeometry(1, 1), GS = 0.5; bg.rotateX(-Math.PI / 2);
       invList.forEach(function (h) {
         var gx, gz, x, z, dx, dz, clear, r, zone, n1, n2, c, gc, dc, w, cv;
         for (gx = -A_PAD; gx <= A_PAD; gx += GS) {
           for (gz = -A_PAD * 1.16; gz <= A_PAD * 1.16; gz += GS) {
-            dx = gx + (vr() - 0.5) * GS * 0.5; dz = gz + (vr() - 0.5) * GS * 0.5;
+            vr(); vr(); dx = gx; dz = gz; /* malla regular de cuadros (se conservan las llamadas al azar para no mover lo demás) */
             clear = A_PAD - hexNorm(dx, dz);
             if (clear < 0.02) continue;
             x = h.x + dx; z = h.z + dz;
             cv = coverAt(h, x, z);
             if (cv <= 0) continue;
-            r = Math.min(GS * 0.85, clear + 0.06);
+            r = Math.max(0.1, Math.min(GS, 2 * (clear + 0.06)));
             zone = zoneOf(x, z); n1 = nzC(x, z, 1.9); n2 = nzC(x, z, 4.4);
             if (zone === 'arid') { gc = col(0.085 + 0.015 * n2, 0.38, 0.31 + 0.07 * n2); dc = col(0.07 + 0.015 * n2, 0.4, 0.25 + 0.07 * n2); w = (n1 - 0.4) / 0.25; }
             else if (zone === 'trop') { gc = col(0.32 + 0.03 * n2, 0.5, 0.2 + 0.08 * n2); dc = col(0.08, 0.35, 0.22); w = (n1 - 0.72) / 0.2; }
@@ -2068,7 +2068,7 @@ window.startMap = function (RAW, AUTH) {
             w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
             c = gc.lerp(dc, w);
             if (h.sand) c = col(0.118 + 0.012 * n2, 0.5 + 0.1 * n1, 0.66 + 0.1 * n2);
-            items.push({ x: x, z: z, y: 0.345 + (items.length % 7) * 0.0015, r: r, c: c });
+            items.push({ x: x, z: z, y: 0.345, r: r, c: c });
           }
         }
       });
@@ -2077,8 +2077,8 @@ window.startMap = function (RAW, AUTH) {
       for (q = 0; q < items.length; q++) {
         it = items[q];
         dummy.position.set(it.x, it.y, it.z);
-        dummy.rotation.set(-Math.PI / 2, 0, 0);
-        dummy.scale.set(it.r, it.r, 1);
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(it.r * 1.01, 1, it.r * 1.01);
         dummy.updateMatrix();
         bm.setMatrixAt(q, dummy.matrix); bm.setColorAt(q, it.c);
       }
