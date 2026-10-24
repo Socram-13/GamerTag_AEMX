@@ -5647,7 +5647,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var vegObs = null, botVG = null, bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 35, BOT_HUNT_D = 30, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 50, BOT_BOOST_CD = 25, BOT_CHASE_R = 400;
+  var BOT_RANGE = 35, BOT_HUNT_D = 30, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 50, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
@@ -6349,8 +6349,8 @@ window.startMap = function (RAW, AUTH) {
           want = Math.atan2(tw.x - b.x, tw.z - b.z);
           spd = (b.gtype === 'hunt' || b.gtype === 'wreck') ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
           if (gd < 3) spd = Math.min(spd, 3.2);
-          if (b.wxBad) spd = Math.min(spd, BOT_WALK); /* con niebla o lluvia hay poca visibilidad: solo camina */
-          if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
+          if (b.wxFog) spd = Math.min(spd, BOT_WALK); /* con niebla hay poca visibilidad: solo camina (bajo la lluvia sí corre, pero sin hiperimpulso) */
+          if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
           if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
@@ -7263,8 +7263,12 @@ window.startMap = function (RAW, AUTH) {
     }
     /* ¿Hay lluvia o niebla en este punto? (el robot no usa el hiperimpulso ahí) */
     function bad(x, z) {
-      var i, d, fe;
+      var i;
       for (i = 0; i < events.length; i++) if (events[i].area && inArea(events[i].area, x, z)) return true;
+      return fogAt(x, z);
+    }
+    function fogAt(x, z) {
+      var i, d, fe;
       for (i = 0; i < fogEvents.length; i++) { fe = fogEvents[i]; if (Math.hypot(x - fe.d.cx, z - fe.d.cz) < 64) return true; }
       for (i = 0; i < districts.length; i++) {
         d = districts[i]; if (d.list.length) continue;
@@ -7273,7 +7277,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { bad: bad, update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
+    return { bad: bad, fogAt: fogAt, update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
   })();
   window.__aemxClima = WX; /* prueba manual: __aemxClima.start('rain','Veracruz',60) */
 
