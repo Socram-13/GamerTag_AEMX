@@ -5773,6 +5773,98 @@ window.startMap = function (RAW, AUTH) {
     return out;
   }
 
+
+  /* ---------- Clima: niebla fija en estados sin jugadores; lluvia y llovizna al azar, por tiempo limitado ---------- */
+  var WX = (function () {
+    var group = new THREE.Group(); scene.add(group);
+    var cv = document.createElement('canvas'); cv.width = cv.height = 128;
+    var cx2 = cv.getContext('2d'), gr = cx2.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    cx2.fillStyle = gr; cx2.fillRect(0, 0, 128, 128);
+    var puff = new THREE.CanvasTexture(cv);
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+    function byName(n) { for (var i = 0; i < districts.length; i++) if (districts[i].name === n) return districts[i]; return null; }
+
+    /* Niebla permanente en estados sin jugadores */
+    var fogs = [];
+    function buildFog() {
+      districts.forEach(function (d) {
+        if (d.list.length) return;
+        for (var i = 0; i < 7; i++) {
+          var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: 0xc9d6e6, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+          var s = rnd(45, 85); sp.scale.set(s, s * 0.55, 1);
+          var b = { x: d.cx + rnd(-34, 34), z: d.cz + rnd(-34, 34), y: rnd(1.6, 4.5) };
+          sp.position.set(b.x, b.y, b.z);
+          group.add(sp);
+          fogs.push({ sp: sp, b: b, ph: rnd(0, 6.28), amp: rnd(3, 8), base: rnd(0.28, 0.42) });
+        }
+      });
+    }
+
+    /* Zonas donde llueve (aproximado, por clima típico) */
+    var RAIN = ['Chiapas', 'Tabasco', 'Veracruz', 'Oaxaca', 'Campeche', 'Quintana Roo', 'Guerrero', 'Nayarit', 'Jalisco', 'Colima', 'Michoacán', 'Puebla', 'Yucatán', 'Sinaloa'];
+    var DRIZ = ['Ciudad de México', 'Estado de México', 'Hidalgo', 'Tlaxcala', 'Puebla', 'Morelos', 'Querétaro', 'Veracruz', 'Michoacán', 'Chihuahua', 'Durango', 'Jalisco'];
+    var events = [], nextAt = 12 + Math.random() * 25;
+
+    function startEvent(kind, name, dur) {
+      var d = byName(name); if (!d) return null;
+      var rain = kind === 'rain', N = rain ? 1100 : 1500, R = rain ? 48 : 58, H = 55, len = rain ? 3.2 : 1.1, vel = rain ? 46 : 14;
+      var pos = new Float32Array(N * 6), drops = [], i;
+      for (i = 0; i < N; i++) drops.push({ x: rnd(-R, R), z: rnd(-R, R), y: rnd(0, H), v: vel * rnd(0.8, 1.2) });
+      var geo2 = new THREE.BufferGeometry(); geo2.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      var mat = new THREE.LineBasicMaterial({ color: rain ? 0x9fd4ff : 0xd6e8ff, transparent: true, opacity: 0, depthWrite: false, fog: false });
+      var lines = new THREE.LineSegments(geo2, mat); lines.frustumCulled = false; group.add(lines);
+      var clouds = [];
+      for (i = 0; i < 5; i++) {
+        var cs = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: rain ? 0x4a5568 : 0x7d8aa0, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+        var sz = rnd(55, 95); cs.scale.set(sz, sz * 0.6, 1);
+        cs.position.set(d.cx + rnd(-30, 30), H + rnd(2, 10), d.cz + rnd(-30, 30)); group.add(cs); clouds.push(cs);
+      }
+      var ev = { d: d, rain: rain, drops: drops, N: N, H: H, len: len, geo: geo2, mat: mat, lines: lines, clouds: clouds, age: 0, dur: dur, wind: rnd(-3, 3) };
+      events.push(ev); return ev;
+    }
+    function endEvent(ev) {
+      group.remove(ev.lines); ev.geo.dispose(); ev.mat.dispose();
+      ev.clouds.forEach(function (c) { group.remove(c); c.material.dispose(); });
+    }
+    function pickEvent() {
+      var rain = Math.random() < 0.55, list = rain ? RAIN : DRIZ, name = list[Math.floor(Math.random() * list.length)];
+      for (var i = 0; i < events.length; i++) if (events[i].d.name === name) return;
+      startEvent(rain ? 'rain' : 'drizzle', name, rnd(60, 240)); /* de 1 a 4 minutos */
+    }
+
+    function update(dt, t) {
+      if (!fogs.length && districts.length) buildFog();
+      var cp = camera.position, i, j, k;
+      for (i = 0; i < fogs.length; i++) {
+        var f = fogs[i], dd = Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140));
+        f.sp.position.x = f.b.x + Math.sin(t * 0.05 + f.ph) * f.amp;
+        f.sp.position.z = f.b.z + Math.cos(t * 0.04 + f.ph) * f.amp;
+        f.sp.material.opacity = f.base * dd * (0.85 + 0.15 * Math.sin(t * 0.3 + f.ph));
+      }
+      nextAt -= dt;
+      if (nextAt <= 0) { if (events.length < 2) pickEvent(); nextAt = rnd(40, 150); }
+      for (k = events.length - 1; k >= 0; k--) {
+        var ev = events[k]; ev.age += dt;
+        if (ev.age >= ev.dur) { endEvent(ev); events.splice(k, 1); continue; }
+        var fade = Math.min(1, ev.age / 8, (ev.dur - ev.age) / 10), p = ev.geo.attributes.position.array, dr, o = 0;
+        var far = Math.max(0.25, Math.min(1, cp.distanceTo(ev.lines.position.set(ev.d.cx, 0, ev.d.cz)) / 120));
+        ev.mat.opacity = (ev.rain ? 0.6 : 0.4) * fade;
+        for (j = 0; j < ev.N; j++) {
+          dr = ev.drops[j]; dr.y -= dr.v * dt; dr.x += ev.wind * dt;
+          if (dr.y < 0.3) { dr.y = ev.H * rnd(0.7, 1); dr.x = rnd(-50, 50); dr.z = rnd(-50, 50); }
+          p[o++] = ev.d.cx + dr.x; p[o++] = dr.y; p[o++] = ev.d.cz + dr.z;
+          p[o++] = ev.d.cx + dr.x - ev.wind * 0.04 * ev.len; p[o++] = dr.y + ev.len; p[o++] = ev.d.cz + dr.z;
+        }
+        ev.lines.position.set(0, 0, 0);
+        ev.geo.attributes.position.needsUpdate = true;
+        for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].material.opacity = (ev.rain ? 0.34 : 0.24) * fade * (0.9 + 0.1 * Math.sin(t * 0.4 + j)) * Math.min(1, far * 1.4);
+      }
+    }
+    return { update: update, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
+  })();
+  window.__aemxClima = WX; /* prueba manual: __aemxClima.start('rain','Veracruz',60) */
+
   function frame() {
     requestAnimationFrame(frame);
     var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, k, n;
@@ -5883,6 +5975,7 @@ window.startMap = function (RAW, AUTH) {
     presPin.scale.setScalar(Math.max(1, dp / 90) * 1.3 / 3);
     presPin.visible = labelsOn && dp > PIN_D;
 
+    try { WX.update(dt, t); } catch (e) { WX.update = function () {}; console.warn("Clima desactivado:", e); }
     renderer.render(scene, camera);
   }
   frame();
