@@ -4450,7 +4450,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Hamburguesa: lo que sale del volcán cuando la vaca se cocina ---------- */
-  var burger = null, COOK_WAIT = 4.5, COOK_R0 = 5.3, COOK_R1 = 8.1, COOK_END = 8.8;
+  var burger = null, HAUL_MAX_HITS = 2, COOK_WAIT = 4.5, COOK_R0 = 5.3, COOK_R1 = 8.1, COOK_END = 8.8;
   function buildBurger() {
     var g = new THREE.Group(), m, i, a;
     function lam(c) { return new THREE.MeshLambertMaterial({ color: c }); }
@@ -4666,8 +4666,12 @@ window.startMap = function (RAW, AUTH) {
       /* Tras abducir una vaca, espera 5 s quieto antes de moverse */
       ufo.T += dt;
       if (ufo.T >= 5) {
-        if (ufo.carry && VOLC) { ufo.state = 'haul'; ufo.ph = 0; ufo.T = 0; ufo.tx = ufo.x; ufo.tz = ufo.z; }
+        if (ufo.carry && VOLC && ufo.hits <= HAUL_MAX_HITS) { ufo.state = 'haul'; ufo.ph = 0; ufo.T = 0; ufo.tx = ufo.x; ufo.tz = ufo.z; } /* solo va al volcán con la vida casi llena */
         else {
+          if (ufo.carry) { /* dañado: no hace el viaje, se queda con la vaca */
+            fxSpawn(ufo.g.position.x, ufo.g.position.y - 0.8, ufo.g.position.z, 0, 0, 0, 0.4, 0.4, 2, 0x9dffb8, 0.9, true);
+            scene.remove(ufo.carry.g); ufo.carry = null;
+          }
           ufo.state = 'wander'; ufo.legs = 2 + ((Math.random() * 2) | 0);
           s = ufoPick(ufo.x, ufo.z); ufo.tx = s[0]; ufo.tz = s[1];
         }
