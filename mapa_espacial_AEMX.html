@@ -5591,7 +5591,7 @@ window.startMap = function (RAW, AUTH) {
     function cy(mat, px, py, pz, r, len, rx, rz, par) { var q = new THREE.Mesh(uCyl, mat); q.position.set(px, py, pz); q.scale.set(r, len, r); q.rotation.set(rx || 0, 0, rz || 0); (par || g).add(q); return q; }
     function ball(mat, px, py, pz, r, par) { var q = new THREE.Mesh(uSphere, mat); q.position.set(px, py, pz); q.scale.setScalar(r); par.add(q); return q; }
     g.rotation.order = 'YXZ'; body.rotation.order = 'YXZ'; upper.rotation.order = 'YXZ';
-    body.position.y = 0.98; g.add(body);
+    body.position.y = 0.86; g.add(body);
 
     /* Pelvis y piernas con cadera, rodilla y tobillo */
     bx(bkBlack, 0, 0, 0, 0.32, 0.14, 0.22, body); bx(bkGray, 0, 0.0, 0.115, 0.16, 0.1, 0.03, body);
@@ -5600,15 +5600,15 @@ window.startMap = function (RAW, AUTH) {
       var th = new THREE.Group(), kn = new THREE.Group(), ft = new THREE.Group();
       th.rotation.order = 'YXZ'; th.position.set(sx * 0.12, -0.04, 0); body.add(th);
       ball(bkJoint, 0, 0, 0, 0.095, th);
-      bx(bkBlack, 0, -0.21, 0, 0.13, 0.4, 0.15, th);
-      bx(bkGray, sx * 0.072, -0.2, 0, 0.025, 0.3, 0.1, th);
-      kn.position.y = -0.42; th.add(kn);
+      bx(bkBlack, 0, -0.18, 0, 0.13, 0.34, 0.15, th);
+      bx(bkGray, sx * 0.072, -0.17, 0, 0.025, 0.26, 0.1, th);
+      kn.position.y = -0.36; th.add(kn);
       ball(bkJoint, 0, 0, 0, 0.085, kn);
       bx(bkGray, 0, 0, 0.1, 0.12, 0.13, 0.05, kn);
-      bx(bkBlack, 0, -0.2, -0.01, 0.1, 0.38, 0.12, kn);
-      bx(bkGray, 0, -0.14, -0.095, 0.1, 0.24, 0.05, kn);
-      bx(bkGray, 0, -0.2, 0.08, 0.08, 0.28, 0.03, kn);
-      ft.position.y = -0.42; kn.add(ft);
+      bx(bkBlack, 0, -0.17, -0.01, 0.1, 0.32, 0.12, kn);
+      bx(bkGray, 0, -0.12, -0.095, 0.1, 0.2, 0.05, kn);
+      bx(bkGray, 0, -0.17, 0.08, 0.08, 0.24, 0.03, kn);
+      ft.position.y = -0.36; kn.add(ft);
       ball(bkJoint, 0, 0, 0, 0.065, ft);
       bx(bkBlack, 0, -0.05, 0.07, 0.15, 0.09, 0.3, ft);
       bx(bkDark, 0, -0.075, 0.2, 0.14, 0.05, 0.12, ft);
@@ -5682,7 +5682,7 @@ window.startMap = function (RAW, AUTH) {
 
     /* Brazos con hombro, codo y mano: cada uno se resuelve para llegar a la empuñadura (derecho) y al guardamano (izquierdo) */
     function solveArm(sx, T) {
-      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.27, 0.43, 0), l1 = 0.36, l2 = 0.34;
+      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.27, 0.43, 0), l1 = 0.31, l2 = 0.29;
       var d = T.clone().sub(S), L = d.length(), dist = Math.min(L, l1 + l2 - 0.005), dir = d.clone().normalize(), A, pole, E, Tc, q1, q2, down = new THREE.Vector3(0, -1, 0);
       A = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist))));
       pole = new THREE.Vector3(sx * 0.6, -1, -0.3); pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
@@ -5693,15 +5693,15 @@ window.startMap = function (RAW, AUTH) {
       sh.position.copy(S); sh.quaternion.copy(q1); shell.add(sh);
       el.position.y = -l1; el.quaternion.copy(q1.clone().conjugate().multiply(q2)); sh.add(el);
       ball(bkJoint, 0, 0, 0, 0.085, sh);
-      bx(bkBlack, 0, -0.18, 0, 0.1, 0.3, 0.12, sh);
-      bx(bkGray, sx * 0.065, -0.16, 0, 0.02, 0.2, 0.1, sh);
+      bx(bkBlack, 0, -0.155, 0, 0.1, 0.26, 0.12, sh);
+      bx(bkGray, sx * 0.065, -0.14, 0, 0.02, 0.17, 0.1, sh);
       ball(bkJoint, 0, 0, 0, 0.07, el);
-      bx(bkBlack, 0, -0.16, 0, 0.11, 0.26, 0.12, el);
-      bx(bkGray, 0, -0.12, 0.065, 0.09, 0.17, 0.03, el);
-      bx(bkDark, 0, -0.33, 0, 0.09, 0.1, 0.1, el);
+      bx(bkBlack, 0, -0.135, 0, 0.11, 0.22, 0.12, el);
+      bx(bkGray, 0, -0.1, 0.065, 0.09, 0.15, 0.03, el);
+      bx(bkDark, 0, -0.28, 0, 0.09, 0.1, 0.1, el);
       arms.push({ sh: sh, el: el, hs: sh.quaternion.clone(), he: el.quaternion.clone() });
     }
-    solveArm(-1, new THREE.Vector3(0.12, 0.45, 0.45));
+    solveArm(-1, new THREE.Vector3(0.12, 0.45, 0.4));
     solveArm(1, new THREE.Vector3(0.12, 0.39, 0.35));
 
     g.scale.setScalar(0.33);
@@ -5956,7 +5956,7 @@ window.startMap = function (RAW, AUTH) {
     var b = bot, i, p, cand = [], dd, W, base, k, ang, cx, cz, found = false, angs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
     for (i = 0; i < botList.length; i++) {
       p = botList[i];
-      if (p.tier === 6 || p.isPres || b.rp && b.rp.p === p) continue;
+      if (p.tier === 6 || p.tier === 0 || p.isPres || b.rp && b.rp.p === p) continue;
       dd = Math.hypot(p.x - b.x, p.z - b.z);
       if (dd < maxD && dd > 4) cand.push(p);
     }
@@ -5990,7 +5990,7 @@ window.startMap = function (RAW, AUTH) {
   /* Cinemática inversa de un brazo (hombro, codo, mano): deja en qs/qe las rotaciones para que la mano llegue a (tx,ty,tz) */
   var bkS = new THREE.Vector3(), bkD = new THREE.Vector3(), bkP = new THREE.Vector3(), bkEl = new THREE.Vector3(), bkTc = new THREE.Vector3(), bkDn = new THREE.Vector3(0, -1, 0), bkQ3 = new THREE.Quaternion(), bkQ4 = new THREE.Quaternion();
   function botIK(sx, tx, ty, tz, qs, qe) {
-    var l1 = 0.36, l2 = 0.34, dist, A;
+    var l1 = 0.31, l2 = 0.29, dist, A;
     bkS.set(sx * 0.27, 0.43, 0); bkD.set(tx, ty, tz).sub(bkS); dist = Math.min(bkD.length(), l1 + l2 - 0.005); bkD.normalize();
     A = Math.acos(clamp((l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist), -1, 1));
     bkP.set(sx * 0.6, -1, -0.3); bkP.sub(bkTc.copy(bkD).multiplyScalar(bkP.dot(bkD))).normalize();
@@ -6009,7 +6009,7 @@ window.startMap = function (RAW, AUTH) {
       x = d.cx + Math.cos(a) * r; z = d.cz + Math.sin(a) * r; ok = botFree(x, z) && (!BN || BN.comp[botCell(x, z)] === BN.best);
     }
     b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = Math.random() * 6.2832; b.aimYaw = b.yaw; b.aimPitch = 0.05; b.v = 0; b.vy = 0;
-    b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false; b.roofCD = 0; b.hold = 0; b.runK = 0; b.flyK = 0; b.path = null; b.pi = 0; b.replanT = 0; b.huntHold = 0;
+    b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false; b.roofCD = 0; b.kneel = 0; b.hold = 0; b.runK = 0; b.flyK = 0; b.path = null; b.pi = 0; b.replanT = 0; b.huntHold = 0;
     b.stuck = 0; b.pt = 0; b.lastGD = 1e9; b.noHunt = 0; b.fireT = 0; b.burst = 0; b.los = true; b.losT = 0; b.losBlock = 0; b.fxT = 0; b.dustT = 0;
     b.up = new THREE.Vector3(); b.uv = new THREE.Vector3(); b.hasUp = false; b.rp = null; b.jph = 0; b.perchT = 0; b.maxPerch = 8; b.aiming = false;
     bot = b;
@@ -6187,7 +6187,7 @@ window.startMap = function (RAW, AUTH) {
       yT = Math.atan2(pred.x - b.x, pred.z - b.z);
       pT = Math.atan2(pred.y - (b.y + 0.52), Math.hypot(pred.x - b.x, pred.z - b.z));
       pT = Math.max(-0.5, Math.min(1.1, pT));
-    } else { yT = b.yaw + (b.mode === 'perch' ? 1.3 * Math.sin(t * 0.5) : 0); pT = 0.06; }
+    } else { yT = b.yaw; pT = 0.06; }
     b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 7);
     b.aimPitch += (pT - b.aimPitch) * Math.min(1, dt * 7);
     if (Math.abs(nAng(b.aimYaw - b.yaw)) > 2.2) b.aimYaw = b.yaw + (nAng(b.aimYaw - b.yaw) > 0 ? 2.2 : -2.2);
@@ -6197,11 +6197,13 @@ window.startMap = function (RAW, AUTH) {
     /* Pose: con el rifle en las manos (apuntando), colgado a la espalda con los brazos corriendo, o en vuelo (hiperimpulso y mochila) con piernas rectas y brazos a los lados */
     moving = b.mode === 'walk' && b.v > 0.3;
     var runSpd = b.mode === 'walk' && b.v > 3.4 && b.boostT <= 0, flying = b.boostT > 0 || b.mode === 'jetUp' || b.mode === 'jetDown', wantHold, fK, ang, f, elf;
-    wantHold = b.aiming ? 1 : 0;
+    wantHold = (b.aiming || b.mode === 'perch') ? 1 : 0;
     b.hold += (wantHold - b.hold) * Math.min(1, dt * 5);
     b.runK += ((runSpd ? 1 : 0) - b.runK) * Math.min(1, dt * 6);
     b.flyK += ((flying ? 1 : 0) - b.flyK) * Math.min(1, dt * 8);
     fK = b.flyK;
+    b.kneel += ((b.mode === 'perch' ? 1 : 0) - b.kneel) * Math.min(1, dt * 3.5);
+    var kq = b.kneel;
     b.gk += ((moving ? 1 : 0) - b.gk) * Math.min(1, dt * 8);
     if (moving) b.ph += dt * Math.min(12, 3.0 + b.v * 0.6);
     am = Math.min(0.95, 0.25 + b.v * 0.1); kf = Math.min(1.6, 0.25 + b.v * 0.14);
@@ -6210,10 +6212,11 @@ window.startMap = function (RAW, AUTH) {
       sg = kf * Math.max(0, Math.cos(b.ph + i * Math.PI)) * b.gk;
       ang = -(la + sg) * 0.85;
       la = la * (1 - fK) + 0.12 * fK; sg = sg * (1 - fK) + 0.05 * fK; ang = ang * (1 - fK) + 0.45 * fK;
+      la = la * (1 - kq) + (i === 0 ? -1.57 : 0) * kq; sg = sg * (1 - kq) + 1.57 * kq; ang = ang * (1 - kq);
       b.legs[i].th.rotation.x = la; b.legs[i].kn.rotation.x = sg; b.legs[i].ft.rotation.x = ang;
     }
     /* Puntería vertical: el cuello y los brazos suben o bajan el rifle; el torso solo gira en horizontal */
-    var pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.12, 0.45, 0.45], [0.12, 0.39, 0.35]];
+    var pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.12, 0.45, 0.4], [0.12, 0.39, 0.35]];
     if (b.hold > 0.01) {
       for (i = 0; i < 2; i++) {
         hy = hT[i][1] - 0.43; hz = hT[i][2];
@@ -6234,14 +6237,14 @@ window.startMap = function (RAW, AUTH) {
     hy = 0.09; hz = 0.05;
     b.rifle.position.set(0.14 - 0.02 * b.hold, 0.12 + (0.43 + hy * cp + hz * sp - 0.12) * b.hold, -0.4 + (-hy * sp + hz * cp + 0.4) * b.hold);
     b.rifle.rotation.x = -1.2 * (1 - b.hold) - pit * b.hold; b.rifle.rotation.z = 0.05 * Math.sin(b.ph * 2) * (1 - b.hold);
-    lean = (b.boostT > 0 ? 0.55 : Math.min(0.22, b.v * 0.03)) * b.gk + (b.air > 0.5 ? 0.08 : 0);
+    lean = (b.boostT > 0 ? 0.55 : Math.min(0.22, b.v * 0.03)) * b.gk + (b.air > 0.5 ? 0.08 : 0) + 0.18 * kq;
     b.lean = (b.lean || 0) + (lean - (b.lean || 0)) * Math.min(1, dt * 6);
     b.body.rotation.x = b.lean;
-    b.body.position.y = 0.98 - 0.02 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7);
+    b.body.position.y = (0.84 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.595 * kq;
     b.upper.rotation.y = nAng(b.aimYaw - b.yaw);
     b.upper.rotation.x = 0;
     b.head.rotation.x = -b.aimPitch - b.lean;
-    b.head.rotation.y = (b.v < 1 ? 0.55 : 0.15) * Math.sin(t * 0.7) * (1 - b.hold);
+    b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6);
 
     /* Llamas de la mochila y efectos */
     var fT = (b.mode === 'jetUp' || b.mode === 'jetDown') ? (b.mode === 'jetUp' && b.jph === 0 ? 1 : 0.55) : (b.boostT > 0 ? 0.85 : 0);
