@@ -5574,7 +5574,8 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 55, BOT_HUNT_D = 34, BOT_WALK = 2.6, BOT_RUN = 7.2, BOT_BOOST = 24, BOT_CELL = 8, BOT_LASER_V = 95;
+  var BOT_RANGE = 90, BOT_HUNT_D = 55, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 120, BOT_BOLT_MAX = 135, BOT_BOOST_CD = 8;
+  var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
   var bkLaser = new THREE.MeshBasicMaterial({ color: 0x7dffa0, transparent: true, opacity: 0.98, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -5638,8 +5639,8 @@ window.startMap = function (RAW, AUTH) {
       var an = new THREE.Group();
       an.position.set(sx * 0.07, 0.17, -0.05); an.rotation.set(-0.12, 0, -sx * 0.2); head.add(an);
       bx(bkDark, 0, 0.02, 0, 0.05, 0.06, 0.05, an);
-      cy(bkGray, 0, 0.28, 0, 0.013, 0.52, 0, 0, an);
-      ball(eyeMat, 0, 0.55, 0, 0.022, an);
+      cy(bkGray, 0, 0.1, 0, 0.013, 0.17, 0, 0, an);
+      ball(eyeMat, 0, 0.2, 0, 0.022, an);
     });
 
     /* Mochila estilizada: casco aerodinámico con franja luminosa, aletas y dos toberas */
@@ -5697,12 +5698,12 @@ window.startMap = function (RAW, AUTH) {
       bx(bkBlack, 0, -0.16, 0, 0.11, 0.26, 0.12, el);
       bx(bkGray, 0, -0.12, 0.065, 0.09, 0.17, 0.03, el);
       bx(bkDark, 0, -0.33, 0, 0.09, 0.1, 0.1, el);
-      arms.push({ sh: sh, el: el });
+      arms.push({ sh: sh, el: el, qs: sh.quaternion.clone(), qe: el.quaternion.clone() });
     }
     solveArm(-1, new THREE.Vector3(0.12, 0.45, 0.45));
     solveArm(1, new THREE.Vector3(0.12, 0.39, 0.35));
 
-    g.scale.setScalar(0.43);
+    g.scale.setScalar(0.39);
     noRay(g); scene.add(g);
     return { g: g, body: body, upper: upper, shell: shell, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat };
   }
@@ -5812,10 +5813,10 @@ window.startMap = function (RAW, AUTH) {
     return true;
   }
   function botPick() {
-    var b = bot, i, a, r, x, z;
-    if (Math.random() < 0.3 && botPickRoof(60)) return;
+    var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown() && !ufoOverVolc()) ? ufo.g.position : null, toward = !!Up && Math.random() < 0.7;
+    if (Math.random() < 0.5 && botPickRoof(60)) return;
     for (i = 0; i < 30; i++) {
-      a = Math.random() * 6.2832; r = 25 + Math.random() * 70; x = b.x + Math.cos(a) * r; z = b.z + Math.sin(a) * r;
+      a = toward ? Math.atan2(Up.z - b.z, Up.x - b.x) + (Math.random() - 0.5) * 1.2 : Math.random() * 6.2832; r = 25 + Math.random() * 70; x = b.x + Math.cos(a) * r; z = b.z + Math.sin(a) * r;
       if (botFree(x, z)) { b.goal = { x: x, z: z }; b.gtype = 'patrol'; b.jog = Math.random() < 0.55; b.stuck = 0; b.lastGD = 1e9; return; }
     }
     b.idle = 1;
@@ -5828,7 +5829,7 @@ window.startMap = function (RAW, AUTH) {
       x = d.cx + Math.cos(a) * r; z = d.cz + Math.sin(a) * r; ok = botFree(x, z);
     }
     b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = Math.random() * 6.2832; b.aimYaw = b.yaw; b.aimPitch = 0.05; b.v = 0; b.vy = 0;
-    b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false;
+    b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false; b.roofCD = 0; b.hold = 1; b.runK = 0; b.flyK = 0;
     b.stuck = 0; b.pt = 0; b.lastGD = 1e9; b.noHunt = 0; b.fireT = 0; b.burst = 0; b.los = true; b.losT = 0; b.losBlock = 0; b.fxT = 0; b.dustT = 0;
     b.up = new THREE.Vector3(); b.uv = new THREE.Vector3(); b.hasUp = false; b.rp = null; b.jph = 0; b.perchT = 0; b.maxPerch = 8; b.aiming = false;
     bot = b;
@@ -5867,8 +5868,8 @@ window.startMap = function (RAW, AUTH) {
       }
       p.dist += BOT_LASER_V * dt;
       bp = botBld(nx, nz, -0.55);
-      if (ny <= Math.max(0, terrainH(nx, nz)) + 0.05 || (bp && ny < BASE + bp.topY * 0.85) || p.dist >= 95) {
-        if (p.dist < 95) fxSpawn(nx, ny, nz, 0, 0.6, 0, 0.25, 0.15, 0.5, 0x7dffa0, 0.8, true);
+      if (ny <= Math.max(0, terrainH(nx, nz)) + 0.05 || (bp && ny < BASE + bp.topY * 0.85) || p.dist >= BOT_BOLT_MAX) {
+        if (p.dist < BOT_BOLT_MAX) fxSpawn(nx, ny, nz, 0, 0.6, 0, 0.25, 0.15, 0.5, 0x7dffa0, 0.8, true);
         p.on = false; p.m.visible = false; continue;
       }
       p.m.position.set(nx, ny, nz);
@@ -5888,7 +5889,7 @@ window.startMap = function (RAW, AUTH) {
     } else b.hasUp = false;
     thr = !!U && now >= b.noHunt;
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
-    if (b.boostT > 0) { b.boostT -= dt; if (b.boostT <= 0 || b.mode !== 'walk' || !b.goal) { b.boostT = 0; b.boostCD = 18; } }
+    if (b.boostT > 0) { b.boostT -= dt; if (b.boostT <= 0 || b.mode !== 'walk' || !b.goal) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; } }
     else if (b.boostCD > 0) b.boostCD -= dt;
 
     if (b.mode === 'walk') {
@@ -5898,13 +5899,15 @@ window.startMap = function (RAW, AUTH) {
         else if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; }
       } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; }
       if (!b.goal && !thr) { b.idle -= dt; if (b.idle <= 0) botPick(); }
+      /* El OVNI vuela alto y está cerca: sube a una azotea para tener mejor ángulo */
+      if (thr && dh <= 70 && U.y > 9 && b.gtype !== 'roof' && now >= b.roofCD) { b.roofCD = now + 25; botPickRoof(30); }
       /* Sin línea de tiro desde el suelo: sube a una azotea cercana */
       if (thr && dh <= BOT_HUNT_D && !b.goal) {
         b.losT -= dt;
         if (b.losT <= 0) {
           b.losT = 0.25; b.los = botLOS(b.x, b.y + 1.0, b.z, U.x, U.y, U.z, null);
           if (!b.los) b.losBlock += 0.25; else b.losBlock = 0;
-          if (b.losBlock > 1.4) { b.losBlock = 0; botPickRoof(26); }
+          if (b.losBlock > 1.4) { b.losBlock = 0; b.roofCD = now + 25; botPickRoof(26); }
         }
       }
       /* Avance con rumbo libre; el hiperimpulso dura 5 s */
@@ -5920,7 +5923,7 @@ window.startMap = function (RAW, AUTH) {
           if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && b.gtype !== 'roof') { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
-            if (gd < 10) { b.boostT = 0; b.boostCD = 18; spd = BOT_RUN; }
+            if (gd < 10) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
           }
           hd = botSteer(b, want, 1.4 + b.v * 0.22);
           if (hd === null) { b.v *= Math.max(0, 1 - dt * 6); b.yaw += b.side * dt * 2.5; }
@@ -5938,7 +5941,7 @@ window.startMap = function (RAW, AUTH) {
           b.pt += dt;
           if (b.pt >= 1.2) {
             b.stuck = (b.lastGD - gd < 0.5) ? b.stuck + 1 : 0; b.lastGD = gd; b.pt = 0;
-            if (b.stuck >= 3) { b.stuck = 0; if (b.gtype === 'hunt') b.noHunt = now + 12; b.goal = null; b.gtype = ''; b.boostT = 0; b.idle = 0.3; }
+            if (b.stuck >= 3) { b.stuck = 0; if (b.gtype === 'hunt') b.noHunt = now + 4; b.goal = null; b.gtype = ''; b.boostT = 0; b.idle = 0.3; }
           }
         }
       } else {
@@ -5986,12 +5989,12 @@ window.startMap = function (RAW, AUTH) {
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
     b.g.position.set(b.x, b.y, b.z); b.g.rotation.y = b.yaw;
-    if (thr && d3 <= BOT_RANGE + 15 && b.boostT <= 0) {
+    if (thr && d3 <= BOT_RANGE + 15 && b.boostT <= 0 && (b.mode === 'walk' || b.mode === 'perch')) {
       pd = d3 / BOT_LASER_V * 0.85;
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
       b.aiming = true;
       yT = Math.atan2(pred.x - b.x, pred.z - b.z);
-      pT = Math.atan2(pred.y - (b.y + 0.56), Math.hypot(pred.x - b.x, pred.z - b.z));
+      pT = Math.atan2(pred.y - (b.y + 0.62), Math.hypot(pred.x - b.x, pred.z - b.z));
       pT = Math.max(-0.5, Math.min(1.1, pT));
     } else { yT = b.yaw + (b.mode === 'walk' && b.v > 1 ? 0.35 * Math.sin(t * 0.8) : 1.3 * Math.sin(t * 0.5)); pT = 0.06; }
     b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 7);
@@ -6000,21 +6003,41 @@ window.startMap = function (RAW, AUTH) {
     if ((b.mode === 'perch' || (b.mode === 'walk' && b.v < 0.6)) && b.aiming) b.yaw += nAng(b.aimYaw - b.yaw) * Math.min(1, dt * 3);
     errY = Math.abs(nAng(yT - b.aimYaw)); errP = Math.abs(pT - b.aimPitch);
 
-    /* Pose */
+    /* Pose: con el rifle en las manos (apuntando), colgado a la espalda con los brazos corriendo, o en vuelo (hiperimpulso y mochila) con piernas rectas y brazos a los lados */
     moving = b.mode === 'walk' && b.v > 0.3;
+    var runSpd = b.mode === 'walk' && b.v > 3.4 && b.boostT <= 0, flying = b.boostT > 0 || b.mode === 'jetUp' || b.mode === 'jetDown', wantHold, fK, ang, f, elf;
+    wantHold = (b.mode === 'perch' || b.aiming) ? 1 : ((flying || runSpd) ? 0 : 1);
+    b.hold += (wantHold - b.hold) * Math.min(1, dt * 5);
+    b.runK += ((runSpd ? 1 : 0) - b.runK) * Math.min(1, dt * 6);
+    b.flyK += ((flying ? 1 : 0) - b.flyK) * Math.min(1, dt * 8);
+    fK = b.flyK;
     b.gk += ((moving ? 1 : 0) - b.gk) * Math.min(1, dt * 8);
-    if (moving) b.ph += dt * Math.min(11, 3.0 + b.v * 0.55);
-    am = Math.min(0.9, 0.25 + b.v * 0.1); kf = Math.min(1.5, 0.25 + b.v * 0.14);
+    if (moving) b.ph += dt * Math.min(12, 3.0 + b.v * 0.6);
+    am = Math.min(0.95, 0.25 + b.v * 0.1); kf = Math.min(1.6, 0.25 + b.v * 0.14);
     for (i = 0; i < 2; i++) {
       la = -am * Math.sin(b.ph + i * Math.PI) * b.gk;
       sg = kf * Math.max(0, Math.cos(b.ph + i * Math.PI)) * b.gk;
-      la = la * (1 - b.air) + (-0.3 - 0.12 * i) * b.air; sg = sg * (1 - b.air) + 0.7 * b.air;
-      b.legs[i].th.rotation.x = la; b.legs[i].kn.rotation.x = sg; b.legs[i].ft.rotation.x = -(la + sg) * 0.85;
+      ang = -(la + sg) * 0.85;
+      la = la * (1 - fK) + 0.12 * fK; sg = sg * (1 - fK) + 0.05 * fK; ang = ang * (1 - fK) + 0.45 * fK;
+      b.legs[i].th.rotation.x = la; b.legs[i].kn.rotation.x = sg; b.legs[i].ft.rotation.x = ang;
     }
+    /* Brazos: libres (balanceo al correr, o a los lados en vuelo) o sujetando el rifle */
+    for (i = 0; i < 2; i++) {
+      f = (i === 0 ? -1 : 1) * Math.sin(b.ph) * 0.85 * b.runK * (1 - fK);
+      elf = (0.3 + 1.1 * b.runK) * (1 - fK) + 0.12 * fK;
+      bkE.set(-f + 0.1 * fK, 0, (i === 0 ? -1 : 1) * (0.1 + 0.08 * fK));
+      bkQ1.setFromEuler(bkE).slerp(b.arms[i].qs, b.hold);
+      bkE.set(-(elf + 0.5 * Math.max(0, f)), 0, 0);
+      bkQ2.setFromEuler(bkE).slerp(b.arms[i].qe, b.hold);
+      b.arms[i].sh.quaternion.copy(bkQ1); b.arms[i].el.quaternion.copy(bkQ2);
+    }
+    /* Rifle: de las manos a la espalda */
+    b.rifle.position.set(0.14 - 0.02 * b.hold, 0.12 + 0.4 * b.hold, -0.47 + 0.52 * b.hold);
+    b.rifle.rotation.x = -1.2 * (1 - b.hold); b.rifle.rotation.z = 0.05 * Math.sin(b.ph * 2) * (1 - b.hold);
     lean = (b.boostT > 0 ? 0.55 : Math.min(0.22, b.v * 0.03)) * b.gk + (b.air > 0.5 ? 0.08 : 0);
     b.lean = (b.lean || 0) + (lean - (b.lean || 0)) * Math.min(1, dt * 6);
     b.body.rotation.x = b.lean;
-    b.body.position.y = 0.98 - 0.02 + Math.abs(Math.sin(b.ph)) * 0.035 * b.gk + 0.01 * Math.sin(t * 1.7);
+    b.body.position.y = 0.98 - 0.02 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7);
     b.upper.rotation.y = nAng(b.aimYaw - b.yaw);
     b.upper.rotation.x = -b.aimPitch - b.lean;
     b.head.rotation.y = 0.12 * Math.sin(t * 0.9) * (1 - (b.aiming ? 1 : 0));
@@ -6057,7 +6080,7 @@ window.startMap = function (RAW, AUTH) {
       b.fireT -= dt;
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
-      canShoot = b.los && errY < 0.07 && errP < 0.1;
+      canShoot = b.los && errY < 0.07 && errP < 0.1 && b.hold > 0.85;
       if (canShoot && b.fireT <= 0) {
         botShoot(bkMuz, pred);
         b.burst++;
