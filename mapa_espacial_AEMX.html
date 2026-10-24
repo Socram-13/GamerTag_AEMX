@@ -768,17 +768,26 @@ window.startMap = function (RAW, AUTH) {
   var dsPack = new THREE.MeshLambertMaterial({ color: 0xaebbd2, emissive: 0x10151f });
   var dsVisor = new THREE.MeshBasicMaterial({ color: 0x07080b });
   var dsVisorOff = new THREE.MeshBasicMaterial({ color: 0x1a1d24 });
-  var dsGTorso = new THREE.BoxGeometry(0.5, 0.6, 0.34), dsGLeg = new THREE.BoxGeometry(0.2, 0.55, 0.22);
-  var dsGArm = new THREE.BoxGeometry(0.15, 0.5, 0.15), dsGHelmet = new THREE.SphereGeometry(0.3, 12, 8);
-  var dsGVisor = new THREE.SphereGeometry(0.19, 12, 8), dsGPack = new THREE.BoxGeometry(0.4, 0.5, 0.2);
+  var dsGTorso = capsGeo(0.22, 0.62, 1.1, 0.8), dsGLeg = capsGeo(0.1, 0.55, 1, 1.1), dsGLegH = capsGeo(0.1, 0.285, 1, 1.1);
+  var dsGArm = capsGeo(0.075, 0.5, 1, 1), dsGArmH = capsGeo(0.075, 0.26, 1, 1), dsGHelmet = new THREE.SphereGeometry(0.3, 12, 8);
+  var dsGVisor = new THREE.SphereGeometry(0.19, 12, 8), dsGPack = capsGeo(0.1, 0.5, 2, 1);
+  /* Articulaciones (rodillas y codos) de estos astronautas: se parte la extremidad en dos y se dobla según su pose */
+  var astJ = [], dsGJL = new THREE.SphereGeometry(0.1, 10, 8), dsGJA = new THREE.SphereGeometry(0.077, 10, 8);
+  function dsBend(piv, mm, len, leg, mat) {
+    var jt = new THREE.Group(), lo;
+    mm.geometry = leg ? dsGLegH : dsGArmH; mm.position.y = -len / 4;
+    jt.position.y = -len / 2; lo = new THREE.Mesh(mm.geometry, mat); lo.position.y = -len / 4; jt.add(lo); jt.add(new THREE.Mesh(leg ? dsGJL : dsGJA, mat)); piv.add(jt);
+    astJ.push({ p: piv, j: jt, leg: leg });
+  }
   function addDomeAstronaut(g, y, off, ph) {
     var a = new THREE.Group(), suit = off ? dsSuitOff : dsSuit, m;
     function put(geo, mat, x, yy, z) { var mm = new THREE.Mesh(geo, mat); mm.position.set(x, yy, z); a.add(mm); return mm; }
-    function limb(geo, x, yy, len) {
+    function limb(geo, x, yy, len, kind) {
       var piv = new THREE.Group(), mm = new THREE.Mesh(geo, suit);
       piv.position.set(x, yy, 0);
       mm.position.y = -len / 2;
       piv.add(mm);
+      if (kind) dsBend(piv, mm, len, kind === 'L', suit);
       a.add(piv);
       return piv;
     }
@@ -786,8 +795,8 @@ window.startMap = function (RAW, AUTH) {
     put(dsGPack, off ? dsSuitOff : dsPack, 0, 0.98, -0.27);
     put(dsGHelmet, suit, 0, 1.5, 0);
     m = put(dsGVisor, off ? dsVisorOff : dsVisor, 0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75);
-    var legL = limb(dsGLeg, -0.13, 0.65, 0.55), legR = limb(dsGLeg, 0.13, 0.65, 0.55);
-    var armL = limb(dsGArm, -0.33, 1.2, 0.5), armR = limb(dsGArm, 0.33, 1.2, 0.5);
+    var legL = limb(dsGLeg, -0.13, 0.65, 0.55, 'L'), legR = limb(dsGLeg, 0.13, 0.65, 0.55, 'L');
+    var armL = limb(dsGArm, -0.33, 1.2, 0.5, 'A'), armR = limb(dsGArm, 0.33, 1.2, 0.5, 'A');
     armL.rotation.z = -0.15;
     armR.rotation.z = 0.15;
     a.scale.setScalar(0.35);
@@ -812,17 +821,18 @@ window.startMap = function (RAW, AUTH) {
   function addPresident(g, x, y, z, ph) {
     var a = new THREE.Group(), m, k, ang, sg;
     function put(geo, mat, px, py, pz) { var mm = new THREE.Mesh(geo, mat); mm.position.set(px, py, pz); a.add(mm); return mm; }
-    function limb(geo, px, py, len) {
+    function limb(geo, px, py, len, kind) {
       var piv = new THREE.Group(), mm = new THREE.Mesh(geo, prSuit);
       piv.position.set(px, py, 0); mm.position.y = -len / 2; piv.add(mm); a.add(piv);
+      if (kind) dsBend(piv, mm, len, kind === 'L', prSuit);
       return piv;
     }
     put(dsGTorso, prSuit, 0, 0.95, 0);
     put(dsGPack, prPack, 0, 0.98, -0.27);
     put(dsGHelmet, prSuit, 0, 1.5, 0);
     m = put(dsGVisor, prVisor, 0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75);
-    var legL = limb(dsGLeg, -0.13, 0.65, 0.55), legR = limb(dsGLeg, 0.13, 0.65, 0.55);
-    var armL = limb(dsGArm, -0.33, 1.2, 0.5), armR = limb(dsGArm, 0.33, 1.2, 0.5);
+    var legL = limb(dsGLeg, -0.13, 0.65, 0.55, 'L'), legR = limb(dsGLeg, 0.13, 0.65, 0.55, 'L');
+    var armL = limb(dsGArm, -0.33, 1.2, 0.5, 'A'), armR = limb(dsGArm, 0.33, 1.2, 0.5); /* el brazo derecho queda recto: lleva la pistola */
     armL.rotation.z = -0.12;
     /* Pistola dorada en la mano derecha (solo se ve al disparar) */
     var gun = new THREE.Group(), gm1, muz = new THREE.Object3D();
@@ -3239,7 +3249,11 @@ window.startMap = function (RAW, AUTH) {
 
   /* Las articulaciones se derivan de la pose de cadera/hombro de cada animación */
   function updateAstJoints() {
-    var i, p, x;
+    var i, p, x, q;
+    for (i = 0; i < astJ.length; i++) {
+      q = astJ[i]; x = q.p.rotation.x;
+      q.j.rotation.x = q.leg ? (x < -0.7 ? Math.min(1.5, -x * 0.95) : 0.3 * Math.max(0, x) + 0.3 * Math.max(0, -x)) : (x < -2.0 ? -0.15 : -Math.min(0.9, 0.12 + 0.35 * Math.max(0, -x)));
+    }
     for (i = 0; i < astAll.length; i++) {
       p = astAll[i];
       x = p.legL.rotation.x; p.legLJ.rotation.x = x < -0.7 ? Math.min(1.5, -x * 0.95) : 0.3 * Math.max(0, x) + 0.3 * Math.max(0, -x);
@@ -5610,7 +5624,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var vegObs = null, botVG = null, bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 90, BOT_HUNT_D = 55, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 120, BOT_BOLT_MAX = 135, BOT_BOOST_CD = 8, BOT_CHASE_R = 400;
+  var BOT_RANGE = 90, BOT_HUNT_D = 55, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 135, BOT_BOOST_CD = 8, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
@@ -6137,7 +6151,7 @@ window.startMap = function (RAW, AUTH) {
     }
     p = botLas[botLasI]; botLasI = (botLasI + 1) % botLas.length;
     dx = tgt.x - mz.x; dy = tgt.y - mz.y; dz = tgt.z - mz.z; d = Math.hypot(dx, dy, dz) || 1;
-    dx += (Math.random() - 0.5) * 0.035 * d; dy += (Math.random() - 0.5) * 0.035 * d; dz += (Math.random() - 0.5) * 0.035 * d;
+    dx += (Math.random() - 0.5) * 0.06 * d; dy += (Math.random() - 0.5) * 0.06 * d; dz += (Math.random() - 0.5) * 0.06 * d;
     d = Math.hypot(dx, dy, dz) || 1;
     p.vx = dx / d * BOT_LASER_V; p.vy = dy / d * BOT_LASER_V; p.vz = dz / d * BOT_LASER_V; p.dist = 0; p.on = true;
     p.m.position.copy(mz); p.m.lookAt(mz.x + dx, mz.y + dy, mz.z + dz); p.m.visible = true;
@@ -6467,7 +6481,7 @@ window.startMap = function (RAW, AUTH) {
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
       canShoot = b.los && errY < 0.07 && errP < 0.1 && b.hold > 0.85;
       if (canShoot && b.fireT <= 0) {
-        botShoot(bkMuz, pred);
+        botShoot(bkMuz, U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
         b.burst++;
         if (b.burst >= 3) { b.burst = 0; b.fireT = 0.9; } else b.fireT = 0.12;
       }
