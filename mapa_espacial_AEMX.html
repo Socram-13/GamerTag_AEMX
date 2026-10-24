@@ -5826,9 +5826,9 @@ window.startMap = function (RAW, AUTH) {
     return m;
   }
   /* ¿Se puede volar en línea recta a la altura yF sin chocar con otro edificio más alto? */
-  function botSegOK(ax, az, bx2, bz, yF, own) {
+  function botSegOK(ax, az, bx2, bz, yF, own, own2) {
     var n = Math.ceil(Math.hypot(bx2 - ax, bz - az) / 0.7), k, p;
-    for (k = 1; k <= n; k++) { p = botBld(ax + (bx2 - ax) * k / n, az + (bz - az) * k / n, 0); if (p && p !== own && BASE + p.topY * 0.8 > yF) return false; }
+    for (k = 1; k <= n; k++) { p = botBld(ax + (bx2 - ax) * k / n, az + (bz - az) * k / n, 0); if (p && p !== own && p !== own2 && BASE + p.topY * 0.8 > yF) return false; }
     return true;
   }
   /* Punto de bajada: el sitio más despejado cerca del edificio (calles o fuera de la ciudad), sin chocar con otros edificios ni vegetación */
@@ -6146,12 +6146,37 @@ window.startMap = function (RAW, AUTH) {
     return null;
   }
   /* Elige un edificio cercano para subir a su azotea con la mochila; el punto de despegue queda junto a la pared */
-  function botPickRoof(maxD) {
+  /* Salto entre azoteas: busca otra azotea cercana más adelante hacia la meta y prepara el arco */
+  function botPickHop() {
+    var b = bot, rp = b.rp, g = b.hopGoal, i, p, W, ang, lx, lz, ry, dd, best = null, bs = 1e9, d0, d1;
+    if (!rp || !g) return false;
+    d0 = Math.hypot(rp.p.x - g.x, rp.p.z - g.z);
+    for (i = 0; i < botList.length; i++) {
+      p = botList[i];
+      if (p === rp.p || p.tier === 6 || p.tier === 0 || p.isPres) continue;
+      dd = Math.hypot(p.x - rp.lx, p.z - rp.lz);
+      if (dd < 4 || dd > 13) continue;
+      d1 = Math.hypot(p.x - g.x, p.z - g.z);
+      if (d1 > d0 - 3 || d1 >= bs) continue;
+      W = TIER_W[p.tier] || 3.4; ang = Math.atan2(rp.lx - p.x, rp.lz - p.z);
+      lx = p.x + Math.sin(ang) * 0.22 * W; lz = p.z + Math.cos(ang) * 0.22 * W;
+      ry = botRoofY(p, lx, lz);
+      if (ry > rp.roofY + 6) continue;
+      if (!botSegOK(rp.lx, rp.lz, lx, lz, Math.max(ry, rp.roofY) + 1.0, rp.p, p)) continue;
+      best = { p: p, lx: lx, lz: lz, roofY: ry, cx: lx, cz: lz }; bs = d1;
+    }
+    if (!best) return false;
+    dd = Math.hypot(best.lx - rp.lx, best.lz - rp.lz);
+    b.hop = { x0: rp.lx, z0: rp.lz, y0: rp.roofY, rp2: best, T: dd / 7 + 0.35, t: 0, ah: Math.max(1.6, dd * 0.18) };
+    return true;
+  }
+  function botPickRoof(maxD, pref) {
     var b = bot, i, p, cand = [], dd, W, base, k, ang, cx, cz, r2, found = false, angs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
     for (i = 0; i < botList.length; i++) {
       p = botList[i];
       if (p.tier === 6 || p.tier === 0 || p.isPres || b.rp && b.rp.p === p) continue;
       dd = Math.hypot(p.x - b.x, p.z - b.z);
+      if (pref && Math.hypot(p.x - pref.x, p.z - pref.z) > Math.hypot(b.x - pref.x, b.z - pref.z) - 3) continue;
       if (dd < maxD && dd > 4) cand.push(p);
     }
     if (!cand.length) return false;
@@ -6291,6 +6316,7 @@ window.startMap = function (RAW, AUTH) {
     } else b.hasUp = false;
     thr = !!U && now >= b.noHunt;
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
+    b.alert = thr && d3 <= BOT_RANGE + 25; /* hay enemigo cerca: postura de combate */
     if (b.boostT > 0) { b.boostT -= dt; if (b.boostT <= 0 || b.mode !== 'walk' || !b.goal) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; } }
     else if (b.boostCD > 0) b.boostCD -= dt;
 
@@ -6350,6 +6376,19 @@ window.startMap = function (RAW, AUTH) {
           spd = (b.gtype === 'hunt' || b.gtype === 'wreck') ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
           if (gd < 3) spd = Math.min(spd, 3.2);
           if (b.wxFog) spd = Math.min(spd, BOT_WALK); /* con niebla hay poca visibilidad: solo camina (bajo la lluvia sí corre, pero sin hiperimpulso) */
+          /* Cruzando una ciudad con una meta lejana: sube a una azotea y salta de techo en techo en dirección a la meta */
+          if (now >= (b.hopCD || 0) && !b.hopGoal && (b.gtype === 'patrol' || b.gtype === 'hunt' || b.gtype === 'wreck') && gd > 25 && !b.wxFog) {
+            b.hopCD = now + 2;
+            for (i = 0; i < districts.length; i++) {
+              if (!districts[i].list.length) continue;
+              wk2 = districts[i]; wr = Math.hypot(b.x - wk2.cx, b.z - wk2.cz);
+              if (wr < wk2.r + 3 && wr > 1 && Math.abs((b.goal.x - b.x) * (wk2.cz - b.z) - (b.goal.z - b.z) * (wk2.cx - b.x)) / gd < wk2.r * 0.7 && ((wk2.cx - b.x) * (b.goal.x - b.x) + (wk2.cz - b.z) * (b.goal.z - b.z)) > 0) {
+                var hg = { x: b.goal.x, z: b.goal.z, t: b.gtype };
+                if (botPickRoof(16, hg)) { b.hopGoal = hg; b.hopN = 0; b.boostT = 0; }
+                break;
+              }
+            }
+          }
           if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
           if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
@@ -6433,12 +6472,24 @@ window.startMap = function (RAW, AUTH) {
         } else {
           b.vy += (-4 - b.vy) * Math.min(1, dt * 3); b.y += b.vy * dt;
           gd = botGround(b.x, b.z);
-          if (b.y <= gd) { b.y = gd; b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0.8; b.vy = 0; b.rp = null; }
+          if (b.y <= gd) { b.y = gd; b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0.8; b.vy = 0; b.rp = null; if (b.hopGoal) { botSetGoal(b.hopGoal.x, b.hopGoal.z, b.hopGoal.t); b.hopGoal = null; b.hopCD = now + 12; b.hopN = 0; } }
         }
       }
+    } else if (b.mode === 'hop') {
+      /* Salto con la mochila: arco corto de una azotea a la siguiente */
+      var hp = b.hop, hs, hz;
+      b.v = 0; hp.t += dt; hs = Math.min(1, hp.t / hp.T); b.air += (1 - b.air) * Math.min(1, dt * 8);
+      b.x = hp.x0 + (hp.rp2.lx - hp.x0) * hs; b.z = hp.z0 + (hp.rp2.lz - hp.z0) * hs;
+      hz = hs * hs * (3 - 2 * hs);
+      b.y = hp.y0 + (hp.rp2.roofY - hp.y0) * hz + hp.ah * 4 * hs * (1 - hs);
+      b.yaw += nAng(Math.atan2(hp.rp2.lx - hp.x0, hp.rp2.lz - hp.z0) - b.yaw) * Math.min(1, dt * 8);
+      if (hs >= 1) { b.rp = hp.rp2; b.y = hp.rp2.roofY; b.mode = 'perch'; b.perchT = 0; b.maxPerch = 7 + Math.random() * 6; b.hopN = (b.hopN || 0) + 1; b.losT = 0; }
     } else { /* perch: sobre la azotea, vigila y dispara */
       b.v = 0; b.perchT += dt; b.air += (0 - b.air) * Math.min(1, dt * 6); b.y = b.rp.roofY;
-      if (b.perchT > b.maxPerch && (!thr || b.perchT > 25)) { botPickDescent(b.rp); b.mode = 'jetDown'; b.jph = 0; }
+      if (b.hopGoal && !b.alert && b.perchT > 0.5) {
+        if ((b.hopN || 0) < 8 && botPickHop()) b.mode = 'hop';
+        else { botPickDescent(b.rp); b.mode = 'jetDown'; b.jph = 0; }
+      } else if ((!b.alert && b.perchT > 3) || (b.perchT > b.maxPerch && (!thr || b.perchT > 25))) { botPickDescent(b.rp); b.mode = 'jetDown'; b.jph = 0; }
     }
 
     /* Puntería: sigue al OVNI con algo de adelanto; si no hay amenaza, vigila de lado a lado */
@@ -6468,13 +6519,13 @@ window.startMap = function (RAW, AUTH) {
 
     /* Pose: con el rifle en las manos (apuntando), colgado a la espalda con los brazos corriendo, o en vuelo (hiperimpulso y mochila) con piernas rectas y brazos a los lados */
     moving = b.mode === 'walk' && b.v > 0.3;
-    var runSpd = b.mode === 'walk' && b.v > 3.4 && b.boostT <= 0, flying = b.boostT > 0 || (b.bh || 0) > 0.12 || b.mode === 'jetUp' || b.mode === 'jetDown', wantHold, fK, ang, f, elf;
-    wantHold = (b.aiming || b.mode === 'perch') ? 1 : 0;
+    var runSpd = b.mode === 'walk' && b.v > 3.4 && b.boostT <= 0, flying = b.boostT > 0 || (b.bh || 0) > 0.12 || b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop', wantHold, fK, ang, f, elf;
+    wantHold = b.aiming ? 1 : 0;
     b.hold += (wantHold - b.hold) * Math.min(1, dt * 5);
     b.runK += ((runSpd ? 1 : 0) - b.runK) * Math.min(1, dt * 6);
     b.flyK += ((flying ? 1 : 0) - b.flyK) * Math.min(1, dt * 8);
     fK = b.flyK;
-    b.kneel += ((b.mode === 'perch' ? 1 : 0) - b.kneel) * Math.min(1, dt * 3.5);
+    b.kneel += ((b.mode === 'perch' && b.alert ? 1 : 0) - b.kneel) * Math.min(1, dt * 3.5);
     var kq = b.kneel;
     b.gk += ((moving ? 1 : 0) - b.gk) * Math.min(1, dt * 8);
     if (moving) b.ph += dt * Math.min(12, 3.0 + b.v * 0.6);
@@ -6544,7 +6595,7 @@ window.startMap = function (RAW, AUTH) {
     } else { b.beam.visible = false; b.spot.visible = false; }
 
     /* Llamas de la mochila y efectos */
-    var fT = (b.mode === 'jetUp' || b.mode === 'jetDown') ? (b.mode === 'jetUp' && b.jph === 0 ? 1 : 0.55) : (b.boostT > 0 ? 0.85 : 0);
+    var fT = (b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop') ? (b.mode === 'jetUp' && b.jph === 0 ? 1 : b.mode === 'hop' ? 0.8 : 0.55) : (b.boostT > 0 ? 0.85 : 0);
     b.flame += (fT - b.flame) * Math.min(1, dt * 9);
     for (i = 0; i < 2; i++) {
       var fl = b.flames[i];
@@ -7113,8 +7164,18 @@ window.startMap = function (RAW, AUTH) {
         fade = g.fe ? Math.min(1, g.fe.age / 10, (g.fe.dur - g.fe.age) / 12) : 1;
         y = terrainH(g.x, g.z) + 0.12 + 0.07 * Math.sin(t * 0.9 + g.ph) + ev * 1.2;
         c = 0.5 + 0.5 * Math.sin(t * 6.2832 / g.per + g.ph);
-        a = 0.3 + 0.35 * (c * c * (3 - 2 * c));
-        if (g.td < 14) a = Math.max(a, 0.62);
+        a = 0.07 + 0.09 * (c * c * (3 - 2 * c)); /* casi transparentes */
+        if (g.td < 14) a = Math.max(a, 0.17);
+        /* solo se dejan ver en niebla densa: cuenta la niebla alrededor de cada fantasma (se actualiza cada segundo) */
+        g.dT = (g.dT || 0) - dt;
+        if (g.dT <= 0) {
+          g.dT = 0.8 + Math.random() * 0.4; q = 0;
+          for (tries = 0; tries < fogs.length; tries++) { dx = fogs[tries].b.x - g.x; dz = fogs[tries].b.z - g.z; if (dx * dx + dz * dz < 784) q += 1 - Math.sqrt(dx * dx + dz * dz) / 28; }
+          for (tries = 0; tries < fogEvents.length; tries++) fogEvents[tries].list.forEach(function (f) { var ex = f.b.x - g.x, ez = f.b.z - g.z; if (ex * ex + ez * ez < 784) q += 1 - Math.sqrt(ex * ex + ez * ez) / 28; });
+          g.dens = Math.min(1, q / 3);
+        }
+        g.dsm = (g.dsm === undefined ? 0 : g.dsm) + ((g.dens || 0) - (g.dsm === undefined ? 0 : g.dsm)) * Math.min(1, dt * 2);
+        a *= Math.max(0, Math.min(1, (g.dsm - 0.2) / 0.35));
         dd = Math.sqrt(dx * dx + dz * dz + (y - cp.y) * (y - cp.y));
         near = Math.max(0, Math.min(1, (90 - dd) / 25)) * Math.max(0, Math.min(1, (d - 0.8) / 2));
         fl = 0.8 + 0.2 * Math.sin(t * 19 + g.ph); if (Math.sin(t * 0.7 + g.ph * 5) > 0.97) fl *= 0.15; /* parpadeos */
@@ -7122,7 +7183,7 @@ window.startMap = function (RAW, AUTH) {
         g.sp.position.set(g.x, y, g.z);
         g.sp.scale.set(g.sx * (1 + ev * 0.6 + jit), g.sy * (1 + ev * 0.3), g.sx * (1 + ev * 0.6 + jit));
         a = a * fade * near * fl * Math.min(1, g.born / 0.35) * Math.pow(1 - ev, 1.5);
-        g.M.body.opacity = Math.min(0.85, a * 1.15); g.M.dark.opacity = Math.min(0.97, a * 2.2); g.M.eye.opacity = Math.min(1, a * 2.4);
+        g.M.body.opacity = Math.min(0.5, a * 1.1); g.M.dark.opacity = Math.min(0.6, a * 1.8); g.M.eye.opacity = Math.min(0.7, a * 2.2);
         g.sp.visible = a > 0.01;
         if (g.sp.visible) {
           /* orientación y movimiento: mira a quien acecha (o a la cámara), el borde y los brazos se mecen y extiende el brazo al acercarse */
