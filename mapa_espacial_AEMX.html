@@ -5847,7 +5847,7 @@ window.startMap = function (RAW, AUTH) {
   /* ¿Se puede volar en línea recta a la altura yF sin chocar con otro edificio más alto? */
   function botSegOK(ax, az, bx2, bz, yF, own, own2) {
     var n = Math.ceil(Math.hypot(bx2 - ax, bz - az) / 0.7), k, p;
-    for (k = 1; k <= n; k++) { p = botBld(ax + (bx2 - ax) * k / n, az + (bz - az) * k / n, 0); if (p && p !== own && p !== own2 && BASE + p.topY * 0.8 > yF) return false; }
+    for (k = 1; k <= n; k++) { p = botBld(ax + (bx2 - ax) * k / n, az + (bz - az) * k / n, 0); if (p && p !== own && p !== own2 && botTop(p) > yF) return false; }
     return true;
   }
   /* Punto de bajada: el sitio más despejado cerca del edificio (calles o fuera de la ciudad), sin chocar con otros edificios ni vegetación */
@@ -5936,12 +5936,20 @@ window.startMap = function (RAW, AUTH) {
     }
     return null;
   }
+  /* Altura del techo sin antenas ni chapiteles (para disparos y líneas de tiro) */
+  function botTop(p) {
+    if (p._rt === undefined) {
+      if (p.isStore || p.noRoof || !p._broot) p._rt = BASE + p.topY * 0.85;
+      else { try { p._rt = Math.min(BASE + p.topY * 0.85, botRoofY(p, p.x, p.z) + 0.5); } catch (e) { p._rt = BASE + p.topY * 0.85; } }
+    }
+    return p._rt;
+  }
   function botLOS(ax, ay, az, bx2, by, bz, skip) {
     var k, f, x, z, y, p;
     for (k = 1; k < 12; k++) {
       f = k / 12; x = ax + (bx2 - ax) * f; y = ay + (by - ay) * f; z = az + (bz - az) * f;
       p = botBld(x, z, -0.55);
-      if (p && p !== skip && y < BASE + p.topY * 0.85) return false;
+      if (p && p !== skip && y < botTop(p)) return false;
     }
     return true;
   }
@@ -6375,7 +6383,7 @@ window.startMap = function (RAW, AUTH) {
     dx = tgt.x - mz.x; dy = tgt.y - mz.y; dz = tgt.z - mz.z; d = Math.hypot(dx, dy, dz) || 1;
     dx += (Math.random() - 0.5) * 0.06 * d; dy += (Math.random() - 0.5) * 0.06 * d; dz += (Math.random() - 0.5) * 0.06 * d;
     d = Math.hypot(dx, dy, dz) || 1;
-    p.vx = dx / d * BOT_LASER_V; p.vy = dy / d * BOT_LASER_V; p.vz = dz / d * BOT_LASER_V; p.dist = 0; p.on = true;
+    p.vx = dx / d * BOT_LASER_V; p.vy = dy / d * BOT_LASER_V; p.vz = dz / d * BOT_LASER_V; p.dist = 0; p.on = true; p.own = (bot.mode === 'perch' && bot.rp) ? bot.rp.p : null;
     p.m.position.copy(mz); p.m.lookAt(mz.x + dx, mz.y + dy, mz.z + dz); p.m.visible = true;
     fxSpawn(mz.x, mz.y, mz.z, 0, 0, 0, 0.07, 0.05, 0.2, 0x7dffa0, 0.95, true);
     AUD.shot(mz);
@@ -6395,7 +6403,7 @@ window.startMap = function (RAW, AUTH) {
       }
       p.dist += BOT_LASER_V * dt;
       bp = botBld(nx, nz, -0.55);
-      if (ny <= Math.max(0, terrainH(nx, nz)) + 0.05 || (bp && ny < BASE + bp.topY * 0.85) || p.dist >= BOT_BOLT_MAX) {
+      if (ny <= Math.max(0, terrainH(nx, nz)) + 0.05 || (bp && bp !== p.own && ny < botTop(bp)) || p.dist >= BOT_BOLT_MAX) {
         if (p.dist < BOT_BOLT_MAX) fxSpawn(nx, ny, nz, 0, 0.6, 0, 0.25, 0.15, 0.5, 0x7dffa0, 0.8, true);
         p.on = false; p.m.visible = false; continue;
       }
@@ -6417,6 +6425,12 @@ window.startMap = function (RAW, AUTH) {
     thr = !!U && now >= b.noHunt;
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
     b.alert = thr && d3 <= botRng() + 25;
+    b.sameCity = false;
+    if (thr) {
+      var sc, sd, sbest = 1e9, sdi = null;
+      for (sc = 0; sc < districts.length; sc++) { sd = districts[sc]; if (!sd.list.length) continue; var sq = Math.hypot(b.x - sd.cx, b.z - sd.cz) - sd.r; if (sq < sbest) { sbest = sq; sdi = sd; } }
+      b.sameCity = !!sdi && sbest < 15 && Math.hypot(U.x - sdi.cx, U.z - sdi.cz) < sdi.r + 12;
+    }
     /* tiempo acumulado dentro de la niebla (en cualquier modo); se reinicia solo tras 3 s fuera de ella */
     if (WX && WX.fogAt && b.mode !== 'lift') {
       if (WX.fogAt(b.x, b.z)) { b.fogT = (b.fogT || 0) + dt; b.fogOut = 0; } else { b.fogOut = (b.fogOut || 0) + dt; if (b.fogOut > 3) b.fogT = 0; }
@@ -6459,11 +6473,11 @@ window.startMap = function (RAW, AUTH) {
       } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; }
       if (!b.goal && !thr && !b.scan) { b.idle -= dt; if (b.idle <= 0) botPick(); }
       /* Enemigo cerca y está en la ciudad: busca la azotea más alta para francotirador (más rango) */
-      if (thr && dh <= 110 && b.gtype !== 'roof' && now >= (b.tallCD || 0) && botCityDist(b.x, b.z) < 12) { b.tallCD = now + 6; if (botPickRoof(60, null, true)) b.tallRoof = true; }
+      if (thr && b.sameCity && dh <= 110 && b.gtype !== 'roof' && now >= (b.tallCD || 0) && botCityDist(b.x, b.z) < 12) { b.tallCD = now + 6; if (botPickRoof(60, null, true)) b.tallRoof = true; }
       /* El OVNI vuela alto y está cerca: sube a una azotea para tener mejor ángulo */
-      if (thr && dh <= 70 && U.y > 9 && b.gtype !== 'roof' && now >= b.roofCD && !b.tallRoof) { b.roofCD = now + 8; if (!botPickRoof(60, null, true)) botPickRoof(30); }
+      if (thr && b.sameCity && dh <= 70 && U.y > 9 && b.gtype !== 'roof' && now >= b.roofCD && !b.tallRoof) { b.roofCD = now + 8; if (!botPickRoof(60, null, true)) botPickRoof(30); }
       /* Sin línea de tiro desde el suelo: sube a una azotea cercana */
-      if (thr && dh <= BOT_HUNT_D && !b.goal) {
+      if (thr && b.sameCity && dh <= BOT_HUNT_D && !b.goal) {
         b.losT -= dt;
         if (b.losT <= 0) {
           b.losT = 0.25; b.los = botLOS(b.x, b.y + 1.0, b.z, U.x, U.y, U.z, null);
@@ -6474,8 +6488,8 @@ window.startMap = function (RAW, AUTH) {
       /* Avance con rumbo libre; el hiperimpulso dura 5 s */
       if (b.goal) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
-        if (gd < (b.gtype === 'roof' ? 0.55 : 1.4)) {
-          if (b.gtype === 'roof') { b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
+        if (gd < (b.gtype === 'roof' ? 0.55 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
+          if (b.gtype === 'roof') { b.ball = false; b.ballK = 0; b.spin = Math.round((b.spin || 0) / 6.2832) * 6.2832; b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
           else { if (b.gtype === 'wreck') { b.scan = true; b.scanT = 0; } if (b.gtype === 'hunt') b.huntHold = now + 3; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
         } else {
           tw = b.goal;
@@ -6678,7 +6692,7 @@ window.startMap = function (RAW, AUTH) {
       if (hs >= 1) { b.rp = hp.rp2; b.y = hp.rp2.roofY; b.mode = 'perch'; b.perchT = 0; b.maxPerch = 7 + Math.random() * 6; b.hopN = (b.hopN || 0) + 1; b.losT = 0; }
       }
     } else { /* perch: sobre la azotea, vigila y dispara */
-      if (b.alert && !b.hopGoal && b.perchT > 0.6 && now >= (b.upCD || 0)) { b.upCD = now + 2.5; if (botPickUp()) { b.mode = 'hop'; b.perchT = 0; } }
+      if (b.alert && b.sameCity && !b.hopGoal && b.perchT > 0.6 && now >= (b.upCD || 0)) { b.upCD = now + 2.5; if (botPickUp()) { b.mode = 'hop'; b.perchT = 0; } }
       b.v = 0; b.perchT += dt; b.air += (0 - b.air) * Math.min(1, dt * 6); b.y = b.rp.roofY;
       if (b.hopGoal && !b.alert && b.perchT > 0.5) {
         if (botPickLaunch()) { b.mode = 'hop'; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
@@ -6748,10 +6762,10 @@ window.startMap = function (RAW, AUTH) {
         botIK(i === 0 ? -1 : 1, hT[i][0], 0.43 + hy * cp + hz * sp, -hy * sp + hz * cp, b.arms[i].hs, b.arms[i].he);
       }
     }
-    var liftOn = b.mode === 'lift' && b.lift && b.lift.ph >= 1; /* brazo en alto solo al sujetarse del dron, no mientras lo espera */
+    var liftOn = b.mode === 'lift'; /* brazo en alto: pidiendo el dron y sujetándose */
     b.scanK += ((((b.scan && b.mode === 'walk') || liftOn) ? 1 : 0) - b.scanK) * Math.min(1, dt * 5);
     if (b.scanK > 0.01) {
-      if (liftOn) botIK(1, 0.3, 1.02, 0.05, b.scQs, b.scQe); /* brazo en alto, sujeto al dron */
+      if (liftOn) botIK(1, 0.3 + (b.lift && b.lift.ph === 0 ? 0.1 * Math.sin(t * 9) : 0), 1.02, 0.05, b.scQs, b.scQe); /* brazo en alto (con seña mientras llama al dron) */
       else botIK(1, 0.3, 0.43 + 0.55 * sp, 0.55 * cp, b.scQs, b.scQe);
     }
     /* Brazos: libres (balanceo al correr, o a los lados en vuelo) o sujetando el rifle */
