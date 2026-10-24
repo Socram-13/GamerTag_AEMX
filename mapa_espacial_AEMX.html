@@ -2117,12 +2117,12 @@ window.startMap = function (RAW, AUTH) {
         root.position.set(sp2.x, Math.max(0, terrainH(sp2.x, sp2.z)) + 0.075, sp2.z);
         /* El cuerpo queda paralelo a la orilla (sp2.ang apunta hacia el mar) */
         root.rotation.y = -sp2.ang + (vr() < 0.5 ? 0 : Math.PI) + (vr() - 0.5) * 0.3;
-        m = new THREE.Mesh(uBox, tw1); m.scale.set(1.0, 0.03, 2.0); m.position.y = 0.02; m.receiveShadow = true; root.add(m);
-        [-0.6, -0.2, 0.2, 0.6].forEach(function (zz) { var st = new THREE.Mesh(uBox, tw2); st.scale.set(1.002, 0.032, 0.16); st.position.set(0, 0.022, zz); root.add(st); });
+        m = new THREE.Mesh(uBox, tw1); m.scale.set(0.65, 0.03, 1.05); m.position.y = 0.02; m.receiveShadow = true; root.add(m);
+        [-0.3, 0, 0.3].forEach(function (zz) { var st = new THREE.Mesh(uBox, tw2); st.scale.set(0.652, 0.032, 0.1); st.position.set(0, 0.022, zz); root.add(st); });
         ast = makeAstronaut();
         ast.g.rotation.order = 'XYZ';
         ast.g.rotation.x = -Math.PI / 2; /* boca arriba, cabeza hacia -z */
-        ast.g.position.set(0, 0.2, 0.38);
+        ast.g.position.set(0, 0.2, 0.36);
         ast.parts.armL.rotation.z = -0.12; ast.parts.armR.rotation.x = -3.0; ast.parts.armR.rotation.z = 0.5; /* un brazo detrás de la cabeza */
         ast.parts.legL.rotation.z = -0.06; ast.parts.legR.rotation.z = 0.06;
         /* Bikini rojo (coordenadas del modelo: torso de 0.5 x 0.6 x 0.32 centrado en y = 0.95) */
@@ -2135,7 +2135,31 @@ window.startMap = function (RAW, AUTH) {
         root.add(ast.g);
         root.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
         scene.add(root);
-        sunbathers.push({ g: root, ast: ast, ph: vr() * 6, x: sp2.x, z: sp2.z });
+        /* Paseante con bikini azul: camina por la orilla, patea arena al que está acostado y se va corriendo */
+        var sxn = Math.cos(sp2.ang), szn = Math.sin(sp2.ang), Kx = sp2.x + sxn * 0.8, Kz = sp2.z + szn * 0.8, W = null, sgn, L1 = 0, L2 = 0, ddx = 0, ddz = 0, li, lens1 = [14, 10, 6, 4], lens2 = [12, 8, 5, 4];
+        function pathOK(x0, z0, x1, z1) {
+          var n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 2)), q2, x, z;
+          for (q2 = 0; q2 <= n; q2++) {
+            x = x0 + (x1 - x0) * q2 / n; z = z0 + (z1 - z0) * q2 / n;
+            if (!onLand(x, z, 1.3) || nearestHex(x, z, occGrid) < HEX_R + 0.8) return false;
+          }
+          return true;
+        }
+        for (sgn = 1; sgn >= -1 && !W; sgn -= 2) {
+          ddx = -szn * sgn; ddz = sxn * sgn; L1 = 0; L2 = 0;
+          for (li = 0; li < lens1.length; li++) if (pathOK(Kx - ddx * lens1[li], Kz - ddz * lens1[li], Kx, Kz)) { L1 = lens1[li]; break; }
+          for (li = 0; li < lens2.length; li++) if (pathOK(Kx, Kz, Kx + ddx * lens2[li], Kz + ddz * lens2[li])) { L2 = lens2[li]; break; }
+          if (L1 >= 4 && L2 >= 4) {
+            var wa = makeAstronaut(), blue = new THREE.MeshLambertMaterial({ color: 0x1b5cff, emissive: 0x06174a });
+            [-1, 1].forEach(function (sd) { var cup = new THREE.Mesh(uSphere, blue); cup.scale.set(0.12, 0.11, 0.06); cup.position.set(sd * 0.12, 1.1, 0.17); wa.g.add(cup); });
+            m = new THREE.Mesh(uBox, blue); m.scale.set(0.52, 0.04, 0.34); m.position.set(0, 1.1, 0); wa.g.add(m);
+            m = new THREE.Mesh(uBox, blue); m.scale.set(0.52, 0.2, 0.34); m.position.set(0, 0.72, 0); wa.g.add(m);
+            wa.g.visible = false; wa.g.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; }); scene.add(wa.g);
+            var tWk = L1 / 1.4, tKk = 2.2, tRn = L2 / 4.2, Cc = tWk + tKk + tRn + 6 + vr() * 8;
+            W = { a: wa, Kx: Kx, Kz: Kz, dx: ddx, dz: ddz, sx: sxn, sz: szn, L1: L1, L2: L2, tW: tWk, tK: tKk, tR: tRn, C: Cc, off: vr() * Cc, yaw: Math.atan2(ddx, ddz), sc: 0 };
+          }
+        }
+        sunbathers.push({ g: root, ast: ast, ph: vr() * 6, x: sp2.x, z: sp2.z, wk: W });
       });
     })();
     /* Geometrías compartidas: una sola InstancedMesh por geometría, con color por instancia */
@@ -3196,14 +3220,61 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Campamento en estados sin jugadores: astronauta sentado frente a una fogata y tienda de acampar ---------- */
   var sunbathers = [];
-  function updateSunbathers(t) {
-    var i, s, near;
+  function updateSunbathers(t, dt) {
+    var i, s, near, W, c, d, x, z, a, ph, react, sw, kk, u, fx, fz, ty, gy, n;
     for (i = 0; i < sunbathers.length; i++) {
       s = sunbathers[i];
       near = Math.hypot(camera.position.x - s.x, camera.position.z - s.z) < 400;
       if (s.g.visible !== near) s.g.visible = near;
+      if (s.wk && !near) s.wk.a.g.visible = false;
       if (!near) continue;
-      s.ast.g.position.y = 0.2 + 0.012 * Math.sin(t * 1.4 + s.ph); /* respira */
+      react = false; W = s.wk;
+      if (W) {
+        c = (t + W.off) % W.C; a = W.a; ph = 'hide'; x = W.Kx; z = W.Kz;
+        if (c < W.tW) { ph = 'walk'; d = 1.4 * c; x = W.Kx - W.dx * (W.L1 - d); z = W.Kz - W.dz * (W.L1 - d); ty = Math.atan2(W.dx, W.dz); }
+        else if (c < W.tW + W.tK) { ph = 'kick'; ty = Math.atan2(-W.sx, -W.sz); }
+        else if (c < W.tW + W.tK + W.tR) { ph = 'run'; d = 4.2 * (c - W.tW - W.tK); x = W.Kx + W.dx * d; z = W.Kz + W.dz * d; ty = Math.atan2(W.dx, W.dz); }
+        a.g.visible = ph !== 'hide';
+        if (ph !== 'hide') {
+          if (ph === 'walk' && c < 0.05) W.yaw = ty;
+          W.yaw += nAng(ty - W.yaw) * Math.min(1, dt * (ph === 'kick' ? 8 : 5));
+          gy = Math.max(0, terrainH(x, z)) + 0.055;
+          a.g.rotation.y = W.yaw; a.g.rotation.x = 0;
+          if (ph === 'walk') {
+            sw = Math.sin(t * 8 + s.ph) * 0.7;
+            a.parts.legL.rotation.x = sw; a.parts.legR.rotation.x = -sw; a.parts.armL.rotation.x = -sw * 0.8; a.parts.armR.rotation.x = sw * 0.8;
+            a.g.position.set(x, gy + Math.abs(Math.sin(t * 8 + s.ph)) * 0.04, z);
+          } else if (ph === 'run') {
+            sw = Math.sin(t * 14 + s.ph) * 1.15;
+            a.parts.legL.rotation.x = sw; a.parts.legR.rotation.x = -sw; a.parts.armL.rotation.x = -sw * 1.1; a.parts.armR.rotation.x = sw * 1.1;
+            a.g.rotation.x = 0.24;
+            a.g.position.set(x, gy + Math.abs(Math.sin(t * 14 + s.ph)) * 0.08, z);
+          } else {
+            /* Patadas de arena: la pierna derecha se levanta al frente y suelta una nube hacia el astronauta recostado */
+            u = (c - W.tW) / W.tK;
+            kk = (u > 0.12 && u < 0.95) ? Math.max(0, Math.sin((u - 0.12) / 0.83 * Math.PI * 3)) : 0;
+            a.parts.legL.rotation.x = 0.05; a.parts.legR.rotation.x = 0.3 * (1 - kk) - 1.25 * kk;
+            a.parts.armL.rotation.x = 0.5 * kk; a.parts.armR.rotation.x = -0.6 * kk;
+            a.g.rotation.x = -0.12 * kk;
+            a.g.position.set(x, gy, z);
+            W.sc -= dt;
+            if (kk > 0.55 && W.sc <= 0) {
+              W.sc = 0.045;
+              fx = x - W.sx * 0.3; fz = z - W.sz * 0.3;
+              for (n = 0; n < 3; n++) fxSpawn(fx + (Math.random() - 0.5) * 0.15, gy + 0.1, fz + (Math.random() - 0.5) * 0.15, -W.sx * (2.2 + Math.random() * 1.6) - W.dx * (Math.random() - 0.5) * 1.6, 1.3 + Math.random() * 1.2, -W.sz * (2.2 + Math.random() * 1.6) - W.dz * (Math.random() - 0.5) * 1.6, 0.7 + Math.random() * 0.4, 0.07, 0.22, 0xe8d6a0, 0.85, false);
+            }
+            react = c > W.tW + 0.45 && c < W.tW + W.tK + 0.5;
+          }
+        }
+      }
+      if (react) { /* se sobresalta: brinca, agita un brazo y patalea */
+        s.ast.g.position.y = 0.2 + 0.04 * Math.abs(Math.sin(t * 16));
+        s.ast.parts.armL.rotation.x = -0.9 * Math.sin(t * 13);
+        s.ast.parts.legL.rotation.x = 0.35 * Math.sin(t * 15);
+      } else {
+        s.ast.g.position.y = 0.2 + 0.012 * Math.sin(t * 1.4 + s.ph); /* respira */
+        s.ast.parts.armL.rotation.x = 0; s.ast.parts.legL.rotation.x = 0;
+      }
       s.ast.parts.armR.rotation.z = 0.5 + 0.04 * Math.sin(t * 1.4 + s.ph);
     }
   }
@@ -5592,7 +5663,7 @@ window.startMap = function (RAW, AUTH) {
     }
     updateRuins(t);
     updateCamps(t, dt);
-    updateSunbathers(t);
+    updateSunbathers(t, dt);
     if (selected) selRing.rotation.z = t * 0.8;
 
     var labelsOn = labelsEl.style.display !== 'none';
