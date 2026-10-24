@@ -6334,6 +6334,13 @@ window.startMap = function (RAW, AUTH) {
     }
     return false;
   }
+  /* ¿Hay tierra firme en todo el rumbo hasta 'dist'? (el hiperimpulso no se usa hacia el mar) */
+  function botLandAhead(x, z, yaw, dist) {
+    var d, sx = Math.sin(yaw), cz = Math.cos(yaw);
+    if (!landAt) return true;
+    for (d = 8; d <= dist; d += 8) if (!landAt(x + sx * d, z + cz * d)) return false;
+    return true;
+  }
   function botCityDist(x, z) {
     var i, d, m = 1e9, q;
     for (i = 0; i < districts.length; i++) { d = districts[i]; if (!d.list.length) continue; q = Math.hypot(x - d.cx, z - d.cz) - d.r; if (q < m) m = q; }
@@ -6464,10 +6471,12 @@ window.startMap = function (RAW, AUTH) {
       /* Objetivo: perseguir al OVNI hasta quedar en alcance; si no hay amenaza, patrullar libremente */
       if (thr) {
         if (dh > BOT_HUNT_D) {
+          /* si el OVNI cambió de zona (pasó de mar a tierra, etc.) y el punto de caza se movió, replanea de inmediato */
+          if (b.gtype === 'hunt' && b.goal && now >= (b.hchk || 0)) { b.hchk = now + 0.4; tgt2 = botHuntPoint(U); if (!tgt2 || Math.hypot(tgt2.x - b.goal.x, tgt2.z - b.goal.z) > 18) b.replanT = 0; }
           if (now >= b.huntHold && b.gtype !== 'roof' && (b.gtype !== 'hunt' || now >= b.replanT)) {
             tgt2 = botHuntPoint(U);
-            if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) b.replanT = now + (dh > 200 ? 7 : 2.5);
-            else { b.noHunt = now + 8; if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; } }
+            if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) b.replanT = now + (dh > 200 ? 3 : 1.5);
+            else { b.noHunt = now + 2.5; if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; } }
           }
         } else if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; b.path = null; }
       } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; }
@@ -6490,7 +6499,7 @@ window.startMap = function (RAW, AUTH) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
         if (gd < (b.gtype === 'roof' ? 0.55 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
           if (b.gtype === 'roof') { b.ball = false; b.ballK = 0; b.spin = Math.round((b.spin || 0) / 6.2832) * 6.2832; b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
-          else { if (b.gtype === 'wreck') { b.scan = true; b.scanT = 0; } if (b.gtype === 'hunt') b.huntHold = now + 3; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
+          else { if (b.gtype === 'wreck') { b.scan = true; b.scanT = 0; } if (b.gtype === 'hunt') b.huntHold = now + 0.6; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
         } else {
           tw = b.goal;
           if (b.path) {
@@ -6528,10 +6537,10 @@ window.startMap = function (RAW, AUTH) {
             }
           }
           if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
-          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 10; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12 && botLandAhead(b.x, b.z, want, 80)) { b.boostT = 10; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
-            if (b.wxBad || gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
+            if (b.wxBad || gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12 || !botLandAhead(b.x, b.z, b.yaw, 32)) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
           }
           if (b.rec > 0) {
             /* Recuperación de atasco: retrocede en diagonal hacia el lado libre y luego replanifica la ruta */
@@ -6597,7 +6606,7 @@ window.startMap = function (RAW, AUTH) {
       }
       if (b.boostT <= 0 && (b.glr || 0) > 0 && (b.bh || 0) > 0) {
         b.glr -= b.v * dt;
-        if (b.wxBad || !b.goal || botCityDist(b.x + Math.sin(b.yaw) * 12, b.z + Math.cos(b.yaw) * 12) < 8) b.glr = 0;
+        if (b.wxBad || !b.goal || botCityDist(b.x + Math.sin(b.yaw) * 12, b.z + Math.cos(b.yaw) * 12) < 8 || !botLandAhead(b.x, b.z, b.yaw, 24)) b.glr = 0;
         if (b.glr > 0) { var gu = 1 - b.glr / b.glr0; b.bh = Math.max(0.05, b.bh0 * (1 - gu * gu)); b.bvy = 0; } else { b.glr0 = 0; }
       } else if (b.boostT <= 0 && !(b.glr > 0)) { b.glr0 = 0; if ((b.bh || 0) <= 0) b.bdist = 0; }
       if (b.boostT > 0) { }
@@ -6861,8 +6870,7 @@ window.startMap = function (RAW, AUTH) {
       canShoot = b.los && errY < 0.07 && errP < 0.1 && b.hold > 0.85;
       if (canShoot && b.fireT <= 0) {
         botShoot(bkMuz, U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
-        b.burst++;
-        if (b.burst >= 3) { b.burst = 0; b.fireT = 0.9; } else b.fireT = 0.12;
+        b.fireT = 0.12; /* fuego continuo, sin pausa entre ráfagas */
       }
     }
     botBolts(dt);
