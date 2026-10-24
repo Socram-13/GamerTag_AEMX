@@ -5790,9 +5790,18 @@ window.startMap = function (RAW, AUTH) {
   function botInitObs() {
     botObs = {}; botList = [];
     scene.updateMatrixWorld(true); /* matrices del mundo al día: si no, las cajas salen en coordenadas locales del distrito */
-    roots.forEach(function (b) {
-      var p = b.userData.p, W, bb = new THREE.Box3(), mb = new THREE.Box3(), a, c, k, x0, x1, z0, z1, lim;
-      if (!p || p.tier === undefined) return;
+    /* Edificios, tiendas C.R.E.L. (se pueden pisar por la azotea) y campamentos (solo obstáculo) */
+    var items = [], wp = new THREE.Vector3();
+    roots.forEach(function (b) { var p = b.userData.p; if (p && p.tier !== undefined) items.push([b, p]); });
+    districts.forEach(function (d) {
+      if (d.store) { if (!d.store._bp) { d.store.getWorldPosition(wp); d.store._bp = { x: wp.x, z: wp.z, tier: 7, topY: 1.8, isStore: true }; } items.push([d.store, d.store._bp]); }
+    });
+    camps.forEach(function (c) {
+      if (!c._bp) { c.root.getWorldPosition(wp); c._bp = { x: wp.x, z: wp.z, tier: 8, topY: 1.6, noRoof: true }; }
+      items.push([c.root, c._bp]);
+    });
+    items.forEach(function (it) {
+      var b = it[0], p = it[1], W, bb = new THREE.Box3(), mb = new THREE.Box3(), a, c, k, x0, x1, z0, z1, lim;
       W = TIER_W[p.tier] || 3.4; lim = W / 2 + 4;
       b.updateMatrixWorld(true);
       b.traverse(function (o) {
@@ -5927,6 +5936,7 @@ window.startMap = function (RAW, AUTH) {
     return true;
   }
   function botRoofY(p, lx, lz) {
+    if (p.isStore) return BASE + p.topY; /* techo plano de la tienda (sus mallas no admiten rayos) */
     var rc = botRC || (botRC = new THREE.Raycaster()), root = p._broot, ys = [], o = [[0, 0], [0.3, 0], [-0.3, 0], [0, 0.3], [0, -0.3]], i, hit, top = BASE + p.topY;
     root.updateMatrixWorld(true);
     for (i = 0; i < o.length; i++) {
@@ -6153,7 +6163,7 @@ window.startMap = function (RAW, AUTH) {
     d0 = Math.hypot(rp.p.x - g.x, rp.p.z - g.z);
     for (i = 0; i < botList.length; i++) {
       p = botList[i];
-      if (p === rp.p || p.tier === 6 || p.tier === 0 || p.isPres) continue;
+      if (p === rp.p || p.tier === 6 || p.tier === 0 || p.isPres || p.noRoof) continue;
       dd = Math.hypot(p.x - rp.lx, p.z - rp.lz);
       if (dd < 4 || dd > 13) continue;
       d1 = Math.hypot(p.x - g.x, p.z - g.z);
@@ -6174,7 +6184,7 @@ window.startMap = function (RAW, AUTH) {
     var b = bot, i, p, cand = [], dd, W, base, k, ang, cx, cz, r2, found = false, angs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
     for (i = 0; i < botList.length; i++) {
       p = botList[i];
-      if (p.tier === 6 || p.tier === 0 || p.isPres || b.rp && b.rp.p === p) continue;
+      if (p.tier === 6 || p.tier === 0 || p.isPres || p.noRoof || b.rp && b.rp.p === p) continue;
       dd = Math.hypot(p.x - b.x, p.z - b.z);
       if (pref && Math.hypot(p.x - pref.x, p.z - pref.z) > Math.hypot(b.x - pref.x, b.z - pref.z) - 3) continue;
       if (dd < maxD && dd > 4) cand.push(p);
