@@ -5791,6 +5791,12 @@ window.startMap = function (RAW, AUTH) {
     gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     cx2.fillStyle = gr; cx2.fillRect(0, 0, 128, 128);
     var puff = new THREE.CanvasTexture(cv), planeGeo = new THREE.PlaneGeometry(1, 1);
+    /* Textura de charco: disco de borde definido con un brillo suave */
+    var cv2 = document.createElement('canvas'); cv2.width = cv2.height = 128;
+    var c3 = cv2.getContext('2d'), g3 = c3.createRadialGradient(52, 50, 4, 64, 64, 62);
+    g3.addColorStop(0, 'rgba(235,245,255,1)'); g3.addColorStop(0.45, 'rgba(255,255,255,0.85)'); g3.addColorStop(0.86, 'rgba(255,255,255,0.7)'); g3.addColorStop(1, 'rgba(255,255,255,0)');
+    c3.fillStyle = g3; c3.fillRect(0, 0, 128, 128);
+    var puddleTex = new THREE.CanvasTexture(cv2), puddles = [];
     function rnd(a, b) { return a + Math.random() * (b - a); }
     function byName(n) { for (var i = 0; i < districts.length; i++) if (districts[i].name === n) return districts[i]; return null; }
     function inPoly(rings, x, z) {
@@ -5842,9 +5848,82 @@ window.startMap = function (RAW, AUTH) {
     var DRIZ = ['Ciudad de México', 'Estado de México', 'Hidalgo', 'Tlaxcala', 'Puebla', 'Morelos', 'Querétaro', 'Veracruz', 'Michoacán', 'Chihuahua', 'Durango', 'Jalisco'];
     var events = [], nextAt = 12 + Math.random() * 25;
 
+    /* Charcos: aparecen en suelo plano de tierra mientras llueve, crecen poco a poco y se secan al terminar */
+    function spawnPuddles(ev) {
+      var n = ev.rain ? 14 : 9, i, tries, a, r, x, z, m, mt;
+      for (i = 0; i < n; i++) {
+        for (tries = 0; tries < 10; tries++) {
+          a = rnd(0, 6.2832); r = ev.R * 0.9 * Math.sqrt(Math.random());
+          x = ev.d.cx + Math.cos(a) * r; z = ev.d.cz + Math.sin(a) * r;
+          if (landAt && !landAt(x, z)) continue;
+          if (Math.abs(terrainH(x, z)) > 0.6) continue;
+          break;
+        }
+        if (tries >= 10) continue;
+        mt = new THREE.MeshBasicMaterial({ map: puddleTex, color: 0x7da3c9, transparent: true, opacity: 0, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        m = new THREE.Mesh(planeGeo, mt); m.rotation.x = -Math.PI / 2; m.rotation.z = rnd(0, 3.14);
+        m.position.set(x, terrainH(x, z) + 0.1, z); m.visible = false; group.add(m);
+        puddles.push({ m: m, ev: ev, max: rnd(3, 7), ar: rnd(0.65, 1), delay: rnd(6, Math.max(8, ev.dur * 0.45)), grow: ev.rain ? rnd(25, 45) : rnd(50, 80), dry: rnd(30, 60), lvl: 0 });
+      }
+    }
+    function updatePuddles(dt) {
+      var k, pd, sz;
+      for (k = puddles.length - 1; k >= 0; k--) {
+        pd = puddles[k];
+        if (pd.ev.alive) { if (pd.ev.age > pd.delay) pd.lvl = Math.min(1, pd.lvl + dt / pd.grow); }
+        else pd.lvl = Math.max(0, pd.lvl - dt / pd.dry);
+        if (!pd.ev.alive && pd.lvl <= 0) { group.remove(pd.m); pd.m.material.dispose(); puddles.splice(k, 1); continue; }
+        pd.m.visible = pd.lvl > 0.01;
+        sz = pd.max * Math.sqrt(pd.lvl);
+        pd.m.scale.set(sz, sz * pd.ar, 1);
+        pd.m.material.opacity = 0.75 * Math.pow(pd.lvl, 0.6);
+      }
+    }
+
+    /* Anillos de gotas: ondas que se expanden donde cae la lluvia, solo con la cámara cerca */
+    var cv4 = document.createElement('canvas'); cv4.width = cv4.height = 64;
+    var c4 = cv4.getContext('2d'); c4.strokeStyle = 'rgba(255,255,255,1)'; c4.lineWidth = 3.5; c4.beginPath(); c4.arc(32, 32, 27, 0, 6.2832); c4.stroke();
+    var ringTex = new THREE.CanvasTexture(cv4), rings = [], ri;
+    for (ri = 0; ri < 90; ri++) {
+      var rm = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ map: ringTex, color: 0xdff0ff, transparent: true, opacity: 0, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+      rm.rotation.x = -Math.PI / 2; rm.visible = false; group.add(rm);
+      rings.push({ m: rm, on: false, age: 0, life: 1, size: 1, a: 0.6 });
+    }
+    function spawnRing(ev, tg) {
+      var i, r, a, d, x, z, q;
+      for (i = 0; i < rings.length && rings[i].on; i++);
+      if (i >= rings.length) return;
+      a = rnd(0, 6.2832); d = 24 * Math.sqrt(Math.random());
+      x = tg.x + Math.cos(a) * d; z = tg.z + Math.sin(a) * d;
+      if (Math.hypot(x - ev.d.cx, z - ev.d.cz) > ev.R * 0.95) return;
+      if (landAt && !landAt(x, z)) return;
+      if (Math.abs(terrainH(x, z)) > 0.6) return;
+      r = rings[i]; r.on = true; r.age = 0; r.life = rnd(0.5, 0.9); r.size = ev.rain ? rnd(0.7, 1.3) : rnd(0.45, 0.8); r.a = ev.rain ? 0.6 : 0.4;
+      r.m.position.set(x, terrainH(x, z) + 0.14, z); r.m.visible = true;
+    }
+    function updateRings(dt) {
+      var tg = controls.target, near = camera.position.distanceTo(tg) < 170 && camera.position.y < 170, k, r, u, ev, f;
+      if (near) {
+        for (k = 0; k < events.length; k++) {
+          ev = events[k];
+          if (Math.hypot(tg.x - ev.d.cx, tg.z - ev.d.cz) > ev.R + 20) continue;
+          f = Math.min(1, ev.age / 8, (ev.dur - ev.age) / 10);
+          ev.acc = (ev.acc || 0) + (ev.rain ? 45 : 18) * Math.max(0, f) * dt;
+          while (ev.acc >= 1) { ev.acc -= 1; spawnRing(ev, tg); }
+        }
+      }
+      for (k = 0; k < rings.length; k++) {
+        r = rings[k]; if (!r.on) continue;
+        r.age += dt; u = r.age / r.life;
+        if (u >= 1) { r.on = false; r.m.visible = false; continue; }
+        r.m.scale.set(r.size * (0.25 + u * 1.1), r.size * (0.25 + u * 1.1), 1);
+        r.m.material.opacity = r.a * Math.pow(1 - u, 1.3);
+      }
+    }
+
     function startEvent(kind, name, dur) {
       var d = byName(name); if (!d) return null;
-      var rain = kind === 'rain', N = rain ? 1100 : 1500, R = rain ? 48 : 58, H = 55, len = rain ? 3.2 : 1.1, vel = rain ? 46 : 14;
+      var rain = kind === 'rain', N = rain ? 1100 : 1500, R = rain ? 48 : 58, H = 55, len = rain ? 3.2 : 1.1, vel = rain ? 90 : 24;
       var pos = new Float32Array(N * 6), drops = [], i, a;
       for (i = 0; i < N; i++) { a = rnd(0, 6.2832); var rr = R * Math.sqrt(Math.random()); drops.push({ x: Math.cos(a) * rr, z: Math.sin(a) * rr, y: rnd(0, H), v: vel * rnd(0.8, 1.2) }); }
       var geo2 = new THREE.BufferGeometry(); geo2.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -5865,10 +5944,11 @@ window.startMap = function (RAW, AUTH) {
         pm.rotation.x = -Math.PI / 2; pm.scale.set(ps, ps, 1);
         pm.position.set(d.cx + Math.cos(pa) * pr, cy + 1 + i * 1.2, d.cz + Math.sin(pa) * pr); group.add(pm); clouds.push(pm);
       }
-      var ev = { d: d, rain: rain, drops: drops, N: N, R: R, H: H, len: len, geo: geo2, mat: mat, lines: lines, clouds: clouds, age: 0, dur: dur, wind: rnd(-3, 3), cpos: new THREE.Vector3(d.cx, 0, d.cz) };
-      events.push(ev); return ev;
+      var ev = { d: d, rain: rain, drops: drops, N: N, R: R, H: H, len: len, geo: geo2, mat: mat, lines: lines, clouds: clouds, age: 0, dur: dur, wind: rnd(-3, 3), cpos: new THREE.Vector3(d.cx, 0, d.cz), alive: true };
+      events.push(ev); spawnPuddles(ev); return ev;
     }
     function endEvent(ev) {
+      ev.alive = false; /* sus charcos se van secando solos */
       group.remove(ev.lines); ev.geo.dispose(); ev.mat.dispose();
       ev.clouds.forEach(function (c) { group.remove(c); c.material.dispose(); });
     }
@@ -5911,6 +5991,7 @@ window.startMap = function (RAW, AUTH) {
         ev.geo.attributes.position.needsUpdate = true;
         for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].material.opacity = (ev.rain ? 0.75 : 0.55) * fade * (0.92 + 0.08 * Math.sin(t * 0.4 + j)) * Math.min(1, far * 1.4) * (j >= 20 ? 0.6 : 1);
       }
+      updatePuddles(dt); updateRings(dt);
       AUD.setRain(Math.min(1, sa), Math.min(1, sb));
     }
     return { update: update, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
