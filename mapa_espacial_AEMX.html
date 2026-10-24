@@ -5575,7 +5575,8 @@ window.startMap = function (RAW, AUTH) {
     var a = makeAstronaut(), g = a.g, m, mouth = 1.0, cape, hand;
     g.children[2].visible = false; g.children[3].visible = false; /* se quita el casco normal y su visor */
     /* Casco de Pac-Man con la boca hacia el frente (+z) */
-    m = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 14, Math.PI / 2 + mouth / 2, Math.PI * 2 - mouth), wPac); m.position.y = 1.5; g.add(m);
+    var pg = new THREE.SphereGeometry(0.34, 20, 14, Math.PI / 2 + mouth / 2, Math.PI * 2 - mouth); pg.rotateZ(Math.PI / 2); /* la boca se abre en vertical (mandíbula arriba y abajo), al frente */
+    m = new THREE.Mesh(pg, wPac); m.position.y = 1.5; g.add(m);
     m = new THREE.Mesh(uSphere, wInner); m.scale.setScalar(0.3); m.position.y = 1.5; g.add(m);
     [-1, 1].forEach(function (sd) { var e = new THREE.Mesh(uSphere, wEye); e.scale.setScalar(0.05); e.position.set(sd * 0.2, 1.68, 0.12); g.add(e); });
     /* Túnica larga y capa en la espalda */
