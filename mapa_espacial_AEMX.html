@@ -5898,7 +5898,7 @@ window.startMap = function (RAW, AUTH) {
     botBlk = look;
     for (k = 1; k <= n; k++) {
       f = look * k / n; px = b.x + sx * f; pz = b.z + cz * f;
-      if (!botFree(px, pz) || (k % 2 === 0 && (!botFree(px + cz * 0.5, pz - sx * 0.5) || !botFree(px - cz * 0.5, pz + sx * 0.5)))) { botBlk = f; return false; }
+      if (!botFree(px, pz) || (k % 2 === 0 && (!botFree(px + cz * 0.35, pz - sx * 0.35) || !botFree(px - cz * 0.35, pz + sx * 0.35)))) { botBlk = f; return false; }
       if ((k === n || k === (n >> 1)) && !botSlopeOK(b.x, b.z, px, pz)) { botBlk = f; return false; }
     }
     return true;
@@ -6057,9 +6057,76 @@ window.startMap = function (RAW, AUTH) {
     }
     return out;
   }
+  /* Ruta fina (celdas de 0.6) entre dos puntos cercanos esquivando edificios y vegetación: sirve para recorrer calles entre hexágonos. Devuelve puntos [x,z,1] o null */
+  var botFnodes = 0;
+  function botCellFree(x, z) { return botFree(x, z) && botFree(x + 0.3, z) && botFree(x - 0.3, z) && botFree(x, z + 0.3) && botFree(x, z - 0.3); }
+  function botLineFree(ax, az, bx2, bz, st, strict) {
+    var n = Math.max(1, Math.ceil(Math.hypot(bx2 - ax, bz - az) / st)), k, x, z;
+    for (k = 1; k <= n; k++) { x = ax + (bx2 - ax) * k / n; z = az + (bz - az) * k / n; if (strict ? !botCellFree(x, z) : !botFree(x, z)) return false; }
+    return true;
+  }
+  function botFineAStar(ax, az, bx2, bz) {
+    var S = 0.6, pad = 9, x0 = Math.min(ax, bx2) - pad, z0 = Math.min(az, bz) - pad, nx = Math.min(170, Math.ceil((Math.abs(ax - bx2) + 2 * pad) / S) + 1), nz = Math.min(170, Math.ceil((Math.abs(az - bz) + 2 * pad) / S) + 1);
+    var N = nx * nz, fr = new Uint8Array(N), gg = new Float32Array(N), par = new Int32Array(N).fill(-1), cl = new Uint8Array(N), si, sj, gi, gj, cur, ci, cj, di, dj, ni, nj, m, ng, n = 0, dx, dz, r, a, b2, found = -1, k, pts, out, i, j, g0;
+    function cellOK(i2, j2) {
+      var id = j2 * nx + i2;
+      if (i2 < 0 || j2 < 0 || i2 >= nx || j2 >= nz) return false;
+      if (!fr[id]) fr[id] = botCellFree(x0 + i2 * S, z0 + j2 * S) ? 1 : 2;
+      return fr[id] === 1;
+    }
+    si = Math.round((ax - x0) / S); sj = Math.round((az - z0) / S); gi = Math.round((bx2 - x0) / S); gj = Math.round((bz - z0) / S);
+    if (!cellOK(gi, gj)) { /* meta ocupada: la casilla libre más cercana */
+      for (r = 1; r <= 8 && found < 0; r++) for (a = -r; a <= r && found < 0; a++) for (b2 = -r; b2 <= r; b2++) if (Math.max(Math.abs(a), Math.abs(b2)) === r && cellOK(gi + a, gj + b2)) { found = 1; gi += a; gj += b2; break; }
+      if (found < 0) return null;
+      found = -1;
+    }
+    if (si < 0 || sj < 0 || si >= nx || sj >= nz) return null;
+    fr[sj * nx + si] = 1; /* el arranque siempre vale */
+    botHN.length = 0; botHF.length = 0; g0 = sj * nx + si; gg[g0] = 0; botHPush(g0, 0);
+    while (botHN.length && n < 22000) {
+      cur = botHPop(); if (cl[cur]) continue;
+      cl[cur] = 1; n++;
+      if (cur === gj * nx + gi) { found = cur; break; }
+      ci = cur % nx; cj = (cur / nx) | 0;
+      for (di = -1; di <= 1; di++) for (dj = -1; dj <= 1; dj++) {
+        if (!di && !dj) continue;
+        ni = ci + di; nj = cj + dj;
+        if (!cellOK(ni, nj)) continue;
+        m = nj * nx + ni; if (cl[m]) continue;
+        if (di && dj && !(cellOK(ci + di, cj) && cellOK(ci, cj + dj))) continue;
+        ng = gg[cur] + (di && dj ? 1.414 : 1);
+        if (par[m] < 0 || ng < gg[m]) { gg[m] = ng; par[m] = cur; dx = Math.abs(ni - gi); dz = Math.abs(nj - gj); botHPush(m, ng + dx + dz - 0.586 * Math.min(dx, dz)); }
+      }
+    }
+    botFnodes += n;
+    if (found < 0) return null;
+    pts = []; for (k = found; k !== -1; k = par[k]) { pts.push([x0 + (k % nx) * S, z0 + ((k / nx) | 0) * S, 1]); if (k === g0) break; }
+    pts.reverse(); pts[0] = [ax, az, 1];
+    out = [pts[0]]; i = 0;
+    while (i < pts.length - 1) { j = pts.length - 1; while (j > i + 1 && !botLineFree(pts[i][0], pts[i][1], pts[j][0], pts[j][1], 0.3, true)) j--; out.push(pts[j]); i = j; }
+    return out;
+  }
+  /* Revisa la ruta gruesa: los tramos que chocan con edificios o árboles (por ejemplo, las calles de una ciudad) se rehacen con la ruta fina */
+  function botRefine(path) {
+    var out = [path[0]], i, ax, az, bx2, bz, L, n, k, tx, tz, cur, r, used = 0, c0, t0;
+    botFnodes = 0;
+    cur = path[0];
+    for (i = 1; i < path.length; i++) {
+      bx2 = path[i][0]; bz = path[i][1]; L = Math.hypot(bx2 - cur[0], bz - cur[1]); n = Math.max(1, Math.ceil(L / 40));
+      for (k = 1; k <= n; k++) {
+        tx = cur[0] + (bx2 - cur[0]) * k / n; tz = cur[1] + (bz - cur[1]) * k / n;
+        if (k === n) { tx = bx2; tz = bz; }
+        if (botFnodes > 60000 || botLineFree(out[out.length - 1][0], out[out.length - 1][1], tx, tz, 1.0, false)) { out.push([tx, tz]); continue; }
+        r = botFineAStar(out[out.length - 1][0], out[out.length - 1][1], tx, tz);
+        if (r) for (c0 = 1; c0 < r.length; c0++) out.push(r[c0]); else out.push([tx, tz]);
+      }
+      cur = [bx2, bz];
+    }
+    return out;
+  }
   function botSetGoal(x, z, type) {
     var b = bot, p;
-    if (BN) { p = botAStar(b.x, b.z, x, z); if (!p) return false; b.path = p; b.pi = Math.min(1, p.length - 1); }
+    if (BN) { p = botAStar(b.x, b.z, x, z); if (!p) return false; try { p = botRefine(p); } catch (e) { } b.path = p; b.pi = Math.min(1, p.length - 1); }
     else b.path = null;
     b.goal = { x: x, z: z }; b.gtype = type; b.stuck = 0; b.lastGD = 1e9; b.pt = 0;
     return true;
@@ -6275,7 +6342,7 @@ window.startMap = function (RAW, AUTH) {
         } else {
           tw = b.goal;
           if (b.path) {
-            while (b.pi < b.path.length - 1 && Math.hypot(b.path[b.pi][0] - b.x, b.path[b.pi][1] - b.z) < 3.5) { b.pi++; b.lastGD = 1e9; }
+            while (b.pi < b.path.length - 1 && Math.hypot(b.path[b.pi][0] - b.x, b.path[b.pi][1] - b.z) < (b.path[b.pi][2] ? 0.7 : 3.5)) { b.pi++; b.lastGD = 1e9; }
             tw = { x: b.path[b.pi][0], z: b.path[b.pi][1] };
           }
           dw = Math.hypot(tw.x - b.x, tw.z - b.z);
@@ -6300,7 +6367,7 @@ window.startMap = function (RAW, AUTH) {
               if (!botSetGoal(b.goal.x, b.goal.z, b.gtype)) { b.goal = null; b.gtype = ''; b.path = null; b.recN = 0; b.idle = 0.3; }
             }
           } else {
-          hd = botSteer(b, want, 3 + b.v * 0.8);
+          hd = botSteer(b, want, b.path && b.path[b.pi] && b.path[b.pi][2] ? Math.min(3 + b.v * 0.8, Math.max(1.3, dw + 0.3)) : 3 + b.v * 0.8);
           if (hd === null) { b.v *= Math.max(0, 1 - dt * 6); b.yaw += b.side * dt * 2.5; }
           else {
             b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 12);
@@ -6911,50 +6978,45 @@ window.startMap = function (RAW, AUTH) {
     }
 
     /* Fantasmas: siluetas humanas del tamaño de un astronauta (~0.8) que caminan por toda la niebla; si salen de ella se evaporan */
-    var ghostTexes = [], ghostTints = [0xdff0ff, 0xd8ffe8, 0xe8e0ff];
-    function makeGhostTex(v) {
-      var cv = document.createElement('canvas'), c, g, i, ex;
-      cv.width = 96; cv.height = 192; c = cv.getContext('2d');
-      g = c.createLinearGradient(0, 0, 0, 192);
-      g.addColorStop(0, 'rgba(238,246,242,0.96)'); g.addColorStop(0.55, 'rgba(205,220,228,0.85)'); g.addColorStop(1, 'rgba(180,200,220,0)');
-      c.fillStyle = g;
-      if (v === 0) { /* encapuchado: capucha puntiaguda y mortaja que se ensancha */
-        c.beginPath(); c.moveTo(48, 3); c.quadraticCurveTo(72, 16, 71, 64); c.quadraticCurveTo(80, 110, 92, 192); c.lineTo(4, 192); c.quadraticCurveTo(16, 110, 25, 64); c.quadraticCurveTo(24, 16, 48, 3); c.closePath(); c.fill();
-        c.fillStyle = 'rgba(4,6,10,0.96)'; c.beginPath(); c.ellipse(48, 42, 14, 19, 0, 0, 6.2832); c.fill();
-        ex = [[41, 36], [55, 36]];
-        c.fillStyle = 'rgba(2,2,4,1)'; c.beginPath(); c.ellipse(48, 58, 3, 9, 0, 0, 6.2832); c.fill();
-      } else if (v === 1) { /* brazos larguísimos que cuelgan hasta las rodillas */
-        c.beginPath(); c.ellipse(48, 24, 13, 20, 0, 0, 6.2832); c.fill();
-        c.fillRect(44, 42, 8, 12);
-        c.beginPath(); c.moveTo(28, 58); c.quadraticCurveTo(48, 50, 68, 58); c.lineTo(62, 128); c.lineTo(34, 128); c.closePath(); c.fill();
-        c.lineWidth = 5; c.strokeStyle = 'rgba(214,226,232,0.85)'; c.lineCap = 'round';
-        c.beginPath(); c.moveTo(29, 60); c.quadraticCurveTo(10, 110, 16, 176); c.stroke();
-        c.beginPath(); c.moveTo(67, 60); c.quadraticCurveTo(86, 110, 80, 176); c.stroke();
-        c.fillRect(37, 120, 9, 72); c.fillRect(50, 120, 9, 72);
-        c.fillStyle = 'rgba(4,6,10,0.96)';
-        c.beginPath(); c.ellipse(42, 22, 4, 8, -0.4, 0, 6.2832); c.fill(); c.beginPath(); c.ellipse(54, 22, 4, 8, 0.4, 0, 6.2832); c.fill();
-        c.beginPath(); c.ellipse(48, 36, 6, 9, 0, 0, 6.2832); c.fill();
-        ex = [[42, 22], [54, 22]];
-      } else { /* cabeza torcida y boca desencajada */
-        c.beginPath(); c.moveTo(30, 62); c.quadraticCurveTo(48, 52, 66, 62); c.lineTo(72, 130); c.lineTo(24, 130); c.closePath(); c.fill();
-        c.fillRect(22, 64, 8, 66); c.fillRect(66, 64, 8, 66); c.fillRect(32, 126, 14, 66); c.fillRect(50, 126, 14, 66);
-        c.save(); c.translate(48, 54); c.rotate(-0.55); c.translate(-48, -54);
-        c.beginPath(); c.ellipse(48, 30, 17, 23, 0, 0, 6.2832); c.fill();
-        c.fillStyle = 'rgba(4,6,10,0.96)';
-        c.beginPath(); c.ellipse(41, 25, 5, 7, 0, 0, 6.2832); c.fill(); c.beginPath(); c.ellipse(56, 27, 3.2, 4.5, 0, 0, 6.2832); c.fill();
-        c.beginPath(); c.ellipse(48, 42, 7, 11, 0, 0, 6.2832); c.fill();
-        c.fillStyle = 'rgba(255,70,55,0.95)'; c.beginPath(); c.arc(41, 25, 1.6, 0, 6.2832); c.fill(); c.beginPath(); c.arc(56, 27, 1.2, 0, 6.2832); c.fill();
-        c.restore(); ex = null;
+    /* Fantasmas en 3D: mortaja con volumen y jirones, cabeza hueca con ojos rojos, brazos largos que se mecen */
+    var ghosts = [], GHOST_SZ = [[0.8, 1.3], [0.9, 1.5], [0.85, 1.2]];
+    var ghGeo = (function () {
+      function lathe(pts) { return new THREE.LatheGeometry(pts.map(function (q) { return new THREE.Vector2(q[0], q[1]); }), 14); }
+      var o = {};
+      o.body = [
+        lathe([[0.0001, 0.02], [0.42, 0.02], [0.4, 0.12], [0.3, 0.32], [0.2, 0.55], [0.17, 0.7], [0.1, 0.78], [0.0001, 0.8]]),
+        lathe([[0.0001, 0.05], [0.22, 0.05], [0.2, 0.2], [0.15, 0.45], [0.17, 0.68], [0.1, 0.76], [0.0001, 0.78]]),
+        lathe([[0.0001, 0.03], [0.3, 0.03], [0.27, 0.15], [0.2, 0.4], [0.18, 0.65], [0.1, 0.76], [0.0001, 0.78]])
+      ];
+      o.head = new THREE.SphereGeometry(0.15, 12, 10);
+      o.cone = new THREE.ConeGeometry(0.1, 0.3, 8);
+      o.tat = new THREE.ConeGeometry(0.07, 0.3, 5); o.tat.rotateX(Math.PI); o.tat.translate(0, -0.1, 0);
+      o.arm = new THREE.CylinderGeometry(0.028, 0.018, 0.5, 6); o.arm.translate(0, -0.25, 0);
+      o.hand = new THREE.SphereGeometry(0.04, 6, 5);
+      o.eye = new THREE.SphereGeometry(0.022, 6, 5);
+      o.hole = new THREE.SphereGeometry(0.1, 10, 8);
+      return o;
+    })();
+    function makeGhost3D(v, M) {
+      var g = new THREE.Group(), head = new THREE.Group(), arms = [], tats = [], i, a, m, sd, pv, R = [0.4, 0.2, 0.28][v], armK = [0.8, 1.7, 0.95][v];
+      function mesh(geo, mat, x, y, z, sx, sy, sz) { var mm = new THREE.Mesh(geo, mat); mm.position.set(x, y, z); if (sx) mm.scale.set(sx, sy, sz); mm.raycast = function () {}; return mm; }
+      g.add(mesh(ghGeo.body[v], M.body, 0, 0, 0));
+      for (i = 0; i < 7; i++) { a = i / 7 * 6.2832; m = mesh(ghGeo.tat, M.body, Math.cos(a) * R * 0.92, 0.1, Math.sin(a) * R * 0.92, 1, 1 + (i % 3) * 0.3, 1); m.rotation.z = Math.cos(a) * 0.25; m.rotation.x = -Math.sin(a) * 0.25; g.add(m); tats.push(m); }
+      head.position.set(0, v === 1 ? 0.88 : 0.86, 0); g.add(head);
+      head.add(mesh(ghGeo.head, M.body, 0, 0, 0, v === 1 ? 0.85 : 1, v === 1 ? 1.7 : (v === 0 ? 1.4 : 1.2), v === 1 ? 0.9 : 1.05));
+      if (v === 0) { m = mesh(ghGeo.cone, M.body, 0, 0.22, -0.06); m.rotation.x = -0.5; head.add(m); }
+      head.add(mesh(ghGeo.hole, M.dark, 0, v === 1 ? 0.02 : 0.0, 0.1, v === 1 ? 1.0 : 0.95, v === 1 ? 1.5 : 1.3, 0.5));
+      head.add(mesh(ghGeo.eye, M.eye, -0.05, v === 1 ? 0.08 : 0.05, 0.17)); head.add(mesh(ghGeo.eye, M.eye, 0.05, v === 1 ? 0.08 : 0.05, 0.17));
+      if (v === 0) head.add(mesh(ghGeo.hole, M.dark, 0, -0.09, 0.12, 0.18, 0.6, 0.35));
+      else if (v === 1) head.add(mesh(ghGeo.hole, M.dark, 0, -0.1, 0.12, 0.5, 0.75, 0.4));
+      else { head.add(mesh(ghGeo.hole, M.dark, 0, -0.1, 0.12, 0.6, 1.0, 0.4)); head.rotation.z = -0.5; }
+      for (sd = -1; sd <= 1; sd += 2) {
+        pv = new THREE.Group(); pv.position.set(sd * (v === 1 ? 0.2 : 0.17), 0.68, 0); pv.rotation.z = sd * 0.12;
+        pv.add(mesh(ghGeo.arm, M.body, 0, 0, 0, 1, armK, 1)); pv.add(mesh(ghGeo.hand, M.body, 0, -0.5 * armK, 0));
+        g.add(pv); arms.push(pv);
       }
-      if (ex) { c.fillStyle = 'rgba(255,70,55,0.95)'; for (i = 0; i < ex.length; i++) { c.beginPath(); c.arc(ex[i][0], ex[i][1], 1.8, 0, 6.2832); c.fill(); } }
-      /* bordes rotos: la parte baja se deshace en jirones */
-      c.globalCompositeOperation = 'destination-out';
-      for (i = 0; i < 9; i++) { c.fillStyle = 'rgba(0,0,0,' + (0.55 + 0.4 * ((i * 37) % 10) / 10) + ')'; c.beginPath(); c.moveTo(i * 11 - 2, 150 + ((i * 53) % 25)); c.lineTo(i * 11 + 5, 192); c.lineTo(i * 11 - 9, 192); c.closePath(); c.fill(); }
-      c.globalCompositeOperation = 'source-over';
-      return new THREE.CanvasTexture(cv);
+      return { g: g, head: head, arms: arms, tats: tats };
     }
-    ghostTexes = [makeGhostTex(0), makeGhostTex(1), makeGhostTex(2)];
-    var ghosts = [], gwDir = new THREE.Vector3(), GHOST_SZ = [[0.55, 1.25], [0.5, 1.4], [0.55, 1.1]];
     function inArea(a, x, z) { return a.rings ? inPoly(a.rings, x, z) : Math.hypot(x - a.cx, z - a.cz) <= a.r; }
     function randIn(a) {
       var i, x, z;
@@ -6970,14 +7032,19 @@ window.startMap = function (RAW, AUTH) {
       return null;
     }
     function addGhosts(area, fe) {
-      var n = Math.max(8, Math.min(24, Math.round(areaEst(area) / 450))), i, q, sp, v, z;
+      var n = Math.max(8, Math.min(24, Math.round(areaEst(area) / 450))), i, q, v, z, M, G;
       for (i = 0; i < n; i++) {
         q = randIn(area) || [area.fx, area.fz]; v = Math.floor(Math.random() * 3); z = rnd(0.9, 1.25);
-        sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ghostTexes[v], color: ghostTints[v], transparent: true, opacity: 0, depthWrite: false, fog: false }));
-        sp.scale.set(GHOST_SZ[v][0] * z, GHOST_SZ[v][1] * z, 1); sp.visible = false; group.add(sp);
-        ghosts.push({ sp: sp, area: area, x: q[0], z: q[1], tx: q[0], tz: q[1], wait: rnd(0, 4), ph: rnd(0, 6.28), per: rnd(25, 60), fe: fe, state: 'on', ev: 0, respawn: 0, dead: false, sx: GHOST_SZ[v][0] * z, sy: GHOST_SZ[v][1] * z, born: 9, close: 0, wailT: rnd(4, 14), scare: false });
+        M = {
+          body: new THREE.MeshLambertMaterial({ color: [0xcfe3ee, 0xcdeedd, 0xded6f2][v], emissive: [0x4d6575, 0x4a6a58, 0x5a5078][v], transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+          dark: new THREE.MeshBasicMaterial({ color: 0x020305, transparent: true, opacity: 0, depthWrite: false }),
+          eye: new THREE.MeshBasicMaterial({ color: 0xff3b2e, transparent: true, opacity: 0, depthWrite: false })
+        };
+        G = makeGhost3D(v, M); G.g.visible = false; group.add(G.g);
+        ghosts.push({ sp: G.g, G: G, M: M, area: area, x: q[0], z: q[1], tx: q[0], tz: q[1], wait: rnd(0, 4), ph: rnd(0, 6.28), per: rnd(25, 60), fe: fe, state: 'on', ev: 0, respawn: 0, dead: false, sx: GHOST_SZ[v][0] * z, sy: GHOST_SZ[v][1] * z, born: 9, close: 0, wailT: rnd(4, 14), scare: false, td: 99, tgx: 0, tgz: 0, hasT: false });
       }
     }
+    function ghKill(g) { group.remove(g.sp); g.M.body.dispose(); g.M.dark.dispose(); g.M.eye.dispose(); }
     /* A quién se acercan los fantasmas: el robot, el caminante y el astronauta que acampa (la fogata no cuenta) */
     var ghT = [], ghTmp = new THREE.Vector3(), ghW = { x: 0, z: 0 };
     function ghTargets() {
@@ -7004,7 +7071,7 @@ window.startMap = function (RAW, AUTH) {
       ghTargets();
       for (k = ghosts.length - 1; k >= 0; k--) {
         g = ghosts[k];
-        if (g.dead) { group.remove(g.sp); g.sp.material.dispose(); ghosts.splice(k, 1); continue; }
+        if (g.dead) { ghKill(g); ghosts.splice(k, 1); continue; }
         tg = null; g.td = 99;
         if (g.state === 'gone') {
           g.sp.visible = false; g.respawn -= dt;
@@ -7024,12 +7091,13 @@ window.startMap = function (RAW, AUTH) {
           continue;
         }
         if (g.state === 'on') {
-          tg = ghNear(g, 45);
+          tg = ghNear(g, 45); g.hasT = false;
           if (tg) { dx = g.x - tg.x; dz = g.z - tg.z; d = Math.sqrt(dx * dx + dz * dz) || 0.01; g.td = d; }
           if (tg) { /* acecha: se acerca despacio a quien pasa y, si se acerca demasiado, se desvanece */
             if (d > 3.2) { spd = 0.8 + 0.9 * Math.max(0, 1 - d / 45); g.x -= dx / d * spd * dt; g.z -= dz / d * spd * dt; }
             else g.close += dt;
             if (d < 2.3 || g.close > 4) { g.state = 'evap'; g.ev = 0; g.close = 0; }
+            g.hasT = true; g.tgx = tg.x; g.tgz = tg.z;
           } else {
             dx = g.tx - g.x; dz = g.tz - g.z; dT = Math.sqrt(dx * dx + dz * dz);
             if (g.wait > 0) g.wait -= dt;
@@ -7043,7 +7111,7 @@ window.startMap = function (RAW, AUTH) {
         if (d > 90 || cp.y > 200) { g.sp.visible = false; continue; }
         ev = g.state === 'evap' ? g.ev / 1.6 : 0;
         fade = g.fe ? Math.min(1, g.fe.age / 10, (g.fe.dur - g.fe.age) / 12) : 1;
-        y = terrainH(g.x, g.z) + g.sy * 0.5 + 0.05 + 0.08 * Math.sin(t * 0.9 + g.ph) + ev * 1.2;
+        y = terrainH(g.x, g.z) + 0.12 + 0.07 * Math.sin(t * 0.9 + g.ph) + ev * 1.2;
         c = 0.5 + 0.5 * Math.sin(t * 6.2832 / g.per + g.ph);
         a = 0.3 + 0.35 * (c * c * (3 - 2 * c));
         if (g.td < 14) a = Math.max(a, 0.62);
@@ -7052,10 +7120,18 @@ window.startMap = function (RAW, AUTH) {
         fl = 0.8 + 0.2 * Math.sin(t * 19 + g.ph); if (Math.sin(t * 0.7 + g.ph * 5) > 0.97) fl *= 0.15; /* parpadeos */
         jit = d < 12 ? 0.05 * Math.sin(t * 43 + g.ph) : 0;
         g.sp.position.set(g.x, y, g.z);
-        g.sp.scale.set(g.sx * (1 + ev * 0.6 + jit), g.sy * (1 + ev * 0.3), 1);
-        g.sp.material.opacity = a * fade * near * fl * Math.min(1, g.born / 0.35) * Math.pow(1 - ev, 1.5);
-        g.sp.visible = g.sp.material.opacity > 0.01;
+        g.sp.scale.set(g.sx * (1 + ev * 0.6 + jit), g.sy * (1 + ev * 0.3), g.sx * (1 + ev * 0.6 + jit));
+        a = a * fade * near * fl * Math.min(1, g.born / 0.35) * Math.pow(1 - ev, 1.5);
+        g.M.body.opacity = Math.min(0.85, a * 1.15); g.M.dark.opacity = Math.min(0.97, a * 2.2); g.M.eye.opacity = Math.min(1, a * 2.4);
+        g.sp.visible = a > 0.01;
         if (g.sp.visible) {
+          /* orientación y movimiento: mira a quien acecha (o a la cámara), el borde y los brazos se mecen y extiende el brazo al acercarse */
+          g.sp.rotation.y = Math.atan2((g.hasT ? g.tgx : cp.x) - g.x, (g.hasT ? g.tgz : cp.z) - g.z);
+          g.sp.rotation.z = 0.05 * Math.sin(t * 1.3 + g.ph);
+          g.G.head.rotation.x = 0.12 * Math.sin(t * 0.8 + g.ph);
+          for (tries = 0; tries < g.G.tats.length; tries++) g.G.tats[tries].rotation.x = 0.22 * Math.sin(t * 2.1 + tries * 1.7 + g.ph) - 0.25 * Math.sin(tries / g.G.tats.length * 6.2832);
+          g.G.arms[0].rotation.x = 0.18 * Math.sin(t * 1.4 + g.ph);
+          g.G.arms[1].rotation.x = g.hasT && g.td < 20 ? -1.3 + 0.1 * Math.sin(t * 5 + g.ph) : 0.18 * Math.sin(t * 1.4 + g.ph + 2);
           if (g.scare) { g.scare = false; AUD.scare(g.sp.position); }
           g.wailT -= dt; if (g.wailT <= 0 && dd < 50) { g.wailT = rnd(9, 22); AUD.wail(g.sp.position); }
           if (dd < best) { best = dd; bestPos = g.sp.position; }
