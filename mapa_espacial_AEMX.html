@@ -1688,6 +1688,20 @@ window.startMap = function (RAW, AUTH) {
       lastEdge = minD;
       return bestIn && minD >= (me === undefined ? 0.9 : me);
     }
+    /* Playa: franja de arena en el suelo de los estados que dan al mar (no cuentan las fronteras con otros estados ni con EE. UU., Guatemala y Belice) */
+    var SAND_W = 7;
+    function coastal(x, z, edge) {
+      var keep = lastEdge, r = edge + 1.0, k, a, px, pz, f, res = false;
+      if (edge > SAND_W) return false;
+      for (k = 0; k < 12 && !res; k++) {
+        a = k / 12 * 6.2832; px = x + Math.cos(a) * r; pz = z + Math.sin(a) * r;
+        if (onLand(px, pz, 0)) continue;
+        res = true;
+        for (f = 0; f < foreignRings.length; f++) if (ptInRing(px, pz, foreignRings[f])) { res = false; break; }
+      }
+      lastEdge = keep;
+      return res;
+    }
     function zoneOf(x, z) {
       var lat = LAT0 - z / KZ, lon = LON0 + x / KX;
       if (lat > 25.2 || (lon < -109.2 && lat > 22.3)) return 'arid';
@@ -1732,10 +1746,12 @@ window.startMap = function (RAW, AUTH) {
           if (trailNear(x, z, 1.5)) continue;
           if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R && volcBump(x, z) > 0.34 * VOLC.H) continue; /* nada en la parte alta del volcán */
           if (!onLand(x, z)) continue;
+          var sandy = coastal(x, z, lastEdge);
+          zone = zoneOf(x, z);
+          if (sandy && (zone !== 'trop' || vr() > 0.12)) continue; /* en la arena solo quedan algunas palmeras tropicales */
           k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k] || (placed[k] = [])).push([x, z]);
-          zone = zoneOf(x, z);
-          plants.push({ type: pickType(zone), x: x, z: z, y: (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) ? terrainH(x, z) + 0.02 : (ist === 1 ? 0.34 : 0), zone: zone, edge: lastEdge });
+          plants.push({ type: sandy ? 'palm' : pickType(zone), x: x, z: z, y: (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) ? terrainH(x, z) + 0.02 : (ist === 1 ? 0.34 : 0), zone: zone, edge: lastEdge });
         }
       }
     });
@@ -1796,6 +1812,12 @@ window.startMap = function (RAW, AUTH) {
         else { gc = col(0.28 + 0.05 * n2, 0.42, 0.16 + 0.1 * n2); dc = col(0.08 + 0.02 * n2, 0.33, 0.19 + 0.06 * n2); w = (n1 - 0.66) / 0.2; }
         w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
         c = gc.lerp(dc, w);
+        if (coastal(x, z, edge)) { /* arena de playa: más oscura y húmeda junto al agua, se funde con el pasto tierra adentro */
+          var sc = col(0.118 + 0.012 * n2, 0.5 + 0.1 * n1, 0.68 + 0.1 * n2), sm = Math.max(0, Math.min(1, (edge - 4.2) / 2.8));
+          if (edge < 1.2) sc.lerp(col(0.1, 0.4, 0.5), 0.55 * (1 - edge / 1.2));
+          sm = sm * sm * (3 - 2 * sm);
+          c = sc.lerp(c, sm);
+        }
         var cy = 0.046 + ((ix + iz) & 1) * 0.004, cr = Math.min(G * 0.9, edge + 0.12), vb, sl; /* por encima de los senderos (0.028–0.032): el sendero queda debajo de la vegetación */
         if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) { /* sobre las faldas bajas del volcán: sigue su superficie y oculta el borde de la base */
           vb = volcBump(x, z);
