@@ -5731,13 +5731,14 @@ window.startMap = function (RAW, AUTH) {
     ps.moveTo(-0.13, 0.54); ps.lineTo(-0.27, 0.5); ps.lineTo(-0.36, 0.3); ps.lineTo(-0.35, 0.06); ps.lineTo(-0.27, -0.04); ps.lineTo(-0.13, 0.0); ps.closePath();
     var pg = new THREE.ExtrudeGeometry(ps, { depth: 0.26, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
     pg.scale(0.75, 0.75, 0.75); pg.rotateY(-Math.PI / 2); pg.translate(0.1, 0, -0.02);
-    shell.add(new THREE.Mesh(pg, bkBlack));
-    bx(eyeMat, 0, 0.24, -0.292, 0.026, 0.22, 0.012, shell);
-    bx(bkGray, 0, 0.4, -0.2, 0.12, 0.025, 0.12, shell).rotation.x = -0.25;
+    var pack = new THREE.Group(); pack.position.y = 0.08; shell.add(pack); /* mochila un poco más arriba en la espalda */
+    pack.add(new THREE.Mesh(pg, bkBlack));
+    bx(eyeMat, 0, 0.24, -0.292, 0.026, 0.22, 0.012, pack);
+    bx(bkGray, 0, 0.4, -0.2, 0.12, 0.025, 0.12, pack).rotation.x = -0.25;
     [-1, 1].forEach(function (sx) {
-      var fn = bx(bkGray, sx * 0.14, 0.25, -0.24, 0.022, 0.22, 0.1, shell); fn.rotation.z = sx * 0.28;
+      var fn = bx(bkGray, sx * 0.14, 0.25, -0.24, 0.022, 0.22, 0.1, pack); fn.rotation.z = sx * 0.28;
       var nz = new THREE.Group(), fl;
-      nz.position.set(sx * 0.075, 0.02, -0.25); nz.rotation.x = 0.6; nz.scale.setScalar(0.75); shell.add(nz);
+      nz.position.set(sx * 0.075, 0.02, -0.25); nz.rotation.x = 0.6; nz.scale.setScalar(0.75); pack.add(nz);
       m = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.085, 0.2, 10), bkGray); m.position.y = -0.1; nz.add(m);
       cy(bkDark, 0, -0.2, 0, 0.07, 0.02, 0, 0, nz);
       fl = new THREE.Mesh(bkFlameGeo, new THREE.MeshBasicMaterial({ color: 0x6dffc2, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
