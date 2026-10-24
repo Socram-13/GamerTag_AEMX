@@ -5612,7 +5612,7 @@ window.startMap = function (RAW, AUTH) {
         var e = new THREE.Mesh(uSphere, gWhite); e.scale.set(0.14, 0.17, 0.1); e.position.set(sd * 0.18, 0.72, 0.42); gGrp.add(e);
         e = new THREE.Mesh(uSphere, gPupil); e.scale.setScalar(0.07); e.position.set(sd * 0.18, 0.72, 0.51); gGrp.add(e);
       });
-      gGrp.scale.setScalar(0.38); gGrp.visible = false; noRay(gGrp); scene.add(gGrp);
+      gGrp.scale.setScalar(0.19); gGrp.visible = false; noRay(gGrp); scene.add(gGrp);
       gh.push({ g: gGrp, lag: 1.0 + gi * 0.9, yaw: null, lx: 0, lz: 0 });
     }
     return { gh: gh, hist: [], trav: 0, px: null, pz: null, a: a, cape: cape, hand: hand, path: null, next: null, s: 0, x: 0, z: 0, yaw: null, last: -1, off: 0, side: 1, dodge: false, hop: 0 };
