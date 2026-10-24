@@ -5585,6 +5585,10 @@ window.startMap = function (RAW, AUTH) {
     cape = new THREE.Group(); cape.position.set(0, 1.25, -0.3); g.add(cape);
     m = new THREE.Mesh(uBox, wClothD); m.scale.set(0.62, 0.95, 0.05); m.position.y = -0.47; cape.add(m);
     a.parts.armL.children[0].material = wCloth; a.parts.armR.children[0].material = wCloth;
+    /* Mangas anchas y brazos separados del cuerpo para que se vean fuera de la túnica */
+    a.parts.armL.children[0].scale.set(1.7, 1, 1.7); a.parts.armR.children[0].scale.set(1.7, 1, 1.7);
+    a.parts.armL.position.x = -0.56; a.parts.armR.position.x = 0.56;
+    a.parts.armL.rotation.z = -0.22; a.parts.armR.rotation.z = 0.22;
     /* Bastón largo en la mano derecha (se contrarrota para que siempre quede vertical) */
     hand = new THREE.Group(); hand.position.set(0, -0.45, 0.05); a.parts.armR.add(hand);
     m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 2.1, 6), wWood); m.position.y = 0.3; hand.add(m);
@@ -5642,13 +5646,14 @@ window.startMap = function (RAW, AUTH) {
     gy = Math.max(0, terrainH(x, z)) + 0.06;
     a.g.rotation.y = W.yaw;
     a.g.position.set(x, gy + hopY + Math.abs(Math.sin(t * 3)) * 0.03, z);
+    sw = Math.sin(t * 3) * 0.5;
     if (hopY > 0.02) { /* en el aire: brazo libre arriba y piernas recogidas */
       a.parts.legL.rotation.x = -0.8; a.parts.legR.rotation.x = -0.5; a.parts.armL.rotation.x = -2.4; a.parts.armR.rotation.x = -0.6;
     } else {
-      sw = Math.sin(t * 3) * 0.5;
-      a.parts.legL.rotation.x = sw; a.parts.legR.rotation.x = -sw; a.parts.armL.rotation.x = -sw * 0.8; a.parts.armR.rotation.x = -0.3 + sw * 0.15;
+      a.parts.legL.rotation.x = sw; a.parts.legR.rotation.x = -sw; a.parts.armL.rotation.x = -sw * 1.2; a.parts.armR.rotation.x = -0.3 + sw * 0.5;
     }
-    W.hand.rotation.x = -a.parts.armR.rotation.x;
+    /* El bastón se balancea con el paso: se adelanta y se atrasa mientras camina */
+    W.hand.rotation.x = -a.parts.armR.rotation.x + (hopY > 0.02 ? 0 : 0.6 * sw); W.hand.rotation.z = -a.parts.armR.rotation.z;
     W.cape.rotation.x = 0.12 + 0.1 * Math.sin(t * 5 + 1);
   }
 
