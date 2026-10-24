@@ -4216,11 +4216,11 @@ window.startMap = function (RAW, AUTH) {
      Audio espacial: cada sonido tiene distancia de referencia (volumen pleno) y alcance máximo (silencio).
      Con la distancia baja el volumen (~1/d), se apagan los agudos (suena lejano) y se panea izquierda/derecha según la cámara. */
   var AUD = (function () {
-    var ctx = null, master = null, noiseBuf = null, on = true, vol = 0.55, L = {}, hasPan = true, rainA = 0, rainB = 0; /* rainA: lluvia, rainB: llovizna (0..1, cerca de la cámara) */
+    var ctx = null, master = null, noiseBuf = null, on = true, vol = 0.55, L = {}, hasPan = true, rainA = 0, rainB = 0, ghostPos = null; /* rainA: lluvia, rainB: llovizna (0..1, cerca de la cámara) */
     /* [distancia de referencia, alcance máximo] por sonido */
     var RNG = {
       shot: [25, 350], hit: [30, 500], crash: [40, 900], explode: [60, 1800], moo: [20, 300],
-      glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500]
+      glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55]
     };
     try { on = localStorage.getItem('aemx-sound') !== '0'; } catch (e) {}
     /* Calcula volumen, filtro y paneo de una fuente en pos; null si está fuera de alcance */
@@ -4286,6 +4286,12 @@ window.startMap = function (RAW, AUTH) {
       /* Lluvia: siseo agudo + cuerpo grave (ruido filtrado) */
       L.rainHi = loopNoise('highpass', 2200, 0.0001);
       L.rainLo = loopNoise('lowpass', 900, 0.0001);
+      /* Fantasmas: susurro de viento que sube y baja + zumbido grave con vibrato (bus espacial propio) */
+      L.ghostBus = mkBus(null);
+      L.ghN = loopNoise('bandpass', 700, 0.07, L.ghostBus.input); L.ghN.f.Q.value = 5;
+      osc('sine', 0.23, L.ghN.f.frequency, 320); osc('sine', 0.17, L.ghN.g.gain, 0.05);
+      L.ghD = ctx.createGain(); L.ghD.gain.value = 0.02; L.ghD.connect(L.ghostBus.input);
+      L.ghO = osc('sine', 98, L.ghD, 1); osc('sine', 4.5, L.ghO.o.frequency, 3); osc('sine', 147.5, L.ghD, 0.6);
       /* Motor del carro (bus espacial propio) */
       L.carBus = mkBus(null);
       fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 420;
@@ -4370,6 +4376,7 @@ window.startMap = function (RAW, AUTH) {
       L.rainHi.g.gain.setTargetAtTime(0.0001 + 0.045 * rainA + 0.02 * rainB, tc, 0.5);
       L.rainHi.f.frequency.setTargetAtTime(2200 + 1800 * rs, tc, 0.5);
       L.rainLo.g.gain.setTargetAtTime(0.0001 + 0.035 * rainA + 0.006 * rainB, tc, 0.5);
+      setBus(L.ghostBus, ghostPos ? spat(ghostPos, RNG.ghost) : null, tc, 0.4);
       if (car && car.g) {
         r = Math.min(1.4, car.v / CAR_SPEED);
         setBus(L.carBus, spat(car.g.position, RNG.car), tc, 0.1);
@@ -4412,6 +4419,7 @@ window.startMap = function (RAW, AUTH) {
     return {
       init: init, update: update,
       setRain: function (a, b) { rainA = a; rainB = b; },
+      setGhost: function (p) { ghostPos = p; },
       isOn: function () { return on; },
       toggle: function () {
         on = !on;
@@ -5836,11 +5844,10 @@ window.startMap = function (RAW, AUTH) {
       pts.forEach(function (q) { addFog(q[0], q[1], sp * rnd(2.0, 2.8)); });
     }
     function buildFog(t) {
-      var n0;
       districts.forEach(function (d) {
         if (d.list.length || fogDone[d.name]) return;
-        if (statePolys[d.name] && statePolys[d.name].length) { fogDone[d.name] = 1; n0 = fogs.length; fogState(d, true); addGhosts(fogs.slice(n0), null); }
-        else if (t > 15) { fogDone[d.name] = 1; n0 = fogs.length; fogState(d, false); addGhosts(fogs.slice(n0), null); } /* sin forma del estado: respaldo alrededor de la ciudad */
+        if (statePolys[d.name] && statePolys[d.name].length) { fogDone[d.name] = 1; fogState(d, true); addGhosts({ rings: statePolys[d.name], fx: d.cx, fz: d.cz }, null); }
+        else if (t > 15) { fogDone[d.name] = 1; fogState(d, false); addGhosts({ cx: d.cx, cz: d.cz, r: 30, fx: d.cx, fz: d.cz }, null); } /* sin forma del estado: respaldo alrededor de la ciudad */
       });
     }
 
@@ -5922,49 +5929,82 @@ window.startMap = function (RAW, AUTH) {
       }
     }
 
-    /* Fantasmas entre la niebla: siluetas translúcidas que flotan, aparecen y desaparecen, y se alejan de la cámara */
-    var cv5 = document.createElement('canvas'); cv5.width = 128; cv5.height = 192;
+    /* Fantasmas: siluetas humanas del tamaño de un astronauta (~0.8) que caminan por toda la niebla; si salen de ella se evaporan */
+    var cv5 = document.createElement('canvas'); cv5.width = 96; cv5.height = 192;
     (function () {
-      var c = cv5.getContext('2d'), g = c.createLinearGradient(0, 10, 0, 185), x, i;
-      g.addColorStop(0, 'rgba(245,250,255,0.95)'); g.addColorStop(1, 'rgba(200,215,235,0.35)');
-      c.fillStyle = g; c.beginPath(); c.moveTo(14, 185); c.lineTo(14, 70); c.arc(64, 66, 50, Math.PI, 0); c.lineTo(114, 185);
-      for (i = 0; i < 4; i++) { x = 114 - (i + 1) * 25; c.quadraticCurveTo(114 - i * 25 - 12.5, i % 2 ? 168 : 190, x, 185); }
-      c.closePath(); c.fill();
-      c.fillStyle = 'rgba(20,24,40,0.85)';
-      c.beginPath(); c.ellipse(46, 70, 7, 11, 0, 0, 6.2832); c.fill();
-      c.beginPath(); c.ellipse(82, 70, 7, 11, 0, 0, 6.2832); c.fill();
-      c.beginPath(); c.ellipse(64, 104, 8, 12, 0, 0, 6.2832); c.fill();
+      var c = cv5.getContext('2d'), g = c.createLinearGradient(0, 0, 0, 192);
+      g.addColorStop(0, 'rgba(245,250,255,0.95)'); g.addColorStop(0.6, 'rgba(215,228,245,0.85)'); g.addColorStop(1, 'rgba(190,210,235,0)');
+      c.fillStyle = g;
+      c.beginPath(); c.arc(48, 28, 20, 0, 6.2832); c.fill();                       /* cabeza */
+      c.fillRect(42, 44, 12, 14);                                                  /* cuello */
+      c.beginPath(); c.moveTo(24, 62); c.quadraticCurveTo(48, 50, 72, 62); c.lineTo(70, 120); c.lineTo(26, 120); c.closePath(); c.fill(); /* torso y hombros */
+      c.beginPath(); c.moveTo(10, 66); c.lineTo(24, 62); c.lineTo(24, 128); c.lineTo(12, 128); c.closePath(); c.fill(); /* brazo izq. */
+      c.beginPath(); c.moveTo(86, 66); c.lineTo(72, 62); c.lineTo(72, 128); c.lineTo(84, 128); c.closePath(); c.fill(); /* brazo der. */
+      c.fillRect(28, 116, 18, 76); c.fillRect(50, 116, 18, 76);                    /* piernas (se deshacen en humo) */
+      c.fillStyle = 'rgba(15,20,35,0.9)';
+      c.beginPath(); c.ellipse(41, 26, 3.4, 5.5, 0, 0, 6.2832); c.fill();
+      c.beginPath(); c.ellipse(55, 26, 3.4, 5.5, 0, 0, 6.2832); c.fill();
+      c.beginPath(); c.ellipse(48, 38, 3, 4.5, 0, 0, 6.2832); c.fill();
     })();
     var ghostTex = new THREE.CanvasTexture(cv5), ghosts = [];
-    function addGhosts(src, fe) {
-      var n = 2 + Math.floor(Math.random() * 3), i, it, sp;
-      if (!src.length) return;
+    function inArea(a, x, z) { return a.rings ? inPoly(a.rings, x, z) : Math.hypot(x - a.cx, z - a.cz) <= a.r; }
+    function randIn(a) {
+      var i, x, z;
+      if (a.rings && !a.bb) {
+        a.bb = [1e9, 1e9, -1e9, -1e9];
+        a.rings.forEach(function (rg) { rg.forEach(function (c) { a.bb[0] = Math.min(a.bb[0], c[0]); a.bb[1] = Math.min(a.bb[1], c[1]); a.bb[2] = Math.max(a.bb[2], c[0]); a.bb[3] = Math.max(a.bb[3], c[1]); }); });
+      }
+      for (i = 0; i < 60; i++) {
+        if (a.rings) { x = rnd(a.bb[0], a.bb[2]); z = rnd(a.bb[1], a.bb[3]); }
+        else { var an = rnd(0, 6.2832), rr = a.r * Math.sqrt(Math.random()); x = a.cx + Math.cos(an) * rr; z = a.cz + Math.sin(an) * rr; }
+        if (inArea(a, x, z)) return [x, z];
+      }
+      return null;
+    }
+    function addGhosts(area, fe) {
+      var n = 2 + Math.floor(Math.random() * 3), i, q, sp;
       for (i = 0; i < n; i++) {
-        it = src[Math.floor(Math.random() * src.length)];
+        q = randIn(area) || [area.fx, area.fz];
         sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ghostTex, color: 0xeaf1ff, transparent: true, opacity: 0, depthWrite: false, fog: false }));
-        sp.scale.set(4.2, 6.3, 1); sp.visible = false; group.add(sp);
-        ghosts.push({ sp: sp, ax: it.b.x, az: it.b.z, ph: rnd(0, 6.28), per: rnd(14, 30), fe: fe, ox: 0, oz: 0, dead: false });
+        sp.scale.set(0.4, 0.8, 1); sp.visible = false; group.add(sp);
+        ghosts.push({ sp: sp, area: area, x: q[0], z: q[1], tx: q[0], tz: q[1], wait: rnd(0, 4), ph: rnd(0, 6.28), per: rnd(14, 30), fe: fe, state: 'on', ev: 0, respawn: 0, dead: false });
       }
     }
     function updateGhosts(dt, t) {
-      var cp = camera.position, k, g, x, z, y, dx, dz, d, c, a, fe, fade, near;
+      var cp = camera.position, k, g, y, dx, dz, d, dd, c, a, fade, near, q, dT, step, best = 1e9, bestPos = null, ev;
       for (k = ghosts.length - 1; k >= 0; k--) {
         g = ghosts[k];
         if (g.dead) { group.remove(g.sp); g.sp.material.dispose(); ghosts.splice(k, 1); continue; }
-        fe = g.fe; fade = fe ? Math.min(1, fe.age / 10, (fe.dur - fe.age) / 12) : 1;
-        x = g.ax + Math.sin(t * 0.12 + g.ph) * 9 + g.ox; z = g.az + Math.cos(t * 0.09 + g.ph) * 9 + g.oz;
-        dx = x - cp.x; dz = z - cp.z; d = Math.sqrt(dx * dx + dz * dz);
-        if (d > 220 || cp.y > 260) { g.sp.visible = false; continue; }
-        if (d < 16 && d > 0.01) { g.ox += dx / d * 8 * dt; g.oz += dz / d * 8 * dt; } /* se aleja de la cámara */
-        else { g.ox *= 1 - 0.25 * dt; g.oz *= 1 - 0.25 * dt; }
-        y = 3.4 + 0.5 * Math.sin(t * 0.8 + g.ph);
-        c = 0.5 + 0.5 * Math.sin(t * 6.2832 / g.per + g.ph); /* aparece y se desvanece */
-        a = Math.max(0, Math.min(1, (c - 0.35) / 0.45)); a = a * a * (3 - 2 * a) * 0.55;
-        near = Math.max(0, Math.min(1, (220 - Math.sqrt(dx * dx + dz * dz + (y - cp.y) * (y - cp.y))) / 80)) * Math.max(0, Math.min(1, (d - 5) / 10));
-        g.sp.position.set(x, y, z);
-        g.sp.material.opacity = a * fade * near;
+        if (g.state === 'gone') {
+          g.sp.visible = false; g.respawn -= dt;
+          if (g.respawn <= 0) { q = randIn(g.area); if (q) { g.x = q[0]; g.z = q[1]; g.tx = q[0]; g.tz = q[1]; g.wait = rnd(1, 4); g.state = 'on'; } else g.respawn = 5; }
+          continue;
+        }
+        if (g.state === 'on') {
+          dx = g.tx - g.x; dz = g.tz - g.z; dT = Math.sqrt(dx * dx + dz * dz);
+          if (g.wait > 0) g.wait -= dt;
+          else if (dT < 0.4) { g.wait = rnd(2, 6); q = randIn(g.area); if (q) { g.tx = q[0]; g.tz = q[1]; } }
+          else { step = Math.min(dT, 1.5 * dt); g.x += dx / dT * step; g.z += dz / dT * step; }
+          dx = g.x - cp.x; dz = g.z - cp.z; d = Math.sqrt(dx * dx + dz * dz);
+          if (d < 6 && d > 0.01 && cp.y < 80) { g.x += dx / d * 4 * dt; g.z += dz / d * 4 * dt; } /* se aleja de la cámara */
+          if (!inArea(g.area, g.x, g.z)) { g.state = 'evap'; g.ev = 0; } /* salió de la niebla: se evapora */
+        } else { g.ev += dt; if (g.ev >= 1.6) { g.state = 'gone'; g.respawn = rnd(25, 60); g.sp.visible = false; continue; } }
+        dx = g.x - cp.x; dz = g.z - cp.z; d = Math.sqrt(dx * dx + dz * dz);
+        if (d > 70 || cp.y > 200) { g.sp.visible = false; continue; }
+        ev = g.state === 'evap' ? g.ev / 1.6 : 0;
+        fade = g.fe ? Math.min(1, g.fe.age / 10, (g.fe.dur - g.fe.age) / 12) : 1;
+        y = terrainH(g.x, g.z) + 0.45 + 0.08 * Math.sin(t * 0.9 + g.ph) + ev * 1.2;
+        c = 0.5 + 0.5 * Math.sin(t * 6.2832 / g.per + g.ph);
+        a = Math.max(0, Math.min(1, (c - 0.3) / 0.4)); a = a * a * (3 - 2 * a) * 0.7;
+        dd = Math.sqrt(dx * dx + dz * dz + (y - cp.y) * (y - cp.y));
+        near = Math.max(0, Math.min(1, (65 - dd) / 25)) * Math.max(0, Math.min(1, (d - 1.5) / 3));
+        g.sp.position.set(g.x, y, g.z);
+        g.sp.scale.set(0.4 * (1 + ev * 0.6), 0.8 * (1 + ev * 0.3), 1);
+        g.sp.material.opacity = a * fade * near * Math.pow(1 - ev, 1.5);
         g.sp.visible = g.sp.material.opacity > 0.01;
+        if (g.sp.visible && dd < best) { best = dd; bestPos = g.sp.position; }
       }
+      AUD.setGhost(bestPos);
     }
 
     /* Niebla natural al azar: zonas de sierra, valles y costa; dura de 1 a 4 minutos */
@@ -5984,7 +6024,7 @@ window.startMap = function (RAW, AUTH) {
         list.push({ sp: sp, b: b, ph: rnd(0, 6.28), amp: rnd(1.5, 3.5), base: rnd(0.5, 0.7) });
       }
       var fe = { d: d, list: list, age: 0, dur: dur };
-      addGhosts(list, fe);
+      addGhosts({ cx: d.cx, cz: d.cz, r: 52, fx: d.cx, fz: d.cz }, fe);
       fogEvents.push(fe); return fe;
     }
     function updateFogEvents(dt, t) {
