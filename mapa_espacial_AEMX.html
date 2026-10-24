@@ -6783,7 +6783,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < 2; i++) {
       la = -am * Math.sin(b.ph + i * Math.PI) * b.gk;
       sg = kf * Math.max(0, Math.cos(b.ph + i * Math.PI)) * b.gk;
-      ang = -(la + sg) * 0.85;
+      ang = -(la + sg) * 0.85 + sg * 0.55; /* al levantar la pierna el pie también se inclina (punta hacia abajo) */
       la = la * (1 - fK) + 0.12 * fK; sg = sg * (1 - fK) + 0.05 * fK; ang = ang * (1 - fK) + 0.45 * fK;
       la = la * (1 - kq) + (i === 0 ? -1.57 : 0) * kq; sg = sg * (1 - kq) + 1.57 * kq; ang = ang * (1 - kq);
       hk = b.hangK || 0;
