@@ -5594,7 +5594,28 @@ window.startMap = function (RAW, AUTH) {
     m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 2.1, 6), wWood); m.position.y = 0.3; hand.add(m);
     m = new THREE.Mesh(uSphere, wWood); m.scale.setScalar(0.07); m.position.y = 1.38; hand.add(m);
     g.visible = false; noRay(g); scene.add(g);
-    return { a: a, cape: cape, hand: hand, path: null, next: null, s: 0, x: 0, z: 0, yaw: null, last: -1, off: 0, side: 1, dodge: false, hop: 0 };
+    /* Fantasmas de Pac-Man (pequeños): Blinky, Pinky, Inky y Clyde siguen sus pasos */
+    var gCols = [0xff0000, 0xffb8ff, 0x00ffff, 0xffb852], gh = [], gi, gc, gm, gGrp, gk2, gAng;
+    var gBody = new THREE.CylinderGeometry(0.5, 0.5, 0.6, 14), gTop = new THREE.SphereGeometry(0.5, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+    var gWhite = new THREE.MeshBasicMaterial({ color: 0xffffff }), gPupil = new THREE.MeshBasicMaterial({ color: 0x1b3cff });
+    for (gi = 0; gi < 4; gi++) {
+      gm = new THREE.MeshLambertMaterial({ color: gCols[gi], emissive: gCols[gi], emissiveIntensity: 0.28 });
+      gGrp = new THREE.Group();
+      m = new THREE.Mesh(gBody, gm); m.position.y = 0.3; gGrp.add(m);
+      m = new THREE.Mesh(gTop, gm); m.position.y = 0.6; gGrp.add(m);
+      for (gk2 = 0; gk2 < 6; gk2++) { /* falda ondulada */
+        gAng = gk2 / 6 * Math.PI * 2;
+        m = new THREE.Mesh(uSphere, gm); m.scale.setScalar(0.17); m.position.set(Math.cos(gAng) * 0.33, 0.02, Math.sin(gAng) * 0.33); gGrp.add(m);
+      }
+      m = new THREE.Mesh(uSphere, gm); m.scale.setScalar(0.17); m.position.set(0, 0.02, 0); gGrp.add(m);
+      [-1, 1].forEach(function (sd) {
+        var e = new THREE.Mesh(uSphere, gWhite); e.scale.set(0.14, 0.17, 0.1); e.position.set(sd * 0.18, 0.72, 0.42); gGrp.add(e);
+        e = new THREE.Mesh(uSphere, gPupil); e.scale.setScalar(0.07); e.position.set(sd * 0.18, 0.72, 0.51); gGrp.add(e);
+      });
+      gGrp.scale.setScalar(0.38); gGrp.visible = false; noRay(gGrp); scene.add(gGrp);
+      gh.push({ g: gGrp, lag: 1.0 + gi * 0.9, yaw: null, lx: 0, lz: 0 });
+    }
+    return { gh: gh, hist: [], trav: 0, px: null, pz: null, a: a, cape: cape, hand: hand, path: null, next: null, s: 0, x: 0, z: 0, yaw: null, last: -1, off: 0, side: 1, dodge: false, hop: 0 };
   }
   function updateWanderer(t, dt) {
     var W = wand, path, seg, f, x, z, tx, tz, l, nx, nz, i, c, cand, ti, nxt, lp, dc, bx, bz, hopY = 0, u, sw, gy, a, vis;
@@ -5640,10 +5661,31 @@ window.startMap = function (RAW, AUTH) {
     x = bx + nx * W.off; z = bz + nz * W.off;
     if (W.hop > 0) { W.hop -= dt; u = Math.min(1, Math.max(0, 1 - W.hop / 0.55)); hopY = Math.sin(Math.PI * u) * 0.55; }
     W.x = x; W.z = z;
+    if (W.px !== null) W.trav += Math.hypot(x - W.px, z - W.pz);
+    W.px = x; W.pz = z;
+    lp = W.hist[W.hist.length - 1];
+    if (!lp || Math.hypot(x - lp.x, z - lp.z) >= 0.08) { W.hist.push({ x: x, z: z, d: W.trav }); if (W.hist.length > 160) W.hist.shift(); }
     vis = Math.hypot(camera.position.x - x, camera.position.z - z) < 500;
     if (a.g.visible !== vis) a.g.visible = vis;
+    for (i = 0; i < W.gh.length; i++) if (W.gh[i].g.visible !== vis) W.gh[i].g.visible = vis;
     if (!vis) return;
+    for (i = 0; i < W.gh.length; i++) {
+      var gs = W.gh[i], td = W.trav - gs.lag, hk = W.hist.length - 1, h0, h1, ff, gx, gz;
+      while (hk > 0 && W.hist[hk].d > td) hk--;
+      h0 = W.hist[hk]; h1 = W.hist[Math.min(W.hist.length - 1, hk + 1)];
+      ff = h1.d > h0.d ? Math.min(1, Math.max(0, (td - h0.d) / (h1.d - h0.d))) : 0;
+      gx = h0.x + (h1.x - h0.x) * ff; gz = h0.z + (h1.z - h0.z) * ff;
+      if (Math.hypot(gx - gs.lx, gz - gs.lz) > 1e-4) {
+        u = Math.atan2(gx - gs.lx, gz - gs.lz);
+        if (gs.yaw === null) gs.yaw = u; else gs.yaw += nAng(u - gs.yaw) * Math.min(1, dt * 6);
+      }
+      gs.lx = gx; gs.lz = gz;
+      gs.g.rotation.y = gs.yaw === null ? W.yaw : gs.yaw;
+      gs.g.position.set(gx, Math.max(0, terrainH(gx, gz)) + 0.14 + 0.05 * Math.sin(t * 4 + i * 1.6) + Math.max(0, Math.min(0.08, terrainH(gx, gz) * 0.8)), gz);
+    }
     gy = Math.max(0, terrainH(x, z)) + 0.06;
+    u = terrainH(x, z); u = 0.012 + u + Math.min(0.08, u * 0.8) + 0.04; /* altura de la cinta del sendero + margen: pisa encima, no dentro */
+    if (u > gy) gy = u;
     a.g.rotation.y = W.yaw;
     a.g.position.set(x, gy + hopY + Math.abs(Math.sin(t * 3)) * 0.03, z);
     sw = Math.sin(t * 3) * 0.5;
