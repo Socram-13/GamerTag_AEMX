@@ -2112,6 +2112,24 @@ window.startMap = function (RAW, AUTH) {
         if (!ok) continue;
         (cand[bi] || (cand[bi] = [])).push(sp);
       }
+      /* Respaldo: todo distrito cuyo estado tenga costa y no tenga arena candidata busca la playa más cercana a su centro */
+      districts.forEach(function (dd0, bi0) {
+        var sn, polys, vs = [], vi, ki, ang0, qx, qz, ee, found = null, dist0;
+        if (cand[bi0]) return;
+        sn = statePolys[dd0.name] ? dd0.name : (typeof CITY2STATE !== 'undefined' ? CITY2STATE[dd0.name] : null);
+        polys = sn && statePolys[sn]; if (!polys) return;
+        polys.forEach(function (r) { r.forEach(function (q) { vs.push({ x: q[0], z: q[1], d: Math.hypot(q[0] - dd0.cx, q[1] - dd0.cz) }); }); });
+        vs.sort(function (m1, m2) { return m1.d - m2.d; });
+        for (vi = 0; vi < vs.length && vi < 1500 && !found; vi++) {
+          for (ki = 0; ki < 16 && !found; ki++) {
+            ang0 = ki / 16 * 6.2832; qx = vs[vi].x + Math.cos(ang0) * 3.4; qz = vs[vi].z + Math.sin(ang0) * 3.4;
+            if (!onLand(qx, qz, 0.03)) continue;
+            ee = lastEdge; if (ee < 2.8 || ee > 4.0) continue;
+            if (coastal(qx, qz, ee)) found = { x: qx, z: qz, ang: coastAng };
+          }
+        }
+        if (found) cand[bi0] = [found];
+      });
       Object.keys(cand).forEach(function (key) {
         var l = cand[key], sp2 = l[Math.floor(vr() * l.length)], root = new THREE.Group(), body = new THREE.Group(), m, ast, hy;
         root.position.set(sp2.x, Math.max(0, terrainH(sp2.x, sp2.z)) + 0.075, sp2.z);
@@ -2161,6 +2179,16 @@ window.startMap = function (RAW, AUTH) {
             var tWk = L1 / 1.4, tKk = 2.2, tRn = L2 / 4.2, tBk = (L1 + L2) / 1.4, Cc = tWk + tKk + tRn + tBk;
             W = { a: wa, Kx: Kx, Kz: Kz, dx: ddx, dz: ddz, sx: sxn, sz: szn, L1: L1, L2: L2, tW: tWk, tK: tKk, tR: tRn, tB: tBk, C: Cc, off: vr() * Cc, yaw: Math.atan2(ddx, ddz), sc: 0 };
           }
+        }
+        if (!W) { /* último recurso: tramo corto a lo largo de la orilla, sin filtros de ruta */
+          var wb = makeAstronaut(), blue2 = new THREE.MeshLambertMaterial({ color: 0x1b5cff, emissive: 0x06174a }), tw0, tk0, tr0, tb0, c0;
+          ddx = -szn; ddz = sxn; L1 = 3; L2 = 3;
+          [-1, 1].forEach(function (sd) { var cup = new THREE.Mesh(uSphere, blue2); cup.scale.set(0.12, 0.11, 0.06); cup.position.set(sd * 0.12, 1.1, 0.17); wb.g.add(cup); });
+          m = new THREE.Mesh(uBox, blue2); m.scale.set(0.52, 0.04, 0.34); m.position.set(0, 1.1, 0); wb.g.add(m);
+          m = new THREE.Mesh(uBox, blue2); m.scale.set(0.52, 0.2, 0.34); m.position.set(0, 0.72, 0); wb.g.add(m);
+          wb.g.visible = false; wb.g.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; }); scene.add(wb.g);
+          tw0 = L1 / 1.4; tk0 = 2.2; tr0 = L2 / 4.2; tb0 = (L1 + L2) / 1.4; c0 = tw0 + tk0 + tr0 + tb0;
+          W = { a: wb, Kx: Kx, Kz: Kz, dx: ddx, dz: ddz, sx: sxn, sz: szn, L1: L1, L2: L2, tW: tw0, tK: tk0, tR: tr0, tB: tb0, C: c0, off: vr() * c0, yaw: Math.atan2(ddx, ddz), sc: 0 };
         }
         sunbathers.push({ g: root, ast: ast, ph: vr() * 6, x: sp2.x, z: sp2.z, wk: W });
       });
