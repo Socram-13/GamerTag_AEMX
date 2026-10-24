@@ -4099,6 +4099,12 @@ window.startMap = function (RAW, AUTH) {
   var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 110, FX_N = 500, BUL_N = 16, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
   var fxGeo = new THREE.IcosahedronGeometry(1, 1), bulGeo = new THREE.SphereGeometry(1, 8, 6);
   function ufoOverVolc() { return !!(VOLC && ufo && Math.hypot(ufo.x - VOLC.x, ufo.z - VOLC.z) < VOLC.R); } /* sobre el volcán nadie le dispara */
+  var presCity = null;
+  function ufoInPresCity() { /* el presidente solo dispara dentro del área de su ciudad */
+    var k;
+    if (!presCity) for (k = 0; k < districts.length; k++) if (districts[k].name === 'Ciudad de México') { presCity = districts[k]; break; }
+    return !presCity || Math.hypot(ufo.x - presCity.cx, ufo.z - presCity.cz) <= presCity.r;
+  }
   function ufoDown() { return !!ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck' || ufo.state === 'spawn'); }
   function fxInit() {
     var i, m;
@@ -4454,6 +4460,11 @@ window.startMap = function (RAW, AUTH) {
       c.g.scale.setScalar(0.9 * u * u * (3 - 2 * u) + 0.001);
       c.head.rotation.x = 0.45 * Math.max(0, Math.sin(t * 0.7 + c.ph));
     }
+    /* Alarma: la cúpula parpadea en rojo al ritmo de la sirena (desde 10 impactos) */
+    if (ufo.hits >= 10 && ufo.state !== 'wreck' && ufo.state !== 'spawn') {
+      if (Math.sin(t * 9) > 0.3) { ufoDome.color.setHex(0xff5a5a); ufoDome.emissive.setHex(0xff1010); }
+      else { ufoDome.color.setHex(0x9ff3ff); ufoDome.emissive.setHex(0x1a6a80); }
+    } else { ufoDome.color.setHex(0x9ff3ff); ufoDome.emissive.setHex(0x1a6a80); }
     if (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck' || ufo.state === 'spawn') { if (ufo.glt > 0) ufoGlitchEnd(true); ufoCrashStep(t, dt); return; }
     /* Parpadeo al materializarse */
     if (ufo.blk > 0) { ufo.blk -= dt; ufo.g.visible = ufo.blk <= 0 || ((t * 18) | 0) % 2 === 0; }
@@ -4945,7 +4956,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < presAst.length; i++) {
       w = presAst[i]; a = w.a;
       a.getWorldPosition(prP);
-      U = ufo && !ufoDown() && !ufoOverVolc() && ufo.g.visible && clock.elapsedTime >= (ufo.noFireUntil || 0) ? ufo.g.position : null;
+      U = ufo && !ufoDown() && !ufoOverVolc() && ufoInPresCity() && ufo.g.visible && clock.elapsedTime >= (ufo.noFireUntil || 0) ? ufo.g.position : null;
       ok = false;
       if (U) {
         dx = U.x - prP.x; dz = U.z - prP.z; dy = U.y - (prP.y + 0.9);
