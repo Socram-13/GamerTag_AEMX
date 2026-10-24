@@ -5852,16 +5852,19 @@ window.startMap = function (RAW, AUTH) {
   }
   /* Punto de bajada: el sitio más despejado cerca del edificio (calles o fuera de la ciudad), sin chocar con otros edificios ni vegetación */
   function botPickDescent(rp) {
-    var p = rp.p, k, r, ang, x, z, cl, sc, best = null, bs = -1e9;
+    var p = rp.p, k, r, ang, x, z, cl, sc, best = null, bs = -1e9, bb = bot, T = null, tdx = 0, tdz = 0, tl;
+    /* la bajada es hacia su objetivo: el OVNI si hay amenaza, o la meta del salto de azoteas */
+    if (bb.hasUp && clock.elapsedTime >= bb.noHunt) T = bb.up; else if (bb.hopGoal) T = bb.hopGoal;
+    if (T) { tdx = T.x - p.x; tdz = T.z - p.z; tl = Math.hypot(tdx, tdz) || 1; tdx /= tl; tdz /= tl; }
     for (k = 0; k < 24; k++) {
       ang = k / 24 * 6.2832;
-      for (r = 3.0; r <= 10; r += 0.8) {
+      for (r = 3.0; r <= 12; r += 0.8) {
         x = p.x + Math.sin(ang) * r; z = p.z + Math.cos(ang) * r;
         if (!botFree(x, z)) continue;
         cl = botClear2(x, z);
         if (cl < 0.45) continue;
         if (!botSegOK(rp.lx, rp.lz, x, z, rp.roofY + 0.8, p)) continue;
-        sc = Math.min(cl, 3) * 1.5 - r * 0.12;
+        sc = Math.min(cl, 3) * 1.5 - r * 0.12 + (T ? (Math.sin(ang) * tdx + Math.cos(ang) * tdz) * 9 : 0);
         if (sc > bs) { bs = sc; best = [x, z]; }
       }
     }
@@ -6205,6 +6208,7 @@ window.startMap = function (RAW, AUTH) {
       if (p.tier === 6 || p.tier === 0 || p.isPres || p.noRoof || b.rp && b.rp.p === p) continue;
       dd = Math.hypot(p.x - b.x, p.z - b.z);
       if (pref && Math.hypot(p.x - pref.x, p.z - pref.z) > Math.hypot(b.x - pref.x, b.z - pref.z) - 3) continue;
+      if (b.hasUp && clock.elapsedTime >= b.noHunt && Math.hypot(p.x - b.up.x, p.z - b.up.z) > Math.hypot(b.x - b.up.x, b.z - b.up.z) + 1) continue; /* con enemigo: solo edificios del lado del enemigo, nunca darle la espalda */
       if (dd < maxD && dd > 4) cand.push(p);
     }
     if (!cand.length) return false;
@@ -6524,7 +6528,7 @@ window.startMap = function (RAW, AUTH) {
             }
           }
           /* Cruzando una ciudad con una meta lejana: sube a una azotea y salta de techo en techo en dirección a la meta */
-          if (now >= (b.hopCD || 0) && !b.hopGoal && (b.gtype === 'patrol' || b.gtype === 'hunt' || b.gtype === 'wreck') && gd > 25 && !b.wxFog) {
+          if (now >= (b.hopCD || 0) && !b.hopGoal && !(thr && !b.sameCity) && (b.gtype === 'patrol' || b.gtype === 'hunt' || b.gtype === 'wreck') && gd > 25 && !b.wxFog) {
             b.hopCD = now + 2;
             for (i = 0; i < districts.length; i++) {
               if (!districts[i].list.length) continue;
@@ -6632,13 +6636,15 @@ window.startMap = function (RAW, AUTH) {
         var jd = b.jd;
         if (!jd) { jd = b.jd = { t: 0, x0: b.x, z0: b.z, y0: b.y, vy0: 2.5, cu: false }; var gt0 = botGround(rp.dx, rp.dz), hh = jd.y0 - gt0 + 0.0, Tf = (2.5 + Math.sqrt(6.25 + 18 * Math.max(0.1, hh))) / 9; jd.Tf = Tf; b.vy = 2.5; }
         jd.t += dt; b.air += (1 - b.air) * Math.min(1, dt * 8);
-        var jp = Math.min(1, jd.t / jd.Tf); jp = Math.pow(jp, 1.5);
-        b.x = jd.x0 + (rp.dx - jd.x0) * jp; b.z = jd.z0 + (rp.dz - jd.z0) * jp;
+        /* salta hacia afuera a velocidad constante; no baja del techo mientras siga sobre el edificio */
+        var jex = rp.dx - b.x, jez = rp.dz - b.z, jpd = Math.hypot(jex, jez), jsp = Math.max(6, Math.hypot(rp.dx - jd.x0, rp.dz - jd.z0) / Math.max(0.6, jd.Tf) * 1.3);
+        if (jpd > 0.05) { b.x += jex / jpd * Math.min(jpd, jsp * dt); b.z += jez / jpd * Math.min(jpd, jsp * dt); }
         b.yaw += nAng(Math.atan2(rp.dx - jd.x0, rp.dz - jd.z0) - b.yaw) * Math.min(1, dt * 8);
         gd = botGround(b.x, b.z);
         if (!jd.cu && b.y - gd < 1.5 && b.vy < 0) jd.cu = true;
         if (jd.cu) b.vy += (-0.9 - b.vy) * Math.min(1, dt * 9); else b.vy -= 9 * dt;
         b.y += b.vy * dt; b.jcush = jd.cu;
+        if (botBld(b.x, b.z, 0.5) && b.y < rp.roofY) { b.y = rp.roofY; if (b.vy < 0) b.vy = 0; jd.cu = false; }
         gd = botGround(b.x, b.z);
         if (b.y <= gd) { b.y = gd; b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0.8; b.vy = 0; b.rp = null; if (b.hopGoal) { botSetGoal(b.hopGoal.x, b.hopGoal.z, b.hopGoal.t); b.hopGoal = null; b.hopCD = now + 12; b.hopN = 0; } }
         if (b.mode !== 'jetDown') { b.jd = null; b.jcush = false; }
@@ -6714,7 +6720,7 @@ window.startMap = function (RAW, AUTH) {
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
     b.g.position.set(b.x, b.y, b.z); b.g.rotation.y = b.yaw; b.g.rotation.z = (b.mode === 'lift' && b.lift && b.lift.ph === 2) ? 0.09 * Math.sin(t * 1.7) : 0;
-    if (thr && d3 <= botRng() + 5 && b.boostT <= 0 && (b.mode === 'walk' || b.mode === 'perch')) {
+    if (thr && d3 <= botRng() + 5 && b.boostT <= 0 && !b.ball && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch')) {
       pd = d3 / BOT_LASER_V * 0.85;
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
       b.aiming = true;
@@ -6729,8 +6735,8 @@ window.startMap = function (RAW, AUTH) {
       b.yaw += nAng(wa - b.yaw) * Math.min(1, dt * 3);
       b.v *= Math.max(0, 1 - dt * 6);
     } else { yT = b.yaw; pT = 0.06; }
-    b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 7);
-    b.aimPitch += (pT - b.aimPitch) * Math.min(1, dt * 7);
+    b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 14);
+    b.aimPitch += (pT - b.aimPitch) * Math.min(1, dt * 14);
     if (Math.abs(nAng(b.aimYaw - b.yaw)) > 2.2) b.aimYaw = b.yaw + (nAng(b.aimYaw - b.yaw) > 0 ? 2.2 : -2.2);
     if ((b.mode === 'perch' || (b.mode === 'walk' && b.v < 0.6)) && b.aiming) b.yaw += nAng(b.aimYaw - b.yaw) * Math.min(1, dt * 3);
     errY = Math.abs(nAng(yT - b.aimYaw)); errP = Math.abs(pT - b.aimPitch);
@@ -6863,11 +6869,11 @@ window.startMap = function (RAW, AUTH) {
     }
 
     /* Disparo: ráfagas de 3 láseres verdes si hay alcance, línea de tiro y el rifle ya apunta */
-    if (b.aiming && pred && d3 <= botRng() && now >= (ufo.noFireUntil || 0)) {
+    if (b.aiming && pred && !b.ball && d3 <= botRng() && now >= (ufo.noFireUntil || 0)) {
       b.fireT -= dt;
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
-      canShoot = b.los && errY < 0.07 && errP < 0.1 && b.hold > 0.85;
+      canShoot = b.los && errY < 0.45 && errP < 0.45 && b.hold > 0.5; /* el láser sale directo al objetivo: no espera a terminar de girar el rifle */
       if (canShoot && b.fireT <= 0) {
         botShoot(bkMuz, U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
         b.fireT = 0.12; /* fuego continuo, sin pausa entre ráfagas */
