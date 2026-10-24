@@ -4259,7 +4259,7 @@ window.startMap = function (RAW, AUTH) {
     /* [distancia de referencia, alcance máximo] por sonido */
     var RNG = {
       shot: [25, 350], hit: [30, 500], crash: [40, 900], explode: [60, 1800], moo: [20, 300],
-      glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55]
+      glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55], wail: [10, 75], scare: [14, 90]
     };
     try { on = localStorage.getItem('aemx-sound') !== '0'; } catch (e) {}
     /* Calcula volumen, filtro y paneo de una fuente en pos; null si está fuera de alcance */
@@ -4482,6 +4482,29 @@ window.startMap = function (RAW, AUTH) {
         g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0);
         g.gain.linearRampToValueAtTime(0.22, t0 + 0.12); g.gain.linearRampToValueAtTime(0.0001, t0 + 0.95);
         o.connect(fl); fl.connect(g); g.connect(b); o.start(t0); o.stop(t0 + 1.0);
+      },
+      wail: function (pos) {
+        /* Lamento: voz que se quiebra, baja de tono con vibrato y un soplo de aire */
+        var t0, o, o2, lf, lg, fl, g, b = shotBus(pos, 'wail'), f0 = 300 + Math.random() * 140;
+        if (!b) return;
+        t0 = ctx.currentTime + 0.05;
+        o = ctx.createOscillator(); o.type = 'sawtooth'; o2 = ctx.createOscillator(); o2.type = 'triangle';
+        o.frequency.setValueAtTime(f0, t0); o.frequency.linearRampToValueAtTime(f0 * 1.18, t0 + 0.6); o.frequency.exponentialRampToValueAtTime(f0 * 0.5, t0 + 2.6);
+        o2.frequency.setValueAtTime(f0 * 1.5, t0); o2.frequency.exponentialRampToValueAtTime(f0 * 0.76, t0 + 2.6);
+        lf = ctx.createOscillator(); lf.frequency.value = 5.5; lg = ctx.createGain(); lg.gain.value = 9; lf.connect(lg); lg.connect(o.frequency); lg.connect(o2.frequency);
+        fl = ctx.createBiquadFilter(); fl.type = 'bandpass'; fl.Q.value = 6; fl.frequency.setValueAtTime(700, t0); fl.frequency.linearRampToValueAtTime(1100, t0 + 0.7); fl.frequency.linearRampToValueAtTime(520, t0 + 2.6);
+        g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.2, t0 + 0.5); g.gain.linearRampToValueAtTime(0.12, t0 + 1.4); g.gain.linearRampToValueAtTime(0.0001, t0 + 2.7);
+        o.connect(fl); o2.connect(fl); fl.connect(g); g.connect(b);
+        o.start(t0); o2.start(t0); lf.start(t0); o.stop(t0 + 2.8); o2.stop(t0 + 2.8); lf.stop(t0 + 2.8);
+        noise(2.4, 0.07, 1800, 600, 'bandpass', 0.1, b);
+      },
+      scare: function (pos) {
+        /* Susto: golpe seco, acorde disonante que cae y ráfaga de aire */
+        var b = shotBus(pos, 'scare');
+        if (!b) return;
+        tone('sine', 85, 38, 0.7, 0.55, 0, b);
+        tone('sawtooth', 880, 300, 0.7, 0.22, 0, b); tone('square', 932, 310, 0.7, 0.12, 0, b); tone('sawtooth', 622, 210, 0.9, 0.16, 0.02, b);
+        noise(0.7, 0.45, 7000, 500, 'bandpass', 0, b); noise(0.3, 0.25, 9000, 3000, 'highpass', 0, b);
       },
       glitch: function (dur, pow, pos) { glitch(dur, pow, pos); },
       repair: function (pow, pos, dur) { var b = shotBus(pos, 'glitch'); if (!b) return; glitch(dur, pow, pos, b); arp(b, dur); },
@@ -5624,7 +5647,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var vegObs = null, botVG = null, bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 35, BOT_HUNT_D = 30, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 50, BOT_BOOST_CD = 8, BOT_CHASE_R = 400;
+  var BOT_RANGE = 35, BOT_HUNT_D = 30, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 50, BOT_BOOST_CD = 25, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
@@ -6139,7 +6162,7 @@ window.startMap = function (RAW, AUTH) {
       x = d.cx + Math.cos(a) * r; z = d.cz + Math.sin(a) * r; ok = botFree(x, z) && (!BN || BN.comp[botCell(x, z)] === BN.best);
     }
     b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = Math.random() * 6.2832; b.aimYaw = b.yaw; b.aimPitch = 0.05; b.v = 0; b.vy = 0;
-    b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false; b.roofCD = 0; b.kneel = 0; b.hold = 0; b.runK = 0; b.flyK = 0; b.path = null; b.pi = 0; b.replanT = 0; b.huntHold = 0;
+    b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = BOT_BOOST_CD; b.jog = false; b.roofCD = 0; b.kneel = 0; b.hold = 0; b.runK = 0; b.flyK = 0; b.path = null; b.pi = 0; b.replanT = 0; b.huntHold = 0;
     b.stuck = 0; b.pt = 0; b.lastGD = 1e9; b.noHunt = 0; b.fireT = 0; b.burst = 0; b.los = true; b.losT = 0; b.losBlock = 0; b.fxT = 0; b.dustT = 0;
     b.spot = new THREE.Mesh(new THREE.CircleGeometry(3.4, 28), new THREE.MeshBasicMaterial({ color: 0x44ff88, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); b.spot.rotation.x = -Math.PI / 2; b.spot.visible = false; b.spot.renderOrder = 3; noRay(b.spot); scene.add(b.spot);
     b.scQs = new THREE.Quaternion(); b.scQe = new THREE.Quaternion(); b.scan = false; b.scanK = 0; b.scanT = 0; b.wk = null; b.wkT = 0; b.hitT = -99; b.wkFx = 0;
@@ -6189,7 +6212,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   function updateBot(t, dt) {
-    var b = bot, U = null, now = clock.elapsedTime, thr, dh = 0, d3 = 1e9, gd = 0, want, hd, spd, tg, i, moving, pd, am, kf, la, lean, sg, rp, k, canShoot = false, steps, nx, nz, ex, ez, tgt = bkTmpA, tgt2, tw, dw;
+    var b = bot, U = null, now = clock.elapsedTime, thr, dh = 0, d3 = 1e9, gd = 0, want, hd, spd, tg, i, moving, pd, am, kf, la, lean, sg, rp, k, canShoot = false, pf, steps, nx, nz, ex, ez, tgt = bkTmpA, tgt2, tw, dw;
     if (!b) {
       if (!trails.length || !roots.length || (!landAt && now < 30)) return;
       botInit(); b = bot;
@@ -6311,7 +6334,10 @@ window.startMap = function (RAW, AUTH) {
         b.v *= Math.max(0, 1 - dt * 6);
         b.lastGD = 1e9; b.pt = 0;
       }
-      b.y += (botGround(b.x, b.z) - b.y) * Math.min(1, dt * 14);
+      /* Hiperimpulso en arco: sube suavemente hasta ~2.2 a mitad del impulso y baja al terminar; si se corta antes, cae al suelo */
+      if (b.boostT > 0) { pf = 1 - b.boostT / 5; b.bh = (b.bh || 0) + (4 * 2.2 * pf * (1 - pf) - (b.bh || 0)) * Math.min(1, dt * 10); }
+      else if ((b.bh || 0) > 0) b.bh = Math.max(0, b.bh - 7 * dt);
+      b.y += (botGround(b.x, b.z) + (b.bh || 0) - b.y) * Math.min(1, dt * 14);
       b.air += (0 - b.air) * Math.min(1, dt * 6);
     } else if (b.mode === 'jetUp' || b.mode === 'jetDown') {
       /* Propulsión de la mochila: sube junto a la pared, cruza sobre la azotea y se posa (o al revés) */
@@ -6375,7 +6401,7 @@ window.startMap = function (RAW, AUTH) {
 
     /* Pose: con el rifle en las manos (apuntando), colgado a la espalda con los brazos corriendo, o en vuelo (hiperimpulso y mochila) con piernas rectas y brazos a los lados */
     moving = b.mode === 'walk' && b.v > 0.3;
-    var runSpd = b.mode === 'walk' && b.v > 3.4 && b.boostT <= 0, flying = b.boostT > 0 || b.mode === 'jetUp' || b.mode === 'jetDown', wantHold, fK, ang, f, elf;
+    var runSpd = b.mode === 'walk' && b.v > 3.4 && b.boostT <= 0, flying = b.boostT > 0 || (b.bh || 0) > 0.12 || b.mode === 'jetUp' || b.mode === 'jetDown', wantHold, fK, ang, f, elf;
     wantHold = (b.aiming || b.mode === 'perch') ? 1 : 0;
     b.hold += (wantHold - b.hold) * Math.min(1, dt * 5);
     b.runK += ((runSpd ? 1 : 0) - b.runK) * Math.min(1, dt * 6);
@@ -6885,23 +6911,50 @@ window.startMap = function (RAW, AUTH) {
     }
 
     /* Fantasmas: siluetas humanas del tamaño de un astronauta (~0.8) que caminan por toda la niebla; si salen de ella se evaporan */
-    var cv5 = document.createElement('canvas'); cv5.width = 96; cv5.height = 192;
-    (function () {
-      var c = cv5.getContext('2d'), g = c.createLinearGradient(0, 0, 0, 192);
-      g.addColorStop(0, 'rgba(245,250,255,0.95)'); g.addColorStop(0.6, 'rgba(215,228,245,0.85)'); g.addColorStop(1, 'rgba(190,210,235,0)');
+    var ghostTexes = [], ghostTints = [0xdff0ff, 0xd8ffe8, 0xe8e0ff];
+    function makeGhostTex(v) {
+      var cv = document.createElement('canvas'), c, g, i, ex;
+      cv.width = 96; cv.height = 192; c = cv.getContext('2d');
+      g = c.createLinearGradient(0, 0, 0, 192);
+      g.addColorStop(0, 'rgba(238,246,242,0.96)'); g.addColorStop(0.55, 'rgba(205,220,228,0.85)'); g.addColorStop(1, 'rgba(180,200,220,0)');
       c.fillStyle = g;
-      c.beginPath(); c.arc(48, 28, 20, 0, 6.2832); c.fill();                       /* cabeza */
-      c.fillRect(42, 44, 12, 14);                                                  /* cuello */
-      c.beginPath(); c.moveTo(24, 62); c.quadraticCurveTo(48, 50, 72, 62); c.lineTo(70, 120); c.lineTo(26, 120); c.closePath(); c.fill(); /* torso y hombros */
-      c.beginPath(); c.moveTo(10, 66); c.lineTo(24, 62); c.lineTo(24, 128); c.lineTo(12, 128); c.closePath(); c.fill(); /* brazo izq. */
-      c.beginPath(); c.moveTo(86, 66); c.lineTo(72, 62); c.lineTo(72, 128); c.lineTo(84, 128); c.closePath(); c.fill(); /* brazo der. */
-      c.fillRect(28, 116, 18, 76); c.fillRect(50, 116, 18, 76);                    /* piernas (se deshacen en humo) */
-      c.fillStyle = 'rgba(15,20,35,0.9)';
-      c.beginPath(); c.ellipse(41, 26, 3.4, 5.5, 0, 0, 6.2832); c.fill();
-      c.beginPath(); c.ellipse(55, 26, 3.4, 5.5, 0, 0, 6.2832); c.fill();
-      c.beginPath(); c.ellipse(48, 38, 3, 4.5, 0, 0, 6.2832); c.fill();
-    })();
-    var ghostTex = new THREE.CanvasTexture(cv5), ghosts = [];
+      if (v === 0) { /* encapuchado: capucha puntiaguda y mortaja que se ensancha */
+        c.beginPath(); c.moveTo(48, 3); c.quadraticCurveTo(72, 16, 71, 64); c.quadraticCurveTo(80, 110, 92, 192); c.lineTo(4, 192); c.quadraticCurveTo(16, 110, 25, 64); c.quadraticCurveTo(24, 16, 48, 3); c.closePath(); c.fill();
+        c.fillStyle = 'rgba(4,6,10,0.96)'; c.beginPath(); c.ellipse(48, 42, 14, 19, 0, 0, 6.2832); c.fill();
+        ex = [[41, 36], [55, 36]];
+        c.fillStyle = 'rgba(2,2,4,1)'; c.beginPath(); c.ellipse(48, 58, 3, 9, 0, 0, 6.2832); c.fill();
+      } else if (v === 1) { /* brazos larguísimos que cuelgan hasta las rodillas */
+        c.beginPath(); c.ellipse(48, 24, 13, 20, 0, 0, 6.2832); c.fill();
+        c.fillRect(44, 42, 8, 12);
+        c.beginPath(); c.moveTo(28, 58); c.quadraticCurveTo(48, 50, 68, 58); c.lineTo(62, 128); c.lineTo(34, 128); c.closePath(); c.fill();
+        c.lineWidth = 5; c.strokeStyle = 'rgba(214,226,232,0.85)'; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(29, 60); c.quadraticCurveTo(10, 110, 16, 176); c.stroke();
+        c.beginPath(); c.moveTo(67, 60); c.quadraticCurveTo(86, 110, 80, 176); c.stroke();
+        c.fillRect(37, 120, 9, 72); c.fillRect(50, 120, 9, 72);
+        c.fillStyle = 'rgba(4,6,10,0.96)';
+        c.beginPath(); c.ellipse(42, 22, 4, 8, -0.4, 0, 6.2832); c.fill(); c.beginPath(); c.ellipse(54, 22, 4, 8, 0.4, 0, 6.2832); c.fill();
+        c.beginPath(); c.ellipse(48, 36, 6, 9, 0, 0, 6.2832); c.fill();
+        ex = [[42, 22], [54, 22]];
+      } else { /* cabeza torcida y boca desencajada */
+        c.beginPath(); c.moveTo(30, 62); c.quadraticCurveTo(48, 52, 66, 62); c.lineTo(72, 130); c.lineTo(24, 130); c.closePath(); c.fill();
+        c.fillRect(22, 64, 8, 66); c.fillRect(66, 64, 8, 66); c.fillRect(32, 126, 14, 66); c.fillRect(50, 126, 14, 66);
+        c.save(); c.translate(48, 54); c.rotate(-0.55); c.translate(-48, -54);
+        c.beginPath(); c.ellipse(48, 30, 17, 23, 0, 0, 6.2832); c.fill();
+        c.fillStyle = 'rgba(4,6,10,0.96)';
+        c.beginPath(); c.ellipse(41, 25, 5, 7, 0, 0, 6.2832); c.fill(); c.beginPath(); c.ellipse(56, 27, 3.2, 4.5, 0, 0, 6.2832); c.fill();
+        c.beginPath(); c.ellipse(48, 42, 7, 11, 0, 0, 6.2832); c.fill();
+        c.fillStyle = 'rgba(255,70,55,0.95)'; c.beginPath(); c.arc(41, 25, 1.6, 0, 6.2832); c.fill(); c.beginPath(); c.arc(56, 27, 1.2, 0, 6.2832); c.fill();
+        c.restore(); ex = null;
+      }
+      if (ex) { c.fillStyle = 'rgba(255,70,55,0.95)'; for (i = 0; i < ex.length; i++) { c.beginPath(); c.arc(ex[i][0], ex[i][1], 1.8, 0, 6.2832); c.fill(); } }
+      /* bordes rotos: la parte baja se deshace en jirones */
+      c.globalCompositeOperation = 'destination-out';
+      for (i = 0; i < 9; i++) { c.fillStyle = 'rgba(0,0,0,' + (0.55 + 0.4 * ((i * 37) % 10) / 10) + ')'; c.beginPath(); c.moveTo(i * 11 - 2, 150 + ((i * 53) % 25)); c.lineTo(i * 11 + 5, 192); c.lineTo(i * 11 - 9, 192); c.closePath(); c.fill(); }
+      c.globalCompositeOperation = 'source-over';
+      return new THREE.CanvasTexture(cv);
+    }
+    ghostTexes = [makeGhostTex(0), makeGhostTex(1), makeGhostTex(2)];
+    var ghosts = [], gwDir = new THREE.Vector3(), GHOST_SZ = [[0.55, 1.25], [0.5, 1.4], [0.55, 1.1]];
     function inArea(a, x, z) { return a.rings ? inPoly(a.rings, x, z) : Math.hypot(x - a.cx, z - a.cz) <= a.r; }
     function randIn(a) {
       var i, x, z;
@@ -6917,47 +6970,96 @@ window.startMap = function (RAW, AUTH) {
       return null;
     }
     function addGhosts(area, fe) {
-      var n = 2 + Math.floor(Math.random() * 3), i, q, sp;
+      var n = Math.max(8, Math.min(24, Math.round(areaEst(area) / 450))), i, q, sp, v, z;
       for (i = 0; i < n; i++) {
-        q = randIn(area) || [area.fx, area.fz];
-        sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ghostTex, color: 0xeaf1ff, transparent: true, opacity: 0, depthWrite: false, fog: false }));
-        sp.scale.set(0.4, 0.8, 1); sp.visible = false; group.add(sp);
-        ghosts.push({ sp: sp, area: area, x: q[0], z: q[1], tx: q[0], tz: q[1], wait: rnd(0, 4), ph: rnd(0, 6.28), per: rnd(45, 90), fe: fe, state: 'on', ev: 0, respawn: 0, dead: false });
+        q = randIn(area) || [area.fx, area.fz]; v = Math.floor(Math.random() * 3); z = rnd(0.9, 1.25);
+        sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ghostTexes[v], color: ghostTints[v], transparent: true, opacity: 0, depthWrite: false, fog: false }));
+        sp.scale.set(GHOST_SZ[v][0] * z, GHOST_SZ[v][1] * z, 1); sp.visible = false; group.add(sp);
+        ghosts.push({ sp: sp, area: area, x: q[0], z: q[1], tx: q[0], tz: q[1], wait: rnd(0, 4), ph: rnd(0, 6.28), per: rnd(25, 60), fe: fe, state: 'on', ev: 0, respawn: 0, dead: false, sx: GHOST_SZ[v][0] * z, sy: GHOST_SZ[v][1] * z, born: 9, close: 0, wailT: rnd(4, 14), scare: false });
       }
     }
+    /* A quién se acercan los fantasmas: el robot, el caminante y el astronauta que acampa (la fogata no cuenta) */
+    var ghT = [], ghTmp = new THREE.Vector3(), ghW = { x: 0, z: 0 };
+    function ghTargets() {
+      var i, c;
+      ghT.length = 0;
+      if (bot) ghT.push(bot);
+      if (wand && wand.g && wand.g.visible) { wand.g.getWorldPosition(ghTmp); ghW.x = ghTmp.x; ghW.z = ghTmp.z; ghT.push(ghW); }
+      for (i = 0; i < camps.length; i++) {
+        c = camps[i];
+        if (!c.wp) { c.root.updateMatrixWorld(true); c.ast.g.getWorldPosition(ghTmp); c.wp = { x: ghTmp.x, z: ghTmp.z }; }
+        ghT.push(c.wp);
+      }
+    }
+    function ghNear(g, R) {
+      var j, o, dx, dz, dd, bd = R, r = null;
+      for (j = 0; j < ghT.length; j++) {
+        o = ghT[j]; dx = o.x - g.x; dz = o.z - g.z; dd = Math.sqrt(dx * dx + dz * dz);
+        if (dd < bd && inArea(g.area, o.x, o.z)) { bd = dd; r = o; }
+      }
+      return r;
+    }
     function updateGhosts(dt, t) {
-      var cp = camera.position, k, g, y, dx, dz, d, dd, c, a, fade, near, q, dT, step, best = 1e9, bestPos = null, ev;
+      var cp = camera.position, k, g, y, dx, dz, d, dd, c, a, fade, near, q, dT, step, best = 1e9, bestPos = null, ev, tg, spd, ang, rr, tries, x, z, fl, jit;
+      ghTargets();
       for (k = ghosts.length - 1; k >= 0; k--) {
         g = ghosts[k];
         if (g.dead) { group.remove(g.sp); g.sp.material.dispose(); ghosts.splice(k, 1); continue; }
+        tg = null; g.td = 99;
         if (g.state === 'gone') {
           g.sp.visible = false; g.respawn -= dt;
-          if (g.respawn <= 0) { q = randIn(g.area); if (q) { g.x = q[0]; g.z = q[1]; g.tx = q[0]; g.tz = q[1]; g.wait = rnd(1, 4); g.state = 'on'; } else g.respawn = 5; }
+          if (g.respawn <= 0) {
+            q = null;
+            tg = ghNear(g, 70);
+            if (tg) { /* aparece de golpe cerca de quien pasa */
+              for (tries = 0; tries < 8 && !q; tries++) {
+                ang = rnd(0, 6.2832); rr = rnd(8, 15); x = tg.x + Math.sin(ang) * rr; z = tg.z + Math.cos(ang) * rr;
+                if (inArea(g.area, x, z)) q = [x, z];
+              }
+              if (q) g.scare = true;
+            }
+            if (!q) q = randIn(g.area);
+            if (q) { g.x = q[0]; g.z = q[1]; g.tx = q[0]; g.tz = q[1]; g.wait = rnd(1, 3); g.state = 'on'; g.born = 0; g.close = 0; } else g.respawn = 5;
+          }
           continue;
         }
         if (g.state === 'on') {
-          dx = g.tx - g.x; dz = g.tz - g.z; dT = Math.sqrt(dx * dx + dz * dz);
-          if (g.wait > 0) g.wait -= dt;
-          else if (dT < 0.4) { g.wait = rnd(2, 6); q = randIn(g.area); if (q) { g.tx = q[0]; g.tz = q[1]; } }
-          else { step = Math.min(dT, 1.5 * dt); g.x += dx / dT * step; g.z += dz / dT * step; }
-          dx = g.x - cp.x; dz = g.z - cp.z; d = Math.sqrt(dx * dx + dz * dz);
-          if (d < 6 && d > 0.01 && cp.y < 80) { g.x += dx / d * 4 * dt; g.z += dz / d * 4 * dt; } /* se aleja de la cámara */
+          tg = ghNear(g, 45);
+          if (tg) { dx = g.x - tg.x; dz = g.z - tg.z; d = Math.sqrt(dx * dx + dz * dz) || 0.01; g.td = d; }
+          if (tg) { /* acecha: se acerca despacio a quien pasa y, si se acerca demasiado, se desvanece */
+            if (d > 3.2) { spd = 0.8 + 0.9 * Math.max(0, 1 - d / 45); g.x -= dx / d * spd * dt; g.z -= dz / d * spd * dt; }
+            else g.close += dt;
+            if (d < 2.3 || g.close > 4) { g.state = 'evap'; g.ev = 0; g.close = 0; }
+          } else {
+            dx = g.tx - g.x; dz = g.tz - g.z; dT = Math.sqrt(dx * dx + dz * dz);
+            if (g.wait > 0) g.wait -= dt;
+            else if (dT < 0.4) { g.wait = rnd(2, 6); q = randIn(g.area); if (q) { g.tx = q[0]; g.tz = q[1]; } }
+            else { step = Math.min(dT, 1.5 * dt); g.x += dx / dT * step; g.z += dz / dT * step; }
+          }
           if (!inArea(g.area, g.x, g.z)) { g.state = 'evap'; g.ev = 0; } /* salió de la niebla: se evapora */
-        } else { g.ev += dt; if (g.ev >= 1.6) { g.state = 'gone'; g.respawn = rnd(25, 60); g.sp.visible = false; continue; } }
+        } else { g.ev += dt; if (g.ev >= 1.6) { g.state = 'gone'; g.respawn = rnd(8, 20); g.sp.visible = false; continue; } }
+        g.born += dt;
         dx = g.x - cp.x; dz = g.z - cp.z; d = Math.sqrt(dx * dx + dz * dz);
-        if (d > 70 || cp.y > 200) { g.sp.visible = false; continue; }
+        if (d > 90 || cp.y > 200) { g.sp.visible = false; continue; }
         ev = g.state === 'evap' ? g.ev / 1.6 : 0;
         fade = g.fe ? Math.min(1, g.fe.age / 10, (g.fe.dur - g.fe.age) / 12) : 1;
-        y = terrainH(g.x, g.z) + 0.45 + 0.08 * Math.sin(t * 0.9 + g.ph) + ev * 1.2;
+        y = terrainH(g.x, g.z) + g.sy * 0.5 + 0.05 + 0.08 * Math.sin(t * 0.9 + g.ph) + ev * 1.2;
         c = 0.5 + 0.5 * Math.sin(t * 6.2832 / g.per + g.ph);
-        a = 0.15 + 0.25 * (c * c * (3 - 2 * c)); /* siempre visible: de 15% a 40% */
+        a = 0.3 + 0.35 * (c * c * (3 - 2 * c));
+        if (g.td < 14) a = Math.max(a, 0.62);
         dd = Math.sqrt(dx * dx + dz * dz + (y - cp.y) * (y - cp.y));
-        near = Math.max(0, Math.min(1, (65 - dd) / 25)) * Math.max(0, Math.min(1, (d - 1.5) / 3));
+        near = Math.max(0, Math.min(1, (90 - dd) / 25)) * Math.max(0, Math.min(1, (d - 0.8) / 2));
+        fl = 0.8 + 0.2 * Math.sin(t * 19 + g.ph); if (Math.sin(t * 0.7 + g.ph * 5) > 0.97) fl *= 0.15; /* parpadeos */
+        jit = d < 12 ? 0.05 * Math.sin(t * 43 + g.ph) : 0;
         g.sp.position.set(g.x, y, g.z);
-        g.sp.scale.set(0.4 * (1 + ev * 0.6), 0.8 * (1 + ev * 0.3), 1);
-        g.sp.material.opacity = a * fade * near * Math.pow(1 - ev, 1.5);
+        g.sp.scale.set(g.sx * (1 + ev * 0.6 + jit), g.sy * (1 + ev * 0.3), 1);
+        g.sp.material.opacity = a * fade * near * fl * Math.min(1, g.born / 0.35) * Math.pow(1 - ev, 1.5);
         g.sp.visible = g.sp.material.opacity > 0.01;
-        if (g.sp.visible && dd < best) { best = dd; bestPos = g.sp.position; }
+        if (g.sp.visible) {
+          if (g.scare) { g.scare = false; AUD.scare(g.sp.position); }
+          g.wailT -= dt; if (g.wailT <= 0 && dd < 50) { g.wailT = rnd(9, 22); AUD.wail(g.sp.position); }
+          if (dd < best) { best = dd; bestPos = g.sp.position; }
+        }
       }
       AUD.setGhost(bestPos);
     }
