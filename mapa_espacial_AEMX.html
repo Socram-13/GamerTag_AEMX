@@ -6169,6 +6169,25 @@ window.startMap = function (RAW, AUTH) {
     bi = botNearPass(b.x, b.z); if (bi < 0) return null;
     comp = BN.comp[bi]; ui = botCell(U.x, U.z);
     if (ui >= 0 && BN.pass[ui] && BN.comp[ui] === comp) return { x: U.x, z: U.z };
+    /* El OVNI va sobre el mar: calcula con su rumbo a qué ciudad se dirige y va a esperarlo a esa ciudad (si hay camino por tierra) */
+    var us = Math.hypot(b.uv.x, b.uv.z), ux, uz, dd2, cs, sc2, bsc = 1e9, bd = null, di2, an0, ti, tx, tz, ci2;
+    if (us > 3) {
+      ux = b.uv.x / us; uz = b.uv.z / us;
+      for (di2 = 0; di2 < districts.length; di2++) {
+        dd2 = districts[di2]; if (!dd2.list.length) continue;
+        dx = dd2.cx - U.x; dz = dd2.cz - U.z; L = Math.hypot(dx, dz); if (L < 60 || L > 2500) continue;
+        cs = (dx * ux + dz * uz) / L; if (cs < 0.82) continue;
+        sc2 = L * (2 - cs); if (sc2 < bsc) { bsc = sc2; bd = dd2; }
+      }
+      if (bd) {
+        an0 = Math.atan2(b.z - bd.cz, b.x - bd.cx);
+        for (ti = 0; ti < 12; ti++) {
+          tx = bd.cx + Math.cos(an0 + (ti % 2 ? 1 : -1) * Math.ceil(ti / 2) * 0.45) * (bd.r + 8); tz = bd.cz + Math.sin(an0 + (ti % 2 ? 1 : -1) * Math.ceil(ti / 2) * 0.45) * (bd.r + 8);
+          ci2 = botCell(tx, tz);
+          if (botFree(tx, tz) && ci2 >= 0 && BN.pass[ci2] && BN.comp[ci2] === comp) return { x: tx, z: tz };
+        }
+      }
+    }
     dx = b.x - U.x; dz = b.z - U.z; L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
     for (d = 0; d <= L; d += 6) {
       x = U.x + dx * d; z = U.z + dz * d; ui = botCell(x, z);
@@ -6514,7 +6533,7 @@ window.startMap = function (RAW, AUTH) {
           want = Math.atan2(tw.x - b.x, tw.z - b.z);
           spd = (b.gtype === 'hunt' || b.gtype === 'wreck') ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
           if (gd < 3) spd = Math.min(spd, 3.2);
-          if (b.wxFog) spd = Math.min(spd, BOT_WALK); /* con niebla hay poca visibilidad: solo camina (bajo la lluvia sí corre, pero sin hiperimpulso) */
+          if (b.wxDense) spd = Math.min(spd, BOT_WALK); /* con niebla hay poca visibilidad: solo camina (bajo la lluvia sí corre, pero sin hiperimpulso) */
           /* Más de 10 s en la niebla: se detiene, llama al dron y se deja llevar fuera de ella rumbo a su meta */
           if (b.fogT > 10 && !b.alert && now >= (b.liftCD || 0) && b.gtype !== 'roof' && gd > 25) {
             b.liftCD = now + 8;
@@ -6540,7 +6559,7 @@ window.startMap = function (RAW, AUTH) {
               }
             }
           }
-          if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
+          if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxDense = !!(WX && WX.denseAt && (WX.denseAt(b.x, b.z) || WX.denseAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
           if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12 && botLandAhead(b.x, b.z, want, 80)) { b.boostT = 10; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
@@ -7462,7 +7481,7 @@ window.startMap = function (RAW, AUTH) {
       for (k = fogEvents.length - 1; k >= 0; k--) {
         fe = fogEvents[k]; fe.age += dt;
         if (fe.age >= fe.dur) { fe.list.forEach(function (q) { group.remove(q.sp); q.sp.material.dispose(); }); ghosts.forEach(function (g) { if (g.fe === fe) g.dead = true; }); fogEvents.splice(k, 1); continue; }
-        fade = Math.min(1, fe.age / 10, (fe.dur - fe.age) / 12);
+        fade = Math.min(1, fe.age / 10, (fe.dur - fe.age) / 12); fe.fade = fade;
         for (i = 0; i < fe.list.length; i++) {
           f = fe.list[i]; dd = Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140));
           f.sp.position.x = f.b.x + Math.sin(t * 0.05 + f.ph) * f.amp;
@@ -7562,6 +7581,17 @@ window.startMap = function (RAW, AUTH) {
       for (i = 0; i < events.length; i++) if (events[i].area && inArea(events[i].area, x, z)) return true;
       return fogAt(x, z);
     }
+    /* Niebla densa: la fija de los estados sin jugadores y el núcleo de las nieblas ya formadas; ahí no hay visibilidad y el robot solo camina */
+    function denseAt(x, z) {
+      var i, d, fe;
+      for (i = 0; i < fogEvents.length; i++) { fe = fogEvents[i]; if ((fe.fade || 0) > 0.7 && Math.hypot(x - fe.d.cx, z - fe.d.cz) < 42) return true; }
+      for (i = 0; i < districts.length; i++) {
+        d = districts[i]; if (d.list.length) continue;
+        if (statePolys[d.name] && statePolys[d.name].length) { if (inPoly(statePolys[d.name], x, z)) return true; }
+        else if (Math.hypot(x - d.cx, z - d.cz) < 40) return true;
+      }
+      return false;
+    }
     function fogAt(x, z) {
       var i, d, fe;
       for (i = 0; i < fogEvents.length; i++) { fe = fogEvents[i]; if (Math.hypot(x - fe.d.cx, z - fe.d.cz) < 64) return true; }
@@ -7572,7 +7602,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { bad: bad, fogAt: fogAt, update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
+    return { bad: bad, fogAt: fogAt, denseAt: denseAt, update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
   })();
   window.__aemxClima = WX; /* prueba manual: __aemxClima.start('rain','Veracruz',60) */
 
