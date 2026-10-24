@@ -6503,6 +6503,8 @@ window.startMap = function (RAW, AUTH) {
           }
         } else if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; b.path = null; }
       } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; }
+      /* el OVNI ya no está en esta ciudad: cancela el plan de subir a un edificio y sigue al enemigo */
+      if (thr && !b.sameCity && b.gtype === 'roof') { b.goal = null; b.gtype = ''; b.path = null; b.tallRoof = false; b.hopGoal = null; b.huntHold = 0; b.replanT = 0; }
       if (!b.goal && !thr && !b.scan) { b.idle -= dt; if (b.idle <= 0) botPick(); }
       /* Enemigo cerca y está en la ciudad: busca la azotea más alta para francotirador (más rango) */
       if (thr && b.sameCity && dh <= 110 && b.gtype !== 'roof' && now >= (b.tallCD || 0) && botCityDist(b.x, b.z) < 12) { b.tallCD = now + 6; if (botPickRoof(60, null, true)) b.tallRoof = true; }
@@ -6726,6 +6728,7 @@ window.startMap = function (RAW, AUTH) {
       if (hs >= 1) { b.rp = hp.rp2; b.y = hp.rp2.roofY; b.mode = 'perch'; b.perchT = 0; b.maxPerch = 7 + Math.random() * 6; b.hopN = (b.hopN || 0) + 1; b.losT = 0; }
       }
     } else { /* perch: sobre la azotea, vigila y dispara */
+      if (thr && !b.sameCity && b.perchT > 0.8 && b.mode === 'perch') { b.hopGoal = null; b.tallRoof = false; botPickDescent(b.rp); b.mode = 'jetDown'; b.jph = 0; }
       if (b.alert && b.sameCity && !b.hopGoal && b.perchT > 0.6 && now >= (b.upCD || 0)) { b.upCD = now + 2.5; if (botPickUp()) { b.mode = 'hop'; b.perchT = 0; } }
       b.v = 0; b.perchT += dt; b.air += (0 - b.air) * Math.min(1, dt * 6); b.y = b.rp.roofY;
       if (b.hopGoal && !b.alert && b.perchT > 0.5) {
