@@ -5593,18 +5593,18 @@ window.startMap = function (RAW, AUTH) {
     body.position.y = 0.98; g.add(body);
 
     /* Pelvis y piernas con cadera, rodilla y tobillo */
-    bx(bkBlack, 0, 0, 0, 0.42, 0.14, 0.24, body); bx(bkGray, 0, 0.0, 0.125, 0.2, 0.1, 0.03, body);
-    bx(bkGray, -0.22, 0, 0, 0.04, 0.12, 0.2, body); bx(bkGray, 0.22, 0, 0, 0.04, 0.12, 0.2, body);
+    bx(bkBlack, 0, 0, 0, 0.32, 0.14, 0.22, body); bx(bkGray, 0, 0.0, 0.115, 0.16, 0.1, 0.03, body);
+    bx(bkGray, -0.17, 0, 0, 0.04, 0.12, 0.18, body); bx(bkGray, 0.17, 0, 0, 0.04, 0.12, 0.18, body);
     [-1, 1].forEach(function (sx) {
       var th = new THREE.Group(), kn = new THREE.Group(), ft = new THREE.Group();
-      th.rotation.order = 'YXZ'; th.position.set(sx * 0.17, -0.04, 0); body.add(th);
+      th.rotation.order = 'YXZ'; th.position.set(sx * 0.12, -0.04, 0); body.add(th);
       ball(bkJoint, 0, 0, 0, 0.095, th);
-      bx(bkBlack, 0, -0.21, 0, 0.15, 0.4, 0.17, th);
-      bx(bkGray, sx * 0.082, -0.2, 0, 0.025, 0.3, 0.12, th);
+      bx(bkBlack, 0, -0.21, 0, 0.13, 0.4, 0.15, th);
+      bx(bkGray, sx * 0.072, -0.2, 0, 0.025, 0.3, 0.1, th);
       kn.position.y = -0.42; th.add(kn);
       ball(bkJoint, 0, 0, 0, 0.085, kn);
       bx(bkGray, 0, 0, 0.1, 0.12, 0.13, 0.05, kn);
-      bx(bkBlack, 0, -0.2, -0.01, 0.12, 0.38, 0.14, kn);
+      bx(bkBlack, 0, -0.2, -0.01, 0.1, 0.38, 0.12, kn);
       bx(bkGray, 0, -0.14, -0.095, 0.1, 0.24, 0.05, kn);
       bx(bkGray, 0, -0.2, 0.08, 0.08, 0.28, 0.03, kn);
       ft.position.y = -0.42; kn.add(ft);
@@ -5617,27 +5617,27 @@ window.startMap = function (RAW, AUTH) {
     /* Torso */
     upper.position.set(0, 0.1, 0); body.add(upper);
     var shell = new THREE.Group(); upper.add(shell);
-    bx(bkJoint, 0, 0.06, 0, 0.26, 0.14, 0.18, shell);
-    bx(bkBlack, 0, 0.32, 0, 0.5, 0.32, 0.3, shell);
-    bx(bkGray, 0, 0.35, 0.155, 0.4, 0.18, 0.04, shell);
-    bx(bkDark, 0, 0.22, 0.155, 0.3, 0.05, 0.03, shell);
-    bx(eyeMat, 0, 0.35, 0.18, 0.06, 0.06, 0.012, shell);
+    bx(bkJoint, 0, 0.06, 0, 0.22, 0.14, 0.16, shell);
+    bx(bkBlack, 0, 0.32, 0, 0.4, 0.32, 0.26, shell);
+    bx(bkGray, 0, 0.35, 0.135, 0.32, 0.18, 0.04, shell);
+    bx(bkDark, 0, 0.22, 0.135, 0.24, 0.05, 0.03, shell);
+    bx(eyeMat, 0, 0.35, 0.16, 0.06, 0.06, 0.012, shell);
     cy(bkJoint, 0, 0.54, 0, 0.06, 0.08, 0, 0, shell);
     [-1, 1].forEach(function (sx) {
-      bx(bkGray, sx * 0.37, 0.5, 0, 0.15, 0.07, 0.26, shell).rotation.z = -sx * 0.2;
-      bx(bkBlack, sx * 0.4, 0.44, 0, 0.05, 0.1, 0.22, shell);
+      bx(bkGray, sx * 0.3, 0.5, 0, 0.13, 0.07, 0.22, shell).rotation.z = -sx * 0.2;
+      bx(bkBlack, sx * 0.33, 0.44, 0, 0.05, 0.1, 0.2, shell);
     });
 
     /* Cabeza con ojos verdes y dos antenas largas */
     head.position.set(0, 0.66, 0); shell.add(head);
-    bx(bkBlack, 0, 0.08, 0, 0.21, 0.18, 0.23, head);
-    bx(bkDark, 0, 0.08, 0.118, 0.17, 0.09, 0.02, head);
-    bx(eyeMat, -0.05, 0.09, 0.13, 0.05, 0.026, 0.012, head); bx(eyeMat, 0.05, 0.09, 0.13, 0.05, 0.026, 0.012, head);
-    bx(bkGray, -0.118, 0.08, 0, 0.03, 0.12, 0.12, head); bx(bkGray, 0.118, 0.08, 0, 0.03, 0.12, 0.12, head);
-    bx(bkGray, 0, 0.18, 0.02, 0.12, 0.03, 0.14, head);
+    bx(bkBlack, 0, 0.08, 0, 0.18, 0.18, 0.21, head);
+    bx(bkDark, 0, 0.08, 0.108, 0.15, 0.09, 0.02, head);
+    bx(eyeMat, -0.045, 0.09, 0.12, 0.045, 0.026, 0.012, head); bx(eyeMat, 0.045, 0.09, 0.12, 0.045, 0.026, 0.012, head);
+    bx(bkGray, -0.1, 0.08, 0, 0.03, 0.12, 0.12, head); bx(bkGray, 0.1, 0.08, 0, 0.03, 0.12, 0.12, head);
+    bx(bkGray, 0, 0.18, 0.02, 0.1, 0.03, 0.13, head);
     [-1, 1].forEach(function (sx) {
       var an = new THREE.Group();
-      an.position.set(sx * 0.07, 0.17, -0.05); an.rotation.set(-0.12, 0, -sx * 0.2); head.add(an);
+      an.position.set(sx * 0.06, 0.17, -0.05); an.rotation.set(-0.12, 0, -sx * 0.2); head.add(an);
       bx(bkDark, 0, 0.02, 0, 0.05, 0.06, 0.05, an);
       cy(bkGray, 0, 0.1, 0, 0.013, 0.17, 0, 0, an);
       ball(eyeMat, 0, 0.2, 0, 0.022, an);
@@ -5646,15 +5646,15 @@ window.startMap = function (RAW, AUTH) {
     /* Mochila estilizada: casco aerodinámico con franja luminosa, aletas y dos toberas */
     var ps = new THREE.Shape();
     ps.moveTo(-0.13, 0.54); ps.lineTo(-0.27, 0.5); ps.lineTo(-0.36, 0.3); ps.lineTo(-0.35, 0.06); ps.lineTo(-0.27, -0.04); ps.lineTo(-0.13, 0.0); ps.closePath();
-    var pg = new THREE.ExtrudeGeometry(ps, { depth: 0.3, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
-    pg.rotateY(-Math.PI / 2); pg.translate(0.15, 0, 0);
+    var pg = new THREE.ExtrudeGeometry(ps, { depth: 0.26, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
+    pg.rotateY(-Math.PI / 2); pg.translate(0.13, 0, 0);
     shell.add(new THREE.Mesh(pg, bkBlack));
     bx(eyeMat, 0, 0.3, -0.368, 0.03, 0.3, 0.012, shell);
     bx(bkGray, 0, 0.5, -0.24, 0.16, 0.03, 0.16, shell).rotation.x = -0.25;
     [-1, 1].forEach(function (sx) {
-      var fn = bx(bkGray, sx * 0.2, 0.32, -0.3, 0.025, 0.3, 0.14, shell); fn.rotation.z = sx * 0.28;
+      var fn = bx(bkGray, sx * 0.17, 0.32, -0.3, 0.025, 0.3, 0.14, shell); fn.rotation.z = sx * 0.28;
       var nz = new THREE.Group(), fl;
-      nz.position.set(sx * 0.11, 0.02, -0.3); nz.rotation.x = 0.6; shell.add(nz);
+      nz.position.set(sx * 0.09, 0.02, -0.3); nz.rotation.x = 0.6; shell.add(nz);
       m = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.085, 0.2, 10), bkGray); m.position.y = -0.1; nz.add(m);
       cy(bkDark, 0, -0.2, 0, 0.07, 0.02, 0, 0, nz);
       fl = new THREE.Mesh(bkFlameGeo, new THREE.MeshBasicMaterial({ color: 0x6dffc2, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -5681,7 +5681,7 @@ window.startMap = function (RAW, AUTH) {
 
     /* Brazos con hombro, codo y mano: cada uno se resuelve para llegar a la empuñadura (derecho) y al guardamano (izquierdo) */
     function solveArm(sx, T) {
-      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.33, 0.43, 0), l1 = 0.36, l2 = 0.34;
+      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.27, 0.43, 0), l1 = 0.36, l2 = 0.34;
       var d = T.clone().sub(S), L = d.length(), dist = Math.min(L, l1 + l2 - 0.005), dir = d.clone().normalize(), A, pole, E, Tc, q1, q2, down = new THREE.Vector3(0, -1, 0);
       A = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist))));
       pole = new THREE.Vector3(sx * 0.6, -1, -0.3); pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
@@ -5692,7 +5692,7 @@ window.startMap = function (RAW, AUTH) {
       sh.position.copy(S); sh.quaternion.copy(q1); shell.add(sh);
       el.position.y = -l1; el.quaternion.copy(q1.clone().conjugate().multiply(q2)); sh.add(el);
       ball(bkJoint, 0, 0, 0, 0.085, sh);
-      bx(bkBlack, 0, -0.18, 0, 0.12, 0.3, 0.13, sh);
+      bx(bkBlack, 0, -0.18, 0, 0.1, 0.3, 0.12, sh);
       bx(bkGray, sx * 0.065, -0.16, 0, 0.02, 0.2, 0.1, sh);
       ball(bkJoint, 0, 0, 0, 0.07, el);
       bx(bkBlack, 0, -0.16, 0, 0.11, 0.26, 0.12, el);
@@ -5703,7 +5703,7 @@ window.startMap = function (RAW, AUTH) {
     solveArm(-1, new THREE.Vector3(0.12, 0.45, 0.45));
     solveArm(1, new THREE.Vector3(0.12, 0.39, 0.35));
 
-    g.scale.setScalar(0.39);
+    g.scale.setScalar(0.36);
     noRay(g); scene.add(g);
     return { g: g, body: body, upper: upper, shell: shell, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat };
   }
@@ -5821,6 +5821,12 @@ window.startMap = function (RAW, AUTH) {
     }
     b.idle = 1;
   }
+  /* Distancia al borde de la ciudad (con jugadores) más cercana: el hiperimpulso no se usa dentro ni cerca de ellas */
+  function botCityDist(x, z) {
+    var i, d, m = 1e9, q;
+    for (i = 0; i < districts.length; i++) { d = districts[i]; if (!d.list.length) continue; q = Math.hypot(x - d.cx, z - d.cz) - d.r; if (q < m) m = q; }
+    return m;
+  }
   function botInit() {
     var b = makeBot(), cand = districts.filter(function (q) { return q.list.length; }), d, i, a, r, x = 0, z = 0, ok = false;
     botInitObs();
@@ -5920,10 +5926,10 @@ window.startMap = function (RAW, AUTH) {
           want = Math.atan2(b.goal.x - b.x, b.goal.z - b.z);
           spd = b.gtype === 'hunt' ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
           if (gd < 3) spd = Math.min(spd, 3.2);
-          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && b.gtype !== 'roof') { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
-            if (gd < 10) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
+            if (gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
           }
           hd = botSteer(b, want, 1.4 + b.v * 0.22);
           if (hd === null) { b.v *= Math.max(0, 1 - dt * 6); b.yaw += b.side * dt * 2.5; }
@@ -5994,7 +6000,7 @@ window.startMap = function (RAW, AUTH) {
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
       b.aiming = true;
       yT = Math.atan2(pred.x - b.x, pred.z - b.z);
-      pT = Math.atan2(pred.y - (b.y + 0.62), Math.hypot(pred.x - b.x, pred.z - b.z));
+      pT = Math.atan2(pred.y - (b.y + 0.57), Math.hypot(pred.x - b.x, pred.z - b.z));
       pT = Math.max(-0.5, Math.min(1.1, pT));
     } else { yT = b.yaw + (b.mode === 'walk' && b.v > 1 ? 0.35 * Math.sin(t * 0.8) : 1.3 * Math.sin(t * 0.5)); pT = 0.06; }
     b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 7);
@@ -6025,7 +6031,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < 2; i++) {
       f = (i === 0 ? -1 : 1) * Math.sin(b.ph) * 0.85 * b.runK * (1 - fK);
       elf = (0.3 + 1.1 * b.runK) * (1 - fK) + 0.12 * fK;
-      bkE.set(-f + 0.1 * fK, 0, (i === 0 ? -1 : 1) * (0.1 + 0.08 * fK));
+      bkE.set(-f + 0.1 * fK, 0, (i === 0 ? -1 : 1) * (0.03 + 0.04 * fK));
       bkQ1.setFromEuler(bkE).slerp(b.arms[i].qs, b.hold);
       bkE.set(-(elf + 0.5 * Math.max(0, f)), 0, 0);
       bkQ2.setFromEuler(bkE).slerp(b.arms[i].qe, b.hold);
