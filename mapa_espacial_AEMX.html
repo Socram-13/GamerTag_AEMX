@@ -4054,7 +4054,7 @@ window.startMap = function (RAW, AUTH) {
     } else if (m.kind === 't') {
       if (car) { deselect(); fly = null; turretCam = true; turretMode = 'car'; }
     } else if (m.kind === 's') {
-      if (bot) { deselect(); botFollow = true; botYawCam = bot.yaw; flyTo(bot.x, bot.y + 0.5, bot.z, 14, 1.2); }
+      if (bot) { deselect(); botFollow = true; botYawCam = bot.yaw; flyTo(bot.x, bot.y + 0.5, bot.z, 8, 1.2); }
     } else if (m.kind === 'g') {
       if (bot) { deselect(); fly = null; turretCam = true; turretMode = 'bot'; }
     } else if (m.kind === 'd') flyToDistrict(m.d); else select(m.p);
@@ -6905,7 +6905,7 @@ window.startMap = function (RAW, AUTH) {
   }
   /* Cámara del robot: "scout" lo sigue desde atrás con el zoom del caminante; "shooter" mira por encima del hombro con la punta del rifle a la vista */
   function botChasePos(out) {
-    var hr = 14 * Math.sin(1.2), hy = 14 * Math.cos(1.2);
+    var hr = 8 * Math.sin(1.2), hy = 8 * Math.cos(1.2);
     out.set(bot.x - Math.sin(botYawCam) * hr, bot.y + 0.5 + hy, bot.z - Math.cos(botYawCam) * hr);
     return out;
   }
