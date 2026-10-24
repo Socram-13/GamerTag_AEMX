@@ -6455,7 +6455,7 @@ window.startMap = function (RAW, AUTH) {
     thr = !!U && now >= b.noHunt;
     /* OVNI derribado cayendo: no lo pierde de vista, se queda quieto mirándolo hasta que choca */
     b.trk = null;
-    if (ufo && ufo.state === 'crash' && !thr && (b.mode === 'walk' || b.mode === 'perch') && Math.hypot(ufo.g.position.x - b.x, ufo.g.position.z - b.z) < 170) b.trk = ufo.g.position;
+    if (ufo && ufo.state === 'crash' && !thr && (b.mode === 'walk' || b.mode === 'perch') && Math.hypot(ufo.g.position.x - b.x, ufo.g.position.z - b.z) < 450) b.trk = ufo.g.position;
     if (b.trk && b.mode === 'walk') { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; b.v *= Math.max(0, 1 - dt * 5); }
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
     b.alert = thr && d3 <= botRng() + 25;
@@ -6480,10 +6480,20 @@ window.startMap = function (RAW, AUTH) {
 
     /* Restos del OVNI: va a revisarlos (sobre todo si él lo derribó) y se detiene fuera del cráter */
     var wOn = !!ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck'), wx, wz, wd, wa, wk2, wr;
-    if (!wOn) { if (b.scan) { b.scan = false; b.idle = 1; } b.wk = null; }
+    if (!wOn) { if (b.scan || b.circ) { b.scan = false; b.idle = 1; } b.circ = false; b.wk = null; if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; } }
+    if (thr) b.circ = false;
     else if (ufo.state !== 'crash' && !b.wk) b.wk = { x: ufo.x, z: ufo.z };
     if (b.wk && b.mode === 'perch') b.maxPerch = Math.min(b.maxPerch, b.perchT);
-    if (b.wk && b.mode === 'walk' && !b.scan && b.gtype !== 'wreck' && b.gtype !== 'roof' && now >= b.wkT) {
+    /* Terminó el escaneo: se acerca y patrulla alrededor del cráter hasta que desaparezca */
+    if (b.circ && b.wk && b.mode === 'walk' && !b.goal && !thr) {
+      var ci3, ca;
+      for (ci3 = 0; ci3 < 8; ci3++) {
+        b.circA += 0.6 * b.circDir; ca = b.circA; wx = b.wk.x + Math.sin(ca) * 5.4; wz = b.wk.z + Math.cos(ca) * 5.4;
+        if (botFree(wx, wz) && botSetGoal(wx, wz, 'wreckp')) break;
+        if (ci3 === 3) b.circDir = -b.circDir;
+      }
+    }
+    if (b.wk && b.mode === 'walk' && !b.scan && !b.circ && b.gtype !== 'wreck' && b.gtype !== 'roof' && now >= b.wkT) {
       b.wkT = now + 1.5; wd = Math.hypot(b.wk.x - b.x, b.wk.z - b.z);
       if (wd < 220 || now - b.hitT < 15) {
         wa = Math.atan2(b.x - b.wk.x, b.z - b.wk.z);
@@ -6509,7 +6519,7 @@ window.startMap = function (RAW, AUTH) {
       } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; }
       /* el OVNI ya no está en esta ciudad: cancela el plan de subir a un edificio y sigue al enemigo */
       if (thr && !b.sameCity && b.gtype === 'roof') { b.goal = null; b.gtype = ''; b.path = null; b.tallRoof = false; b.hopGoal = null; b.huntHold = 0; b.replanT = 0; }
-      if (!b.goal && !thr && !b.scan) { b.idle -= dt; if (b.idle <= 0) botPick(); }
+      if (!b.goal && !thr && !b.scan && !b.circ) { b.idle -= dt; if (b.idle <= 0) botPick(); }
       /* Enemigo cerca y está en la ciudad: busca la azotea más alta para francotirador (más rango) */
       if (thr && b.sameCity && dh <= 110 && b.gtype !== 'roof' && now >= (b.tallCD || 0) && botCityDist(b.x, b.z) < 12) { b.tallCD = now + 6; if (botPickRoof(60, null, true)) b.tallRoof = true; }
       /* El OVNI vuela alto y está cerca: sube a una azotea para tener mejor ángulo */
@@ -6528,7 +6538,7 @@ window.startMap = function (RAW, AUTH) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
         if (gd < (b.gtype === 'roof' ? 0.55 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
           if (b.gtype === 'roof') { b.ball = false; b.ballK = 0; b.spin = Math.round((b.spin || 0) / 6.2832) * 6.2832; b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
-          else { if (b.gtype === 'wreck') { b.scan = true; b.scanT = 0; } if (b.gtype === 'hunt') b.huntHold = now + 0.6; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
+          else { if (b.gtype === 'wreck') { b.scan = true; b.scanT = 0; } if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; } else if (b.gtype === 'hunt') b.huntHold = now + 0.6; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
         } else {
           tw = b.goal;
           if (b.path) {
@@ -6761,7 +6771,7 @@ window.startMap = function (RAW, AUTH) {
     } else if (b.trk && !b.ball) {
       b.aiming = true; yT = Math.atan2(b.trk.x - b.x, b.trk.z - b.z);
       pT = Math.max(-0.5, Math.min(1.1, Math.atan2(b.trk.y - (b.y + 0.52), Math.hypot(b.trk.x - b.x, b.trk.z - b.z))));
-    } else if (b.wk && b.mode === 'walk' && !b.scan && b.gtype === 'wreck' && !b.ball && b.boostT <= 0) {
+    } else if (b.wk && b.mode === 'walk' && !b.scan && (b.gtype === 'wreck' || b.gtype === 'wreckp') && !b.ball && b.boostT <= 0) {
       b.aiming = true; yT = Math.atan2(b.wk.x - b.x, b.wk.z - b.z);
       pT = Math.max(-0.6, Math.min(0.3, Math.atan2(terrainH(b.wk.x, b.wk.z) + 0.3 - (b.y + 0.52), Math.hypot(b.wk.x - b.x, b.wk.z - b.z))));
     } else if (b.wxDense && b.mode === 'walk' && !b.scan && !b.ball && b.boostT <= 0 && b.v > 0.3) {
@@ -6769,6 +6779,7 @@ window.startMap = function (RAW, AUTH) {
     } else if (b.scan && b.wk && b.mode === 'walk') {
       wd = Math.hypot(b.wk.x - b.x, b.wk.z - b.z); wa = Math.atan2(b.wk.x - b.x, b.wk.z - b.z);
       b.scanT += dt;
+      if (b.scanT > 6.5) { b.scan = false; b.circ = true; b.circA = Math.atan2(b.x - b.wk.x, b.z - b.wk.z); b.circDir = Math.random() < 0.5 ? 1 : -1; b.goal = null; b.gtype = ''; } /* termina el escaneo y pasa a rondar el cráter */
       yT = wa;
       pT = Math.max(-0.6, Math.min(0.3, Math.atan2(terrainH(b.wk.x, b.wk.z) + 0.3 - (b.y + 0.52), wd)));
       b.yaw += nAng(wa - b.yaw) * Math.min(1, dt * 3);
