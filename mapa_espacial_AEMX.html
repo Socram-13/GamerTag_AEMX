@@ -6614,7 +6614,7 @@ window.startMap = function (RAW, AUTH) {
         if (b.glr > 0) { var gu = 1 - b.glr / b.glr0; b.bh = Math.max(0.05, b.bh0 * (1 - gu * gu)); b.bvy = 0; } else { b.glr0 = 0; }
       } else if (b.boostT <= 0 && !(b.glr > 0)) { b.glr0 = 0; if ((b.bh || 0) <= 0) b.bdist = 0; }
       if (b.boostT > 0) { }
-      else if ((b.bh || 0) > 0 && !(b.glr > 0)) { b.bvy = (b.bvy || 0) - 9 * dt; b.bh = Math.max(0, b.bh + b.bvy * dt); if (b.bh <= 0) b.bvy = 0; } /* se agota: cae en arco */
+      else if ((b.bh || 0) > 0 && !(b.glr > 0)) { b.bvy = (b.bvy || 0) - (b.ball ? 42 : 9) * dt; b.bh = Math.max(0, b.bh + b.bvy * dt); /* si frena en bolita, cae rápido */ if (b.bh <= 0) b.bvy = 0; } /* se agota: cae en arco */
       if (b.ball && b.boostT <= 0 && (b.bh || 0) <= 0.05 && !(b.glr > 0)) b.ball = false;
       b.y += (botGround(b.x, b.z) + (b.bh || 0) - b.y) * Math.min(1, dt * 14);
       b.air += (0 - b.air) * Math.min(1, dt * 6);
