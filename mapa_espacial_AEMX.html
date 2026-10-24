@@ -2097,7 +2097,7 @@ window.startMap = function (RAW, AUTH) {
       for (i = 0; i < sandSpots.length; i++) {
         sp = sandSpots[i]; bi = -1; bd = 1e9;
         for (k = 0; k < districts.length; k++) {
-          d = districts[k]; if (!d.list.length) continue;
+          d = districts[k];
           dd = Math.hypot(sp.x - d.cx, sp.z - d.cz);
           if (dd < bd) { bd = dd; bi = k; }
         }
@@ -2136,7 +2136,7 @@ window.startMap = function (RAW, AUTH) {
         root.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
         scene.add(root);
         /* Paseante con bikini azul: camina por la orilla, patea arena al que está acostado y se va corriendo */
-        var sxn = Math.cos(sp2.ang), szn = Math.sin(sp2.ang), Kx = sp2.x + sxn * 0.8, Kz = sp2.z + szn * 0.8, W = null, sgn, L1 = 0, L2 = 0, ddx = 0, ddz = 0, li, lens1 = [14, 10, 6, 4], lens2 = [12, 8, 5, 4];
+        var sxn = Math.cos(sp2.ang), szn = Math.sin(sp2.ang), Kx = sp2.x + sxn * 0.8, Kz = sp2.z + szn * 0.8, W = null, sgn, L1 = 0, L2 = 0, ddx = 0, ddz = 0, li, lens1 = [14, 10, 6, 4, 2.5, 1.5], lens2 = [12, 8, 5, 4, 2.5, 1.5];
         function pathOK(x0, z0, x1, z1) {
           /* Solo arena de playa: costa real, a 1.95-6.3 del mar (fuera de la franja de agua y antes del pasto) y lejos de hexágonos */
           var n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.8)), q2, x, z, e;
@@ -2152,14 +2152,14 @@ window.startMap = function (RAW, AUTH) {
           ddx = -szn * sgn; ddz = sxn * sgn; L1 = 0; L2 = 0;
           for (li = 0; li < lens1.length; li++) if (pathOK(Kx - ddx * lens1[li], Kz - ddz * lens1[li], Kx, Kz)) { L1 = lens1[li]; break; }
           for (li = 0; li < lens2.length; li++) if (pathOK(Kx, Kz, Kx + ddx * lens2[li], Kz + ddz * lens2[li])) { L2 = lens2[li]; break; }
-          if (L1 >= 4 && L2 >= 4) {
+          if (L1 >= 1.5 && L2 >= 1.5) {
             var wa = makeAstronaut(), blue = new THREE.MeshLambertMaterial({ color: 0x1b5cff, emissive: 0x06174a });
             [-1, 1].forEach(function (sd) { var cup = new THREE.Mesh(uSphere, blue); cup.scale.set(0.12, 0.11, 0.06); cup.position.set(sd * 0.12, 1.1, 0.17); wa.g.add(cup); });
             m = new THREE.Mesh(uBox, blue); m.scale.set(0.52, 0.04, 0.34); m.position.set(0, 1.1, 0); wa.g.add(m);
             m = new THREE.Mesh(uBox, blue); m.scale.set(0.52, 0.2, 0.34); m.position.set(0, 0.72, 0); wa.g.add(m);
             wa.g.visible = false; wa.g.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; }); scene.add(wa.g);
-            var tWk = L1 / 1.4, tKk = 2.2, tRn = L2 / 4.2, Cc = tWk + tKk + tRn + 6 + vr() * 8;
-            W = { a: wa, Kx: Kx, Kz: Kz, dx: ddx, dz: ddz, sx: sxn, sz: szn, L1: L1, L2: L2, tW: tWk, tK: tKk, tR: tRn, C: Cc, off: vr() * Cc, yaw: Math.atan2(ddx, ddz), sc: 0 };
+            var tWk = L1 / 1.4, tKk = 2.2, tRn = L2 / 4.2, tBk = (L1 + L2) / 1.4, Cc = tWk + tKk + tRn + tBk;
+            W = { a: wa, Kx: Kx, Kz: Kz, dx: ddx, dz: ddz, sx: sxn, sz: szn, L1: L1, L2: L2, tW: tWk, tK: tKk, tR: tRn, tB: tBk, C: Cc, off: vr() * Cc, yaw: Math.atan2(ddx, ddz), sc: 0 };
           }
         }
         sunbathers.push({ g: root, ast: ast, ph: vr() * 6, x: sp2.x, z: sp2.z, wk: W });
@@ -3237,9 +3237,10 @@ window.startMap = function (RAW, AUTH) {
         if (c < W.tW) { ph = 'walk'; d = 1.4 * c; x = W.Kx - W.dx * (W.L1 - d); z = W.Kz - W.dz * (W.L1 - d); ty = Math.atan2(W.dx, W.dz); }
         else if (c < W.tW + W.tK) { ph = 'kick'; ty = Math.atan2(-W.sx, -W.sz); }
         else if (c < W.tW + W.tK + W.tR) { ph = 'run'; d = 4.2 * (c - W.tW - W.tK); x = W.Kx + W.dx * d; z = W.Kz + W.dz * d; ty = Math.atan2(W.dx, W.dz); }
-        a.g.visible = ph !== 'hide';
+        else { ph = 'walk'; d = 1.4 * (c - W.tW - W.tK - W.tR); x = W.Kx + W.dx * (W.L2 - d); z = W.Kz + W.dz * (W.L2 - d); ty = Math.atan2(-W.dx, -W.dz); }
+        a.g.visible = true;
         if (ph !== 'hide') {
-          if (ph === 'walk' && c < 0.05) W.yaw = ty;
+          if (ph === 'walk' && c < 0.05 && W.yaw === undefined) W.yaw = ty;
           W.yaw += nAng(ty - W.yaw) * Math.min(1, dt * (ph === 'kick' ? 8 : 5));
           gy = Math.max(0, terrainH(x, z)) + 0.055;
           a.g.rotation.y = W.yaw; a.g.rotation.x = 0;
