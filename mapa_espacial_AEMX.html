@@ -3887,8 +3887,8 @@ window.startMap = function (RAW, AUTH) {
     var pos = to.clone().add(new THREE.Vector3().setFromSpherical(s));
     fly = { t: 0, dur: REDUCED ? 0.01 : 1.4, fa: controls.target.clone(), fb: to, pa: camera.position.clone(), pb: pos };
   }
-  function overview() { ufoFollow = false; carFollow = false; wandFollow = false; turretCam = false; deselect(); flyTo(0, 0, 0, overviewDist(), 0.6); }
-  function flyToDistrict(d) { ufoFollow = false; carFollow = false; wandFollow = false; turretCam = false; deselect(); flyTo(d.cx, 0, d.cz, Math.max(90, d.r * 2.8), 0.95); }
+  function overview() { ufoFollow = false; carFollow = false; wandFollow = false; botFollow = false; turretCam = false; deselect(); flyTo(0, 0, 0, overviewDist(), 0.6); }
+  function flyToDistrict(d) { ufoFollow = false; carFollow = false; wandFollow = false; botFollow = false; turretCam = false; deselect(); flyTo(d.cx, 0, d.cz, Math.max(90, d.r * 2.8), 0.95); }
 
   function resize() {
     SW = Math.max(1, stage.clientWidth);
@@ -3976,7 +3976,7 @@ window.startMap = function (RAW, AUTH) {
   /* Búsqueda de jugadores y ciudades */
   var q = document.getElementById('q'), resEl = document.getElementById('res'), matches = [];
   function choose(m) {
-    ufoFollow = false; carFollow = false; wandFollow = false; turretCam = false;
+    ufoFollow = false; carFollow = false; wandFollow = false; botFollow = false; turretCam = false;
     if (m.kind === 'u') {
       if (ufo) {
         deselect();
@@ -4005,7 +4005,11 @@ window.startMap = function (RAW, AUTH) {
         wandFollow = true;
       }
     } else if (m.kind === 't') {
-      if (car) { deselect(); fly = null; turretCam = true; }
+      if (car) { deselect(); fly = null; turretCam = true; turretMode = 'car'; }
+    } else if (m.kind === 's') {
+      if (bot) { deselect(); botFollow = true; botYawCam = bot.yaw; flyTo(bot.x, bot.y + 0.5, bot.z, 14, 0.95); }
+    } else if (m.kind === 'g') {
+      if (bot) { deselect(); fly = null; turretCam = true; turretMode = 'bot'; }
     } else if (m.kind === 'd') flyToDistrict(m.d); else select(m.p);
     resEl.hidden = true; q.value = ''; q.blur();
   }
@@ -4022,6 +4026,11 @@ window.startMap = function (RAW, AUTH) {
       } else if ('torreta'.indexOf(v) === 0) matches.push({ kind: 't', label: '🎯 Torreta', sub: 'vista' });
     }
     if (wand && v.length >= 2 && ('waka waka'.indexOf(v) === 0 || 'wakawaka'.indexOf(v) === 0 || 'pacman'.indexOf(v) === 0 || 'caminante'.indexOf(v) === 0)) matches.push({ kind: 'w', label: '🟡 Waka waka (caminante)', sub: 'seguir' });
+    if (bot && v.length >= 2) {
+      if ('robot'.indexOf(v) === 0) { matches.push({ kind: 's', label: '🤖 Scout (robot)', sub: 'seguir' }); matches.push({ kind: 'g', label: '🔫 Shooter (rifle)', sub: 'vista' }); }
+      else if ('scout'.indexOf(v) === 0) matches.push({ kind: 's', label: '🤖 Scout (robot)', sub: 'seguir' });
+      else if ('shoter'.indexOf(v) === 0 || 'shooter'.indexOf(v) === 0) matches.push({ kind: 'g', label: '🔫 Shooter (rifle)', sub: 'vista' });
+    }
     districts.forEach(function (d) { if (d.name.toLowerCase().indexOf(v) > -1) matches.push({ kind: 'd', d: d, label: d.name, sub: 'ver ciudad' }); });
     players.forEach(function (p) {
       if (matches.length < 6 && (p.name.toLowerCase().indexOf(v) > -1 || p.city.toLowerCase().indexOf(v) > -1)) matches.push({ kind: 'p', p: p, label: '@' + p.name, sub: p.city });
@@ -4056,7 +4065,7 @@ window.startMap = function (RAW, AUTH) {
       controls.target.set(camera.position.x + dv.x * 30, Math.max(0, camera.position.y + dv.y * 30), camera.position.z + dv.z * 30);
       turretCam = false;
     }
-    if (ufoFollow || carFollow || wandFollow) { ufoFollow = false; carFollow = false; wandFollow = false; fly = null; }
+    if (ufoFollow || carFollow || wandFollow || botFollow) { ufoFollow = false; carFollow = false; wandFollow = false; botFollow = false; fly = null; }
   }
   canvas.addEventListener('pointerdown', stopUfoFollow);
   canvas.addEventListener('wheel', stopUfoFollow, { passive: true });
@@ -5563,6 +5572,503 @@ window.startMap = function (RAW, AUTH) {
     }
   }
 
+  /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
+  var bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
+  var BOT_RANGE = 55, BOT_HUNT_D = 34, BOT_WALK = 2.6, BOT_RUN = 7.2, BOT_BOOST = 24, BOT_CELL = 8, BOT_LASER_V = 95;
+  var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
+  var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
+  var bkLaser = new THREE.MeshBasicMaterial({ color: 0x7dffa0, transparent: true, opacity: 0.98, blending: THREE.AdditiveBlending, depthWrite: false });
+  var bkLaserGlow = new THREE.MeshBasicMaterial({ color: 0x1fff5a, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
+  var bkFlameGeo = (function () { var q = new THREE.ConeGeometry(0.07, 0.5, 8); q.rotateX(Math.PI); q.translate(0, -0.25, 0); return q; })();
+  var bkTmpA = new THREE.Vector3(), bkTmpB = new THREE.Vector3(), bkMuz = new THREE.Vector3();
+
+  function makeBot() {
+    var g = new THREE.Group(), body = new THREE.Group(), upper = new THREE.Group(), head = new THREE.Group(), rifle = new THREE.Group(), m, legs = [], arms = [], flames = [], nozzles = [];
+    var eyeMat = new THREE.MeshBasicMaterial({ color: 0x3dff7a });
+    function bx(mat, px, py, pz, sx, sy, sz, par) { var q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); (par || g).add(q); return q; }
+    function cy(mat, px, py, pz, r, len, rx, rz, par) { var q = new THREE.Mesh(uCyl, mat); q.position.set(px, py, pz); q.scale.set(r, len, r); q.rotation.set(rx || 0, 0, rz || 0); (par || g).add(q); return q; }
+    function ball(mat, px, py, pz, r, par) { var q = new THREE.Mesh(uSphere, mat); q.position.set(px, py, pz); q.scale.setScalar(r); par.add(q); return q; }
+    g.rotation.order = 'YXZ'; body.rotation.order = 'YXZ'; upper.rotation.order = 'YXZ';
+    body.position.y = 0.98; g.add(body);
+
+    /* Pelvis y piernas con cadera, rodilla y tobillo */
+    bx(bkBlack, 0, 0, 0, 0.42, 0.14, 0.24, body); bx(bkGray, 0, 0.0, 0.125, 0.2, 0.1, 0.03, body);
+    bx(bkGray, -0.22, 0, 0, 0.04, 0.12, 0.2, body); bx(bkGray, 0.22, 0, 0, 0.04, 0.12, 0.2, body);
+    [-1, 1].forEach(function (sx) {
+      var th = new THREE.Group(), kn = new THREE.Group(), ft = new THREE.Group();
+      th.rotation.order = 'YXZ'; th.position.set(sx * 0.17, -0.04, 0); body.add(th);
+      ball(bkJoint, 0, 0, 0, 0.095, th);
+      bx(bkBlack, 0, -0.21, 0, 0.15, 0.4, 0.17, th);
+      bx(bkGray, sx * 0.082, -0.2, 0, 0.025, 0.3, 0.12, th);
+      kn.position.y = -0.42; th.add(kn);
+      ball(bkJoint, 0, 0, 0, 0.085, kn);
+      bx(bkGray, 0, 0, 0.1, 0.12, 0.13, 0.05, kn);
+      bx(bkBlack, 0, -0.2, -0.01, 0.12, 0.38, 0.14, kn);
+      bx(bkGray, 0, -0.14, -0.095, 0.1, 0.24, 0.05, kn);
+      bx(bkGray, 0, -0.2, 0.08, 0.08, 0.28, 0.03, kn);
+      ft.position.y = -0.42; kn.add(ft);
+      ball(bkJoint, 0, 0, 0, 0.065, ft);
+      bx(bkBlack, 0, -0.05, 0.07, 0.15, 0.09, 0.3, ft);
+      bx(bkDark, 0, -0.075, 0.2, 0.14, 0.05, 0.12, ft);
+      legs.push({ th: th, kn: kn, ft: ft });
+    });
+
+    /* Torso */
+    upper.position.set(0, 0.1, 0); body.add(upper);
+    bx(bkJoint, 0, 0.06, 0, 0.26, 0.14, 0.18, upper);
+    bx(bkBlack, 0, 0.32, 0, 0.5, 0.32, 0.3, upper);
+    bx(bkGray, 0, 0.35, 0.155, 0.4, 0.18, 0.04, upper);
+    bx(bkDark, 0, 0.22, 0.155, 0.3, 0.05, 0.03, upper);
+    bx(eyeMat, 0, 0.35, 0.18, 0.06, 0.06, 0.012, upper);
+    cy(bkJoint, 0, 0.54, 0, 0.06, 0.08, 0, 0, upper);
+    [-1, 1].forEach(function (sx) {
+      bx(bkGray, sx * 0.37, 0.5, 0, 0.15, 0.07, 0.26, upper).rotation.z = -sx * 0.2;
+      bx(bkBlack, sx * 0.4, 0.44, 0, 0.05, 0.1, 0.22, upper);
+    });
+
+    /* Cabeza con ojos verdes y dos antenas largas */
+    head.position.set(0, 0.66, 0); upper.add(head);
+    bx(bkBlack, 0, 0.08, 0, 0.21, 0.18, 0.23, head);
+    bx(bkDark, 0, 0.08, 0.118, 0.17, 0.09, 0.02, head);
+    bx(eyeMat, -0.05, 0.09, 0.13, 0.05, 0.026, 0.012, head); bx(eyeMat, 0.05, 0.09, 0.13, 0.05, 0.026, 0.012, head);
+    bx(bkGray, -0.118, 0.08, 0, 0.03, 0.12, 0.12, head); bx(bkGray, 0.118, 0.08, 0, 0.03, 0.12, 0.12, head);
+    bx(bkGray, 0, 0.18, 0.02, 0.12, 0.03, 0.14, head);
+    [-1, 1].forEach(function (sx) {
+      var an = new THREE.Group();
+      an.position.set(sx * 0.07, 0.17, -0.05); an.rotation.set(-0.12, 0, -sx * 0.2); head.add(an);
+      bx(bkDark, 0, 0.02, 0, 0.05, 0.06, 0.05, an);
+      cy(bkGray, 0, 0.28, 0, 0.013, 0.52, 0, 0, an);
+      ball(eyeMat, 0, 0.55, 0, 0.022, an);
+    });
+
+    /* Mochila estilizada: casco aerodinámico con franja luminosa, aletas y dos toberas */
+    var ps = new THREE.Shape();
+    ps.moveTo(-0.13, 0.54); ps.lineTo(-0.27, 0.5); ps.lineTo(-0.36, 0.3); ps.lineTo(-0.35, 0.06); ps.lineTo(-0.27, -0.04); ps.lineTo(-0.13, 0.0); ps.closePath();
+    var pg = new THREE.ExtrudeGeometry(ps, { depth: 0.3, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
+    pg.rotateY(-Math.PI / 2); pg.translate(0.15, 0, 0);
+    upper.add(new THREE.Mesh(pg, bkBlack));
+    bx(eyeMat, 0, 0.3, -0.368, 0.03, 0.3, 0.012, upper);
+    bx(bkGray, 0, 0.5, -0.24, 0.16, 0.03, 0.16, upper).rotation.x = -0.25;
+    [-1, 1].forEach(function (sx) {
+      var fn = bx(bkGray, sx * 0.2, 0.32, -0.3, 0.025, 0.3, 0.14, upper); fn.rotation.z = sx * 0.28;
+      var nz = new THREE.Group(), fl;
+      nz.position.set(sx * 0.11, 0.02, -0.3); nz.rotation.x = 0.6; upper.add(nz);
+      m = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.085, 0.2, 10), bkGray); m.position.y = -0.1; nz.add(m);
+      cy(bkDark, 0, -0.2, 0, 0.07, 0.02, 0, 0, nz);
+      fl = new THREE.Mesh(bkFlameGeo, new THREE.MeshBasicMaterial({ color: 0x6dffc2, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+      fl.position.y = -0.21; fl.scale.set(0.01, 0.01, 0.01); fl.visible = false; nz.add(fl);
+      flames.push(fl); nozzles.push(nz);
+    });
+
+    /* Rifle de energía con la punta verde */
+    rifle.position.set(0.05, 0.25, 0); upper.add(rifle);
+    bx(bkDark, 0, 0, 0.33, 0.075, 0.1, 0.62, rifle);
+    bx(bkGray, 0, 0.07, 0.3, 0.05, 0.03, 0.46, rifle);
+    bx(bkBlack, 0, -0.01, -0.1, 0.06, 0.13, 0.25, rifle);
+    bx(bkBlack, 0, -0.11, 0.1, 0.05, 0.15, 0.06, rifle).rotation.x = 0.25;
+    bx(bkGray, 0, -0.07, 0.45, 0.05, 0.1, 0.06, rifle);
+    bx(eyeMat, 0.04, 0.01, 0.42, 0.012, 0.05, 0.28, rifle);
+    cy(bkJoint, 0, 0.12, 0.28, 0.03, 0.22, Math.PI / 2, 0, rifle);
+    cy(bkGray, 0, 0.02, 0.72, 0.04, 0.16, Math.PI / 2, 0, rifle);
+    cy(bkJoint, 0, 0.02, 0.92, 0.024, 0.5, Math.PI / 2, 0, rifle);
+    cy(eyeMat, 0, 0.02, 1.18, 0.034, 0.05, Math.PI / 2, 0, rifle);
+
+    /* Brazos con hombro, codo y mano: cada uno se resuelve para llegar a la empuñadura (derecho) y al guardamano (izquierdo) */
+    function solveArm(sx, T) {
+      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.33, 0.43, 0), l1 = 0.34, l2 = 0.32;
+      var d = T.clone().sub(S), L = d.length(), dist = Math.min(L, l1 + l2 - 0.005), dir = d.clone().normalize(), A, pole, E, Tc, q1, q2, down = new THREE.Vector3(0, -1, 0);
+      A = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist))));
+      pole = new THREE.Vector3(sx * 0.6, -1, -0.3); pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
+      E = S.clone().add(dir.clone().multiplyScalar(l1 * Math.cos(A))).add(pole.multiplyScalar(l1 * Math.sin(A)));
+      Tc = S.clone().add(dir.clone().multiplyScalar(dist));
+      q1 = new THREE.Quaternion().setFromUnitVectors(down, E.clone().sub(S).normalize());
+      q2 = new THREE.Quaternion().setFromUnitVectors(down, Tc.clone().sub(E).normalize());
+      sh.position.copy(S); sh.quaternion.copy(q1); upper.add(sh);
+      el.position.y = -l1; el.quaternion.copy(q1.clone().conjugate().multiply(q2)); sh.add(el);
+      ball(bkJoint, 0, 0, 0, 0.085, sh);
+      bx(bkBlack, 0, -0.17, 0, 0.12, 0.28, 0.13, sh);
+      bx(bkGray, sx * 0.065, -0.16, 0, 0.02, 0.2, 0.1, sh);
+      ball(bkJoint, 0, 0, 0, 0.07, el);
+      bx(bkBlack, 0, -0.15, 0, 0.11, 0.24, 0.12, el);
+      bx(bkGray, 0, -0.12, 0.065, 0.09, 0.17, 0.03, el);
+      bx(bkDark, 0, -0.31, 0, 0.09, 0.1, 0.1, el);
+      arms.push({ sh: sh, el: el });
+    }
+    solveArm(-1, new THREE.Vector3(0.05, 0.17, 0.42));
+    solveArm(1, new THREE.Vector3(0.05, 0.12, 0.1));
+
+    g.scale.setScalar(0.43);
+    noRay(g); scene.add(g);
+    return { g: g, body: body, upper: upper, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat };
+  }
+
+  /* Edificios como obstáculos: rejilla de celdas con su medio ancho + margen */
+  function botInitObs() {
+    botObs = {}; botList = [];
+    roots.forEach(function (b) {
+      var p = b.userData.p, W, hw, x0, x1, z0, z1, a, c, k;
+      if (!p || p.tier === undefined) return;
+      W = TIER_W[p.tier] || 3.4; hw = W / 2 + 0.55;
+      p._bhw = hw; p._broot = b; botList.push(p);
+      x0 = Math.floor((p.x - hw - 1) / BOT_CELL); x1 = Math.floor((p.x + hw + 1) / BOT_CELL);
+      z0 = Math.floor((p.z - hw - 1) / BOT_CELL); z1 = Math.floor((p.z + hw + 1) / BOT_CELL);
+      for (a = x0; a <= x1; a++) for (c = z0; c <= z1; c++) { k = a + ',' + c; (botObs[k] || (botObs[k] = [])).push(p); }
+    });
+  }
+  function botBld(x, z, pad) {
+    var l = botObs && botObs[Math.floor(x / BOT_CELL) + ',' + Math.floor(z / BOT_CELL)], i, p, h;
+    if (!l) return null;
+    for (i = 0; i < l.length; i++) { p = l[i]; h = p._bhw + (pad || 0); if (Math.abs(x - p.x) < h && Math.abs(z - p.z) < h) return p; }
+    return null;
+  }
+  function botHexIn(dx, dz, a) { var ax = Math.abs(dx), az = Math.abs(dz); return ax <= a && ax * 0.5 + az * 0.8660254 <= a; }
+  /* Altura del suelo: relieve, y sobre la losa (0.14) o el pad (0.34) de los hexágonos de las ciudades */
+  function botGround(x, z) {
+    var h = Math.max(0, terrainH(x, z)), i, j, d, c, dx, dz;
+    for (i = 0; i < districts.length; i++) {
+      d = districts[i];
+      if (Math.abs(x - d.cx) > d.r + 12 || Math.abs(z - d.cz) > d.r + 12) continue;
+      if (!d._bh) d._bh = d.cells.concat(d.extra);
+      for (j = 0; j < d._bh.length; j++) {
+        c = d._bh[j]; dx = x - d.cx - c.x; dz = z - d.cz - c.z;
+        if (botHexIn(dx, dz, 3.6)) return Math.max(h, botHexIn(dx, dz, 3.2) ? 0.34 : 0.14);
+      }
+    }
+    return h;
+  }
+  /* Libre = tierra (nunca agua), fuera de edificios */
+  function botFree(x, z) {
+    if (landAt && !(landAt(x, z) && landAt(x + 0.5, z) && landAt(x - 0.5, z) && landAt(x, z + 0.5) && landAt(x, z - 0.5))) return false;
+    return !botBld(x, z, 0);
+  }
+  function botSlopeOK(x0, z0, x1, z1) { var d = Math.hypot(x1 - x0, z1 - z0) || 1; return Math.abs(terrainH(x1, z1) - terrainH(x0, z0)) / d < 0.9; }
+  function botClear(b, h, look) {
+    var sx = Math.sin(h), cz = Math.cos(h), k, px, pz;
+    for (k = 1; k <= 3; k++) {
+      px = b.x + sx * look * k / 3; pz = b.z + cz * look * k / 3;
+      if (!botFree(px, pz)) return false;
+      if (k === 3 && !botSlopeOK(b.x, b.z, px, pz)) return false;
+    }
+    return true;
+  }
+  /* Rumbo libre más cercano al deseado; recuerda de qué lado rodeó el obstáculo */
+  function botSteer(b, want, look) {
+    var offs = [0, 0.35, 0.7, 1.05, 1.5, 2.0, 2.6], i, s, h, sg;
+    for (i = 0; i < offs.length; i++) {
+      for (s = 0; s < (i ? 2 : 1); s++) {
+        sg = i ? (s ? -1 : 1) * b.side : 0;
+        h = want + sg * offs[i];
+        if (botClear(b, h, look)) { if (i) b.side = sg; return h; }
+      }
+    }
+    return null;
+  }
+  function botLOS(ax, ay, az, bx2, by, bz, skip) {
+    var k, f, x, z, y, p;
+    for (k = 1; k < 12; k++) {
+      f = k / 12; x = ax + (bx2 - ax) * f; y = ay + (by - ay) * f; z = az + (bz - az) * f;
+      p = botBld(x, z, -0.55);
+      if (p && p !== skip && y < BASE + p.topY * 0.85) return false;
+    }
+    return true;
+  }
+  function botRoofY(p, lx, lz) {
+    var rc = botRC || (botRC = new THREE.Raycaster()), root = p._broot, ys = [], o = [[0, 0], [0.3, 0], [-0.3, 0], [0, 0.3], [0, -0.3]], i, hit, top = BASE + p.topY;
+    root.updateMatrixWorld(true);
+    for (i = 0; i < o.length; i++) {
+      rc.set(new THREE.Vector3(lx + o[i][0], top + 8, lz + o[i][1]), new THREE.Vector3(0, -1, 0)); rc.far = 40;
+      hit = rc.intersectObject(root, true);
+      if (hit.length) ys.push(hit[0].point.y);
+    }
+    if (!ys.length) return BASE + p.topY * 0.55;
+    ys.sort(function (a, c) { return a - c; });
+    return Math.min(top, Math.max(BASE + 1, ys[0]));
+  }
+  /* Elige un edificio cercano para subir a su azotea con la mochila; el punto de despegue queda junto a la pared */
+  function botPickRoof(maxD) {
+    var b = bot, i, p, cand = [], dd, W, base, k, ang, cx, cz, found = false, angs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
+    for (i = 0; i < botList.length; i++) {
+      p = botList[i];
+      if (p.tier === 6 || p.isPres || b.rp && b.rp.p === p) continue;
+      dd = Math.hypot(p.x - b.x, p.z - b.z);
+      if (dd < maxD && dd > 4) cand.push(p);
+    }
+    if (!cand.length) return false;
+    p = cand[(Math.random() * cand.length) | 0]; W = TIER_W[p.tier] || 3.4;
+    base = Math.atan2(b.x - p.x, b.z - p.z);
+    for (k = 0; k < angs.length && !found; k++) {
+      ang = base + angs[k]; cx = p.x + Math.sin(ang) * (W / 2 + 1.0); cz = p.z + Math.cos(ang) * (W / 2 + 1.0);
+      if (botFree(cx, cz)) found = true;
+    }
+    if (!found) return false;
+    var lx = p.x + Math.sin(ang) * 0.22 * W, lz = p.z + Math.cos(ang) * 0.22 * W;
+    b.rp = { p: p, cx: cx, cz: cz, lx: lx, lz: lz, roofY: botRoofY(p, lx, lz) };
+    b.goal = { x: cx, z: cz }; b.gtype = 'roof';
+    return true;
+  }
+  function botPick() {
+    var b = bot, i, a, r, x, z;
+    if (Math.random() < 0.3 && botPickRoof(60)) return;
+    for (i = 0; i < 30; i++) {
+      a = Math.random() * 6.2832; r = 25 + Math.random() * 70; x = b.x + Math.cos(a) * r; z = b.z + Math.sin(a) * r;
+      if (botFree(x, z)) { b.goal = { x: x, z: z }; b.gtype = 'patrol'; b.jog = Math.random() < 0.55; b.stuck = 0; b.lastGD = 1e9; return; }
+    }
+    b.idle = 1;
+  }
+  function botInit() {
+    var b = makeBot(), cand = districts.filter(function (q) { return q.list.length; }), d, i, a, r, x = 0, z = 0, ok = false;
+    botInitObs();
+    for (i = 0; i < 160 && !ok; i++) {
+      d = cand[(Math.random() * cand.length) | 0] || districts[0]; a = Math.random() * 6.2832; r = d.r + 4 + Math.random() * 18;
+      x = d.cx + Math.cos(a) * r; z = d.cz + Math.sin(a) * r; ok = botFree(x, z);
+    }
+    b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = Math.random() * 6.2832; b.aimYaw = b.yaw; b.aimPitch = 0.05; b.v = 0; b.vy = 0;
+    b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false;
+    b.stuck = 0; b.pt = 0; b.lastGD = 1e9; b.noHunt = 0; b.fireT = 0; b.burst = 0; b.los = true; b.losT = 0; b.losBlock = 0; b.fxT = 0; b.dustT = 0;
+    b.up = new THREE.Vector3(); b.uv = new THREE.Vector3(); b.hasUp = false; b.rp = null; b.jph = 0; b.perchT = 0; b.maxPerch = 8; b.aiming = false;
+    bot = b;
+  }
+  function botShoot(mz, tgt) {
+    var p, dx, dy, dz, d, i, grp, core, glow;
+    if (!botLas.length) {
+      for (i = 0; i < 14; i++) {
+        grp = new THREE.Group(); core = new THREE.Mesh(uBox, bkLaser); glow = new THREE.Mesh(uBox, bkLaserGlow);
+        core.scale.set(0.05, 0.05, 1.3); glow.scale.set(0.15, 0.15, 1.5); grp.add(core); grp.add(glow);
+        grp.visible = false; noRay(grp); grp.frustumCulled = false; scene.add(grp);
+        botLas.push({ m: grp, on: false, vx: 0, vy: 0, vz: 0, dist: 0 });
+      }
+    }
+    p = botLas[botLasI]; botLasI = (botLasI + 1) % botLas.length;
+    dx = tgt.x - mz.x; dy = tgt.y - mz.y; dz = tgt.z - mz.z; d = Math.hypot(dx, dy, dz) || 1;
+    dx += (Math.random() - 0.5) * 0.035 * d; dy += (Math.random() - 0.5) * 0.035 * d; dz += (Math.random() - 0.5) * 0.035 * d;
+    d = Math.hypot(dx, dy, dz) || 1;
+    p.vx = dx / d * BOT_LASER_V; p.vy = dy / d * BOT_LASER_V; p.vz = dz / d * BOT_LASER_V; p.dist = 0; p.on = true;
+    p.m.position.copy(mz); p.m.lookAt(mz.x + dx, mz.y + dy, mz.z + dz); p.m.visible = true;
+    fxSpawn(mz.x, mz.y, mz.z, 0, 0, 0, 0.09, 0.1, 0.38, 0x7dffa0, 0.95, true);
+    AUD.shot(mz);
+  }
+  function botBolts(dt) {
+    var i, p, U, ox, oy, oz, nx, ny, nz, sx, sy, sz, l2, t, cx, cy2, cz, bp, live = ufo && !ufoDown() && !ufoOverVolc();
+    for (i = 0; i < botLas.length; i++) {
+      p = botLas[i];
+      if (!p.on) continue;
+      ox = p.m.position.x; oy = p.m.position.y; oz = p.m.position.z;
+      nx = ox + p.vx * dt; ny = oy + p.vy * dt; nz = oz + p.vz * dt;
+      if (live) {
+        U = ufo.g.position; sx = nx - ox; sy = ny - oy; sz = nz - oz; l2 = sx * sx + sy * sy + sz * sz || 1;
+        t = Math.max(0, Math.min(1, ((U.x - ox) * sx + (U.y - oy) * sy + (U.z - oz) * sz) / l2));
+        cx = ox + sx * t; cy2 = oy + sy * t; cz = oz + sz * t;
+        if (Math.hypot(U.x - cx, U.y - cy2, U.z - cz) < 1.8) { ufoHit(cx, cy2, cz); fxSpawn(cx, cy2, cz, 0, 0, 0, 0.3, 0.3, 1.3, 0x7dffa0, 0.9, true); p.on = false; p.m.visible = false; continue; }
+      }
+      p.dist += BOT_LASER_V * dt;
+      bp = botBld(nx, nz, -0.55);
+      if (ny <= Math.max(0, terrainH(nx, nz)) + 0.05 || (bp && ny < BASE + bp.topY * 0.85) || p.dist >= 95) {
+        if (p.dist < 95) fxSpawn(nx, ny, nz, 0, 0.6, 0, 0.25, 0.15, 0.5, 0x7dffa0, 0.8, true);
+        p.on = false; p.m.visible = false; continue;
+      }
+      p.m.position.set(nx, ny, nz);
+    }
+  }
+
+  function updateBot(t, dt) {
+    var b = bot, U = null, now = clock.elapsedTime, thr, dh = 0, d3 = 1e9, gd = 0, want, hd, spd, tg, i, moving, pd, am, kf, la, lean, sg, rp, k, canShoot = false, steps, nx, nz, ex, ez, tgt = bkTmpA;
+    if (!b) {
+      if (!trails.length || !roots.length || (!landAt && now < 30)) return;
+      botInit(); b = bot;
+    }
+    U = (ufo && !ufoDown() && !ufoOverVolc()) ? ufo.g.position : null;
+    if (U) {
+      if (b.hasUp && dt > 0) { b.uv.set((U.x - b.up.x) / dt, (U.y - b.up.y) / dt, (U.z - b.up.z) / dt); if (b.uv.length() > 60) b.uv.set(0, 0, 0); }
+      b.up.copy(U); b.hasUp = true;
+    } else b.hasUp = false;
+    thr = !!U && now >= b.noHunt;
+    if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
+    if (b.boostT > 0) { b.boostT -= dt; if (b.boostT <= 0 || b.mode !== 'walk' || !b.goal) { b.boostT = 0; b.boostCD = 18; } }
+    else if (b.boostCD > 0) b.boostCD -= dt;
+
+    if (b.mode === 'walk') {
+      /* Objetivo: perseguir al OVNI hasta quedar en alcance; si no hay amenaza, patrullar libremente */
+      if (thr) {
+        if (dh > BOT_HUNT_D) { b.goal = { x: U.x, z: U.z }; b.gtype = 'hunt'; }
+        else if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; }
+      } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; }
+      if (!b.goal && !thr) { b.idle -= dt; if (b.idle <= 0) botPick(); }
+      /* Sin línea de tiro desde el suelo: sube a una azotea cercana */
+      if (thr && dh <= BOT_HUNT_D && !b.goal) {
+        b.losT -= dt;
+        if (b.losT <= 0) {
+          b.losT = 0.25; b.los = botLOS(b.x, b.y + 1.0, b.z, U.x, U.y, U.z, null);
+          if (!b.los) b.losBlock += 0.25; else b.losBlock = 0;
+          if (b.losBlock > 1.4) { b.losBlock = 0; botPickRoof(26); }
+        }
+      }
+      /* Avance con rumbo libre; el hiperimpulso dura 5 s */
+      if (b.goal) {
+        gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
+        if (gd < (b.gtype === 'roof' ? 0.55 : 1.4)) {
+          if (b.gtype === 'roof') { b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
+          else { b.goal = null; b.gtype = ''; b.idle = 1 + Math.random() * 2.5; }
+        } else {
+          want = Math.atan2(b.goal.x - b.x, b.goal.z - b.z);
+          spd = b.gtype === 'hunt' ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
+          if (gd < 3) spd = Math.min(spd, 3.2);
+          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && b.gtype !== 'roof') { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          if (b.boostT > 0) {
+            spd = BOT_BOOST;
+            if (gd < 10) { b.boostT = 0; b.boostCD = 18; spd = BOT_RUN; }
+          }
+          hd = botSteer(b, want, 1.4 + b.v * 0.22);
+          if (hd === null) { b.v *= Math.max(0, 1 - dt * 6); b.yaw += b.side * dt * 2.5; }
+          else {
+            b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 8);
+            tg = spd * Math.max(0.2, Math.cos(nAng(hd - b.yaw)));
+            b.v += (tg - b.v) * Math.min(1, dt * 5);
+          }
+          steps = Math.max(1, Math.ceil(b.v * dt / 0.5));
+          for (i = 0; i < steps; i++) {
+            nx = b.x + Math.sin(b.yaw) * b.v * dt / steps; nz = b.z + Math.cos(b.yaw) * b.v * dt / steps;
+            if (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz)) { b.x = nx; b.z = nz; } else { b.v *= 0.5; break; }
+          }
+          /* Atasco: si no se acerca en ~3.6 s, cambia de objetivo (y deja de perseguir un rato) */
+          b.pt += dt;
+          if (b.pt >= 1.2) {
+            b.stuck = (b.lastGD - gd < 0.5) ? b.stuck + 1 : 0; b.lastGD = gd; b.pt = 0;
+            if (b.stuck >= 3) { b.stuck = 0; if (b.gtype === 'hunt') b.noHunt = now + 12; b.goal = null; b.gtype = ''; b.boostT = 0; b.idle = 0.3; }
+          }
+        }
+      } else {
+        b.v *= Math.max(0, 1 - dt * 6);
+        b.lastGD = 1e9; b.pt = 0;
+      }
+      b.y += (botGround(b.x, b.z) - b.y) * Math.min(1, dt * 14);
+      b.air += (0 - b.air) * Math.min(1, dt * 6);
+    } else if (b.mode === 'jetUp' || b.mode === 'jetDown') {
+      /* Propulsión de la mochila: sube junto a la pared, cruza sobre la azotea y se posa (o al revés) */
+      rp = b.rp; b.v = 0; b.air += (1 - b.air) * Math.min(1, dt * 6);
+      if (b.mode === 'jetUp') {
+        if (b.jph === 0) {
+          b.vy += (6 - b.vy) * Math.min(1, dt * 3); b.y += b.vy * dt;
+          b.yaw += nAng(Math.atan2(rp.lx - b.x, rp.lz - b.z) - b.yaw) * Math.min(1, dt * 5);
+          if (b.y >= rp.roofY + 0.8) { b.jph = 1; b.vy = 0; }
+        } else if (b.jph === 1) {
+          ex = rp.lx - b.x; ez = rp.lz - b.z; pd = Math.hypot(ex, ez);
+          if (pd < 0.12) b.jph = 2;
+          else { b.x += ex / pd * Math.min(pd, 3.4 * dt); b.z += ez / pd * Math.min(pd, 3.4 * dt); b.yaw += nAng(Math.atan2(ex, ez) - b.yaw) * Math.min(1, dt * 6); }
+        } else {
+          b.y -= 2.4 * dt;
+          if (b.y <= rp.roofY) { b.y = rp.roofY; b.mode = 'perch'; b.perchT = 0; b.maxPerch = 7 + Math.random() * 6; b.vy = 0; b.losT = 0; }
+        }
+      } else {
+        if (b.jph === 0) {
+          b.y += 2.2 * dt;
+          if (b.y >= rp.roofY + 0.8) b.jph = 1;
+        } else if (b.jph === 1) {
+          ex = rp.cx - b.x; ez = rp.cz - b.z; pd = Math.hypot(ex, ez);
+          if (pd < 0.15) { b.jph = 2; b.vy = 0; }
+          else { b.x += ex / pd * Math.min(pd, 3.2 * dt); b.z += ez / pd * Math.min(pd, 3.2 * dt); b.yaw += nAng(Math.atan2(ex, ez) - b.yaw) * Math.min(1, dt * 6); }
+        } else {
+          b.vy += (-4 - b.vy) * Math.min(1, dt * 3); b.y += b.vy * dt;
+          gd = botGround(b.x, b.z);
+          if (b.y <= gd) { b.y = gd; b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0.8; b.vy = 0; b.rp = null; }
+        }
+      }
+    } else { /* perch: sobre la azotea, vigila y dispara */
+      b.v = 0; b.perchT += dt; b.air += (0 - b.air) * Math.min(1, dt * 6); b.y = b.rp.roofY;
+      if (b.perchT > b.maxPerch && (!thr || b.perchT > 25)) { b.mode = 'jetDown'; b.jph = 0; }
+    }
+
+    /* Puntería: sigue al OVNI con algo de adelanto; si no hay amenaza, vigila de lado a lado */
+    var pred = null, yT, pT, errY = 9, errP = 9;
+    b.aiming = false;
+    b.g.position.set(b.x, b.y, b.z); b.g.rotation.y = b.yaw;
+    if (thr && d3 <= BOT_RANGE + 15 && b.boostT <= 0) {
+      pd = d3 / BOT_LASER_V * 0.85;
+      pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
+      b.aiming = true;
+      yT = Math.atan2(pred.x - b.x, pred.z - b.z);
+      pT = Math.atan2(pred.y - (b.y + 0.56), Math.hypot(pred.x - b.x, pred.z - b.z));
+      pT = Math.max(-0.5, Math.min(1.1, pT));
+    } else { yT = b.yaw + (b.mode === 'walk' && b.v > 1 ? 0.35 * Math.sin(t * 0.8) : 1.3 * Math.sin(t * 0.5)); pT = 0.06; }
+    b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 7);
+    b.aimPitch += (pT - b.aimPitch) * Math.min(1, dt * 7);
+    if (Math.abs(nAng(b.aimYaw - b.yaw)) > 2.2) b.aimYaw = b.yaw + (nAng(b.aimYaw - b.yaw) > 0 ? 2.2 : -2.2);
+    if ((b.mode === 'perch' || (b.mode === 'walk' && b.v < 0.6)) && b.aiming) b.yaw += nAng(b.aimYaw - b.yaw) * Math.min(1, dt * 3);
+    errY = Math.abs(nAng(yT - b.aimYaw)); errP = Math.abs(pT - b.aimPitch);
+
+    /* Pose */
+    moving = b.mode === 'walk' && b.v > 0.3;
+    b.gk += ((moving ? 1 : 0) - b.gk) * Math.min(1, dt * 8);
+    if (moving) b.ph += dt * Math.min(11, 3.0 + b.v * 0.55);
+    am = Math.min(0.9, 0.25 + b.v * 0.1); kf = Math.min(1.5, 0.25 + b.v * 0.14);
+    for (i = 0; i < 2; i++) {
+      la = -am * Math.sin(b.ph + i * Math.PI) * b.gk;
+      sg = kf * Math.max(0, Math.cos(b.ph + i * Math.PI)) * b.gk;
+      la = la * (1 - b.air) + (-0.3 - 0.12 * i) * b.air; sg = sg * (1 - b.air) + 0.7 * b.air;
+      b.legs[i].th.rotation.x = la; b.legs[i].kn.rotation.x = sg; b.legs[i].ft.rotation.x = -(la + sg) * 0.85;
+    }
+    lean = (b.boostT > 0 ? 0.55 : Math.min(0.22, b.v * 0.03)) * b.gk + (b.air > 0.5 ? 0.08 : 0);
+    b.lean = (b.lean || 0) + (lean - (b.lean || 0)) * Math.min(1, dt * 6);
+    b.body.rotation.x = b.lean;
+    b.body.position.y = 0.98 - 0.02 + Math.abs(Math.sin(b.ph)) * 0.035 * b.gk + 0.01 * Math.sin(t * 1.7);
+    b.upper.rotation.y = nAng(b.aimYaw - b.yaw);
+    b.upper.rotation.x = -b.aimPitch - b.lean;
+    b.head.rotation.y = 0.12 * Math.sin(t * 0.9) * (1 - (b.aiming ? 1 : 0));
+
+    /* Llamas de la mochila y efectos */
+    var fT = (b.mode === 'jetUp' || b.mode === 'jetDown') ? (b.mode === 'jetUp' && b.jph === 0 ? 1 : 0.55) : (b.boostT > 0 ? 0.85 : 0);
+    b.flame += (fT - b.flame) * Math.min(1, dt * 9);
+    for (i = 0; i < 2; i++) {
+      var fl = b.flames[i];
+      if (b.flame > 0.03) {
+        fl.visible = true;
+        fl.scale.set(0.6 + 0.6 * b.flame, 0.25 + 1.9 * b.flame * (0.85 + 0.15 * Math.sin(t * 55 + i * 2)), 0.6 + 0.6 * b.flame);
+        fl.material.color.setHex(b.boostT > 0 ? 0x5ad8ff : 0x6dffc2);
+      } else fl.visible = false;
+    }
+    b.eyeMat.color.setHex(b.boostT > 0 ? 0xc8ffe0 : 0x3dff7a);
+    b.g.updateMatrixWorld(true);
+    b.fxT -= dt;
+    if (b.flame > 0.15 && b.fxT <= 0) {
+      b.fxT = 0.035;
+      for (i = 0; i < 2; i++) {
+        bkTmpA.set(0, -0.3, 0); b.nozzles[i].localToWorld(bkTmpA);
+        fxSpawn(bkTmpA.x, bkTmpA.y, bkTmpA.z, (Math.random() - 0.5) * 0.4, -0.8, (Math.random() - 0.5) * 0.4, 0.22, 0.14, 0.03, b.boostT > 0 ? 0x5ad8ff : 0x7dffd0, 0.85, true);
+        if (b.mode !== 'walk' && Math.random() < 0.5) fxSpawn(bkTmpA.x, bkTmpA.y, bkTmpA.z, (Math.random() - 0.5) * 0.6, -0.4, (Math.random() - 0.5) * 0.6, 0.8, 0.1, 0.5, 0xb4b4b4, 0.35, false);
+      }
+      if (b.boostT > 0) {
+        bkTmpA.set(b.x - Math.sin(b.yaw) * 0.5, b.y + 0.45, b.z - Math.cos(b.yaw) * 0.5);
+        fxSpawn(bkTmpA.x, bkTmpA.y, bkTmpA.z, 0, 0, 0, 0.4, 0.3, 0.04, 0x4dffb0, 0.5, true);
+        fxSpawn(bkTmpA.x, b.y + 0.1, bkTmpA.z, 0, 0.2, 0, 0.5, 0.2, 0.6, 0xc8b48a, 0.35, false);
+      }
+    }
+    b.dustT -= dt;
+    if (moving && b.v > 5 && b.mode === 'walk' && b.dustT <= 0 && b.boostT <= 0) {
+      b.dustT = 0.12;
+      fxSpawn(b.x - Math.sin(b.yaw) * 0.3, b.y + 0.06, b.z - Math.cos(b.yaw) * 0.3, 0, 0.25, 0, 0.5, 0.1, 0.35, 0xc8b48a, 0.3, false);
+    }
+
+    /* Disparo: ráfagas de 3 láseres verdes si hay alcance, línea de tiro y el rifle ya apunta */
+    if (b.aiming && pred && d3 <= BOT_RANGE && now >= (ufo.noFireUntil || 0)) {
+      b.fireT -= dt;
+      b.rifle.localToWorld(bkMuz.set(0, 0.02, 1.2));
+      b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
+      canShoot = b.los && errY < 0.07 && errP < 0.1;
+      if (canShoot && b.fireT <= 0) {
+        botShoot(bkMuz, pred);
+        b.burst++;
+        if (b.burst >= 3) { b.burst = 0; b.fireT = 0.9; } else b.fireT = 0.12;
+      }
+    }
+    botBolts(dt);
+  }
+  /* Cámara del robot: "scout" lo sigue desde atrás con el zoom del caminante; "shooter" mira por encima del hombro con la punta del rifle a la vista */
+  function botChasePos(out) {
+    var hr = 14 * Math.sin(0.95), hy = 14 * Math.cos(0.95);
+    out.set(bot.x + Math.sin(botYawCam) * 3 - Math.sin(botYawCam) * hr, bot.y + 0.5 + hy, bot.z + Math.cos(botYawCam) * 3 - Math.cos(botYawCam) * hr);
+    return out;
+  }
+  function botChaseTarget(out) { return out.set(bot.x + Math.sin(botYawCam) * 3, bot.y + 0.5, bot.z + Math.cos(botYawCam) * 3); }
+
   /* ---------- Caminante: túnica café, bastón largo y casco de Pac-Man; recorre los senderos entre ciudades y salta a un lado si pasa el coche ---------- */
   var wand = null, wandFollow = false, wandOff = new THREE.Vector3();
   var wCloth = new THREE.MeshLambertMaterial({ color: 0x7a4e2a, side: THREE.DoubleSide });
@@ -6184,7 +6690,11 @@ window.startMap = function (RAW, AUTH) {
         camera.position.x += wdx; camera.position.y += wdy; camera.position.z += wdz;
       }
     }
-    controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !turretCam;
+    if (botFollow && bot) {
+      botYawCam += nAng((bot.aiming ? bot.aimYaw : bot.yaw) - botYawCam) * Math.min(1, dt * 2.5);
+      if (fly) { botChaseTarget(fly.fb); botChasePos(fly.pb); }
+    }
+    controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !botFollow && !turretCam;
     controls.update();
     controls.target.x = clamp(controls.target.x, -1750, 1750);
     controls.target.z = clamp(controls.target.z, -1300, 1300);
@@ -6205,6 +6715,7 @@ window.startMap = function (RAW, AUTH) {
     updateUfo(t, dt);
     ufoSpotStep(t, dt);
     updateCar(t, dt);
+    updateBot(t, dt);
     updateWanderer(t, dt);
     updatePresident(t, dt);
     updateBullets(dt);
@@ -6214,11 +6725,16 @@ window.startMap = function (RAW, AUTH) {
     updateSea(t);
     AUD.update(t);
     /* Vista desde la torreta: cámara sobre ella, mirando hacia donde apuntan los cañones */
-    if (turretCam && car) {
+    if (turretCam && turretMode === 'bot' && bot) {
+      bot.g.updateMatrixWorld(true);
+      tcP.set(0.45, 0.95, -2.0); bot.upper.localToWorld(tcP); camera.position.copy(tcP);
+      tcT.set(0.05, 0.25, 40); bot.upper.localToWorld(tcT); camera.lookAt(tcT);
+    } else if (turretCam && car) {
       car.g.updateMatrixWorld(true);
       tcP.set(0, 0.85, -0.35); car.bar.localToWorld(tcP); camera.position.copy(tcP);
       tcT.set(0, 0.15, 10); car.bar.localToWorld(tcT); camera.lookAt(tcT);
     }
+    if (botFollow && bot && !fly) { botChasePos(camera.position); botChaseTarget(controls.target); camera.lookAt(controls.target); }
     updateRuins(t);
     updateCamps(t, dt);
     updateSunbathers(t, dt);
