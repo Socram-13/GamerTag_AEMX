@@ -4869,7 +4869,8 @@ window.startMap = function (RAW, AUTH) {
         fxSpawn(u.x + (r() - 0.5) * 1.6, (u.gy || 0) + 0.3 + r() * 0.3, u.z + (r() - 0.5) * 1.6, (r() - 0.5) * 0.8, 2 + r() * 2.5, (r() - 0.5) * 0.8, 0.45 + r() * 0.2, 0.8, 0.1, r() < 0.5 ? 0x39ff6a : 0xb6ff3d, 0.9, true);
         if (r() < 0.5) fxSpawn(u.x, (u.gy || 0) + 0.6, u.z, 0, 0, 0, 0.15, 2.4 + r() * 0.4, 2.0, 0x1fff6a, 0.35, true);
       }
-      if (u.T >= 8) ufoRespawn();
+      var bw = bot && bot.mode === 'walk' && (bot.gtype === 'wreck' || (bot.scan && bot.scanT < 4));
+      if (u.T >= 8 && !(bw && u.T < 20)) ufoRespawn();
     } else {
       glitchStep(u, dt);
       if (u.T >= 5.0) ufoSpawnEnd();
@@ -5730,7 +5731,12 @@ window.startMap = function (RAW, AUTH) {
 
     g.scale.setScalar(0.33);
     noRay(g); scene.add(g);
-    return { g: g, body: body, upper: upper, shell: shell, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat };
+    /* Haz del escáner: cono verde translúcido que sale de la mano derecha */
+    var beamG = new THREE.CylinderGeometry(0.012, 0.2, 1, 14, 1, true), beam;
+    beamG.translate(0, -0.5, 0);
+    beam = new THREE.Mesh(beamG, new THREE.MeshBasicMaterial({ color: 0x44ff88, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    beam.position.y = -0.3; beam.visible = false; beam.frustumCulled = false; noRay(beam); arms[1].el.add(beam);
+    return { g: g, body: body, upper: upper, shell: shell, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat, beam: beam };
   }
 
   /* Edificios como obstáculos: huella real (con los bloques laterales de los módulos) + margen, en una rejilla de celdas */
@@ -6102,6 +6108,7 @@ window.startMap = function (RAW, AUTH) {
     b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = Math.random() * 6.2832; b.aimYaw = b.yaw; b.aimPitch = 0.05; b.v = 0; b.vy = 0;
     b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false; b.roofCD = 0; b.kneel = 0; b.hold = 0; b.runK = 0; b.flyK = 0; b.path = null; b.pi = 0; b.replanT = 0; b.huntHold = 0;
     b.stuck = 0; b.pt = 0; b.lastGD = 1e9; b.noHunt = 0; b.fireT = 0; b.burst = 0; b.los = true; b.losT = 0; b.losBlock = 0; b.fxT = 0; b.dustT = 0;
+    b.scQs = new THREE.Quaternion(); b.scQe = new THREE.Quaternion(); b.scan = false; b.scanK = 0; b.scanT = 0; b.wk = null; b.wkT = 0; b.hitT = -99; b.wkFx = 0;
     b.up = new THREE.Vector3(); b.uv = new THREE.Vector3(); b.hasUp = false; b.rp = null; b.jph = 0; b.perchT = 0; b.maxPerch = 8; b.aiming = false;
     bot = b;
   }
@@ -6135,7 +6142,7 @@ window.startMap = function (RAW, AUTH) {
         U = ufo.g.position; sx = nx - ox; sy = ny - oy; sz = nz - oz; l2 = sx * sx + sy * sy + sz * sz || 1;
         t = Math.max(0, Math.min(1, ((U.x - ox) * sx + (U.y - oy) * sy + (U.z - oz) * sz) / l2));
         cx = ox + sx * t; cy2 = oy + sy * t; cz = oz + sz * t;
-        if (Math.hypot(U.x - cx, U.y - cy2, U.z - cz) < 1.8) { ufoHit(cx, cy2, cz); fxSpawn(cx, cy2, cz, 0, 0, 0, 0.3, 0.3, 1.3, 0x7dffa0, 0.9, true); p.on = false; p.m.visible = false; continue; }
+        if (Math.hypot(U.x - cx, U.y - cy2, U.z - cz) < 1.8) { ufoHit(cx, cy2, cz); bot.hitT = clock.elapsedTime; fxSpawn(cx, cy2, cz, 0, 0, 0, 0.3, 0.3, 1.3, 0x7dffa0, 0.9, true); p.on = false; p.m.visible = false; continue; }
       }
       p.dist += BOT_LASER_V * dt;
       bp = botBld(nx, nz, -0.55);
@@ -6163,6 +6170,22 @@ window.startMap = function (RAW, AUTH) {
     if (b.boostT > 0) { b.boostT -= dt; if (b.boostT <= 0 || b.mode !== 'walk' || !b.goal) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; } }
     else if (b.boostCD > 0) b.boostCD -= dt;
 
+    /* Restos del OVNI: va a revisarlos (sobre todo si él lo derribó) y se detiene fuera del cráter */
+    var wOn = !!ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck'), wx, wz, wd, wa, wk2, wr;
+    if (!wOn) { if (b.scan) { b.scan = false; b.idle = 1; } b.wk = null; }
+    else if (ufo.state !== 'crash' && !b.wk) b.wk = { x: ufo.x, z: ufo.z };
+    if (b.wk && b.mode === 'perch') b.maxPerch = Math.min(b.maxPerch, b.perchT);
+    if (b.wk && b.mode === 'walk' && !b.scan && b.gtype !== 'wreck' && b.gtype !== 'roof' && now >= b.wkT) {
+      b.wkT = now + 1.5; wd = Math.hypot(b.wk.x - b.x, b.wk.z - b.z);
+      if (wd < 220 || now - b.hitT < 15) {
+        wa = Math.atan2(b.x - b.wk.x, b.z - b.wk.z);
+        if (wd < 9.5) { b.scan = true; b.scanT = 0; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; }
+        else for (wk2 = 0; wk2 < 12; wk2++) {
+          wr = wa + (wk2 % 2 ? 1 : -1) * Math.ceil(wk2 / 2) * 0.5; wx = b.wk.x + Math.sin(wr) * 8; wz = b.wk.z + Math.cos(wr) * 8;
+          if (botFree(wx, wz) && botSetGoal(wx, wz, 'wreck')) break;
+        }
+      }
+    }
     if (b.mode === 'walk') {
       /* Objetivo: perseguir al OVNI hasta quedar en alcance; si no hay amenaza, patrullar libremente */
       if (thr) {
@@ -6174,7 +6197,7 @@ window.startMap = function (RAW, AUTH) {
           }
         } else if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; b.path = null; }
       } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; }
-      if (!b.goal && !thr) { b.idle -= dt; if (b.idle <= 0) botPick(); }
+      if (!b.goal && !thr && !b.scan) { b.idle -= dt; if (b.idle <= 0) botPick(); }
       /* El OVNI vuela alto y está cerca: sube a una azotea para tener mejor ángulo */
       if (thr && dh <= 70 && U.y > 9 && b.gtype !== 'roof' && now >= b.roofCD) { b.roofCD = now + 25; botPickRoof(30); }
       /* Sin línea de tiro desde el suelo: sube a una azotea cercana */
@@ -6191,7 +6214,7 @@ window.startMap = function (RAW, AUTH) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
         if (gd < (b.gtype === 'roof' ? 0.55 : 1.4)) {
           if (b.gtype === 'roof') { b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
-          else { if (b.gtype === 'hunt') b.huntHold = now + 3; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
+          else { if (b.gtype === 'wreck') { b.scan = true; b.scanT = 0; } if (b.gtype === 'hunt') b.huntHold = now + 3; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
         } else {
           tw = b.goal;
           if (b.path) {
@@ -6200,7 +6223,7 @@ window.startMap = function (RAW, AUTH) {
           }
           dw = Math.hypot(tw.x - b.x, tw.z - b.z);
           want = Math.atan2(tw.x - b.x, tw.z - b.z);
-          spd = b.gtype === 'hunt' ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
+          spd = (b.gtype === 'hunt' || b.gtype === 'wreck') ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
           if (gd < 3) spd = Math.min(spd, 3.2);
           if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
@@ -6300,6 +6323,13 @@ window.startMap = function (RAW, AUTH) {
       yT = Math.atan2(pred.x - b.x, pred.z - b.z);
       pT = Math.atan2(pred.y - (b.y + 0.52), Math.hypot(pred.x - b.x, pred.z - b.z));
       pT = Math.max(-0.5, Math.min(1.1, pT));
+    } else if (b.scan && b.wk && b.mode === 'walk') {
+      wd = Math.hypot(b.wk.x - b.x, b.wk.z - b.z); wa = Math.atan2(b.wk.x - b.x, b.wk.z - b.z);
+      b.scanT += dt;
+      yT = wa + 0.4 * Math.sin(b.scanT * 1.6);
+      pT = Math.max(-0.6, Math.min(0.3, Math.atan2(terrainH(b.wk.x, b.wk.z) + 0.3 - (b.y + 0.52), wd)));
+      b.yaw += nAng(wa - b.yaw) * Math.min(1, dt * 3);
+      b.v *= Math.max(0, 1 - dt * 6);
     } else { yT = b.yaw; pT = 0.06; }
     b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 7);
     b.aimPitch += (pT - b.aimPitch) * Math.min(1, dt * 7);
@@ -6336,6 +6366,8 @@ window.startMap = function (RAW, AUTH) {
         botIK(i === 0 ? -1 : 1, hT[i][0], 0.43 + hy * cp + hz * sp, -hy * sp + hz * cp, b.arms[i].hs, b.arms[i].he);
       }
     }
+    b.scanK += (((b.scan && b.mode === 'walk') ? 1 : 0) - b.scanK) * Math.min(1, dt * 5);
+    if (b.scanK > 0.01) botIK(1, 0.3, 0.43 + 0.55 * sp, 0.55 * cp, b.scQs, b.scQe);
     /* Brazos: libres (balanceo al correr, o a los lados en vuelo) o sujetando el rifle */
     for (i = 0; i < 2; i++) {
       f = (i === 0 ? -1 : 1) * Math.sin(b.ph) * Math.min(0.85, 0.1 + b.v * 0.1) * b.gk * (1 - fK);
@@ -6344,6 +6376,7 @@ window.startMap = function (RAW, AUTH) {
       bkQ1.setFromEuler(bkE).slerp(b.arms[i].hs, b.hold);
       bkE.set(-(elf + 0.5 * Math.max(0, f)), 0, 0);
       bkQ2.setFromEuler(bkE).slerp(b.arms[i].he, b.hold);
+      if (i === 1 && b.scanK > 0.01) { bkQ1.slerp(b.scQs, b.scanK); bkQ2.slerp(b.scQe, b.scanK); }
       b.arms[i].sh.quaternion.copy(bkQ1); b.arms[i].el.quaternion.copy(bkQ2);
     }
     /* Rifle: de las manos (inclinado según el objetivo) a la espalda */
@@ -6358,6 +6391,14 @@ window.startMap = function (RAW, AUTH) {
     b.upper.rotation.x = 0;
     b.head.rotation.x = -b.aimPitch - b.lean;
     b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6);
+
+    /* Haz del escáner y chispas sobre los restos */
+    if (b.scanK > 0.3 && b.wk) {
+      wd = Math.min(14, Math.hypot(b.wk.x - b.x, b.wk.z - b.z)) / 0.33;
+      b.beam.visible = true; b.beam.scale.set(wd * 0.9, wd, wd * 0.9); b.beam.material.opacity = (0.2 + 0.1 * Math.sin(t * 28)) * b.scanK;
+      b.wkFx -= dt;
+      if (b.wkFx <= 0) { b.wkFx = 0.2; fxSpawn(b.wk.x + (Math.random() - 0.5) * 3, terrainH(b.wk.x, b.wk.z) + 0.4, b.wk.z + (Math.random() - 0.5) * 3, 0, 0.8, 0, 0.7, 0.1, 0.03, 0x7dffa0, 0.7, true); }
+    } else b.beam.visible = false;
 
     /* Llamas de la mochila y efectos */
     var fT = (b.mode === 'jetUp' || b.mode === 'jetDown') ? (b.mode === 'jetUp' && b.jph === 0 ? 1 : 0.55) : (b.boostT > 0 ? 0.85 : 0);
