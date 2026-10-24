@@ -4098,6 +4098,7 @@ window.startMap = function (RAW, AUTH) {
   /* ---------- Daño del OVNI: impactos, humo, caída y explosión ---------- */
   var UFO_HP = 15, CAR_RANGE = 60, BUL_SPEED = 110, FX_N = 500, BUL_N = 16, fxPool = [], fxI = 0, bullets = [], bulI = 0, wreck = null;
   var fxGeo = new THREE.IcosahedronGeometry(1, 1), bulGeo = new THREE.SphereGeometry(1, 8, 6);
+  function ufoOverVolc() { return !!(VOLC && ufo && Math.hypot(ufo.x - VOLC.x, ufo.z - VOLC.z) < VOLC.R); } /* sobre el volcán nadie le dispara */
   function ufoDown() { return !!ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck' || ufo.state === 'spawn'); }
   function fxInit() {
     var i, m;
@@ -4130,7 +4131,7 @@ window.startMap = function (RAW, AUTH) {
     }
   }
   function ufoHit(x, y, z) {
-    if (!ufo || ufoDown()) return;
+    if (!ufo || ufoDown() || ufoOverVolc()) return;
     ufo.hits++; ufo.shk = 0.35;
     AUD.hit(ufo.g.position);
     fxSpawn(x, y, z, 0, 0, 0, 0.25, 0.4, 1.6, 0xffb347, 0.9, true);
@@ -4904,7 +4905,7 @@ window.startMap = function (RAW, AUTH) {
     if (U) {
       if (car.fireT === undefined) car.fireT = 0;
       car.fireT -= dt;
-      if (car.fireT <= 0 && clock.elapsedTime >= (ufo.noFireUntil || 0) && Math.hypot(Math.hypot(U.x - car.x, U.z - car.z), U.y - 1.5) <= CAR_RANGE && Math.abs(nAng(Math.atan2(U.x - car.x, U.z - car.z) - car.tw)) < 0.25) carFire(U);
+      if (car.fireT <= 0 && !ufoOverVolc() && clock.elapsedTime >= (ufo.noFireUntil || 0) && Math.hypot(Math.hypot(U.x - car.x, U.z - car.z), U.y - 1.5) <= CAR_RANGE && Math.abs(nAng(Math.atan2(U.x - car.x, U.z - car.z) - car.tw)) < 0.25) carFire(U);
     }
     car.lamp.visible = Math.sin(t * 6) > 0;
     car.ring.rotation.y += dt * 1.2;
@@ -4944,7 +4945,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < presAst.length; i++) {
       w = presAst[i]; a = w.a;
       a.getWorldPosition(prP);
-      U = ufo && !ufoDown() && ufo.g.visible && clock.elapsedTime >= (ufo.noFireUntil || 0) ? ufo.g.position : null;
+      U = ufo && !ufoDown() && !ufoOverVolc() && ufo.g.visible && clock.elapsedTime >= (ufo.noFireUntil || 0) ? ufo.g.position : null;
       ok = false;
       if (U) {
         dx = U.x - prP.x; dz = U.z - prP.z; dy = U.y - (prP.y + 0.9);
