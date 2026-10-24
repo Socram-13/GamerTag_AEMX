@@ -4007,7 +4007,7 @@ window.startMap = function (RAW, AUTH) {
     } else if (m.kind === 't') {
       if (car) { deselect(); fly = null; turretCam = true; turretMode = 'car'; }
     } else if (m.kind === 's') {
-      if (bot) { deselect(); botFollow = true; botYawCam = bot.yaw; flyTo(bot.x, bot.y + 0.5, bot.z, 14, 0.95); }
+      if (bot) { deselect(); botFollow = true; botYawCam = bot.yaw; flyTo(bot.x, bot.y + 0.5, bot.z, 14, 1.2); }
     } else if (m.kind === 'g') {
       if (bot) { deselect(); fly = null; turretCam = true; turretMode = 'bot'; }
     } else if (m.kind === 'd') flyToDistrict(m.d); else select(m.p);
@@ -5615,19 +5615,20 @@ window.startMap = function (RAW, AUTH) {
 
     /* Torso */
     upper.position.set(0, 0.1, 0); body.add(upper);
-    bx(bkJoint, 0, 0.06, 0, 0.26, 0.14, 0.18, upper);
-    bx(bkBlack, 0, 0.32, 0, 0.5, 0.32, 0.3, upper);
-    bx(bkGray, 0, 0.35, 0.155, 0.4, 0.18, 0.04, upper);
-    bx(bkDark, 0, 0.22, 0.155, 0.3, 0.05, 0.03, upper);
-    bx(eyeMat, 0, 0.35, 0.18, 0.06, 0.06, 0.012, upper);
-    cy(bkJoint, 0, 0.54, 0, 0.06, 0.08, 0, 0, upper);
+    var shell = new THREE.Group(); upper.add(shell);
+    bx(bkJoint, 0, 0.06, 0, 0.26, 0.14, 0.18, shell);
+    bx(bkBlack, 0, 0.32, 0, 0.5, 0.32, 0.3, shell);
+    bx(bkGray, 0, 0.35, 0.155, 0.4, 0.18, 0.04, shell);
+    bx(bkDark, 0, 0.22, 0.155, 0.3, 0.05, 0.03, shell);
+    bx(eyeMat, 0, 0.35, 0.18, 0.06, 0.06, 0.012, shell);
+    cy(bkJoint, 0, 0.54, 0, 0.06, 0.08, 0, 0, shell);
     [-1, 1].forEach(function (sx) {
-      bx(bkGray, sx * 0.37, 0.5, 0, 0.15, 0.07, 0.26, upper).rotation.z = -sx * 0.2;
-      bx(bkBlack, sx * 0.4, 0.44, 0, 0.05, 0.1, 0.22, upper);
+      bx(bkGray, sx * 0.37, 0.5, 0, 0.15, 0.07, 0.26, shell).rotation.z = -sx * 0.2;
+      bx(bkBlack, sx * 0.4, 0.44, 0, 0.05, 0.1, 0.22, shell);
     });
 
     /* Cabeza con ojos verdes y dos antenas largas */
-    head.position.set(0, 0.66, 0); upper.add(head);
+    head.position.set(0, 0.66, 0); shell.add(head);
     bx(bkBlack, 0, 0.08, 0, 0.21, 0.18, 0.23, head);
     bx(bkDark, 0, 0.08, 0.118, 0.17, 0.09, 0.02, head);
     bx(eyeMat, -0.05, 0.09, 0.13, 0.05, 0.026, 0.012, head); bx(eyeMat, 0.05, 0.09, 0.13, 0.05, 0.026, 0.012, head);
@@ -5646,13 +5647,13 @@ window.startMap = function (RAW, AUTH) {
     ps.moveTo(-0.13, 0.54); ps.lineTo(-0.27, 0.5); ps.lineTo(-0.36, 0.3); ps.lineTo(-0.35, 0.06); ps.lineTo(-0.27, -0.04); ps.lineTo(-0.13, 0.0); ps.closePath();
     var pg = new THREE.ExtrudeGeometry(ps, { depth: 0.3, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
     pg.rotateY(-Math.PI / 2); pg.translate(0.15, 0, 0);
-    upper.add(new THREE.Mesh(pg, bkBlack));
-    bx(eyeMat, 0, 0.3, -0.368, 0.03, 0.3, 0.012, upper);
-    bx(bkGray, 0, 0.5, -0.24, 0.16, 0.03, 0.16, upper).rotation.x = -0.25;
+    shell.add(new THREE.Mesh(pg, bkBlack));
+    bx(eyeMat, 0, 0.3, -0.368, 0.03, 0.3, 0.012, shell);
+    bx(bkGray, 0, 0.5, -0.24, 0.16, 0.03, 0.16, shell).rotation.x = -0.25;
     [-1, 1].forEach(function (sx) {
-      var fn = bx(bkGray, sx * 0.2, 0.32, -0.3, 0.025, 0.3, 0.14, upper); fn.rotation.z = sx * 0.28;
+      var fn = bx(bkGray, sx * 0.2, 0.32, -0.3, 0.025, 0.3, 0.14, shell); fn.rotation.z = sx * 0.28;
       var nz = new THREE.Group(), fl;
-      nz.position.set(sx * 0.11, 0.02, -0.3); nz.rotation.x = 0.6; upper.add(nz);
+      nz.position.set(sx * 0.11, 0.02, -0.3); nz.rotation.x = 0.6; shell.add(nz);
       m = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.085, 0.2, 10), bkGray); m.position.y = -0.1; nz.add(m);
       cy(bkDark, 0, -0.2, 0, 0.07, 0.02, 0, 0, nz);
       fl = new THREE.Mesh(bkFlameGeo, new THREE.MeshBasicMaterial({ color: 0x6dffc2, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -5660,22 +5661,26 @@ window.startMap = function (RAW, AUTH) {
       flames.push(fl); nozzles.push(nz);
     });
 
-    /* Rifle de energía con la punta verde */
-    rifle.position.set(0.05, 0.25, 0); upper.add(rifle);
-    bx(bkDark, 0, 0, 0.33, 0.075, 0.1, 0.62, rifle);
-    bx(bkGray, 0, 0.07, 0.3, 0.05, 0.03, 0.46, rifle);
-    bx(bkBlack, 0, -0.01, -0.1, 0.06, 0.13, 0.25, rifle);
-    bx(bkBlack, 0, -0.11, 0.1, 0.05, 0.15, 0.06, rifle).rotation.x = 0.25;
-    bx(bkGray, 0, -0.07, 0.45, 0.05, 0.1, 0.06, rifle);
-    bx(eyeMat, 0.04, 0.01, 0.42, 0.012, 0.05, 0.28, rifle);
-    cy(bkJoint, 0, 0.12, 0.28, 0.03, 0.22, Math.PI / 2, 0, rifle);
-    cy(bkGray, 0, 0.02, 0.72, 0.04, 0.16, Math.PI / 2, 0, rifle);
-    cy(bkJoint, 0, 0.02, 0.92, 0.024, 0.5, Math.PI / 2, 0, rifle);
-    cy(eyeMat, 0, 0.02, 1.18, 0.034, 0.05, Math.PI / 2, 0, rifle);
+
+    /* Rifle de energía bullpup corto: cuerpo negro con la culata en el hombro, carcasa superior gris, guardamano grueso, freno de boca y punta verde */
+    rifle.position.set(0.12, 0.52, 0.05); upper.add(rifle);
+    bx(bkBlack, 0, -0.005, 0.08, 0.09, 0.13, 0.44, rifle);
+    bx(bkGray, 0, -0.01, -0.15, 0.1, 0.14, 0.03, rifle);
+    bx(bkGray, 0, 0.085, 0.15, 0.07, 0.05, 0.36, rifle);
+    bx(bkDark, 0, 0.075, 0.36, 0.04, 0.035, 0.1, rifle);
+    bx(bkGray, 0, -0.01, 0.46, 0.085, 0.12, 0.28, rifle);
+    for (var ri = 0; ri < 3; ri++) bx(bkDark, 0, -0.08, 0.38 + ri * 0.08, 0.05, 0.03, 0.05, rifle);
+    bx(bkBlack, 0, -0.1, 0.3, 0.05, 0.14, 0.06, rifle).rotation.x = 0.25;
+    bx(bkDark, 0, -0.1, 0.12, 0.06, 0.15, 0.08, rifle);
+    bx(eyeMat, 0.047, 0.01, 0.1, 0.012, 0.05, 0.26, rifle);
+    cy(bkDark, 0, -0.075, 0.58, 0.02, 0.08, Math.PI / 2, 0, rifle);
+    cy(bkJoint, 0, 0.01, 0.68, 0.02, 0.14, Math.PI / 2, 0, rifle);
+    cy(bkDark, 0, 0.01, 0.745, 0.032, 0.06, Math.PI / 2, 0, rifle);
+    cy(eyeMat, 0, 0.01, 0.782, 0.026, 0.016, Math.PI / 2, 0, rifle);
 
     /* Brazos con hombro, codo y mano: cada uno se resuelve para llegar a la empuñadura (derecho) y al guardamano (izquierdo) */
     function solveArm(sx, T) {
-      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.33, 0.43, 0), l1 = 0.34, l2 = 0.32;
+      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.33, 0.43, 0), l1 = 0.36, l2 = 0.34;
       var d = T.clone().sub(S), L = d.length(), dist = Math.min(L, l1 + l2 - 0.005), dir = d.clone().normalize(), A, pole, E, Tc, q1, q2, down = new THREE.Vector3(0, -1, 0);
       A = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist))));
       pole = new THREE.Vector3(sx * 0.6, -1, -0.3); pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
@@ -5683,23 +5688,23 @@ window.startMap = function (RAW, AUTH) {
       Tc = S.clone().add(dir.clone().multiplyScalar(dist));
       q1 = new THREE.Quaternion().setFromUnitVectors(down, E.clone().sub(S).normalize());
       q2 = new THREE.Quaternion().setFromUnitVectors(down, Tc.clone().sub(E).normalize());
-      sh.position.copy(S); sh.quaternion.copy(q1); upper.add(sh);
+      sh.position.copy(S); sh.quaternion.copy(q1); shell.add(sh);
       el.position.y = -l1; el.quaternion.copy(q1.clone().conjugate().multiply(q2)); sh.add(el);
       ball(bkJoint, 0, 0, 0, 0.085, sh);
-      bx(bkBlack, 0, -0.17, 0, 0.12, 0.28, 0.13, sh);
+      bx(bkBlack, 0, -0.18, 0, 0.12, 0.3, 0.13, sh);
       bx(bkGray, sx * 0.065, -0.16, 0, 0.02, 0.2, 0.1, sh);
       ball(bkJoint, 0, 0, 0, 0.07, el);
-      bx(bkBlack, 0, -0.15, 0, 0.11, 0.24, 0.12, el);
+      bx(bkBlack, 0, -0.16, 0, 0.11, 0.26, 0.12, el);
       bx(bkGray, 0, -0.12, 0.065, 0.09, 0.17, 0.03, el);
-      bx(bkDark, 0, -0.31, 0, 0.09, 0.1, 0.1, el);
+      bx(bkDark, 0, -0.33, 0, 0.09, 0.1, 0.1, el);
       arms.push({ sh: sh, el: el });
     }
-    solveArm(-1, new THREE.Vector3(0.05, 0.17, 0.42));
-    solveArm(1, new THREE.Vector3(0.05, 0.12, 0.1));
+    solveArm(-1, new THREE.Vector3(0.12, 0.45, 0.45));
+    solveArm(1, new THREE.Vector3(0.12, 0.39, 0.35));
 
     g.scale.setScalar(0.43);
     noRay(g); scene.add(g);
-    return { g: g, body: body, upper: upper, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat };
+    return { g: g, body: body, upper: upper, shell: shell, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat };
   }
 
   /* Edificios como obstáculos: rejilla de celdas con su medio ancho + margen */
@@ -6050,7 +6055,7 @@ window.startMap = function (RAW, AUTH) {
     /* Disparo: ráfagas de 3 láseres verdes si hay alcance, línea de tiro y el rifle ya apunta */
     if (b.aiming && pred && d3 <= BOT_RANGE && now >= (ufo.noFireUntil || 0)) {
       b.fireT -= dt;
-      b.rifle.localToWorld(bkMuz.set(0, 0.02, 1.2));
+      b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
       canShoot = b.los && errY < 0.07 && errP < 0.1;
       if (canShoot && b.fireT <= 0) {
@@ -6063,11 +6068,12 @@ window.startMap = function (RAW, AUTH) {
   }
   /* Cámara del robot: "scout" lo sigue desde atrás con el zoom del caminante; "shooter" mira por encima del hombro con la punta del rifle a la vista */
   function botChasePos(out) {
-    var hr = 14 * Math.sin(0.95), hy = 14 * Math.cos(0.95);
-    out.set(bot.x + Math.sin(botYawCam) * 3 - Math.sin(botYawCam) * hr, bot.y + 0.5 + hy, bot.z + Math.cos(botYawCam) * 3 - Math.cos(botYawCam) * hr);
+    var hr = 14 * Math.sin(1.2), hy = 14 * Math.cos(1.2);
+    out.set(bot.x - Math.sin(botYawCam) * hr, bot.y + 0.5 + hy, bot.z - Math.cos(botYawCam) * hr);
     return out;
   }
-  function botChaseTarget(out) { return out.set(bot.x + Math.sin(botYawCam) * 3, bot.y + 0.5, bot.z + Math.cos(botYawCam) * 3); }
+  /* Mira al horizonte, hacia donde mira el robot, para ver lo que ve y no el mapa desde arriba */
+  function botChaseTarget(out) { return out.set(bot.x + Math.sin(botYawCam) * 20, bot.y + 1.0, bot.z + Math.cos(botYawCam) * 20); }
 
   /* ---------- Caminante: túnica café, bastón largo y casco de Pac-Man; recorre los senderos entre ciudades y salta a un lado si pasa el coche ---------- */
   var wand = null, wandFollow = false, wandOff = new THREE.Vector3();
@@ -6727,8 +6733,8 @@ window.startMap = function (RAW, AUTH) {
     /* Vista desde la torreta: cámara sobre ella, mirando hacia donde apuntan los cañones */
     if (turretCam && turretMode === 'bot' && bot) {
       bot.g.updateMatrixWorld(true);
-      tcP.set(0.45, 0.95, -2.0); bot.upper.localToWorld(tcP); camera.position.copy(tcP);
-      tcT.set(0.05, 0.25, 40); bot.upper.localToWorld(tcT); camera.lookAt(tcT);
+      tcP.set(0, 0.75, 0.12); bot.upper.localToWorld(tcP); camera.position.copy(tcP);
+      tcT.set(0.1, 0.75 - 3.6, 40); bot.upper.localToWorld(tcT); camera.lookAt(tcT);
     } else if (turretCam && car) {
       car.g.updateMatrixWorld(true);
       tcP.set(0, 0.85, -0.35); car.bar.localToWorld(tcP); camera.position.copy(tcP);
@@ -6764,6 +6770,9 @@ window.startMap = function (RAW, AUTH) {
     presPin.scale.setScalar(Math.max(1, dp / 90) * 1.3 / 3);
     presPin.visible = labelsOn && dp > PIN_D;
 
+    var botFps = !!(turretCam && turretMode === 'bot' && bot), wantNear = botFps ? 0.08 : 0.5;
+    if (bot) bot.shell.visible = !botFps;
+    if (camera.near !== wantNear) { camera.near = wantNear; camera.updateProjectionMatrix(); }
     try { WX.update(dt, t); } catch (e) { WX.update = function () {}; console.warn("Clima desactivado:", e); }
     renderer.render(scene, camera);
   }
