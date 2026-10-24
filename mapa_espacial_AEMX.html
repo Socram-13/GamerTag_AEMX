@@ -1642,7 +1642,7 @@ window.startMap = function (RAW, AUTH) {
           h = l[i];
           if (hexInside(x - h.x, z - h.z, A_IN)) {
             cv = coverAt(h, x, z);
-            if (cv > 0) { lastCover = cv; return 1; }
+            if (cv > 0) { lastCover = cv; lastHexSand = h.sand; return 1; }
             st = 2;
           } else if (st === 0 && hexInside(x - h.x, z - h.z, A_BAND)) st = 2;
         }
@@ -1690,14 +1690,18 @@ window.startMap = function (RAW, AUTH) {
     }
     /* Playa: franja de arena en el suelo de los estados que dan al mar (no cuentan las fronteras con otros estados ni con EE. UU., Guatemala y Belice) */
     var SAND_W = 7;
-    function coastal(x, z, edge) {
-      var keep = lastEdge, r = edge + 1.0, k, a, px, pz, f, res = false;
-      if (edge > SAND_W) return false;
-      for (k = 0; k < 12 && !res; k++) {
-        a = k / 12 * 6.2832; px = x + Math.cos(a) * r; pz = z + Math.sin(a) * r;
-        if (onLand(px, pz, 0)) continue;
-        res = true;
-        for (f = 0; f < foreignRings.length; f++) if (ptInRing(px, pz, foreignRings[f])) { res = false; break; }
+    var coastAng = 0, sandSpots = [], lastHexSand = false;
+    function coastal(x, z, edge, lim) {
+      var keep = lastEdge, rs = [edge + 0.8, edge + 2.0], ri, k, a, px, pz, f, res = false;
+      if (edge > (lim || SAND_W)) return false;
+      for (ri = 0; ri < 2 && !res; ri++) {
+        for (k = 0; k < 20 && !res; k++) {
+          a = k / 20 * 6.2832; px = x + Math.cos(a) * rs[ri]; pz = z + Math.sin(a) * rs[ri];
+          if (onLand(px, pz, 0)) continue;
+          res = true;
+          for (f = 0; f < foreignRings.length; f++) if (ptInRing(px, pz, foreignRings[f])) { res = false; break; }
+          if (res) coastAng = a;
+        }
       }
       lastEdge = keep;
       return res;
@@ -1709,6 +1713,13 @@ window.startMap = function (RAW, AUTH) {
       return 'temp';
     }
     fillHexGrid();
+    invList.forEach(function (h) {
+      var e;
+      h.sand = false;
+      if (!onLand(h.x, h.z, 0)) return;
+      e = lastEdge;
+      h.sand = coastal(h.x, h.z, e, SAND_W + 3.7);
+    });
     var W = {
       temp: [['pine', 0.20], ['oak', 0.16], ['round', 0.11], ['birch', 0.08], ['jacaranda', 0.04], ['golden', 0.03], ['bush', 0.14], ['flower', 0.06], ['grass', 0.08], ['rock', 0.05], ['agave', 0.03], ['cactus', 0.02]],
       arid: [['cactus', 0.22], ['agave', 0.16], ['bush', 0.20], ['grass', 0.12], ['rock', 0.14], ['flower', 0.04], ['round', 0.05], ['palm', 0.05], ['pine', 0.02]],
@@ -1746,7 +1757,7 @@ window.startMap = function (RAW, AUTH) {
           if (trailNear(x, z, 1.5)) continue;
           if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R && volcBump(x, z) > 0.34 * VOLC.H) continue; /* nada en la parte alta del volcán */
           if (!onLand(x, z)) continue;
-          var sandy = coastal(x, z, lastEdge);
+          var sandy = coastal(x, z, lastEdge) || (ist === 1 && lastHexSand);
           zone = zoneOf(x, z);
           if (sandy && (zone !== 'trop' || vr() > 0.12)) continue; /* en la arena solo quedan algunas palmeras tropicales */
           k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
@@ -1813,10 +1824,11 @@ window.startMap = function (RAW, AUTH) {
         w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
         c = gc.lerp(dc, w);
         if (coastal(x, z, edge)) { /* arena de playa: más oscura y húmeda junto al agua, se funde con el pasto tierra adentro */
-          var sc = col(0.118 + 0.012 * n2, 0.5 + 0.1 * n1, 0.68 + 0.1 * n2), sm = Math.max(0, Math.min(1, (edge - 4.2) / 2.8));
+          var sc = col(0.118 + 0.012 * n2, 0.5 + 0.1 * n1, 0.68 + 0.1 * n2), sm = Math.max(0, Math.min(1, (edge - 3.2) / 3.8));
           if (edge < 1.2) sc.lerp(col(0.1, 0.4, 0.5), 0.55 * (1 - edge / 1.2));
           sm = sm * sm * (3 - 2 * sm);
           c = sc.lerp(c, sm);
+          if (edge > 1.8 && edge < 3.4) sandSpots.push({ x: x, z: z, ang: coastAng });
         }
         var cy = 0.046 + ((ix + iz) & 1) * 0.004, cr = Math.min(G * 0.9, edge + 0.12), vb, sl; /* por encima de los senderos (0.028–0.032): el sendero queda debajo de la vegetación */
         if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) { /* sobre las faldas bajas del volcán: sigue su superficie y oculta el borde de la base */
@@ -1929,6 +1941,7 @@ window.startMap = function (RAW, AUTH) {
             else { gc = col(0.28 + 0.05 * n2, 0.42, 0.19 + 0.08 * n2); dc = col(0.08 + 0.02 * n2, 0.33, 0.21); w = (n1 - 0.66) / 0.2; }
             w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
             c = gc.lerp(dc, w);
+            if (h.sand) c = col(0.118 + 0.012 * n2, 0.5 + 0.1 * n1, 0.66 + 0.1 * n2);
             items.push({ x: x, z: z, y: 0.345 + (items.length % 7) * 0.0015, r: r, c: c });
           }
         }
@@ -1948,6 +1961,56 @@ window.startMap = function (RAW, AUTH) {
       bm.frustumCulled = false;
       bm.raycast = function () {};
       scene.add(bm);
+    })();
+    /* Astronauta tomando el sol: uno por ciudad con playa, recostado sobre una toalla, con bikini rojo sobre el traje */
+    (function () {
+      var best = {}, used = {}, i, sp, d, dd, bi, bd, tries, k, ok, ll, pi2, a, aa, bb, ix, iz;
+      var bik = new THREE.MeshLambertMaterial({ color: 0xe0162b, emissive: 0x4a0409 });
+      var tw1 = new THREE.MeshLambertMaterial({ color: 0xf4f1e6 }), tw2 = new THREE.MeshLambertMaterial({ color: 0x2f9ec9 });
+      var cand = {};
+      for (i = 0; i < sandSpots.length; i++) {
+        sp = sandSpots[i]; bi = -1; bd = 1e9;
+        for (k = 0; k < districts.length; k++) {
+          d = districts[k]; if (!d.list.length) continue;
+          dd = Math.hypot(sp.x - d.cx, sp.z - d.cz);
+          if (dd < bd) { bd = dd; bi = k; }
+        }
+        if (bi < 0 || bd > districts[bi].r + RING + 12) continue;
+        if (nearestHex(sp.x, sp.z, occGrid) < HEX_R + 1.5 || trailNear(sp.x, sp.z, 2.5)) continue;
+        ix = Math.floor(sp.x / PCELL); iz = Math.floor(sp.z / PCELL); ok = true;
+        for (aa = -2; aa <= 2 && ok; aa++) for (bb = -2; bb <= 2 && ok; bb++) {
+          ll = placed[gk(ix + aa, iz + bb)];
+          if (!ll) continue;
+          for (pi2 = 0; pi2 < ll.length; pi2++) if (Math.hypot(sp.x - ll[pi2][0], sp.z - ll[pi2][1]) < 2.4) { ok = false; break; }
+        }
+        if (!ok) continue;
+        (cand[bi] || (cand[bi] = [])).push(sp);
+      }
+      Object.keys(cand).forEach(function (key) {
+        var l = cand[key], sp2 = l[Math.floor(vr() * l.length)], root = new THREE.Group(), body = new THREE.Group(), m, ast, hy;
+        root.position.set(sp2.x, 0.07, sp2.z);
+        /* El cuerpo queda paralelo a la orilla (sp2.ang apunta hacia el mar) */
+        root.rotation.y = -sp2.ang + (vr() < 0.5 ? 0 : Math.PI) + (vr() - 0.5) * 0.3;
+        m = new THREE.Mesh(uBox, tw1); m.scale.set(1.0, 0.03, 2.0); m.position.y = 0.02; m.receiveShadow = true; root.add(m);
+        [-0.6, -0.2, 0.2, 0.6].forEach(function (zz) { var st = new THREE.Mesh(uBox, tw2); st.scale.set(1.002, 0.032, 0.16); st.position.set(0, 0.022, zz); root.add(st); });
+        ast = makeAstronaut();
+        ast.g.rotation.order = 'XYZ';
+        ast.g.rotation.x = -Math.PI / 2; /* boca arriba, cabeza hacia -z */
+        ast.g.position.set(0, 0.2, 0.38);
+        ast.parts.armL.rotation.z = -0.12; ast.parts.armR.rotation.x = -3.0; ast.parts.armR.rotation.z = 0.5; /* un brazo detrás de la cabeza */
+        ast.parts.legL.rotation.z = -0.06; ast.parts.legR.rotation.z = 0.06;
+        /* Bikini rojo (coordenadas del modelo: torso de 0.5 x 0.6 x 0.32 centrado en y = 0.95) */
+        [-1, 1].forEach(function (sd) {
+          var cup = new THREE.Mesh(uSphere, bik); cup.scale.set(0.12, 0.11, 0.06); cup.position.set(sd * 0.12, 1.1, 0.17); ast.g.add(cup);
+        });
+        m = new THREE.Mesh(uBox, bik); m.scale.set(0.52, 0.04, 0.34); m.position.set(0, 1.1, 0); ast.g.add(m);   /* tira del pecho */
+        m = new THREE.Mesh(uBox, bik); m.scale.set(0.52, 0.2, 0.34); m.position.set(0, 0.72, 0); ast.g.add(m);   /* parte de abajo */
+        [-1, 1].forEach(function (sd) { var tr = new THREE.Mesh(uBox, bik); tr.scale.set(0.03, 0.16, 0.04); tr.position.set(sd * 0.12, 1.2, 0.0); ast.g.add(tr); });
+        root.add(ast.g);
+        root.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
+        scene.add(root);
+        sunbathers.push({ g: root, ast: ast, ph: vr() * 6, x: sp2.x, z: sp2.z });
+      });
     })();
     /* Geometrías compartidas: una sola InstancedMesh por geometría, con color por instancia */
     var GEO = {
@@ -3006,6 +3069,18 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Campamento en estados sin jugadores: astronauta sentado frente a una fogata y tienda de acampar ---------- */
+  var sunbathers = [];
+  function updateSunbathers(t) {
+    var i, s, near;
+    for (i = 0; i < sunbathers.length; i++) {
+      s = sunbathers[i];
+      near = Math.hypot(camera.position.x - s.x, camera.position.z - s.z) < 400;
+      if (s.g.visible !== near) s.g.visible = near;
+      if (!near) continue;
+      s.ast.g.position.y = 0.2 + 0.012 * Math.sin(t * 1.4 + s.ph); /* respira */
+      s.ast.parts.armR.rotation.z = 0.5 + 0.04 * Math.sin(t * 1.4 + s.ph);
+    }
+  }
   var camps = [];
   var cpStone = new THREE.MeshLambertMaterial({ color: 0x6b6f76 }), cpLog = new THREE.MeshLambertMaterial({ color: 0x5a3a22 });
   var cpEmber = new THREE.MeshBasicMaterial({ color: 0x3a0e04 });
@@ -5391,6 +5466,7 @@ window.startMap = function (RAW, AUTH) {
     }
     updateRuins(t);
     updateCamps(t, dt);
+    updateSunbathers(t);
     if (selected) selRing.rotation.z = t * 0.8;
 
     var labelsOn = labelsEl.style.display !== 'none';
