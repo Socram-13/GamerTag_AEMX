@@ -2094,6 +2094,10 @@ window.startMap = function (RAW, AUTH) {
       var bik = new THREE.MeshLambertMaterial({ color: 0xe0162b, emissive: 0x4a0409 });
       var tw1 = new THREE.MeshLambertMaterial({ color: 0xf4f1e6 }), tw2 = new THREE.MeshLambertMaterial({ color: 0x2f9ec9 });
       var cand = {};
+      /* Mar de verdad: la dirección hacia el agua debe seguir sin tierra más lejos (descarta huecos entre estados) */
+      function deepSea(x, z, an) { var rr = [5, 7], u; for (u = 0; u < rr.length; u++) if (onLand(x + Math.cos(an) * rr[u], z + Math.sin(an) * rr[u], 0)) return false; return true; }
+      function stateOf(nm) { var n = statePolys[nm] ? nm : (typeof CITY2STATE !== 'undefined' ? CITY2STATE[nm] : null); return n && statePolys[n] ? statePolys[n] : null; }
+      function inState(polys, x, z) { if (!polys) return true; probe(polys, x, z); return !!PR.inside; }
       for (i = 0; i < sandSpots.length; i++) {
         sp = sandSpots[i]; bi = -1; bd = 1e9;
         for (k = 0; k < districts.length; k++) {
@@ -2102,6 +2106,7 @@ window.startMap = function (RAW, AUTH) {
           if (dd < bd) { bd = dd; bi = k; }
         }
         if (bi < 0 || bd > districts[bi].r + RING + 12) continue;
+        if (!inState(stateOf(districts[bi].name), sp.x, sp.z) || !deepSea(sp.x, sp.z, sp.ang)) continue;
         if (nearestHex(sp.x, sp.z, occGrid) < HEX_R + 1.5 || trailNear(sp.x, sp.z, 2.5)) continue;
         ix = Math.floor(sp.x / PCELL); iz = Math.floor(sp.z / PCELL); ok = true;
         for (aa = -2; aa <= 2 && ok; aa++) for (bb = -2; bb <= 2 && ok; bb++) {
@@ -2125,7 +2130,7 @@ window.startMap = function (RAW, AUTH) {
             ang0 = ki / 16 * 6.2832; qx = vs[vi].x + Math.cos(ang0) * 3.4; qz = vs[vi].z + Math.sin(ang0) * 3.4;
             if (!onLand(qx, qz, 0.03)) continue;
             ee = lastEdge; if (ee < 2.8 || ee > 4.0) continue;
-            if (coastal(qx, qz, ee)) found = { x: qx, z: qz, ang: coastAng };
+            if (coastal(qx, qz, ee) && deepSea(qx, qz, coastAng)) found = { x: qx, z: qz, ang: coastAng };
           }
         }
         if (found) cand[bi0] = [found];
