@@ -4593,7 +4593,9 @@ window.startMap = function (RAW, AUTH) {
     ufo.y += (ufo.ty - ufo.y) * Math.min(1, dt * (ufo.ty > ufo.y ? 3.5 : 2));
     ufo.y = Math.max(ufo.y, ufoNear(ufo.x, ufo.z) + 4); /* nunca atraviesa el relieve */
     ufo.shk = Math.max(0, ufo.shk - dt); e = ufo.shk / 0.35;
-    ufo.g.position.set(ufo.x + Math.sin(t * 70) * 0.35 * e, ufo.y + 0.25 * Math.sin(t * 2), ufo.z + Math.cos(t * 63) * 0.35 * e);
+    /* Con la alarma (10+ impactos) cabecea: sube y baja y se ladea, más fuerte cuanto más dañado */
+    ufo.dk = (ufo.dk || 0) + ((ufo.hits >= 10 ? (ufo.hits - 9) / 5 : 0) - (ufo.dk || 0)) * Math.min(1, dt * 3);
+    ufo.g.position.set(ufo.x + Math.sin(t * 70) * 0.35 * e, ufo.y + 0.25 * Math.sin(t * 2) + ufo.dk * (1.0 + 0.8 * Math.sin(t * 2.3)) * 1.6 * Math.sin(t * 2.3 + 0.5), ufo.z + Math.cos(t * 63) * 0.35 * e);
     /* Averiado: humo (desde 5 impactos) y fuego (desde 10) */
     if (ufo.hits >= 5) {
       ufo.sm -= dt;
@@ -4608,7 +4610,7 @@ window.startMap = function (RAW, AUTH) {
       c = ufo.carry; c.g.position.set(ufo.g.position.x, ufo.g.position.y - 1.0, ufo.g.position.z);
       c.g.rotation.y += dt * 3; c.g.rotation.z = Math.sin(t * 5) * 0.25;
     }
-    ufo.g.rotation.set(ufo.rx, 0, ufo.rz);
+    ufo.g.rotation.set(ufo.rx + ufo.dk * 0.3 * Math.sin(t * 3.1), 0, ufo.rz + ufo.dk * 0.42 * Math.sin(t * 2.6 + 1));
     ufo.body.rotation.y += dt * 1.6;
     for (i = 0; i < ufo.lamps.length; i++) ufo.lamps[i].scale.setScalar(0.8 + 0.5 * Math.max(0, Math.sin(t * 6 + i * 0.8)));
     updateUfoGlitch(t, dt);
