@@ -6742,7 +6742,7 @@ window.startMap = function (RAW, AUTH) {
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
     b.g.position.set(b.x, b.y, b.z); b.g.rotation.y = b.yaw; b.g.rotation.z = (b.mode === 'lift' && b.lift && b.lift.ph === 2) ? 0.09 * Math.sin(t * 1.7) : 0;
-    if (thr && d3 <= botRng() + 5 && b.boostT <= 0 && !b.ball && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch')) {
+    if (thr && (d3 <= botRng() + 5 || (b.mode === 'walk' && b.gtype === 'hunt' && d3 < 260)) && b.boostT <= 0 && !b.ball && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch')) {
       pd = d3 / BOT_LASER_V * 0.85;
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
       b.aiming = true;
@@ -6792,11 +6792,12 @@ window.startMap = function (RAW, AUTH) {
       b.legs[i].th.rotation.z = (i === 0 ? -0.4 : 0) * hk; /* colgado: una pierna abierta al lado, la otra recta bajo el brazo en alto */
     }
     /* Puntería vertical: el cuello y los brazos suben o bajan el rifle; el torso solo gira en horizontal */
-    var pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.12, 0.45, 0.4], [0.12, 0.39, 0.35]];
+    var stA = 0.5 * b.hold, stC = Math.cos(stA), stS = Math.sin(stA), hq, pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.12, 0.45, 0.4], [0.12, 0.39, 0.35]];
     if (b.hold > 0.01) {
       for (i = 0; i < 2; i++) {
         hy = hT[i][1] - 0.43; hz = hT[i][2];
-        botIK(i === 0 ? -1 : 1, hT[i][0], 0.43 + hy * cp + hz * sp, -hy * sp + hz * cp, b.arms[i].hs, b.arms[i].he);
+        hq = -hy * sp + hz * cp; /* postura de tirador: el torso va de costado y las manos se giran al lado contrario para seguir apuntando */
+        botIK(i === 0 ? -1 : 1, hT[i][0] * stC - hq * stS, 0.43 + hy * cp + hz * sp, hT[i][0] * stS + hq * stC, b.arms[i].hs, b.arms[i].he);
       }
     }
     var liftOn = b.mode === 'lift'; /* brazo en alto: pidiendo el dron y sujetándose */
@@ -6818,16 +6819,19 @@ window.startMap = function (RAW, AUTH) {
     }
     /* Rifle: de las manos (inclinado según el objetivo) a la espalda */
     hy = 0.09; hz = 0.05;
-    b.rifle.position.set(0.14 - 0.02 * b.hold, 0.12 + (0.43 + hy * cp + hz * sp - 0.12) * b.hold, -0.4 + (-hy * sp + hz * cp + 0.4) * b.hold);
+    hq = 0.14 - 0.02 * b.hold; hz = -0.4 + (-hy * sp + hz * cp + 0.4) * b.hold;
+    b.rifle.rotation.order = 'YXZ';
+    b.rifle.position.set(hq * stC - hz * stS, 0.12 + (0.43 + hy * cp + 0.05 * sp - 0.12) * b.hold, hq * stS + hz * stC);
+    b.rifle.rotation.y = -stA;
     b.rifle.rotation.x = -1.2 * (1 - b.hold) - pit * b.hold; b.rifle.rotation.z = 0.05 * Math.sin(b.ph * 2) * (1 - b.hold);
     lean = (b.boostT > 0 ? 0.55 : Math.min(0.22, b.v * 0.03)) * b.gk + (b.air > 0.5 ? 0.08 : 0) + 0.18 * kq;
     b.lean = (b.lean || 0) + (lean - (b.lean || 0)) * Math.min(1, dt * 6);
     b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin; b.body.rotation.z = 0.18 * b.hangK; /* torso ligeramente inclinado */
     b.body.position.y = -0.38 * bk + (0.84 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.595 * kq;
-    b.upper.rotation.y = nAng(b.aimYaw - b.yaw);
+    b.upper.rotation.y = nAng(b.aimYaw - b.yaw) + stA;
     b.upper.rotation.x = 0.9 * bk;
     b.head.rotation.x = -b.aimPitch - b.lean;
-    b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6);
+    b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6) - stA;
 
     /* Haz del escáner y chispas sobre los restos */
     if (b.scanK > 0.3 && b.wk && !liftOn) {
