@@ -2105,7 +2105,7 @@ window.startMap = function (RAW, AUTH) {
           dd = Math.hypot(sp.x - d.cx, sp.z - d.cz);
           if (dd < bd) { bd = dd; bi = k; }
         }
-        if (bi < 0 || bd > districts[bi].r + RING + 12) continue;
+        if (bi < 0 || !districts[bi].list.length || bd > districts[bi].r + RING + 12) continue;
         if (!inState(stateOf(districts[bi].name), sp.x, sp.z) || !deepSea(sp.x, sp.z, sp.ang)) continue;
         if (nearestHex(sp.x, sp.z, occGrid) < HEX_R + 1.5 || trailNear(sp.x, sp.z, 2.5)) continue;
         ix = Math.floor(sp.x / PCELL); iz = Math.floor(sp.z / PCELL); ok = true;
@@ -2117,24 +2117,7 @@ window.startMap = function (RAW, AUTH) {
         if (!ok) continue;
         (cand[bi] || (cand[bi] = [])).push(sp);
       }
-      /* Respaldo: todo distrito cuyo estado tenga costa y no tenga arena candidata busca la playa más cercana a su centro */
-      districts.forEach(function (dd0, bi0) {
-        var sn, polys, vs = [], vi, ki, ang0, qx, qz, ee, found = null, dist0;
-        if (cand[bi0]) return;
-        sn = statePolys[dd0.name] ? dd0.name : (typeof CITY2STATE !== 'undefined' ? CITY2STATE[dd0.name] : null);
-        polys = sn && statePolys[sn]; if (!polys) return;
-        polys.forEach(function (r) { r.forEach(function (q) { vs.push({ x: q[0], z: q[1], d: Math.hypot(q[0] - dd0.cx, q[1] - dd0.cz) }); }); });
-        vs.sort(function (m1, m2) { return m1.d - m2.d; });
-        for (vi = 0; vi < vs.length && vi < 1500 && !found; vi++) {
-          for (ki = 0; ki < 16 && !found; ki++) {
-            ang0 = ki / 16 * 6.2832; qx = vs[vi].x + Math.cos(ang0) * 3.4; qz = vs[vi].z + Math.sin(ang0) * 3.4;
-            if (!onLand(qx, qz, 0.03)) continue;
-            ee = lastEdge; if (ee < 2.8 || ee > 4.0) continue;
-            if (coastal(qx, qz, ee) && deepSea(qx, qz, coastAng)) found = { x: qx, z: qz, ang: coastAng };
-          }
-        }
-        if (found) cand[bi0] = [found];
-      });
+      /* Sin respaldo: solo hay astronauta donde la ciudad tiene jugadores, vegetación cerca y arena de playa real */
       Object.keys(cand).forEach(function (key) {
         var l = cand[key], sp2 = l[Math.floor(vr() * l.length)], root = new THREE.Group(), body = new THREE.Group(), m, ast, hy;
         root.position.set(sp2.x, Math.max(0, terrainH(sp2.x, sp2.z)) + 0.075, sp2.z);
