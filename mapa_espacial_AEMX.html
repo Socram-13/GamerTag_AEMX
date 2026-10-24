@@ -3564,7 +3564,7 @@ window.startMap = function (RAW, AUTH) {
         us.radius = 60; us.phi = 0.95;
         ufoOff.setFromSpherical(us);
         flyTo(ufo.g.position.x, ufo.g.position.y, ufo.g.position.z, 60, 0.95);
-        ufoFollow = true;
+        ufoFollow = true; ufoPrev = null;
       }
     } else if (m.kind === 'c') {
       if (car) {
@@ -3689,6 +3689,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- OVNI que patrulla fuera de las ciudades y secuestra vacas ---------- */
+  var ufoPrev = null; /* posición anterior del OVNI para que la cámara lo siga sin retraso a toda velocidad */
   var cowSpots = [], cows = [], cowRespawn = [], ufo = null, COWS_MAX = 10, UFO_CRUISE = 12, UFO_LOW = 8, UFO_SPEED = 20, ufoFollow = false, ufoOff = new THREE.Vector3(), carFollow = false, turretCam = false, carOff = new THREE.Vector3(), tcP = new THREE.Vector3(), tcT = new THREE.Vector3();
   var cowWhite = new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }), cowBlack = new THREE.MeshLambertMaterial({ color: 0x1b1b1f });
   var cowPink = new THREE.MeshLambertMaterial({ color: 0xe9a3a8 }), cowHorn = new THREE.MeshLambertMaterial({ color: 0xe8dcb0 });
@@ -4234,6 +4235,12 @@ window.startMap = function (RAW, AUTH) {
     cr.g.attributes.position.needsUpdate = true;
     cr.g.computeVertexNormals();
     cr.mat.opacity = 1; cr.m.visible = true;
+    /* Las vacas que queden dentro del cráter se incendian */
+    var kc, cw;
+    for (kc = 0; kc < cows.length; kc++) {
+      cw = cows[kc];
+      if (cw.state === 'idle' && Math.hypot(cw.x - x, cw.z - z) <= cr.R * 1.15) { cw.state = 'burning'; cw.burn = 0; }
+    }
     /* Onda de polvo al explotar */
     var n, rv;
     for (n = 0; n < 22; n++) {
@@ -4455,6 +4462,21 @@ window.startMap = function (RAW, AUTH) {
     /* Vacas: nacen creciendo y pastan */
     for (i = 0; i < cows.length; i++) {
       c = cows[i];
+      if (c.state === 'burning') {
+        c.burn += dt;
+        u = Math.min(1, c.burn / 2.2);
+        c.g.rotation.z = Math.min(1.3, c.burn * 1.2) * 0.6; /* se tambalea y cae */
+        c.g.scale.setScalar(0.9 * (1 - 0.6 * u * u));
+        if (Math.random() < dt * 40) {
+          fxSpawn(c.x + (Math.random() - 0.5) * 0.8, 0.5 + Math.random() * 0.6, c.z + (Math.random() - 0.5) * 0.8, (Math.random() - 0.5) * 0.4, 1.2 + Math.random() * 1.2, (Math.random() - 0.5) * 0.4, 0.5 + Math.random() * 0.3, 0.45, 0.1, Math.random() < 0.5 ? 0xff7a1a : 0xffc233, 0.95, true);
+        }
+        if (Math.random() < dt * 14) fxSpawn(c.x, 0.9, c.z, (Math.random() - 0.5) * 0.4, 1.3, (Math.random() - 0.5) * 0.4, 2.2, 0.5, 1.8, 0x2a2a2a, 0.6, false);
+        if (c.burn >= 2.2) {
+          scene.remove(c.g); cows.splice(i, 1); i--;
+          cowRespawn.push(t + 10 + Math.random() * 8);
+        }
+        continue;
+      }
       if (c.state !== 'idle') continue;
       u = Math.max(0, Math.min(1, (t - c.born) / 1.0));
       c.g.scale.setScalar(0.9 * u * u * (3 - 2 * u) + 0.001);
@@ -5037,8 +5059,16 @@ window.startMap = function (RAW, AUTH) {
     }
     if (ufoFollow && ufo) {
       var upos = ufo.g.position;
-      if (fly) { fly.fb.copy(upos); fly.pb.copy(upos).add(ufoOff); }
+      if (fly) { fly.fb.copy(upos); fly.pb.copy(upos).add(ufoOff); ufoPrev = null; }
       else {
+        /* Sigue el desplazamiento del OVNI al instante (sin retraso aunque vaya muy rápido); un salto brusco (reaparición) se suaviza abajo */
+        if (!ufoPrev) ufoPrev = new THREE.Vector3(ufo.x, ufo.y, ufo.z);
+        var mvx = ufo.x - ufoPrev.x, mvy = ufo.y - ufoPrev.y, mvz = ufo.z - ufoPrev.z;
+        ufoPrev.set(ufo.x, ufo.y, ufo.z);
+        if (dt > 0 && Math.sqrt(mvx * mvx + mvy * mvy + mvz * mvz) / dt < 300) {
+          controls.target.x += mvx; controls.target.y += mvy; controls.target.z += mvz;
+          camera.position.x += mvx; camera.position.y += mvy; camera.position.z += mvz;
+        }
         var fk = Math.min(1, dt * 4), fdx = (upos.x - controls.target.x) * fk, fdy = (upos.y - controls.target.y) * fk, fdz = (upos.z - controls.target.z) * fk;
         controls.target.x += fdx; controls.target.y += fdy; controls.target.z += fdz;
         camera.position.x += fdx; camera.position.y += fdy; camera.position.z += fdz;
