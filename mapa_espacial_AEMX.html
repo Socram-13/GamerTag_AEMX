@@ -5575,7 +5575,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var vegObs = null, botVG = null, bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 90, BOT_HUNT_D = 55, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 120, BOT_BOLT_MAX = 135, BOT_BOOST_CD = 8;
+  var BOT_RANGE = 90, BOT_HUNT_D = 55, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 120, BOT_BOLT_MAX = 135, BOT_BOOST_CD = 8, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
@@ -5812,6 +5812,145 @@ window.startMap = function (RAW, AUTH) {
     ys.sort(function (a, c) { return a - c; });
     return Math.min(top, Math.max(BASE + 1, ys[0]));
   }
+  /* Navegación terrestre: rejilla gruesa de tierra transitable (sin agua ni pendientes fuertes), islas separadas y búsqueda de ruta A* */
+  var BN = null, botHN = [], botHF = [];
+  function botBuildNav() {
+    var C = 6, X0 = -1650, Z0 = -1100, NX = 567, NZ = 367, N = NX * NZ, pass = new Uint8Array(N), H = new Float32Array(N), comp = new Int32Array(N), queue = new Int32Array(N);
+    var i, j, k, x, z, id = 0, best = 0, sizes = [0], qs, qe, q, n, ci, cj, di, dj, ni, nj, m;
+    for (j = 0; j < NZ; j++) for (i = 0; i < NX; i++) {
+      k = j * NX + i; x = X0 + (i + 0.5) * C; z = Z0 + (j + 0.5) * C;
+      if (landAt(x, z) && landAt(x + 2.5, z) && landAt(x - 2.5, z) && landAt(x, z + 2.5) && landAt(x, z - 2.5)) { pass[k] = 1; H[k] = terrainH(x, z); }
+    }
+    for (k = 0; k < N; k++) {
+      if (!pass[k] || comp[k]) continue;
+      id++; qs = 0; qe = 0; queue[qe++] = k; comp[k] = id; n = 0;
+      while (qs < qe) {
+        q = queue[qs++]; n++; ci = q % NX; cj = (q / NX) | 0;
+        for (di = -1; di <= 1; di++) for (dj = -1; dj <= 1; dj++) {
+          if (!di && !dj) continue;
+          ni = ci + di; nj = cj + dj;
+          if (ni < 0 || nj < 0 || ni >= NX || nj >= NZ) continue;
+          m = nj * NX + ni;
+          if (!pass[m] || comp[m]) continue;
+          if (di && dj && !(pass[cj * NX + ni] && pass[nj * NX + ci])) continue;
+          comp[m] = id; queue[qe++] = m;
+        }
+      }
+      sizes[id] = n; if (n > sizes[best]) best = id;
+    }
+    BN = { C: C, X0: X0, Z0: Z0, NX: NX, NZ: NZ, pass: pass, H: H, comp: comp, best: best, g: new Float32Array(N), par: new Int32Array(N), stamp: new Int32Array(N), closed: new Int32Array(N), st: 0 };
+  }
+  function botCell(x, z) {
+    var i = Math.floor((x - BN.X0) / BN.C), j = Math.floor((z - BN.Z0) / BN.C);
+    if (i < 0 || j < 0 || i >= BN.NX || j >= BN.NZ) return -1;
+    return j * BN.NX + i;
+  }
+  function botNearPass(x, z) {
+    var c = botCell(x, z), ci, cj, r, a, b2, m, ni, nj;
+    if (c < 0) return -1;
+    if (BN.pass[c]) return c;
+    ci = c % BN.NX; cj = (c / BN.NX) | 0;
+    for (r = 1; r <= 3; r++) for (a = -r; a <= r; a++) for (b2 = -r; b2 <= r; b2++) {
+      if (Math.max(Math.abs(a), Math.abs(b2)) !== r) continue;
+      ni = ci + a; nj = cj + b2;
+      if (ni < 0 || nj < 0 || ni >= BN.NX || nj >= BN.NZ) continue;
+      m = nj * BN.NX + ni;
+      if (BN.pass[m]) return m;
+    }
+    return -1;
+  }
+  function botHPush(n, f) {
+    var k = botHN.length, p, tn, tf;
+    botHN.push(n); botHF.push(f);
+    while (k > 0) {
+      p = (k - 1) >> 1;
+      if (botHF[p] <= botHF[k]) break;
+      tn = botHN[p]; tf = botHF[p]; botHN[p] = botHN[k]; botHF[p] = botHF[k]; botHN[k] = tn; botHF[k] = tf; k = p;
+    }
+  }
+  function botHPop() {
+    var n = botHN[0], ln = botHN.pop(), lf = botHF.pop(), len = botHN.length, k = 0, l, r, m, tn, tf;
+    if (len) {
+      botHN[0] = ln; botHF[0] = lf;
+      for (;;) {
+        l = 2 * k + 1; r = l + 1; m = k;
+        if (l < len && botHF[l] < botHF[m]) m = l;
+        if (r < len && botHF[r] < botHF[m]) m = r;
+        if (m === k) break;
+        tn = botHN[k]; tf = botHF[k]; botHN[k] = botHN[m]; botHF[k] = botHF[m]; botHN[m] = tn; botHF[m] = tf; k = m;
+      }
+    }
+    return n;
+  }
+  function botLineOK(ax, az, bx2, bz) {
+    var L = Math.hypot(bx2 - ax, bz - az), n = Math.ceil(L / 2.5), k, c;
+    for (k = 1; k < n; k++) { c = botCell(ax + (bx2 - ax) * k / n, az + (bz - az) * k / n); if (c < 0 || !BN.pass[c]) return false; }
+    return true;
+  }
+  /* Ruta por tierra de (sx,sz) a (gx,gz): lista de puntos, o null si no hay camino (otra isla o mar de por medio) */
+  function botAStar(sx, sz, gx, gz) {
+    var nv = BN, si = botNearPass(sx, sz), gi = botNearPass(gx, gz), NX = nv.NX, st, cur, ci, cj, gci, gcj, di, dj, ni, nj, m, ng, dx, dz, n = 0, cells = [], k, pts, out, i, j;
+    if (si < 0 || gi < 0 || nv.comp[si] !== nv.comp[gi]) return null;
+    nv.st++; st = nv.st; gci = gi % NX; gcj = (gi / NX) | 0;
+    botHN.length = 0; botHF.length = 0;
+    nv.g[si] = 0; nv.stamp[si] = st; nv.par[si] = -1; botHPush(si, 0);
+    while (botHN.length && n < 150000) {
+      cur = botHPop();
+      if (nv.closed[cur] === st) continue;
+      nv.closed[cur] = st; n++;
+      if (cur === gi) break;
+      ci = cur % NX; cj = (cur / NX) | 0;
+      for (di = -1; di <= 1; di++) for (dj = -1; dj <= 1; dj++) {
+        if (!di && !dj) continue;
+        ni = ci + di; nj = cj + dj;
+        if (ni < 0 || nj < 0 || ni >= NX || nj >= nv.NZ) continue;
+        m = nj * NX + ni;
+        if (!nv.pass[m] || nv.closed[m] === st) continue;
+        if (di && dj && !(nv.pass[cj * NX + ni] && nv.pass[nj * NX + ci])) continue;
+        if (Math.abs(nv.H[m] - nv.H[cur]) > 0.9 * nv.C * (di && dj ? 1.414 : 1)) continue;
+        ng = nv.g[cur] + (di && dj ? 1.414 : 1);
+        if (nv.stamp[m] !== st || ng < nv.g[m]) {
+          nv.stamp[m] = st; nv.g[m] = ng; nv.par[m] = cur;
+          dx = Math.abs(ni - gci); dz = Math.abs(nj - gcj);
+          botHPush(m, ng + dx + dz - 0.586 * Math.min(dx, dz));
+        }
+      }
+    }
+    if (nv.closed[gi] !== st) return null;
+    for (k = gi; k !== -1; k = nv.par[k]) cells.push(k);
+    cells.reverse();
+    pts = cells.map(function (c) { return [nv.X0 + ((c % NX) + 0.5) * nv.C, nv.Z0 + (((c / NX) | 0) + 0.5) * nv.C]; });
+    pts[0] = [sx, sz]; pts[pts.length - 1] = [gx, gz];
+    /* Se quitan los puntos intermedios innecesarios mientras la línea recta siga siendo tierra */
+    out = [pts[0]]; i = 0;
+    while (i < pts.length - 1) {
+      j = pts.length - 1;
+      while (j > i + 1 && !botLineOK(pts[i][0], pts[i][1], pts[j][0], pts[j][1])) j--;
+      out.push(pts[j]); i = j;
+    }
+    return out;
+  }
+  function botSetGoal(x, z, type) {
+    var b = bot, p;
+    if (BN) { p = botAStar(b.x, b.z, x, z); if (!p) return false; b.path = p; b.pi = Math.min(1, p.length - 1); }
+    else b.path = null;
+    b.goal = { x: x, z: z }; b.gtype = type; b.stuck = 0; b.lastGD = 1e9; b.pt = 0;
+    return true;
+  }
+  /* Punto de tierra alcanzable desde donde se puede disparar al OVNI: él mismo si está sobre tierra firme conectada, o la orilla más cercana si está sobre el mar */
+  function botHuntPoint(U) {
+    var b = bot, bi, ui, comp, dx, dz, L, d, x, z;
+    if (!BN) return { x: U.x, z: U.z };
+    bi = botNearPass(b.x, b.z); if (bi < 0) return null;
+    comp = BN.comp[bi]; ui = botCell(U.x, U.z);
+    if (ui >= 0 && BN.pass[ui] && BN.comp[ui] === comp) return { x: U.x, z: U.z };
+    dx = b.x - U.x; dz = b.z - U.z; L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+    for (d = 0; d <= L && d < 700; d += 6) {
+      x = U.x + dx * d; z = U.z + dz * d; ui = botCell(x, z);
+      if (ui >= 0 && BN.pass[ui] && BN.comp[ui] === comp) return { x: x, z: z };
+    }
+    return null;
+  }
   /* Elige un edificio cercano para subir a su azotea con la mochila; el punto de despegue queda junto a la pared */
   function botPickRoof(maxD) {
     var b = bot, i, p, cand = [], dd, W, base, k, ang, cx, cz, found = false, angs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
@@ -5831,17 +5970,16 @@ window.startMap = function (RAW, AUTH) {
     if (!found) return false;
     var lx = p.x + Math.sin(ang) * 0.22 * W, lz = p.z + Math.cos(ang) * 0.22 * W;
     b.rp = { p: p, cx: cx, cz: cz, lx: lx, lz: lz, roofY: botRoofY(p, lx, lz) };
-    b.goal = { x: cx, z: cz }; b.gtype = 'roof';
-    return true;
+    return botSetGoal(cx, cz, 'roof');
   }
   function botPick() {
-    var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown() && !ufoOverVolc()) ? ufo.g.position : null, toward = !!Up && Math.random() < 0.7;
+    var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown() && !ufoOverVolc()) ? ufo.g.position : null, toward = !!Up && Math.hypot(Up.x - b.x, Up.z - b.z) < 500 && Math.random() < 0.7;
     if (Math.random() < 0.5 && botPickRoof(60)) return;
     for (i = 0; i < 30; i++) {
       a = toward ? Math.atan2(Up.z - b.z, Up.x - b.x) + (Math.random() - 0.5) * 1.2 : Math.random() * 6.2832; r = 25 + Math.random() * 70; x = b.x + Math.cos(a) * r; z = b.z + Math.sin(a) * r;
-      if (botFree(x, z)) { b.goal = { x: x, z: z }; b.gtype = 'patrol'; b.jog = Math.random() < 0.55; b.stuck = 0; b.lastGD = 1e9; return; }
+      if (botFree(x, z) && botSetGoal(x, z, 'patrol')) { b.jog = Math.random() < 0.55; return; }
     }
-    b.idle = 1;
+    b.idle = 2;
   }
   /* Distancia al borde de la ciudad (con jugadores) más cercana: el hiperimpulso no se usa dentro ni cerca de ellas */
   function botCityDist(x, z) {
@@ -5865,12 +6003,13 @@ window.startMap = function (RAW, AUTH) {
   function botInit() {
     var b = makeBot(), cand = districts.filter(function (q) { return q.list.length; }), d, i, a, r, x = 0, z = 0, ok = false;
     botInitObs();
-    for (i = 0; i < 160 && !ok; i++) {
+    if (landAt && !BN) { try { botBuildNav(); } catch (e) { console.warn('Navegación del robot desactivada', e); BN = null; } }
+    for (i = 0; i < 400 && !ok; i++) {
       d = cand[(Math.random() * cand.length) | 0] || districts[0]; a = Math.random() * 6.2832; r = d.r + 4 + Math.random() * 18;
-      x = d.cx + Math.cos(a) * r; z = d.cz + Math.sin(a) * r; ok = botFree(x, z);
+      x = d.cx + Math.cos(a) * r; z = d.cz + Math.sin(a) * r; ok = botFree(x, z) && (!BN || BN.comp[botCell(x, z)] === BN.best);
     }
     b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = Math.random() * 6.2832; b.aimYaw = b.yaw; b.aimPitch = 0.05; b.v = 0; b.vy = 0;
-    b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false; b.roofCD = 0; b.hold = 1; b.runK = 0; b.flyK = 0;
+    b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = 4; b.jog = false; b.roofCD = 0; b.hold = 0; b.runK = 0; b.flyK = 0; b.path = null; b.pi = 0; b.replanT = 0; b.huntHold = 0;
     b.stuck = 0; b.pt = 0; b.lastGD = 1e9; b.noHunt = 0; b.fireT = 0; b.burst = 0; b.los = true; b.losT = 0; b.losBlock = 0; b.fxT = 0; b.dustT = 0;
     b.up = new THREE.Vector3(); b.uv = new THREE.Vector3(); b.hasUp = false; b.rp = null; b.jph = 0; b.perchT = 0; b.maxPerch = 8; b.aiming = false;
     bot = b;
@@ -5918,7 +6057,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   function updateBot(t, dt) {
-    var b = bot, U = null, now = clock.elapsedTime, thr, dh = 0, d3 = 1e9, gd = 0, want, hd, spd, tg, i, moving, pd, am, kf, la, lean, sg, rp, k, canShoot = false, steps, nx, nz, ex, ez, tgt = bkTmpA;
+    var b = bot, U = null, now = clock.elapsedTime, thr, dh = 0, d3 = 1e9, gd = 0, want, hd, spd, tg, i, moving, pd, am, kf, la, lean, sg, rp, k, canShoot = false, steps, nx, nz, ex, ez, tgt = bkTmpA, tgt2, tw, dw;
     if (!b) {
       if (!trails.length || !roots.length || (!landAt && now < 30)) return;
       botInit(); b = bot;
@@ -5928,7 +6067,7 @@ window.startMap = function (RAW, AUTH) {
       if (b.hasUp && dt > 0) { b.uv.set((U.x - b.up.x) / dt, (U.y - b.up.y) / dt, (U.z - b.up.z) / dt); if (b.uv.length() > 60) b.uv.set(0, 0, 0); }
       b.up.copy(U); b.hasUp = true;
     } else b.hasUp = false;
-    thr = !!U && now >= b.noHunt;
+    thr = !!U && now >= b.noHunt && Math.hypot(U.x - b.x, U.z - b.z) <= BOT_CHASE_R;
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
     if (b.boostT > 0) { b.boostT -= dt; if (b.boostT <= 0 || b.mode !== 'walk' || !b.goal) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; } }
     else if (b.boostCD > 0) b.boostCD -= dt;
@@ -5936,9 +6075,14 @@ window.startMap = function (RAW, AUTH) {
     if (b.mode === 'walk') {
       /* Objetivo: perseguir al OVNI hasta quedar en alcance; si no hay amenaza, patrullar libremente */
       if (thr) {
-        if (dh > BOT_HUNT_D) { b.goal = { x: U.x, z: U.z }; b.gtype = 'hunt'; }
-        else if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; }
-      } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; }
+        if (dh > BOT_HUNT_D) {
+          if (now >= b.huntHold && b.gtype !== 'roof' && (b.gtype !== 'hunt' || now >= b.replanT)) {
+            tgt2 = botHuntPoint(U);
+            if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) b.replanT = now + 2.5;
+            else { b.noHunt = now + 6; if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; } }
+          }
+        } else if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; b.path = null; }
+      } else if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; }
       if (!b.goal && !thr) { b.idle -= dt; if (b.idle <= 0) botPick(); }
       /* El OVNI vuela alto y está cerca: sube a una azotea para tener mejor ángulo */
       if (thr && dh <= 70 && U.y > 9 && b.gtype !== 'roof' && now >= b.roofCD) { b.roofCD = now + 25; botPickRoof(30); }
@@ -5956,9 +6100,15 @@ window.startMap = function (RAW, AUTH) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
         if (gd < (b.gtype === 'roof' ? 0.55 : 1.4)) {
           if (b.gtype === 'roof') { b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
-          else { b.goal = null; b.gtype = ''; b.idle = 1 + Math.random() * 2.5; }
+          else { if (b.gtype === 'hunt') b.huntHold = now + 3; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
         } else {
-          want = Math.atan2(b.goal.x - b.x, b.goal.z - b.z);
+          tw = b.goal;
+          if (b.path) {
+            while (b.pi < b.path.length - 1 && Math.hypot(b.path[b.pi][0] - b.x, b.path[b.pi][1] - b.z) < 3.5) { b.pi++; b.lastGD = 1e9; }
+            tw = { x: b.path[b.pi][0], z: b.path[b.pi][1] };
+          }
+          dw = Math.hypot(tw.x - b.x, tw.z - b.z);
+          want = Math.atan2(tw.x - b.x, tw.z - b.z);
           spd = b.gtype === 'hunt' ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
           if (gd < 3) spd = Math.min(spd, 3.2);
           if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12) { b.boostT = 5; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
@@ -5981,8 +6131,8 @@ window.startMap = function (RAW, AUTH) {
           /* Atasco: si no se acerca en ~3.6 s, cambia de objetivo (y deja de perseguir un rato) */
           b.pt += dt;
           if (b.pt >= 1.2) {
-            b.stuck = (b.lastGD - gd < 0.5) ? b.stuck + 1 : 0; b.lastGD = gd; b.pt = 0;
-            if (b.stuck >= 3) { b.stuck = 0; if (b.gtype === 'hunt') b.noHunt = now + 4; b.goal = null; b.gtype = ''; b.boostT = 0; b.idle = 0.3; }
+            b.stuck = (b.lastGD - dw < 0.5) ? b.stuck + 1 : 0; b.lastGD = dw; b.pt = 0;
+            if (b.stuck >= 3) { b.stuck = 0; if (b.gtype === 'hunt') b.noHunt = now + 4; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 0.3; }
           }
         }
       } else {
@@ -6030,14 +6180,14 @@ window.startMap = function (RAW, AUTH) {
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
     b.g.position.set(b.x, b.y, b.z); b.g.rotation.y = b.yaw;
-    if (thr && d3 <= BOT_RANGE + 15 && b.boostT <= 0 && (b.mode === 'walk' || b.mode === 'perch')) {
+    if (thr && d3 <= BOT_RANGE + 5 && b.boostT <= 0 && (b.mode === 'walk' || b.mode === 'perch')) {
       pd = d3 / BOT_LASER_V * 0.85;
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
       b.aiming = true;
       yT = Math.atan2(pred.x - b.x, pred.z - b.z);
       pT = Math.atan2(pred.y - (b.y + 0.52), Math.hypot(pred.x - b.x, pred.z - b.z));
       pT = Math.max(-0.5, Math.min(1.1, pT));
-    } else { yT = b.yaw + (b.mode === 'walk' && b.v > 1 ? 0.35 * Math.sin(t * 0.8) : 1.3 * Math.sin(t * 0.5)); pT = 0.06; }
+    } else { yT = b.yaw + (b.mode === 'perch' ? 1.3 * Math.sin(t * 0.5) : 0); pT = 0.06; }
     b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 7);
     b.aimPitch += (pT - b.aimPitch) * Math.min(1, dt * 7);
     if (Math.abs(nAng(b.aimYaw - b.yaw)) > 2.2) b.aimYaw = b.yaw + (nAng(b.aimYaw - b.yaw) > 0 ? 2.2 : -2.2);
@@ -6047,7 +6197,7 @@ window.startMap = function (RAW, AUTH) {
     /* Pose: con el rifle en las manos (apuntando), colgado a la espalda con los brazos corriendo, o en vuelo (hiperimpulso y mochila) con piernas rectas y brazos a los lados */
     moving = b.mode === 'walk' && b.v > 0.3;
     var runSpd = b.mode === 'walk' && b.v > 3.4 && b.boostT <= 0, flying = b.boostT > 0 || b.mode === 'jetUp' || b.mode === 'jetDown', wantHold, fK, ang, f, elf;
-    wantHold = (b.mode === 'perch' || b.aiming) ? 1 : ((flying || runSpd) ? 0 : 1);
+    wantHold = b.aiming ? 1 : 0;
     b.hold += (wantHold - b.hold) * Math.min(1, dt * 5);
     b.runK += ((runSpd ? 1 : 0) - b.runK) * Math.min(1, dt * 6);
     b.flyK += ((flying ? 1 : 0) - b.flyK) * Math.min(1, dt * 8);
@@ -6072,7 +6222,7 @@ window.startMap = function (RAW, AUTH) {
     }
     /* Brazos: libres (balanceo al correr, o a los lados en vuelo) o sujetando el rifle */
     for (i = 0; i < 2; i++) {
-      f = (i === 0 ? -1 : 1) * Math.sin(b.ph) * 0.85 * b.runK * (1 - fK);
+      f = (i === 0 ? -1 : 1) * Math.sin(b.ph) * Math.min(0.85, 0.1 + b.v * 0.1) * b.gk * (1 - fK);
       elf = (0.3 + 1.1 * b.runK) * (1 - fK) + 0.12 * fK;
       bkE.set(-f + 0.1 * fK, 0, (i === 0 ? -1 : 1) * (0.03 + 0.04 * fK));
       bkQ1.setFromEuler(bkE).slerp(b.arms[i].hs, b.hold);
@@ -6091,7 +6241,7 @@ window.startMap = function (RAW, AUTH) {
     b.upper.rotation.y = nAng(b.aimYaw - b.yaw);
     b.upper.rotation.x = 0;
     b.head.rotation.x = -b.aimPitch - b.lean;
-    b.head.rotation.y = 0.12 * Math.sin(t * 0.9) * (1 - (b.aiming ? 1 : 0));
+    b.head.rotation.y = (b.v < 1 ? 0.55 : 0.15) * Math.sin(t * 0.7) * (1 - b.hold);
 
     /* Llamas de la mochila y efectos */
     var fT = (b.mode === 'jetUp' || b.mode === 'jetDown') ? (b.mode === 'jetUp' && b.jph === 0 ? 1 : 0.55) : (b.boostT > 0 ? 0.85 : 0);
