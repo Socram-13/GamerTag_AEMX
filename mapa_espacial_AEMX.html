@@ -5990,7 +5990,7 @@ window.startMap = function (RAW, AUTH) {
         q = randIn(area) || [area.fx, area.fz];
         sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ghostTex, color: 0xeaf1ff, transparent: true, opacity: 0, depthWrite: false, fog: false }));
         sp.scale.set(0.4, 0.8, 1); sp.visible = false; group.add(sp);
-        ghosts.push({ sp: sp, area: area, x: q[0], z: q[1], tx: q[0], tz: q[1], wait: rnd(0, 4), ph: rnd(0, 6.28), per: rnd(14, 30), fe: fe, state: 'on', ev: 0, respawn: 0, dead: false });
+        ghosts.push({ sp: sp, area: area, x: q[0], z: q[1], tx: q[0], tz: q[1], wait: rnd(0, 4), ph: rnd(0, 6.28), per: rnd(45, 90), fe: fe, state: 'on', ev: 0, respawn: 0, dead: false });
       }
     }
     function updateGhosts(dt, t) {
@@ -6018,7 +6018,7 @@ window.startMap = function (RAW, AUTH) {
         fade = g.fe ? Math.min(1, g.fe.age / 10, (g.fe.dur - g.fe.age) / 12) : 1;
         y = terrainH(g.x, g.z) + 0.45 + 0.08 * Math.sin(t * 0.9 + g.ph) + ev * 1.2;
         c = 0.5 + 0.5 * Math.sin(t * 6.2832 / g.per + g.ph);
-        a = Math.max(0, Math.min(1, (c - 0.3) / 0.4)); a = a * a * (3 - 2 * a) * 0.7;
+        a = 0.15 + 0.25 * (c * c * (3 - 2 * c)); /* siempre visible: de 15% a 40% */
         dd = Math.sqrt(dx * dx + dz * dz + (y - cp.y) * (y - cp.y));
         near = Math.max(0, Math.min(1, (65 - dd) / 25)) * Math.max(0, Math.min(1, (d - 1.5) / 3));
         g.sp.position.set(g.x, y, g.z);
