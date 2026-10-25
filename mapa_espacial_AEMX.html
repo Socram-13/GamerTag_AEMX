@@ -1936,7 +1936,7 @@ window.startMap = function (RAW, AUTH) {
         if (!d.list.length) return; /* distrito vacío: sin vegetación */
         d.extra.forEach(function (c) {
           var x = d.cx + c.x, z = d.cz + c.z, k = gk(Math.floor(x / CELL), Math.floor(z / CELL)), l = Math.hypot(c.x, c.z) || 1;
-          var h = { x: x, z: z, d: d, ox: c.x / l, oz: c.z / l, o: (x * 0.37 + z * 0.11) % 6.283, noVeg: d.storeHex === c };
+          var h = { x: x, z: z, d: d, ox: c.x / l, oz: c.z / l, o: (x * 0.37 + z * 0.11) % 6.283, noVeg: d.storeHex === c || !!c.special };
           (invGrid[k] || (invGrid[k] = [])).push(h);
           invList.push(h);
         });
