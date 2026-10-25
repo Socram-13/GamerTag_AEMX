@@ -6841,6 +6841,7 @@ window.startMap = function (RAW, AUTH) {
     }
     var AT = (typeof ALN !== 'undefined' && ALN) ? ALN.pick(b.x, b.z, now) : null; /* invasión alienígena: tiene prioridad sobre el OVNI */
     b.alienT = !!AT;
+    var invIn = !!(typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && statePolys[S.name] && botInRings(statePolys[S.name], b.x, b.z); })(ALN.state())); /* dentro del estado invadido: la niebla no lo limita */
     var MR = (AT && typeof ALN !== 'undefined' && ALN && ALN.rock) ? ALN.rock() : null, orbOn = !!(MR && Math.hypot(MR.x - b.x, MR.z - b.z) < 45); /* MR: meteorito (sin aliens vivos); orbOn: ya cerca, lo rodea disparando */
     U = AT || ((ufo && !ufoDown() && !ufoOverVolc() && now >= (ufo.noFireUntil || 0) && !(b.wk && (b.circ || b.scan || b.gtype === 'wreck' || b.gtype === 'wreckp'))) ? ufo.g.position : null); /* ignora al OVNI nuevo mientras revisa el cráter (hasta que desaparezca) y durante su 5 s de ventaja */
     if (U) {
@@ -6971,7 +6972,7 @@ window.startMap = function (RAW, AUTH) {
           if (gd < 3) spd = Math.min(spd, 3.2);
           if (b.wxDense && b.gtype !== 'trail') spd = Math.min(spd, BOT_WALK * 1.4); /* niebla densa: avanza apuntando, un poco más rápido que caminando */ /* con niebla hay poca visibilidad: solo camina (bajo la lluvia sí corre, pero sin hiperimpulso) */
           /* Más de 10 s en la niebla: se detiene, llama al dron y se deja llevar fuera de ella rumbo a su meta */
-          if (b.fogT > (b.gtype === 'trail' ? 40 : 20) && !b.alert && now >= (b.liftCD || 0) && b.gtype !== 'roof' && gd > 25) {
+          if (!invIn && b.fogT > (b.gtype === 'trail' ? 40 : 20) && !b.alert && now >= (b.liftCD || 0) && b.gtype !== 'roof' && gd > 25) {
             b.liftCD = now + 8;
             var fx0 = b.x, fz0 = b.z, fdx = (b.goal.x - b.x) / gd, fdz = (b.goal.z - b.z) / gd, fs, fo = -1, fxx, fzz, fok = false;
             for (fs = 6; fs <= Math.min(gd, 500); fs += 4) { fxx = fx0 + fdx * fs; fzz = fz0 + fdz * fs; if (!(WX && WX.fogAt && WX.fogAt(fxx, fzz))) { fo = fs; break; } }
@@ -6995,7 +6996,7 @@ window.startMap = function (RAW, AUTH) {
               }
             }
           }
-          if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxDense = !!(WX && WX.denseAt && (WX.denseAt(b.x, b.z) || WX.denseAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
+          if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxDense = !!(WX && WX.denseAt && (WX.denseAt(b.x, b.z) || WX.denseAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); if (invIn) { b.wxFog = b.wxDense = b.wxBad = false; } }
           if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12 && botLandAhead(b.x, b.z, want, 80)) { b.boostT = (typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && statePolys[S.name] && botInRings(statePolys[S.name], b.x, b.z); })(ALN.state())) ? 1 : 10; /* dentro del estado invadido durante la invasión, el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
