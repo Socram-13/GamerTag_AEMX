@@ -4721,6 +4721,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- OVNI que patrulla fuera de las ciudades y secuestra vacas ---------- */
   var ufoPrev = null; /* posición anterior del OVNI para que la cámara lo siga sin retraso a toda velocidad */
+  var ufoHold = 0; /* premio de la invasión: el OVNI no reaparece antes de este instante (reloj de la escena) */
   var cowSpots = [], cows = [], cowRespawn = [], ufo = null, COWS_MAX = 10, UFO_CRUISE = 12, UFO_LOW = 8, UFO_SPEED = 20, ufoFollow = false, ufoOff = new THREE.Vector3(), carFollow = false, turretCam = false, carOff = new THREE.Vector3(), tcP = new THREE.Vector3(), tcT = new THREE.Vector3();
   var cowWhite = new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }), cowBlack = new THREE.MeshLambertMaterial({ color: 0x1b1b1f });
   var cowPink = new THREE.MeshLambertMaterial({ color: 0xe9a3a8 }), cowHorn = new THREE.MeshLambertMaterial({ color: 0xe8dcb0 });
@@ -5442,6 +5443,7 @@ window.startMap = function (RAW, AUTH) {
     u.state = 'wander';
     fxSpawn(u.x, u.y, u.z, 0, 0, 0, 0.45, 1, 7, 0xe8c8ff, 0.9, true);
     AUD.chime(u.g.position);
+    if (typeof ALN !== 'undefined' && ALN && ALN.ufoAppeared) ALN.ufoAppeared(); /* con el OVNI empieza a contar la siguiente invasión */
   }
   /* Caída (giro, humo y fuego), restos en llamas verdes y reaparición */
   function ufoCrashStep(t, dt) {
@@ -5488,7 +5490,7 @@ window.startMap = function (RAW, AUTH) {
         if (r() < 0.5) fxSpawn(u.x, (u.gy || 0) + 0.6, u.z, 0, 0, 0, 0.15, 2.4 + r() * 0.4, 2.0, 0x1fff6a, 0.35, true);
       }
       var bw = bot && bot.mode === 'walk' && (bot.gtype === 'wreck' || (bot.scan && bot.scanT < 4));
-      if (u.T >= 180 && !(typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && !S.end; })(ALN.state()))) ufoRespawn(); /* descanso de 3 min; no reaparece en plena invasión */
+      if (u.T >= 180 && clock.elapsedTime >= ufoHold && !(typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && !S.end; })(ALN.state()))) ufoRespawn(); /* descanso de 3 min; no reaparece en plena invasión */
     } else {
       glitchStep(u, dt);
       if (u.T >= 5.0) ufoSpawnEnd();
@@ -8777,12 +8779,19 @@ window.startMap = function (RAW, AUTH) {
     function disposeBar(a) { if (a.bar) { grp.remove(a.bar); a.bar.material.dispose(); a.barTex.dispose(); a.bar = null; } }
     function dispose(o) { grp.remove(o.g); o.mats.forEach(function (q) { q.dispose(); }); }
     function setEm(o, hx) { o.mats.forEach(function (q) { q.emissive.setHex(hx); }); }
+    function ufoAppeared() { if (nextAt > 1e11) nextAt = clock.elapsedTime + 360; }
     function stopNow() {
       if (!inv) return;
       inv.al.forEach(function (a) { dispose(a.o); disposeBar(a); if (a.beam) { grp.remove(a.beam); a.beam.material.dispose(); } });
       if (inv.wall) { grp.remove(inv.wall); inv.wall.geometry.dispose(); inv.wall.material.dispose(); }
       metClean(inv.met);
-      invLock = null; inv = null; cur = null; nextAt = clock.elapsedTime + 360; /* descanso de 6 min entre invasiones */
+      var tn = clock.elapsedTime, rest = (inv.entered && !inv.to) ? Math.max(0, 480 - inv.tIn) : 0; /* premio: lo que sobraba de los 8 min */
+      invLock = null; inv = null; cur = null;
+      ufoHold = tn + rest;
+      if (rest > 0 && ufo && !(ufo.state === 'wreck' || ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'spawn')) { /* retira el OVNI vivo sin ruido */
+        ufo.state = 'wreck'; ufo.gone = true; ufo.T = 180; ufo.g.visible = false; if (wreck) wreck.visible = false;
+      }
+      nextAt = (ufo && (ufo.state === 'wander' || ufo.state === 'approach' || ufo.state === 'abduct' || ufo.state === 'haul' || ufo.state === 'cook' || ufo.state === 'drop' || ufo.state === 'rest') && rest <= 0) ? tn + 360 : 1e12; /* la siguiente cuenta desde que aparece el OVNI */
     }
     /* Rumbo de huida: el más cercano a "alejarse del robot" que no choca con la frontera, el agua ni los edificios */
     function flee(a, want) {
@@ -9071,7 +9080,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
 
