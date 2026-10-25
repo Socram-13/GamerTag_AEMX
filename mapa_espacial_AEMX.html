@@ -4720,7 +4720,7 @@ window.startMap = function (RAW, AUTH) {
     var RNG = {
       shot: [25, 350], hit: [30, 500], crash: [40, 900], explode: [60, 1800], moo: [20, 300],
       mfall: [80, 1500], mimp: [80, 2500], mhit: [30, 400], mburn: [25, 300], alspawn: [14, 160], alcry: [10, 140], alhit: [10, 140], aldie: [10, 140],
-      glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55], wail: [10, 75], scare: [14, 90], drone: [10, 120], beep: [10, 90]
+      glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55], wail: [10, 75], scare: [14, 90], drone: [10, 120], beep: [10, 90], step: [7, 90], servo: [5, 60], bfly: [16, 260], talk: [6, 60]
     };
     try { on = localStorage.getItem('aemx-sound') !== '0'; } catch (e) {}
     /* Calcula volumen, filtro y paneo de una fuente en pos; null si está fuera de alcance */
@@ -4983,6 +4983,12 @@ window.startMap = function (RAW, AUTH) {
         if (!b) return;
         tone('square', 1320, 1320, 0.1, 0.1, 0, b); tone('square', 1760, 1760, 0.1, 0.1, 0.16, b);
       },
+      step: function (pos, run) { var b = shotBus(pos, 'step'); if (!b) return; var k = 0.85 + Math.random() * 0.3; noise(0.07, run ? 0.07 : 0.045, 700 * k, 180, 'lowpass', 0, b); tone('sine', 95 * k, 55, 0.09, run ? 0.05 : 0.03, 0, b); tone('triangle', 1700 * k, 1100, 0.025, 0.012, 0, b); }, /* paso metálico suave */
+      servo: function (pos) { var b = shotBus(pos, 'servo'); if (!b) return; var k = 0.9 + Math.random() * 0.25; tone('sawtooth', 300 * k, 430 * k, 0.13, 0.014, 0, b); noise(0.1, 0.012, 2600, 1800, 'bandpass', 0, b); },
+      bOn: function (pos) { var b = shotBus(pos, 'bfly'); if (!b) return; noise(0.55, 0.07, 400, 3200, 'bandpass', 0, b); tone('sawtooth', 70, 190, 0.5, 0.035, 0, b); },
+      bHum: function (pos) { var b = shotBus(pos, 'bfly'); if (!b) return; tone('sawtooth', 96, 100, 0.32, 0.02, 0, b); noise(0.3, 0.02, 900, 1100, 'bandpass', 0, b); },
+      bLand: function (pos) { var b = shotBus(pos, 'bfly'); if (!b) return; noise(0.2, 0.09, 600, 120, 'lowpass', 0, b); tone('sine', 80, 40, 0.2, 0.07, 0, b); },
+      talk: function (pos) { var b = shotBus(pos, 'talk'), i, f; if (!b) return; for (i = 0; i < 4 + ((Math.random() * 3) | 0); i++) { f = 520 + Math.random() * 520; tone('square', f, f * (0.9 + Math.random() * 0.25), 0.045, 0.01, i * 0.065, b); } },
       drone: function (pos) {
         var b = shotBus(pos, 'drone');
         if (!b) return;
@@ -7406,6 +7412,17 @@ window.startMap = function (RAW, AUTH) {
 
     /* Pose: con el rifle en las manos (apuntando), colgado a la espalda con los brazos corriendo, o en vuelo (hiperimpulso y mochila) con piernas rectas y brazos a los lados */
     moving = b.mode === 'walk' && b.v > 0.3;
+    (function () { /* sonidos sutiles del robot: pasos, servos y hiperimpulso */
+      var bp = bkMuz.set(b.x, b.y + 0.6, b.z), fl = b.boostT > 0, sv;
+      if (moving && (b.bh || 0) < 0.12 && !fl && !b.ball) { b.stD = (b.stD || 0) + b.v * dt; if (b.stD > (b.v > 3.4 ? 2.4 : 1.25)) { b.stD = 0; AUD.step(bp, b.v > 3.4); } } else if (!moving) b.stD = 0;
+      sv = Math.abs(nAng(b.aimYaw - (b._sy === undefined ? b.aimYaw : b._sy))) / Math.max(dt, 0.001); b._sy = b.aimYaw;
+      if ((sv > 1.6 || (b.aiming && !b._ha) || (!b.aiming && b._ha)) && now >= (b.svT || 0) && b.mode !== 'lift') { b.svT = now + 0.28; AUD.servo(bp); }
+      b._ha = b.aiming;
+      if (fl && !b._bf) AUD.bOn(bp);
+      if (fl) { b.bhT = (b.bhT || 0) - dt; if (b.bhT <= 0) { b.bhT = 0.3; AUD.bHum(bp); } }
+      if (!fl && b._bf) AUD.bLand(bp);
+      b._bf = fl;
+    })();
     var runSpd = b.mode === 'walk' && b.v > 3.4 && b.boostT <= 0, flying = b.boostT > 0 || (b.mode === 'ride' && b.ride && b.ride.ph === 0) || (b.mode === 'lift' && b.lift && b.lift.ph === 2) || (b.bh || 0) > 0.12 || b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop', wantHold, fK, ang, f, elf;
     wantHold = b.aiming ? 1 : 0;
     b.hold += (wantHold - b.hold) * Math.min(1, dt * 5);
@@ -9006,7 +9023,7 @@ window.startMap = function (RAW, AUTH) {
             }
             if (L2 && L2.length) {
               ph2 = L2[(Math.random() * L2.length) | 0]; if (ph2 === hud._lastSay && L2.length > 1) ph2 = L2[(L2.indexOf(ph2) + 1) % L2.length];
-              hud._lastSay = ph2; hud._alt = !hud._alt; say.textContent = ph2; say.classList.add('on'); hud._sayT = nowMs + 4500; hud._sayGate = nowMs + 8000;
+              hud._lastSay = ph2; hud._alt = !hud._alt; AUD.talk(bkMuz.set(b2.x, b2.y + 1.4, b2.z)); say.textContent = ph2; say.classList.add('on'); hud._sayT = nowMs + 4500; hud._sayGate = nowMs + 8000;
             }
           })();
           if (red !== hud._dirR) { hud._dirR = red; el2.classList.toggle('red', red); }
