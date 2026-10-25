@@ -78,6 +78,10 @@
   #bTank.use .tk { box-shadow: 0 0 18px rgba(63,208,255,0.8); }
   #bTank .tick { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.28); z-index: 3; }
   #bTank .lb { font: 700 10px var(--f-body); letter-spacing: 0.16em; color: #bfeaff; writing-mode: vertical-rl; transform: rotate(180deg); text-shadow: 0 0 6px rgba(0,0,0,0.7); }
+  #bMini { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 24px; width: 168px; display: none; flex-direction: column; align-items: center; gap: 4px; }
+  #bMini.on { display: flex; }
+  #bMini canvas { width: 168px; height: 168px; border-radius: 50%; border: 2px solid rgba(255,90,90,0.75); background: rgba(10,8,16,0.55); backdrop-filter: blur(3px); box-shadow: 0 0 16px rgba(255,40,40,0.35); }
+  #bMini .ct { font: 700 12px var(--f-body); letter-spacing: 0.14em; color: #ffd0d0; text-shadow: 0 0 6px rgba(0,0,0,0.8); text-transform: uppercase; }
   .stage.ui-off #botHud { display: none !important; }
   .stage.ui-off .me, .stage.ui-off .search, .stage.ui-off #card, .stage.ui-off .tools button:not(#b-ui) { display: none !important; }
   .tools button {
@@ -141,7 +145,8 @@
   <canvas id="gl" aria-label="Mapa de México en 3D con una ciudad espacial. Arrastra para girar, pellizca o usa la rueda para acercar."></canvas>
   <div id="labels"></div>
   <div id="botHud" aria-hidden="true">
-    <div id="invAl"><span>⚠</span><span><small>ALERTA</small>INVASIÓN DE <b id="invNm"></b></span><span>⚠</span></div>
+    <div id="invAl"><span>⚠</span><span><small>ALERTA</small>INVASIÓN EN <b id="invNm"></b></span><span>⚠</span></div>
+    <div id="bMini"><canvas id="bMiniC" width="336" height="336"></canvas><span class="ct" id="bMiniT"></span></div>
     <div id="bTank"><div class="tk"><div class="fl" id="bFill"></div><i class="tick" style="bottom:25%"></i><i class="tick" style="bottom:50%"></i><i class="tick" style="bottom:75%"></i></div><span class="lb">HIPERIMPULSO</span></div>
   </div>
   <div class="hud">
@@ -8742,7 +8747,29 @@ window.startMap = function (RAW, AUTH) {
       if (on !== hud._on) { hud._on = on; hud.classList.toggle('on', on); }
       if (!on) return;
       S = (typeof ALN !== 'undefined' && ALN && ALN.state) ? ALN.state() : null; nm = S && !S.end ? S.name : '';
-      if (nm !== hud._nm) { hud._nm = nm; document.getElementById('invNm').textContent = nm; document.getElementById('invAl').classList.toggle('on', !!nm); }
+      if (nm !== hud._nm) { hud._nm = nm; document.getElementById('invNm').textContent = nm; }
+      (function () {
+        var inA = !!(nm && statePolys[nm] && botInRings(statePolys[nm], bot.x, bot.z)), al = document.getElementById('invAl'), mn = document.getElementById('bMini');
+        if (inA !== hud._ia || nm !== hud._nm2) { hud._ia = inA; hud._nm2 = nm; al.classList.toggle('on', !!nm && !inA); } /* el letrero se quita al entrar al área invadida */
+        if (!!nm !== hud._mn) { hud._mn = !!nm; mn.classList.toggle('on', !!nm); }
+        if (!nm) return;
+        var cv = document.getElementById('bMiniC'), g = cv.getContext('2d'), W = cv.width, R = W / 2, SC = R / 70, ys = botYawCam, sy = Math.sin(ys), cy = Math.cos(ys), L = ALN.list(), i, e, dx, dz, f, r, px, py, d, n = 0, rk = ALN.rock();
+        g.clearRect(0, 0, W, W); g.save(); g.beginPath(); g.arc(R, R, R - 2, 0, 6.2832); g.clip();
+        g.strokeStyle = 'rgba(255,120,120,0.28)'; g.lineWidth = 2;
+        for (i = 1; i <= 2; i++) { g.beginPath(); g.arc(R, R, R * i / 3, 0, 6.2832); g.stroke(); }
+        g.beginPath(); g.moveTo(R, 0); g.lineTo(R, W); g.moveTo(0, R); g.lineTo(W, R); g.stroke();
+        function dot(x, z, rad, col, sq) {
+          dx = x - bot.x; dz = z - bot.z; f = dx * sy + dz * cy; r = -dx * cy + dz * sy; px = R + r * SC; py = R - f * SC; d = Math.hypot(px - R, py - R);
+          if (d > R - 10) { px = R + (px - R) * (R - 10) / d; py = R + (py - R) * (R - 10) / d; rad *= 0.75; g.globalAlpha = 0.65; }
+          g.fillStyle = col; g.beginPath(); if (sq) g.rect(px - rad, py - rad, rad * 2, rad * 2); else g.arc(px, py, rad, 0, 6.2832); g.fill(); g.globalAlpha = 1;
+        }
+        for (i = 0; i < L.length; i++) { e = L[i]; if (e.s === 'live' || e.s === 'spawn') { n++; if (e.s === 'live') dot(e.x, e.z, 5, '#ff4a4a'); } }
+        if (rk) dot(rk.x, rk.z, 10, '#ff9a2a', true);
+        g.restore();
+        g.fillStyle = '#3fd0ff'; g.beginPath(); g.moveTo(R, R - 12); g.lineTo(R + 8, R + 9); g.lineTo(R, R + 4); g.lineTo(R - 8, R + 9); g.closePath(); g.fill();
+        var tt = n > 0 ? 'Aliens: ' + n : (rk ? 'Meteorito' : '');
+        if (tt !== hud._tt) { hud._tt = tt; document.getElementById('bMiniT').textContent = tt; }
+      })();
       if (bot.boostT > 0) lvl = bot.boostT / (bot.bMax || 10); else if (bot.boostCD > 0) lvl = 1 - bot.boostCD / BOT_BOOST_CD; else lvl = 1;
       lvl = Math.max(0, Math.min(1, lvl)); tk = document.getElementById('bTank');
       if (Math.abs(lvl - (hud._lv === undefined ? -1 : hud._lv)) > 0.004) { hud._lv = lvl; document.getElementById('bFill').style.height = (lvl * 100).toFixed(1) + '%'; }
