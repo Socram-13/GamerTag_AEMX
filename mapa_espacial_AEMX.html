@@ -9507,6 +9507,8 @@ window.startMap = function (RAW, AUTH) {
       dd = Math.hypot(B.x - D2.x, B.z - D2.z); D2.near = dd < 26;
       sp = 0;
       var chat = !!(B.disTalk && dd < 8); /* charla con el robot: lo mira de frente y sigue comiendo */
+      if (D2.chP && !chat) { D2.freeUntil = t + 90; D2.wait = 0; } D2.chP = chat; /* terminó la charla: durante 90 s sigue su camino aunque el robot esté cerca */
+      if (t < (D2.freeUntil || 0)) D2.near = false;
       D2.ch = (D2.ch || 0) + ((chat ? 1 : 0) - (D2.ch || 0)) * Math.min(1, dt * 4);
       if (chat) D2.yaw += nAngl(Math.atan2(B.x - D2.x, B.z - D2.z) - D2.yaw) * Math.min(1, dt * 4);
       if (D2.near) { D2.fz = Math.min(1, D2.fz + dt * 3); }
@@ -9547,7 +9549,6 @@ window.startMap = function (RAW, AUTH) {
       } else { D2.cbT = 0; D2.bPh = 0; bite = 0; }
       a0.sh.rotation.x = a0.sh.rotation.x * (1 - cp) + (-0.8 + 0.45 * bite + 0.04 * Math.sin(t * 1.9)) * cp; a0.el.rotation.x = a0.el.rotation.x * (1 - cp) + (-1.5 - 1.25 * bite) * cp; a0.sh.rotation.z = a0.sh.rotation.z * (1 - cp) + (0.12 + 0.18 * bite) * cp;
       /* al ver al robot: se congela casual, una mano al sombrero y silbando, mirando a otro lado */
-      a1.sh.rotation.x = a1.sh.rotation.x * (1 - fzp) + (-2.55) * fzp; a1.el.rotation.x = a1.el.rotation.x * (1 - fzp) + (-1.3) * fzp;
       /* charla: el otro brazo gesticula como explicando (más amplio cuando habla) */
       a1.sh.rotation.x = a1.sh.rotation.x * (1 - cp) + (-0.75 + 0.5 * Math.sin(t * 2.1) * gA) * cp; a1.el.rotation.x = a1.el.rotation.x * (1 - cp) + (-1.2 + 0.6 * Math.sin(t * 3.3 + 1) * gA) * cp; a1.sh.rotation.z = a1.sh.rotation.z * (1 - cp) + (0.25 + 0.25 * Math.sin(t * 1.7 + 0.5) * gA) * cp;
       D2.o.head.rotation.y = (D2.fz > 0.01) ? -0.7 * fzp * Math.sign(nAngl(Math.atan2(B.x - D2.x, B.z - D2.z) - D2.yaw) || 1) + 0.06 * Math.sin(t * 9) * fzp + 0.16 * Math.sin(t * 1.1) * cp : 0.3 * Math.sin(t * 0.5) * (1 - D2.gk);
