@@ -8118,7 +8118,7 @@ window.startMap = function (RAW, AUTH) {
     var H = A.holo, ev = A.ev, i, sc, hv = auHoloV1, hv2 = auHoloV2, len, k, u, rs, bh, ya;
     A.hk = (A.hk || 0) + ((A.hOn ? 1 : 0) - (A.hk || 0)) * Math.min(1, dt * 2.5);
     if (!(A.hk > 0.02 && ev)) { H.g.visible = false; H.beam.visible = false; return; }
-    sc = ev.R / 7; k = A.hk * (0.82 + 0.18 * Math.sin(t * 23) * Math.sin(t * 7.3));
+    sc = 1; k = A.hk * (0.82 + 0.18 * Math.sin(t * 23) * Math.sin(t * 7.3));
     H.g.visible = true; H.g.position.set(ev.x, botGround(ev.x, ev.z), ev.z); H.g.scale.setScalar(sc * (0.6 + 0.4 * A.hk));
     for (i = 0; i < H.list.length; i++) H.list[i].m.opacity = H.list[i].b * k;
     H.rock.visible = H.rockS.visible = H.arc.visible = ev.kind === 'met'; H.sau.visible = ev.kind !== 'met';
@@ -8134,11 +8134,10 @@ window.startMap = function (RAW, AUTH) {
   }
   function auraEvent() { /* sitio a investigar: restos del OVNI o el meteorito de la invasión */
     var u = ufo, I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
-    if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 14, left: I.left, kind: 'met', al: I.al };
-    if (u && u.state === 'wreck' && !u.gone && wreck && wreck.visible) { /* mientras exista su cráter */
-      var ci, cr, cl = 0; for (ci = 0; ci < craters.length; ci++) { cr = craters[ci]; if (cr.on && Math.hypot(cr.x - u.x, cr.z - u.z) < 8) cl = Math.max(cl, CRATER_LIFE - cr.age); }
-      if (cl > 0) return { key: 'w' + Math.round(u.x) + ',' + Math.round(u.z), x: u.x, z: u.z, R: 7, left: cl, kind: 'wreck', al: [] };
-    }
+    if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 6.5, left: I.left, kind: 'met', al: I.al };
+    var ci, cr, best = null, bl = 0; /* OVNI caído: el evento dura lo que dure su cráter, aunque los restos ya hayan desaparecido */
+    for (ci = 0; ci < craters.length; ci++) { cr = craters[ci]; if (cr.on && CRATER_LIFE - cr.age > bl) { bl = CRATER_LIFE - cr.age; best = cr; } }
+    if (best) return { key: 'w' + Math.round(best.x) + ',' + Math.round(best.z), x: best.x, z: best.z, R: 5.3, left: bl, kind: 'wreck', al: [] };
     return null;
   }
   function auraCityNear(x, z) { var i, d, b = null, bd = 1e9, q; for (i = 0; i < districts.length; i++) { d = districts[i]; if (!d.list.length) continue; q = Math.hypot(x - d.cx, z - d.cz); if (q < bd) { bd = q; b = d; } } return b; }
@@ -8214,25 +8213,17 @@ window.startMap = function (RAW, AUTH) {
     } else {
       /* a pie fuera de los senderos: ir, investigar o volver */
       e = auraEvent(); I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
-      var act = A.mode === 'go' || A.mode === 'inspect' || A.mode === 'safe', an = 1e9, ax = 0, az = 0;
-      if (act && (!e || !A.ev || e.key !== A.ev.key || e.left < 8)) { auraBack(A); }
-      else if (act) {
-        if (I) for (i = 0; i < I.al.length; i++) { dd = Math.hypot(I.al[i][0] - A.x, I.al[i][1] - A.z); if (dd < an) { an = dd; ax = I.al[i][0]; az = I.al[i][1]; } }
-        if (A.mode !== 'safe' && an < 25) A.mode = 'safe';
-        else if (A.mode === 'safe') {
-          if (an > 34) { if (!auraStart(A, A.ev)) A.mode = 'inspect'; } /* despejado: vuelve al sitio */
-          else if (an > 0.01) { A.yaw += nAng(Math.atan2(A.x - ax, A.z - az) - A.yaw) * Math.min(1, dt * 5); nx = A.x + Math.sin(A.yaw) * 2.1 * dt; nz = A.z + Math.cos(A.yaw) * 2.1 * dt; if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; } moving = true; }
-        }
-      }
+      var act = A.mode === 'go' || A.mode === 'inspect'; /* no huye de los aliens: sigue investigando */
+      if (act && (!e || !A.ev || e.key !== A.ev.key || e.left < 8)) auraBack(A);
       sp = A.mode === 'go' ? 1.0 : 1.1;
       if (A.mode === 'go' || A.mode === 'back' || A.mode === 'join') {
-        if (A.wp && A.pi < A.wp.length) {
-          tx = A.wp[A.pi][0] - A.x; tz = A.wp[A.pi][1] - A.z; dd = Math.hypot(tx, tz);
-          if (dd < 0.7) A.pi++;
-          else { A.yaw += nAng(Math.atan2(tx, tz) - A.yaw) * Math.min(1, dt * 5); A.x += Math.sin(A.yaw) * sp * dt; A.z += Math.cos(A.yaw) * sp * dt; moving = true; }
-        } else if (A.mode === 'go') { A.mode = 'inspect'; A.cyc = 0; A.f1 = A.f2 = A.h1 = 0; A.vt = 0; A.oR = A.ev.R; A.odir = Math.random() < 0.5 ? 1 : -1; }
-        else if (A.mode === 'join') auraFinishJoin(A);
-        else { c = A.bc; auraResume(A, c); }
+        var wr = A.wp ? auraWalk(A, dt, sp) : null;
+        if (wr === true) moving = true;
+        else if (wr === null) {
+          if (A.mode === 'go') { A.mode = 'inspect'; A.cyc = 0; A.f1 = A.f2 = A.h1 = 0; A.vt = 0; A.oR = A.ev.R; A.odir = Math.random() < 0.5 ? 1 : -1; }
+          else if (A.mode === 'join') auraFinishJoin(A);
+          else { c = A.bc; auraResume(A, c); }
+        }
       }
       if (A.mode === 'inspect') {
         A.cyc += dt;
@@ -8304,6 +8295,27 @@ window.startMap = function (RAW, AUTH) {
     A.tab.visible = A.sk > 0.04; A.tab.scale.setScalar(Math.max(0.001, A.sk)); A.tabScr.material.color.setHex(A.flash > 0 ? 0xffffff : 0x2a8cff);
     A.g.rotation.y = A.yaw; A.g.position.set(A.x, A.y + hopY + (A.mode === 'trail' ? Math.abs(Math.sin(A.ph)) * 0.0 : 0), A.z); A.g.scale.setScalar(0.37 * Math.max(0.001, A.k));
     auraHoloStep(A, t, dt);
+  }
+  function auraWalk(A, dt, sp) { /* sigue la ruta como el robot: puntos aceptados a 1.5, mira un punto adelante, rodea obstáculos y detecta atoros. Devuelve true (caminó), false (gira o está bloqueada) o null (llegó) */
+    var wp = A.wp, tx, tz, dd, want, k, ang, nx, nz, moved = false, offs = [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8], g, q;
+    while (A.pi < wp.length && Math.hypot(wp[A.pi][0] - A.x, wp[A.pi][1] - A.z) < 1.5) A.pi++;
+    if (A.pi >= wp.length) { A.stT = 0; return null; }
+    tx = wp[A.pi][0] - A.x; tz = wp[A.pi][1] - A.z; dd = Math.hypot(tx, tz);
+    if (dd < 3 && A.pi + 1 < wp.length) { tx = tx * 0.5 + (wp[A.pi + 1][0] - A.x) * 0.5; tz = tz * 0.5 + (wp[A.pi + 1][1] - A.z) * 0.5; } /* toma las esquinas sin dar vueltas */
+    want = Math.atan2(tx, tz); A.yaw += nAng(want - A.yaw) * Math.min(1, dt * 8);
+    if (Math.abs(nAng(want - A.yaw)) < 1.2) {
+      for (k = 0; k < offs.length; k++) { ang = A.yaw + offs[k]; nx = A.x + Math.sin(ang) * sp * dt; nz = A.z + Math.cos(ang) * sp * dt; if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; moved = true; if (k > 0) A.yaw += nAng(ang - A.yaw) * 0.25; break; } }
+    }
+    A.stT = (A.stT || 0) + dt;
+    if (A.stT >= 1.5) {
+      if (Math.hypot(A.x - (A.stx || 0), A.z - (A.stz || 0)) < 0.25) {
+        A.stN = (A.stN || 0) + 1; g = wp[wp.length - 1];
+        if (A.stN >= 3) { q = auraFreeNear(wp[Math.min(A.pi, wp.length - 1)][0], wp[Math.min(A.pi, wp.length - 1)][1]); if (q) { fxSpawn(A.x, A.y + 0.6, A.z, 0, 0, 0, 0.45, 1, 5, 0xe8c8ff, 0.9, true); A.x = q[0]; A.z = q[1]; } A.stN = 0; }
+        else auraGoPath(A, g[0], g[1]); /* recalcula la ruta desde donde está */
+      } else A.stN = 0;
+      A.stx = A.x; A.stz = A.z; A.stT = 0;
+    }
+    return moved;
   }
   function auraStart(A, e) { /* ruta a pie hasta un punto a distancia R del sitio, del lado por el que llega */
     var ang0 = Math.atan2(A.x - e.x, A.z - e.z), j, ang, gx, gz, off = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2, 3.1];
