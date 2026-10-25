@@ -3603,7 +3603,7 @@ window.startMap = function (RAW, AUTH) {
   var W_BLOCK = 1.0, W_MEET = 1.25, PUNCH_DUR = 0.22;
 
   /* Efectos reutilizables: corazón (saludo) y hongo (pelea) */
-  var fxPool = [];
+  var heartFxPool = [];
   (function () {
     if (REDUCED) return;
     var hs = new THREE.Shape();
@@ -3622,7 +3622,7 @@ window.startMap = function (RAW, AUTH) {
     for (q = 0; q < 16; q++) {
       hm = mat(0xff4d8d, THREE.DoubleSide);
       g = new THREE.Group(); g.add(new THREE.Mesh(gHeart, hm)); g.visible = false; scene.add(g);
-      fxPool.push({ kind: 'heart', g: g, mats: [hm], act: false, t: 0, life: 1.6 });
+      heartFxPool.push({ kind: 'heart', g: g, mats: [hm], act: false, t: 0, life: 1.6 });
     }
     for (q = 0; q < 16; q++) {
       stM = mat(0x8f7e6e); cpM = mat(0xff8a2a); flM = mat(0xfff0b0);
@@ -3630,14 +3630,14 @@ window.startMap = function (RAW, AUTH) {
       ring = new THREE.Mesh(gRing, cpM); flash = new THREE.Mesh(gFlash, flM);
       g = new THREE.Group(); g.add(stem); g.add(cap); g.add(ring); g.add(flash);
       g.visible = false; scene.add(g);
-      fxPool.push({ kind: 'mush', g: g, stem: stem, cap: cap, ring: ring, flash: flash, mats: [stM, cpM, flM], act: false, t: 0, life: 2.2 });
+      heartFxPool.push({ kind: 'mush', g: g, stem: stem, cap: cap, ring: ring, flash: flash, mats: [stM, cpM, flM], act: false, t: 0, life: 2.2 });
     }
   })();
 
   function spawnFx(kind, x, z) {
     var i, e;
-    for (i = 0; i < fxPool.length; i++) {
-      e = fxPool[i];
+    for (i = 0; i < heartFxPool.length; i++) {
+      e = heartFxPool[i];
       if (e.kind === kind && !e.act) {
         e.act = true; e.t = 0; e.g.visible = true;
         e.g.position.set(x, kind === 'heart' ? 2.0 : 0.14, z);
@@ -3646,10 +3646,10 @@ window.startMap = function (RAW, AUTH) {
     }
   }
 
-  function updateFx(dt) {
+  function updateHeartFx(dt) {
     var i, e, u, h, cr, op, hp;
-    for (i = 0; i < fxPool.length; i++) {
-      e = fxPool[i];
+    for (i = 0; i < heartFxPool.length; i++) {
+      e = heartFxPool[i];
       if (!e.act) continue;
       e.t += dt; u = e.t / e.life;
       if (u >= 1) { e.act = false; e.g.visible = false; continue; }
@@ -3921,7 +3921,7 @@ window.startMap = function (RAW, AUTH) {
         clanBubble.position.set(clanOrange.g.position.x, 2.25, clanOrange.g.position.z);
       }
     }
-    updateFx(dt);
+    updateHeartFx(dt);
   }
 
   /* Marcadores que crecen con la distancia para verse desde todo el país */
