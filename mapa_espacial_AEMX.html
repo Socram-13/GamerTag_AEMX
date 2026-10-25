@@ -7700,7 +7700,7 @@ window.startMap = function (RAW, AUTH) {
   /* ---------- Invasión alienígena: grises sin armas dentro de un estado cercado por un holograma rojo; el robot los caza ---------- */
   var ALN = (function () {
     var grp = new THREE.Group(); scene.add(grp);
-    var SC = 0.62, SKIN0 = 0x1c1b14;
+    var SC = 0.9, SKIN0 = 0x1c1b14;
     function rnd(a, b) { return a + Math.random() * (b - a); }
     function inPoly(rings, x, z) {
       var ins = false, r, m, a, b;
@@ -7847,12 +7847,21 @@ window.startMap = function (RAW, AUTH) {
     }
     /* Rumbo de huida: el más cercano a "alejarse del robot" que no choca con la frontera, el agua ni los edificios */
     function flee(a, want) {
-      var offs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2, 3.14], i, h, o;
+      var offs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2, 3.14, 0.25, -0.25, 0.75, -0.75, 1.25, -1.25, 1.85, -1.85, 2.7, -2.7], i, h, o, k, vx = Math.sin(want), vz = Math.cos(want), an, px = 0, pz = 0, ex, ez;
+      /* la frontera los empuja hacia adentro: no se arrinconan contra ella */
+      for (k = 0; k < 8; k++) { an = k * 0.7854; ex = Math.sin(an); ez = Math.cos(an); if (!inPoly(inv.rings, a.x + ex * 4.5, a.z + ez * 4.5) || !inPoly(inv.rings, a.x + ex * 2.2, a.z + ez * 2.2)) { px -= ex; pz -= ez; } }
+      if (px || pz) { vx += px * 1.1; vz += pz * 1.1; want = Math.atan2(vx, vz); }
       for (i = 0; i < offs.length; i++) {
         o = offs[i] * a.side; h = want + o;
         if (free(a, a.x + Math.sin(h) * 3.2, a.z + Math.cos(h) * 3.2) && free(a, a.x + Math.sin(h) * 1.6, a.z + Math.cos(h) * 1.6)) { if (i && Math.abs(offs[i]) < 1.6) a.side = o < 0 ? -1 : 1; return h; }
       }
       return null;
+    }
+    /* Si se atora (sigue huyendo pero no avanza), salta a un punto libre cercano dentro del estado */
+    function unstick(a) {
+      var k, an, rr, x, z;
+      for (k = 0; k < 30; k++) { an = rnd(0, 6.2832); rr = rnd(4, 10); x = a.x + Math.sin(an) * rr; z = a.z + Math.cos(an) * rr; if (okSpawn(x, z)) { a.x = x; a.z = z; a.hd = null; a.pickT = 0; return true; } }
+      return false;
     }
     function nAngl(d) { while (d > Math.PI) d -= 6.2832; while (d < -Math.PI) d += 6.2832; return d; }
     function step(a, dt, t) {
@@ -7885,6 +7894,8 @@ window.startMap = function (RAW, AUTH) {
         if (Math.hypot(a.tx - a.x, a.tz - a.z) < 0.8) { a.wait = rnd(1, 3.5); an2(a); }
         else { sp = 1.3; a.yaw += nAngl(Math.atan2(a.tx - a.x, a.tz - a.z) - a.yaw) * Math.min(1, dt * 4); }
       }
+      a.mvT = (a.mvT || 0) + dt;
+      if (a.mvT >= 0.8) { if (a.alert > 0 && !(a.react > 0) && Math.hypot(a.x - (a.mx || 0), a.z - (a.mz || 0)) < 0.8) unstick(a); a.mvT = 0; a.mx = a.x; a.mz = a.z; }
       if (sp > 0) {
         nx = a.x + Math.sin(a.yaw) * sp * dt; nz = a.z + Math.cos(a.yaw) * sp * dt;
         if (free(a, nx, nz)) { a.x = nx; a.z = nz; } else { sp = 0; if (!(a.alert > 0)) { a.wait = 0.8; a.tx = a.x; a.tz = a.z; } }
@@ -7938,7 +7949,7 @@ window.startMap = function (RAW, AUTH) {
         if (!cur || cur.s !== 'live' || bd < cd * 0.7) cur = best;
       }
       if (!cur || cur.s !== 'live') return null;
-      return tpos.set(cur.x, cur.y + 0.4, cur.z);
+      return tpos.set(cur.x, cur.y + 0.58, cur.z);
     }
     /* Impacto de un láser del robot (segmento ox→nx): 2 disparos derriban a un alien */
     function bolt(ox, oy, oz, nx, ny, nz) {
@@ -7946,11 +7957,11 @@ window.startMap = function (RAW, AUTH) {
       if (!inv) return false;
       for (i = 0; i < inv.al.length; i++) {
         a = inv.al[i]; if (a.s !== 'live') continue;
-        t = Math.max(0, Math.min(1, ((a.x - ox) * sx + (a.y + 0.4 - oy) * sy + (a.z - oz) * sz) / l2));
+        t = Math.max(0, Math.min(1, ((a.x - ox) * sx + (a.y + 0.58 - oy) * sy + (a.z - oz) * sz) / l2));
         cx = ox + sx * t; cy = oy + sy * t; cz = oz + sz * t;
-        if (Math.hypot(a.x - cx, a.y + 0.4 - cy, a.z - cz) < 1.0) {
+        if (Math.hypot(a.x - cx, a.y + 0.58 - cy, a.z - cz) < 1.0) {
           a.hp--; a.flash = 0.3; fxSpawn(cx, cy, cz, 0, 0, 0, 0.3, 0.3, 1.1, 0x7dffa0, 0.9, true);
-          if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.4 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
+          if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.58 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
           return true;
         }
       }
