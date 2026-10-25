@@ -1305,6 +1305,27 @@ window.startMap = function (RAW, AUTH) {
     }
   }
 
+  /* Kit futurista de los edificios (niveles 1 al 4): aristas de neón, franjas por piso, podio con luz y piezas de cada nivel; todo en una sola malla por edificio */
+  var futMat = new THREE.MeshBasicMaterial({ vertexColors: true }), futQ = new THREE.Quaternion(), futV = new THREE.Vector3(), futU = new THREE.Vector3(0, 1, 0), futE = new THREE.Euler();
+  function futStrip(items, c, a, b, th) {
+    futV.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]); var len = futV.length(); futQ.setFromUnitVectors(futU, futV.normalize()); futE.setFromQuaternion(futQ);
+    items.push(aB(c, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, th, len, th, [futE.x, futE.y, futE.z]));
+  }
+  function futKit(g, t, r, W, off) {
+    var items = [], tp = [0, 0.1, 0.15, 0.3, 0.25][t], H = r.top, c1 = off ? 0x39425a : [0, 0x00f0ff, 0x19d3ff, 0xff2bd6, 0xc084fc][t], c2 = off ? 0x39425a : (t === 3 ? 0x00f0ff : 0xff2bd6), hl = off ? 0x2a3040 : 0x1b2644, hf = off ? 0x2a3040 : 0x2a3a66;
+    var sx, sz, k, y, w, f, hw = W / 2 + 0.03, pw = W * 0.6;
+    for (sx = -1; sx <= 1; sx += 2) for (sz = -1; sz <= 1; sz += 2) futStrip(items, c1, [sx * hw, 0.2, sz * hw], [sx * (r.w / 2 + 0.03), H, sz * (r.w / 2 + 0.03)], 0.07);
+    [0.28, 0.55, 0.8].forEach(function (fr) { y = H * fr; w = W * (1 - tp * fr) + 0.06; items.push(aB(c2, 0, y, w / 2, w, 0.05, 0.05), aB(c2, 0, y, -w / 2, w, 0.05, 0.05), aB(c2, w / 2, y, 0, 0.05, 0.05, w), aB(c2, -w / 2, y, 0, 0.05, 0.05, w)); });
+    items.push(aB(hl, 0, 0.09, 0, W * 1.18, 0.18, W * 1.18), aB(c1, 0, 0.2, pw, W * 1.2, 0.04, 0.05), aB(c1, 0, 0.2, -pw, W * 1.2, 0.04, 0.05), aB(c1, pw, 0.2, 0, 0.05, 0.04, W * 1.2), aB(c1, -pw, 0.2, 0, 0.05, 0.04, W * 1.2));
+    if (t === 1) for (sx = -1; sx <= 1; sx += 2) { f = 0.62; items.push(aB(hf, sx * (W * (1 - tp * f) / 2 + 0.12), H * f, 0, 0.09, H * 0.5, W * 0.45, [0, 0, -sx * 0.2]), aB(c2, sx * (W * (1 - tp * 0.87) / 2 + 0.2), H * 0.87, 0, 0.11, 0.05, W * 0.47, [0, 0, -sx * 0.2])); }
+    if (t === 3) items.push(aB(c1, 0, H + 1.4, r.w * 0.42, 0.07, 2.8, 0.07), aB(c2, 0, H + 2.85, r.w * 0.42, 0.18, 0.18, 0.18));
+    g.add(new THREE.Mesh(astMerge(items), futMat));
+    if (off) return;
+    if (t === 2) { var sl = new THREE.Mesh(uCyl, cyBeamCyan); sl.scale.set(0.8, 1.7, 0.8); sl.position.y = r.top + 0.65; g.add(sl); }
+    if (t === 3) cyRing(g, cyNeon.cyan, r.top - 0.35, r.w * 0.55);
+    if (t === 4) { cyBeam(g, cyBeamCyan, 0.9, 16, r.top + 2.4); cyRing(g, cyNeon.cyan, r.top + 2.3, 0.7); }
+  }
+
   function buildBuilding(p) {
     var g = new THREE.Group();
     var t = p.banned ? 6 : tierOf(p.total);
@@ -1486,6 +1507,7 @@ window.startMap = function (RAW, AUTH) {
       if (p.isPres) addPresident(bk, 0, yb + 0.1, zb - 0.9, p.total % 5);
       topY = spireBase + 4.4;
     }
+    if (t >= 1 && t <= 4) futKit(g, t, r, W, off);
     p.topY = topY;
     g.userData.p = p;
     return g;
