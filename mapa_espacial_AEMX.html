@@ -5074,6 +5074,7 @@ window.startMap = function (RAW, AUTH) {
         tone('sawtooth', 880, 300, 0.7, 0.22, 0, b); tone('square', 932, 310, 0.7, 0.12, 0, b); tone('sawtooth', 622, 210, 0.9, 0.16, 0.02, b);
         noise(0.7, 0.45, 7000, 500, 'bandpass', 0, b); noise(0.3, 0.25, 9000, 3000, 'highpass', 0, b);
       },
+      shutter: function (pos) { var b = shotBus(pos, 'beep'); if (!b) return; noise(0.03, 0.06, 3200, 1400, 'bandpass', 0, b); tone('square', 1900, 1300, 0.03, 0.035, 0, b); noise(0.04, 0.05, 2200, 800, 'bandpass', 0.07, b); },
       beep: function (pos) {
         var b = shotBus(pos, 'beep');
         if (!b) return;
@@ -8017,12 +8018,12 @@ window.startMap = function (RAW, AUTH) {
       bx(auBlack, sx * 0.06, 0.52, 0.05, 0.05, 0.02, 0.05, shell);
       bx(auRed, sx * 0.045, 0.49, 0.105, 0.008, 0.07, 0.008, shell).rotation.z = sx * 0.55; /* líneas rojas del cuello */
     });
-    cy(auDark, 0.036, 0.545, 0, 0.036, 0.1, 0, 0, shell);
+    cy(auDark, 0, 0.545, 0.012, 0.043, 0.11, 0, 0, shell); /* cuello centrado bajo la barbilla */
     m = cy(auBlack, 0, 0.5, 0.098, 0.04, 0.016, Math.PI / 2, 0, shell); /* disco hexagonal */
     var hx = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.02, 6), auBlack); hx.rotation.x = Math.PI / 2; hx.position.set(0, 0.5, 0.098); shell.add(hx); shell.remove(m);
     bx(auGray, 0, 0.5, 0.108, 0.04, 0.026, 0.005, shell);
     /* Cabeza: rostro detallado (cráneo liso con textura de alta resolución) */
-    head.position.set(0, 0.665, 0); head.scale.setScalar(1.12); shell.add(head);
+    head.position.set(0, 0.612, 0); head.scale.setScalar(1.12); shell.add(head);
     ball(auSkin, 0, 0.065, 0, 1, head).scale.set(0.087, 0.12, 0.094); /* cráneo y mandíbula (una sola pieza para que el rostro quede liso) */
     ball(auSkin, 0, 0.038, 0.095, 1, head).scale.set(0.0085, 0.013, 0.01); /* punta de la nariz */
     var fg = new THREE.SphereGeometry(1, 40, 30, Math.PI / 2 - 0.78, 1.56, 0.28 * Math.PI, 0.54 * Math.PI), fm = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ map: auraFaceTex(), transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, depthWrite: false }));
@@ -8067,14 +8068,25 @@ window.startMap = function (RAW, AUTH) {
       bx(auBlack, 0, -0.315, 0.006, 0.07, 0.085, 0.06, el);
       arms.push({ sh: sh, el: el });
     });
+    /* Tablet: marco oscuro, pantalla azul con barras y lente por detrás; se muestra solo al tomar fotos */
+    var tab = new THREE.Group(), scr;
+    tab.position.set(0, 0.56, 0.34); tab.rotation.set(-0.15, Math.PI, 0); tab.visible = false; shell.add(tab);
+    bx(auBlack, 0, 0, 0, 0.22, 0.15, 0.014, tab);
+    scr = bx(new THREE.MeshBasicMaterial({ color: 0x2a8cff }), 0, 0, 0.009, 0.195, 0.125, 0.004, tab);
+    bx(new THREE.MeshBasicMaterial({ color: 0xbfe2ff }), -0.04, 0.03, 0.012, 0.09, 0.012, 0.002, tab); bx(new THREE.MeshBasicMaterial({ color: 0x7fc0ff }), -0.02, 0.0, 0.012, 0.13, 0.01, 0.002, tab);
+    bx(auRed, 0.09, -0.065, 0.012, 0.012, 0.012, 0.002, tab);
+    cy(auDark, 0, 0.05, -0.012, 0.022, 0.012, Math.PI / 2, 0, tab);
     g.scale.setScalar(0.37);
     noRay(g); g.visible = false; scene.add(g);
-    return { g: g, body: body, upper: upper, shell: shell, head: head, legs: legs, arms: arms, locks: locks };
+    return { g: g, body: body, upper: upper, shell: shell, head: head, legs: legs, arms: arms, locks: locks, tab: tab, tabScr: scr };
   }
   function auraEvent() { /* sitio a investigar: restos del OVNI o el meteorito de la invasión */
     var u = ufo, I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
     if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 14, left: I.left, kind: 'met', al: I.al };
-    if (u && u.state === 'wreck' && !u.gone && wreck && wreck.visible) return { key: 'w' + Math.round(u.x) + ',' + Math.round(u.z), x: u.x, z: u.z, R: 7, left: 180 - u.T, kind: 'wreck', al: [] };
+    if (u && u.state === 'wreck' && !u.gone && wreck && wreck.visible) { /* mientras exista su cráter */
+      var ci, cr, cl = 0; for (ci = 0; ci < craters.length; ci++) { cr = craters[ci]; if (cr.on && Math.hypot(cr.x - u.x, cr.z - u.z) < 8) cl = Math.max(cl, CRATER_LIFE - cr.age); }
+      if (cl > 0) return { key: 'w' + Math.round(u.x) + ',' + Math.round(u.z), x: u.x, z: u.z, R: 7, left: cl, kind: 'wreck', al: [] };
+    }
     return null;
   }
   function auraCityNear(x, z) { var i, d, b = null, bd = 1e9, q; for (i = 0; i < districts.length; i++) { d = districts[i]; if (!d.list.length) continue; q = Math.hypot(x - d.cx, z - d.cz); if (q < bd) { bd = q; b = d; } } return b; }
@@ -8101,7 +8113,7 @@ window.startMap = function (RAW, AUTH) {
       A = aura = makeAura(); A.ph = 0; A.gk = 0; A.sk = 0; A.k = 1; A.mode = 'trail'; A.yaw = 0; A.evCD = 20; A.x = 0; A.z = 0; A.y = 0; A.hop = 0; A.dodge = false; A.off = 0; A.side = 1;
       i = (Math.random() * trails.length) | 0; A.path = edgePath(i, trails[i].b); A.last = i; A.s = Math.random() * A.path.len * 0.5; A.next = null;
     }
-    a = A;
+    a = A; A.hyT = A.mode === 'trail' ? 0.1 * Math.sin(t * 0.6) : 0; A.hxT = 0.02;
     if (A.mode === 'trail') {
       A.s += 1.35 * dt; path = A.path; moving = true;
       while (path && A.s >= path.len) {
@@ -8132,7 +8144,7 @@ window.startMap = function (RAW, AUTH) {
       A.evCD -= dt;
       if (A.evCD <= 0 && BN) {
         A.evCD = 2; e = auraEvent();
-        if (e && !auraDone[e.key] && e.left >= 60) {
+        if (e && !auraDone[e.key] && e.left >= 30) {
           auraDone[e.key] = 1; dd = Math.hypot(e.x - A.x, e.z - A.z);
           if (dd > 150) { /* muy lejos: salto a la ciudad más cercana al sitio y camina el último tramo (solo si le da tiempo) */
             c = auraCityNear(e.x, e.z); G = c && auraFreeNear(c.cx, c.cz);
@@ -8150,27 +8162,52 @@ window.startMap = function (RAW, AUTH) {
     } else {
       /* a pie fuera de los senderos: ir, investigar o volver */
       e = auraEvent(); I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
-      var act = A.mode === 'go' || A.mode === 'inspect';
+      var act = A.mode === 'go' || A.mode === 'inspect' || A.mode === 'safe', an = 1e9, ax = 0, az = 0;
       if (act && (!e || !A.ev || e.key !== A.ev.key || e.left < 8)) { auraBack(A); }
-      else if (act && I) { for (i = 0; i < I.al.length; i++) if (Math.hypot(I.al[i][0] - A.x, I.al[i][1] - A.z) < 25) { auraBack(A); break; } }
+      else if (act) {
+        if (I) for (i = 0; i < I.al.length; i++) { dd = Math.hypot(I.al[i][0] - A.x, I.al[i][1] - A.z); if (dd < an) { an = dd; ax = I.al[i][0]; az = I.al[i][1]; } }
+        if (A.mode !== 'safe' && an < 25) A.mode = 'safe';
+        else if (A.mode === 'safe') {
+          if (an > 34) { if (!auraStart(A, A.ev)) A.mode = 'inspect'; } /* despejado: vuelve al sitio */
+          else if (an > 0.01) { A.yaw += nAng(Math.atan2(A.x - ax, A.z - az) - A.yaw) * Math.min(1, dt * 5); nx = A.x + Math.sin(A.yaw) * 2.1 * dt; nz = A.z + Math.cos(A.yaw) * 2.1 * dt; if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; } moving = true; }
+        }
+      }
       sp = A.mode === 'go' ? 1.7 : 1.9;
       if (A.mode === 'go' || A.mode === 'back' || A.mode === 'join') {
         if (A.wp && A.pi < A.wp.length) {
           tx = A.wp[A.pi][0] - A.x; tz = A.wp[A.pi][1] - A.z; dd = Math.hypot(tx, tz);
           if (dd < 0.7) A.pi++;
           else { A.yaw += nAng(Math.atan2(tx, tz) - A.yaw) * Math.min(1, dt * 5); A.x += Math.sin(A.yaw) * sp * dt; A.z += Math.cos(A.yaw) * sp * dt; moving = true; }
-        } else if (A.mode === 'go') { A.mode = 'inspect'; A.insT = 0; A.insDur = 22 + Math.random() * 18; A.ang = Math.atan2(A.x - A.ev.x, A.z - A.ev.z); A.cyc = 0; }
+        } else if (A.mode === 'go') { A.mode = 'inspect'; A.cyc = 0; A.f1 = A.f2 = 0; A.vt = 0; A.oR = A.ev.R; A.odir = Math.random() < 0.5 ? 1 : -1; }
         else if (A.mode === 'join') auraFinishJoin(A);
         else { c = A.bc; auraResume(A, c); }
       }
       if (A.mode === 'inspect') {
-        A.insT += dt; A.cyc += dt;
-        yawT = Math.atan2(A.ev.x - A.x, A.ev.z - A.z); A.yaw += nAng(yawT - A.yaw) * Math.min(1, dt * 3);
-        if ((A.cyc % 10) < 6) { /* rodea el sitio a pasos cortos */
-          ang = A.ang + 0.1 * dt; nx = A.ev.x + Math.sin(ang) * A.ev.R; nz = A.ev.z + Math.cos(ang) * A.ev.R;
-          if (botFree(nx, nz) && !botCrater(nx, nz)) { A.ang = ang; A.x += (nx - A.x) * Math.min(1, dt * 2); A.z += (nz - A.z) * Math.min(1, dt * 2); moving = true; }
-        } else scan = true; /* pausa mirando y señalando */
-        if (A.insT >= A.insDur) auraBack(A);
+        A.cyc += dt;
+        dd = Math.hypot(A.x - A.ev.x, A.z - A.ev.z);
+        if (dd > A.ev.R + 8) auraStart(A, A.ev); /* se alejó: vuelve al sitio */
+        var ty = Math.atan2(A.ev.x - A.x, A.ev.z - A.z), cp = A.cyc % 13, odir = A.odir || 1, oR = A.oR || A.ev.R, rx, rz, r, tgx, tgz, vx, vz, th, des;
+        A.vt = (A.vt || 0) - dt;
+        if (A.vt <= 0) { A.vt = 14 + Math.random() * 10; if (Math.random() < 0.45) A.odir = odir = -odir; A.oR = oR = A.ev.R * (0.88 + Math.random() * 0.3); }
+        if (cp < 5.5) { /* rodea el sitio caminando hacia adelante a lo largo del círculo; la cabeza lo sigue con el cuello */
+          A.f1 = A.f2 = 0;
+          rx = A.x - A.ev.x; rz = A.z - A.ev.z; r = Math.max(0.5, Math.hypot(rx, rz));
+          tgx = odir * (rz / r); tgz = odir * (-rx / r);
+          vx = tgx * 1.25 + (rx / r) * (oR - r) * 0.5; vz = tgz * 1.25 + (rz / r) * (oR - r) * 0.5;
+          th = Math.atan2(vx, vz); des = th + Math.max(-0.35, Math.min(0.35, nAng(ty - th))); /* el cuerpo se inclina un poco hacia el objetivo */
+          A.yaw += nAng(des - A.yaw) * Math.min(1, dt * 4);
+          nx = A.x + Math.sin(A.yaw) * 1.3 * dt; nz = A.z + Math.cos(A.yaw) * 1.3 * dt;
+          if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; moving = true; } else A.odir = -odir;
+          A.hyT = Math.max(-1.22, Math.min(1.22, nAng(ty - A.yaw))); A.hxT = 0.1;
+        } else if (cp < 7) { /* pausa: se planta frente al sitio y barre la vista */
+          A.f1 = A.f2 = 0; A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 3);
+          A.hyT = 0.55 * Math.sin(A.cyc * 1.1); A.hxT = 0.12;
+        } else { /* saca la tablet, apunta y toma dos fotos */
+          scan = true; cp -= 7; A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 3); A.hxT = -0.03;
+          if (!A.f1 && cp > 3.0) { A.f1 = 1; A.flash = 0.2; AUD.shutter({ x: A.x, y: A.y + 0.5, z: A.z }); }
+          if (!A.f2 && cp > 4.8) { A.f2 = 1; A.flash = 0.2; AUD.shutter({ x: A.x, y: A.y + 0.5, z: A.z }); }
+          if (cp > 5.6) scan = false;
+        }
       }
       if (bot) { /* le cede el paso al robot */
         dd = Math.hypot(A.x - bot.x, A.z - bot.z);
@@ -8186,19 +8223,25 @@ window.startMap = function (RAW, AUTH) {
     var hopY = A.hop > 0 ? Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - A.hop / 0.55))) * 0.55 : 0;
     A.gk += ((moving ? 1 : 0) - A.gk) * Math.min(1, dt * 7); A.sk += ((scan ? 1 : 0) - A.sk) * Math.min(1, dt * 5);
     if (moving) A.ph += dt * 5.6;
-    var am = 0.5 * A.gk, kf = 0.75 * A.gk, la, sg, sw;
+    var am = 0.38 * A.gk, kf = 0.6 * A.gk, la, sg, sw, tk, sph = Math.sin(A.ph);
     for (i = 0; i < 2; i++) {
       la = -am * Math.sin(A.ph + i * Math.PI); sg = kf * Math.max(0, Math.cos(A.ph + i * Math.PI));
       if (hopY > 0.02) { la = i ? -0.5 : -0.8; sg = 0.9; }
       A.legs[i].th.rotation.x = la; A.legs[i].kn.rotation.x = sg; A.legs[i].ft.rotation.x = -(la + sg) * 0.5 + sg * 0.3;
-      sw = Math.sin(A.ph + i * Math.PI) * 0.55 * A.gk;
-      A.arms[i].sh.rotation.x = sw * (1 - (i ? A.sk : 0)) + (i ? A.sk * -1.35 : 0); A.arms[i].sh.rotation.z = (i ? 1 : -1) * (0.1 + 0.03 * Math.sin(t * 1.3 + i));
-      A.arms[i].el.rotation.x = -0.18 - 0.25 * A.gk * Math.max(0, -Math.sin(A.ph + i * Math.PI)) - (i ? A.sk * 0.3 : 0);
+      A.legs[i].th.rotation.z = (i ? -1 : 1) * (0.05 + 0.05 * A.gk * Math.max(0, Math.cos(A.ph + i * Math.PI))); /* rodillas juntas, pies sobre una línea */
+      A.legs[i].ft.rotation.y = (i ? -1 : 1) * 0.14; /* puntas hacia adentro */
+      sw = Math.sin(A.ph + i * Math.PI) * 0.55 * A.gk; tk = A.sk;
+      A.arms[i].sh.rotation.x = sw * (1 - tk) + tk * -1.0; A.arms[i].sh.rotation.z = (i ? 1 : -1) * ((0.1 + 0.03 * Math.sin(t * 1.3 + i)) * (1 - tk) - 0.3 * tk);
+      A.arms[i].el.rotation.x = (-0.18 - 0.25 * A.gk * Math.max(0, -Math.sin(A.ph + i * Math.PI))) * (1 - tk) + tk * -1.4;
     }
     A.body.position.y = 0.86 + Math.abs(Math.sin(A.ph)) * 0.03 * A.gk + 0.008 * Math.sin(t * 1.7);
-    A.upper.rotation.y = Math.sin(A.ph) * 0.1 * A.gk; A.upper.rotation.x = 0.04 * A.gk;
-    A.head.rotation.y = (A.mode === 'inspect' ? 0 : 0.12 * Math.sin(t * 0.6)) + (scan ? 0.15 * Math.sin(t * 1.2) : 0); A.head.rotation.x = scan ? 0.12 : 0.02;
+    A.body.position.x = 0.022 * sph * A.gk; A.body.rotation.z = 0.065 * sph * A.gk; A.body.rotation.y = 0.14 * sph * A.gk; /* contoneo: la pelvis se desplaza, se inclina y gira */
+    A.upper.rotation.z = -0.05 * sph * A.gk; A.upper.rotation.y = -0.26 * sph * A.gk; A.upper.rotation.x = 0.03 * A.gk; /* hombros en sentido contrario a las caderas */
+    A.hy = (A.hy || 0) + (A.hyT - (A.hy || 0)) * Math.min(1, dt * 6); A.hx = (A.hx || 0) + (A.hxT - (A.hx || 0)) * Math.min(1, dt * 6);
+    A.head.rotation.y = A.hy; A.head.rotation.x = A.hx; A.upper.rotation.y += A.hy * 0.2;
     for (i = 0; i < A.locks.length; i++) { k = A.locks[i]; k.g.rotation.x = (k.back ? 0.06 : 0.03) * Math.sin(A.ph * 2 + k.ph) * A.gk - 0.05 * A.gk; if (!k.back) k.g.rotation.z = k.sx * (0.04 * Math.sin(A.ph + k.ph) * A.gk); }
+    A.flash = Math.max(0, (A.flash || 0) - dt);
+    A.tab.visible = A.sk > 0.04; A.tab.scale.setScalar(Math.max(0.001, A.sk)); A.tabScr.material.color.setHex(A.flash > 0 ? 0xffffff : 0x2a8cff);
     A.g.rotation.y = A.yaw; A.g.position.set(A.x, A.y + hopY + (A.mode === 'trail' ? Math.abs(Math.sin(A.ph)) * 0.0 : 0), A.z); A.g.scale.setScalar(0.37 * Math.max(0.001, A.k));
   }
   function auraStart(A, e) { /* ruta a pie hasta un punto a distancia R del sitio, del lado por el que llega */
@@ -9440,7 +9483,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { info: function () { if (!inv || inv.end) return null; var m = inv.met; return { name: inv.name, mx: m && m.state !== 'fall' ? m.x : null, mz: m ? m.z : null, left: inv.entered ? Math.max(0, 480 - inv.tIn) : Math.max(0, 600 - inv.t), al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
 
