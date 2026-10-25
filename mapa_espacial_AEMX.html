@@ -8309,9 +8309,9 @@ window.startMap = function (RAW, AUTH) {
         A.evCD = 2; e = auraEvent();
         if (e && !auraDone[e.key] && e.left >= 30) {
           auraDone[e.key] = 1; dd = Math.hypot(e.x - A.x, e.z - A.z);
-          if (dd > 150) { /* muy lejos: salto a la ciudad más cercana al sitio y camina el último tramo (solo si le da tiempo) */
+          if (dd > 5 * (e.left - 15)) { /* no le alcanza corriendo: salto a la ciudad más cercana al sitio y corre el último tramo (solo si le da tiempo) */
             c = auraCityNear(e.x, e.z); G = c && auraFreeNear(c.cx, c.cz);
-            if (G && Math.hypot(G[0] - e.x, G[1] - e.z) < dd - 60 && Math.hypot(G[0] - e.x, G[1] - e.z) / 1.0 < e.left - 30) { A.ev = e; auraJump(A, G[0], G[1], 'go'); return; }
+            if (G && Math.hypot(G[0] - e.x, G[1] - e.z) < dd - 60 && Math.hypot(G[0] - e.x, G[1] - e.z) / 5.0 < e.left - 15) { A.ev = e; auraJump(A, G[0], G[1], 'go'); return; }
           } else auraStart(A, e);
         }
       }
@@ -8329,7 +8329,8 @@ window.startMap = function (RAW, AUTH) {
       e = auraEvent(); I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
       var act = A.mode === 'go' || A.mode === 'inspect'; /* no huye de los aliens: sigue investigando */
       if (act && (!e || !A.ev || e.key !== A.ev.key || e.left < 8)) auraBack(A);
-      sp = A.mode === 'go' ? 1.0 : 1.1;
+      A.rkT = A.mode === 'go' && !!A.wp && A.wp.length > 0 && Math.hypot(A.wp[A.wp.length - 1][0] - A.x, A.wp[A.wp.length - 1][1] - A.z) > 6; /* corre mientras le falten más de 6 */
+      sp = A.mode === 'go' ? 1.0 + 4.0 * (A.rk || 0) : 1.1;
       if (A.mode === 'go' || A.mode === 'back' || A.mode === 'join') {
         var wr = A.wp ? auraWalk(A, dt, sp) : null;
         if (wr === true) moving = true;
@@ -8351,7 +8352,7 @@ window.startMap = function (RAW, AUTH) {
           A.yb -= dt; A.yaw += nAng(A.ybYaw - A.yaw) * Math.min(1, dt * 5);
           if (Math.abs(nAng(A.ybYaw - A.yaw)) < 0.8) { nx = A.x + Math.sin(A.yaw) * 0.9 * dt; nz = A.z + Math.cos(A.yaw) * 0.9 * dt; if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; moving = true; } }
           A.hyT = Math.max(-1.1, Math.min(1.1, nAng(Math.atan2(bot.x - A.x, bot.z - A.z) - A.yaw))); A.hxT = 0.02;
-        } else if (bot && rb < 5) { /* el robot pasa cerca: se queda donde está y solo lo mira */
+        } else if (bot && rb < 3) { /* el robot pasa cerca: se queda donde está y solo lo mira */
           A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 2);
           A.hyT = Math.max(-1.2, Math.min(1.2, nAng(Math.atan2(bot.x - A.x, bot.z - A.z) - A.yaw))); A.hxT = 0.02;
         } else if (cp < 5.5) { /* rodea el sitio caminando hacia adelante a lo largo del círculo; la cabeza lo sigue con el cuello */
@@ -8381,28 +8382,29 @@ window.startMap = function (RAW, AUTH) {
     }
     if (A.hop > 0) A.hop -= dt;
     /* ----- pose y animación ----- */
+    var rk = A.rk = (A.rk || 0) + (((A.rkT && moving) ? 1 : 0) - (A.rk || 0)) * Math.min(1, dt * 4); A.rkT = false;
     if (A.fxg && A.mode !== 'jump') A.fxg.g.visible = false;
     vis = A.k > 0.01 && Math.hypot(camera.position.x - A.x, camera.position.z - A.z) < 500;
     if (A.g.visible !== vis) A.g.visible = vis;
     if (!vis) { A.holo.g.visible = false; A.holo.beam.visible = false; return; }
     var hopY = A.hop > 0 ? Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - A.hop / 0.55))) * 0.55 : 0;
     A.gk += ((moving ? 1 : 0) - A.gk) * Math.min(1, dt * 7); A.sk += ((scan ? 1 : 0) - A.sk) * Math.min(1, dt * 5); A.pk = (A.pk || 0) + ((A.hOn ? 1 : 0) - (A.pk || 0)) * Math.min(1, dt * 4);
-    if (moving) A.ph += dt * 6.4;
-    var am = 0.285 * A.gk, kf = 0.45 * A.gk, la, sg, sw, tk, sph = Math.sin(A.ph);
+    if (moving) A.ph += dt * 6.4 * (1 + 1.1 * rk);
+    var am = 0.285 * A.gk * (1 + 0.9 * rk), kf = 0.45 * A.gk * (1 + 1.1 * rk), la, sg, sw, tk, sph = Math.sin(A.ph);
     for (i = 0; i < 2; i++) {
       la = -am * Math.sin(A.ph + i * Math.PI); sg = kf * Math.max(0, Math.cos(A.ph + i * Math.PI));
       if (hopY > 0.02) { la = i ? -0.5 : -0.8; sg = 0.9; }
       A.legs[i].th.rotation.x = la; A.legs[i].kn.rotation.x = sg; A.legs[i].ft.rotation.x = -(la + sg) * 0.5 + sg * 0.3;
       A.legs[i].th.rotation.z = (i ? -1 : 1) * (0.045 + 0.015 * A.gk * Math.max(0, Math.cos(A.ph + i * Math.PI))); /* piernas algo inclinadas hacia adentro */
       A.legs[i].ft.rotation.z = -A.legs[i].th.rotation.z * 1.0; A.legs[i].ft.rotation.y = 0; /* el pie queda plano y al frente */
-      sw = Math.sin(A.ph + i * Math.PI) * 0.55 * A.gk; tk = A.sk;
+      sw = Math.sin(A.ph + i * Math.PI) * 0.55 * (1 + 0.9 * rk) * A.gk; tk = A.sk;
       A.arms[i].sh.rotation.x = sw * (1 - tk) + tk * -1.0; A.arms[i].sh.rotation.z = (i ? 1 : -1) * ((0.1 + 0.03 * Math.sin(t * 1.3 + i)) * (1 - tk) - 0.3 * tk);
-      A.arms[i].el.rotation.x = (-0.18 - 0.25 * A.gk * Math.max(0, -Math.sin(A.ph + i * Math.PI))) * (1 - tk) + tk * -1.4;
+      A.arms[i].el.rotation.x = (-0.18 - 0.25 * A.gk * Math.max(0, -Math.sin(A.ph + i * Math.PI)) - 1.2 * rk * A.gk) * (1 - tk) + tk * -1.4;
       if (i === 0 && A.pk > 0.01) { A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.pk) - 1.45 * A.pk; A.arms[0].sh.rotation.z = A.arms[0].sh.rotation.z * (1 - A.pk) - 0.12 * A.pk; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.pk) - 0.15 * A.pk; } /* brazo extendido hacia el sitio */
     }
-    A.body.position.y = 0.86 + Math.abs(Math.sin(A.ph)) * 0.03 * A.gk + 0.008 * Math.sin(t * 1.7);
+    A.body.position.y = 0.86 + Math.abs(Math.sin(A.ph)) * (0.03 + 0.05 * rk) * A.gk + 0.008 * Math.sin(t * 1.7);
     A.pelvis.position.x = 0.012 * sph * A.gk; A.pelvis.rotation.z = 0.04 * sph * A.gk; A.pelvis.rotation.y = 0.08 * sph * A.gk; /* contoneo: solo la pelvis y las piernas se desplazan, se inclinan y giran */
-    A.upper.rotation.z = 0; A.upper.rotation.y = -0.07 * sph * A.gk; A.upper.rotation.x = 0.03 * A.gk; /* el torso queda erguido, con un leve contragiro de hombros */
+    A.upper.rotation.z = 0; A.upper.rotation.y = -0.07 * sph * A.gk; A.upper.rotation.x = (0.03 + 0.16 * rk) * A.gk; /* el torso queda erguido, con un leve contragiro de hombros */
     A.hy = (A.hy || 0) + (A.hyT - (A.hy || 0)) * Math.min(1, dt * 6); A.hx = (A.hx || 0) + (A.hxT - (A.hx || 0)) * Math.min(1, dt * 6);
     A.head.rotation.y = A.hy; A.head.rotation.x = A.hx; A.upper.rotation.y += A.hy * 0.2;
     for (i = 0; i < A.locks.length; i++) { k = A.locks[i]; k.g.rotation.x = (k.back ? 0.1 : 0.03) * Math.sin(A.ph * 2 + k.ph) * A.gk - (k.back ? 0.02 : 0.05) * A.gk; if (!k.back) k.g.rotation.z = k.sx * (0.04 * Math.sin(A.ph + k.ph) * A.gk); }
