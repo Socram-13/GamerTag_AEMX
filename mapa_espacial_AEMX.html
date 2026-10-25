@@ -141,6 +141,46 @@
     h1 { font-size: 16px; }
   }
   @media (prefers-reduced-motion: reduce) { .pill, .dist { transition: none; } }
+  /* Móvil (vertical u horizontal): interfaz compacta */
+  @media (max-width: 700px), (max-height: 500px) {
+    .hud { padding-block: 10px; gap: 8px; padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); }
+    .top, .bottom { gap: 8px; }
+    .me { gap: 8px; padding: 4px 12px 4px 4px; }
+    .me-av { width: 34px; height: 34px; }
+    #me-ini { font-size: 14px; }
+    .me-name { font-size: 13px; }
+    .me-sub { font-size: 11px; margin-top: 1px; }
+    .eyebrow { font-size: 9px; }
+    h1 { font-size: 14px; }
+    .tag { font-size: 11px; margin-top: 2px; }
+    .search input { height: 34px; font-size: 13px; padding: 0 10px; }
+    #res button { font-size: 12.5px; padding: 6px 8px; }
+    .tools { gap: 6px; }
+    .tools button { height: 34px; font-size: 12px; padding: 0 8px; }
+    .legend { font-size: 11px; padding: 6px 8px; gap: 5px; }
+    .card { padding: 10px 12px 12px; }
+    .card h2 { font-size: 14px; }
+    .card .meta { font-size: 12px; margin: 3px 0 7px; }
+    .total { font-size: 21px; }
+    .rows { font-size: 12.5px; gap: 3px; }
+    .lvl { font-size: 12px; margin-top: 7px; }
+    .pill { font-size: 11px; padding: 2px 8px 3px; }
+    .pill small, .pill em { font-size: 9.5px; }
+    .dist { font-size: 10px; }
+    .dist small { font-size: 9.5px; }
+    #bTank { bottom: 14px; left: max(10px, env(safe-area-inset-left, 0px)); }
+    #bTank .tk { width: 26px; height: 96px; }
+    #bTank .lb { font-size: 9px; }
+    #bMini { width: 110px; bottom: 14px; right: max(10px, env(safe-area-inset-right, 0px)); }
+    #bMini canvas { width: 110px; height: 110px; }
+    #bMini .ct { font-size: 10.5px; }
+    #bInfo { bottom: 118px; left: max(10px, env(safe-area-inset-left, 0px)); }
+    #bDir { font-size: 10.5px; padding: 2px 9px; }
+    #bAct { font-size: 9.5px; padding: 1px 8px; }
+    #bSay { font-size: 12px; }
+    #invAl { top: max(96px, 14vh); padding: 6px 14px; gap: 8px; }
+    #invCd { font-size: 13px; }
+  }
 
   #gate { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(5,10,24,0.92); }
   #gate[hidden] { display: none; }
