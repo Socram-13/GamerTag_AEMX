@@ -494,14 +494,15 @@ window.startMap = function (RAW, AUTH) {
   scene.fog = new THREE.FogExp2(0x2a1a4a, 0.00005);
   var sky = new THREE.Mesh(new THREE.SphereGeometry(30000, 32, 20), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false,
+    uniforms: { uFogK: { value: 0 }, uFogC: { value: new THREE.Color(0x8d96a3) } },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'varying vec3 vP; void main(){' +
+    fragmentShader: 'uniform float uFogK; uniform vec3 uFogC; varying vec3 vP; void main(){' +
       ' vec3 top = vec3(0.02, 0.04, 0.12); vec3 mid = vec3(0.10, 0.08, 0.30); vec3 hor = vec3(0.36, 0.17, 0.45); vec3 glow = vec3(1.0, 0.43, 0.66);' +
       ' float y = vP.y; float u = clamp(y, 0.0, 1.0);' +
       ' vec3 c = mix(hor, mid, smoothstep(0.0, 0.25, u)); c = mix(c, top, smoothstep(0.2, 0.9, u));' +
       ' c += glow * exp(-abs(y) * 10.0) * 0.35;' +
       ' c = mix(c, hor * 0.35, smoothstep(0.0, -0.3, y));' +
-      ' gl_FragColor = vec4(c, 1.0); }'
+      ' c = mix(c, uFogC * (0.8 + 0.2 * clamp(y, 0.0, 1.0)), uFogK); gl_FragColor = vec4(c, 1.0); }'
   }));
   sky.renderOrder = -2; sky.frustumCulled = false; sky.raycast = function () {};
   scene.add(sky);
@@ -6569,7 +6570,7 @@ window.startMap = function (RAW, AUTH) {
       if (scene.fog) {
         if (!b.fogW) b.fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x8d96a3) };
         b.fogW.k += ((b.inFog ? 1 : 0) - b.fogW.k) * Math.min(1, dt * 1.2);
-        scene.fog.density = b.fogW.d0 + (0.03 - b.fogW.d0) * b.fogW.k;
+        scene.fog.density = b.fogW.d0 + (0.09 - b.fogW.d0) * b.fogW.k; /* ~10 unidades de visibilidad */
         scene.fog.color.copy(b.fogW.c0).lerp(b.fogW.c1, b.fogW.k);
       }
       if (b.inFog) { b.fogT = (b.fogT || 0) + dt; b.fogOut = 0; } else { b.fogOut = (b.fogOut || 0) + dt; if (b.fogOut > 3) b.fogT = 0; }
@@ -8190,6 +8191,7 @@ window.startMap = function (RAW, AUTH) {
     starsA.position.copy(camera.position); starsB.position.copy(camera.position);
     starsA.material.opacity = 0.65 + 0.3 * Math.sin(t * 1.3);
     starsB.material.opacity = 0.65 + 0.3 * Math.sin(t * 1.7 + 2.0);
+    var fkS = (bot && bot.fogW) ? bot.fogW.k : 0; sky.material.uniforms.uFogK.value = fkS; starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
     sun.target.position.copy(controls.target);
     sun.position.copy(controls.target).add(SUN_OFF);
 
