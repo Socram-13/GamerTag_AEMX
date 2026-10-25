@@ -6992,23 +6992,12 @@ window.startMap = function (RAW, AUTH) {
       cvB.width = cvB.height = 64; cB = cvB.getContext('2d'); grB = cB.createRadialGradient(32, 32, 0, 32, 32, 32);
       grB.addColorStop(0, 'rgba(0,0,0,0.85)'); grB.addColorStop(0.6, 'rgba(0,0,0,0.4)'); grB.addColorStop(1, 'rgba(0,0,0,0)'); cB.fillStyle = grB; cB.fillRect(0, 0, 64, 64);
       b.g.traverse(function (o) { if (o.isMesh && o.material && o.material.isMeshLambertMaterial) o.castShadow = true; });
-      b.fxo = { puffs: [], fk: 0, blob: new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cvB), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })) };
+      b.fxo = { fk: 0, blob: new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cvB), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })) };
       b.fxo.blob.rotation.x = -Math.PI / 2; noRay(b.fxo.blob); scene.add(b.fxo.blob);
-      var texF = new THREE.CanvasTexture(cvF);
-      for (pi3 = 0; pi3 < 10; pi3++) {
-        spF = new THREE.Sprite(new THREE.SpriteMaterial({ map: texF, color: 0xb4bfcc, transparent: true, opacity: 0, depthWrite: false, fog: false }));
-        spF.visible = false; scene.add(spF);
-        b.fxo.puffs.push({ sp: spF, a: Math.random() * 6.28, r: 0.2 + Math.random() * 0.45, y: 0.06 + Math.random() * 0.38, s: 0.7 + Math.random() * 0.5, ph: Math.random() * 6.28, w: (Math.random() - 0.5) * 0.9 });
-      }
     }
     var FXo = b.fxo, onGnd = (b.mode === 'walk' || b.mode === 'perch') && b.shell.visible, fxBase = onGnd ? b.y - (b.bh || 0) : 0, fxFl = onGnd ? Math.max(0, 1 - (b.bh || 0) / 1.5) * (1 - bk) : 0, fxI;
     FXo.fk += ((b.inFog && onGnd ? 1 : 0) - FXo.fk) * Math.min(1, dt * 1.5);
     FXo.blob.visible = onGnd; FXo.blob.position.set(b.x, fxBase + 0.03, b.z); FXo.blob.scale.setScalar(0.75 * (1 + (b.bh || 0) * 0.05)); FXo.blob.material.opacity = 0.5 / (1 + (b.bh || 0) * 0.3);
-    for (fxI = 0; fxI < FXo.puffs.length; fxI++) {
-      var pf = FXo.puffs[fxI], pa = pf.a + t * pf.w, po = 0.3 * FXo.fk * fxFl;
-      pf.sp.visible = po > 0.01;
-      if (pf.sp.visible) { pf.sp.position.set(b.x + Math.cos(pa) * pf.r, fxBase + pf.y + 0.03 * Math.sin(t * 1.3 + pf.ph), b.z + Math.sin(pa) * pf.r); pf.sp.scale.set(pf.s * 1.15, pf.s * 0.8, 1); pf.sp.material.opacity = po; }
-    }
     b.head.rotation.x = -b.aimPitch - b.lean;
     b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6) - stA;
 
@@ -7354,9 +7343,11 @@ window.startMap = function (RAW, AUTH) {
     /* Niebla gris y densa que cubre todo el estado sin jugadores */
     var fogs = [], fogDone = {};
     function addFog(x, z, size) {
-      var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: 0x8d96a3, transparent: true, opacity: 0, depthWrite: false, fog: false }));
-      sp.scale.set(size, size * 0.5, 1);
-      var b = { x: x, z: z, y: rnd(1.6, 4.5) };
+      /* capa horizontal flotando a la altura de la cintura del robot: él la atraviesa */
+      var sp = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: puff, color: 0x8d96a3, transparent: true, opacity: 0, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+      sp.rotation.x = -Math.PI / 2; sp.rotation.z = rnd(0, 6.28);
+      sp.scale.set(size, size * 0.8, 1);
+      var b = { x: x, z: z, y: rnd(0.45, 0.65) };
       sp.position.set(b.x, b.y, b.z); group.add(sp);
       fogs.push({ sp: sp, b: b, ph: rnd(0, 6.28), amp: rnd(1.5, 3.5), base: rnd(0.5, 0.7) });
     }
@@ -7761,6 +7752,7 @@ window.startMap = function (RAW, AUTH) {
         var f = fogs[i], dd = Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140));
         f.sp.position.x = f.b.x + Math.sin(t * 0.05 + f.ph) * f.amp;
         f.sp.position.z = f.b.z + Math.cos(t * 0.04 + f.ph) * f.amp;
+        f.sp.position.y = terrainH(f.b.x, f.b.z) + f.b.y;
         f.sp.material.opacity = f.base * dd * (0.9 + 0.1 * Math.sin(t * 0.3 + f.ph));
       }
       nextAt -= dt;
