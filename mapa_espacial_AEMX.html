@@ -81,9 +81,9 @@
   #bMini { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 24px; width: 168px; display: none; flex-direction: column; align-items: center; gap: 4px; }
   #bMini.on { display: flex; }
   #bMini canvas { width: 168px; height: 168px; border-radius: 50%; border: 2px solid rgba(255,90,90,0.75); background: rgba(10,8,16,0.55); backdrop-filter: blur(3px); box-shadow: 0 0 16px rgba(255,40,40,0.35); }
-  #bDir { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: 46vw; padding: 3px 12px; font: 700 12px var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #dff6ff; background: rgba(8,14,26,0.6); border: 1px solid rgba(150,220,255,0.55); border-radius: 12px; backdrop-filter: blur(3px); text-shadow: 0 0 6px rgba(0,0,0,0.8); pointer-events: none; }
+  #bDir { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 164px; max-width: 46vw; padding: 3px 12px; font: 700 12px var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #dff6ff; background: rgba(8,14,26,0.6); border: 1px solid rgba(150,220,255,0.55); border-radius: 12px; backdrop-filter: blur(3px); text-shadow: 0 0 6px rgba(0,0,0,0.8); pointer-events: none; }
   #bDir.red { color: #ffd0d0; border-color: rgba(255,110,110,0.8); }
-  #invCd { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); padding: 1px 9px; font: 700 15px var(--f-body); letter-spacing: 0.08em; color: #fff; background: rgba(150,20,20,0.72); border: 1px solid rgba(255,120,120,0.8); border-radius: 10px; display: none; text-shadow: 0 0 5px rgba(0,0,0,0.8); pointer-events: none; }
+  #invCd { position: absolute; z-index: 5; top: 8px; left: 50%; transform: translateX(-50%); padding: 1px 9px; font: 700 15px var(--f-body); letter-spacing: 0.08em; color: #fff; background: rgba(150,20,20,0.72); border: 1px solid rgba(255,120,120,0.8); border-radius: 10px; display: none; text-shadow: 0 0 5px rgba(0,0,0,0.8); pointer-events: none; }
   #invCd.on { display: block; }
   #invCd.hot { background: rgba(230,20,20,0.9); animation: invPulse 0.7s ease-in-out infinite; }
   @keyframes invPulse { 50% { transform: translateX(-50%) scale(1.18); box-shadow: 0 0 14px rgba(255,40,40,0.9); } }
@@ -6830,7 +6830,7 @@ window.startMap = function (RAW, AUTH) {
     return false;
   }
   function botPick() {
-    var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown() && !ufoOverVolc()) ? ufo.g.position : null, toward = !!Up && Math.hypot(Up.x - b.x, Up.z - b.z) < 500 && Math.random() < 0.7;
+    var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown()) ? ufo.g.position : null, toward = !!Up && Math.hypot(Up.x - b.x, Up.z - b.z) < 500 && Math.random() < 0.7;
     var freeT = ufoDown() && !(typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state()); /* sin OVNI ni invasión: explora ciudades */
     if (!freeT) b.tour = null;
     if (b.tour && b.tour.n > 0) { /* visita la ciudad: recorre varios puntos de dentro, a veces sube a una azotea */
@@ -6997,7 +6997,7 @@ window.startMap = function (RAW, AUTH) {
     b.alienT = !!AT;
     var invIn = !!(typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && statePolys[S.name] && botInRings(statePolys[S.name], b.x, b.z); })(ALN.state())); /* dentro del estado invadido: la niebla no lo limita */
     var MR = (AT && typeof ALN !== 'undefined' && ALN && ALN.rock) ? ALN.rock() : null, orbOn = !!(MR && Math.hypot(MR.x - b.x, MR.z - b.z) < 45); /* MR: meteorito (sin aliens vivos); orbOn: ya cerca, lo rodea disparando */
-    U = AT || ((ufo && !ufoDown() && !ufoOverVolc() && now >= (ufo.noFireUntil || 0) && !(b.wk && (b.circ || b.scan || b.gtype === 'wreck' || b.gtype === 'wreckp'))) ? ufo.g.position : null); /* ignora al OVNI nuevo mientras revisa el cráter (hasta que desaparezca) y durante su 5 s de ventaja */
+    U = AT || ((ufo && !ufoDown() && !(b.wk && (b.circ || b.scan || b.gtype === 'wreck' || b.gtype === 'wreckp'))) ? ufo.g.position : null); /* ignora al OVNI nuevo mientras revisa el cráter (hasta que desaparezca) y durante su 5 s de ventaja */
     if (U) {
       if (b.hasUp && dt > 0) { b.uv.set((U.x - b.up.x) / dt, (U.y - b.up.y) / dt, (U.z - b.up.z) / dt); if (b.uv.length() > 60) b.uv.set(0, 0, 0); }
       b.up.copy(U); b.hasUp = true;
@@ -7040,8 +7040,13 @@ window.startMap = function (RAW, AUTH) {
     if (thr) { b.circ = false; if (!wOn0) { b.wk = null; b.wkC = null; } }
     if (b.wk && b.mode === 'perch') b.maxPerch = Math.min(b.maxPerch, b.perchT);
     /* Terminó el escaneo: se acerca y patrulla alrededor del cráter hasta que desaparezca */
-    if (b.circ && b.wk && b.mode === 'walk' && !b.goal && !thr) {
-      var ci3, ca;
+    if (b.circ && b.wk && b.mode === 'walk' && (!b.goal || b.gtype === 'wreckp') && !thr && now >= (b.circNT || 0)) {
+      var ci3, ca, cdone = false;
+      b.circNT = now + 0.15;
+      if (b.stuck >= 1) { b.circDir = -b.circDir; b.stuck = 0; }
+      ca = Math.atan2(b.x - b.wk.x, b.z - b.wk.z) + 1.2 * b.circDir; wx = b.wk.x + Math.sin(ca) * 5.4; wz = b.wk.z + Math.cos(ca) * 5.4; /* curva continua: punto bien adelantado, sin recalcular ruta ni frenar */
+      if (botFree(wx, wz) && botFree((wx + b.x) / 2, (wz + b.z) / 2)) { b.goal = { x: wx, z: wz }; b.gtype = 'wreckp'; b.path = null; cdone = true; }
+      if (!cdone && !b.goal)
       for (ci3 = 0; ci3 < 8; ci3++) {
         b.circA += 0.6 * b.circDir; ca = b.circA; wx = b.wk.x + Math.sin(ca) * 5.4; wz = b.wk.z + Math.cos(ca) * 5.4;
         if (botFree(wx, wz) && botSetGoal(wx, wz, 'wreckp')) break;
@@ -7094,21 +7099,28 @@ window.startMap = function (RAW, AUTH) {
       }
       /* Meteorito: con los aliens muertos lo rodea a unos 8 de distancia, mirándolo y disparándole (como al rondar el cráter del OVNI) */
       if (orbOn && b.mode === 'walk' && b.gtype !== 'roof' && now >= (b.orbT || 0) && (!b.goal || b.gtype === 'orbit' || b.gtype === 'hunt')) {
-        b.orbT = now + 0.4;
+        b.orbT = now + 0.15;
         if (!b.orbDir) b.orbDir = Math.random() < 0.5 ? 1 : -1;
-        if (!b.goal || b.gtype !== 'orbit' || Math.hypot(b.goal.x - b.x, b.goal.z - b.z) < 2.2) {
-          var oa0 = Math.atan2(b.x - MR.x, b.z - MR.z), oi, oa, ox, oz, od = Math.hypot(b.x - MR.x, b.z - MR.z), orr = od > 13 ? 8 : 8;
+        var oa0 = Math.atan2(b.x - MR.x, b.z - MR.z), oi, oa, ox, oz, od = Math.hypot(b.x - MR.x, b.z - MR.z), orr, odone = false, olk = [1.2, 0.9, 0.6];
+        if (od <= 14) { /* ya cerca: avanza en curva continua hacia un punto del círculo bien adelantado, sin recalcular ruta ni frenar */
+          if (b.stuck >= 1) { b.orbDir = -b.orbDir; b.stuck = 0; }
+          for (oi = 0; oi < 3 && !odone; oi++) {
+            oa = oa0 + olk[oi] * b.orbDir; orr = Math.max(6, Math.min(16, 8 + 1.6 * (8 - od))); ox = MR.x + Math.sin(oa) * orr; oz = MR.z + Math.cos(oa) * orr;
+            if (botFree(ox, oz) && botFree((ox + b.x) / 2, (oz + b.z) / 2)) { b.goal = { x: ox, z: oz }; b.gtype = 'orbit'; b.path = null; odone = true; }
+          }
+          if (!odone) b.orbDir = -b.orbDir;
+        }
+        if (!odone && (!b.goal || b.gtype !== 'orbit' || Math.hypot(b.goal.x - b.x, b.goal.z - b.z) < 2.2)) {
           for (oi = 0; oi < 8; oi++) {
-            oa = oa0 + (od > 13 ? 0 : 0.7 * b.orbDir); ox = MR.x + Math.sin(oa) * orr; oz = MR.z + Math.cos(oa) * orr;
+            oa = oa0 + (od > 13 ? 0 : 0.7 * b.orbDir); ox = MR.x + Math.sin(oa) * 8; oz = MR.z + Math.cos(oa) * 8;
             if (botFree(ox, oz) && botSetGoal(ox, oz, 'orbit')) break;
             b.orbDir = -b.orbDir; oa0 += 0.5 * b.orbDir; if (oi === 3) b.orbDir = -b.orbDir;
           }
         }
-        if (Math.random() < 0.012) b.orbDir = -b.orbDir; /* de vez en cuando cambia de sentido */
       } else if (!orbOn && b.gtype === 'orbit') { b.goal = null; b.gtype = ''; b.path = null; b.orbDir = 0; }
       /* En la niebla (sin invasión ni enemigo): si hay un sendero cerca lo sigue para salir de ella */
       if (b.gtype === 'trail' && !b.inFog && b.fogOut > 2) { b.goal = null; b.gtype = ''; b.path = null; b.trD = null; }
-      else if (b.inFog && b.fogT > 1.5 && !thr && !b.alienT && !(typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state()) && b.gtype !== 'roof' && b.gtype !== 'wreck' && b.gtype !== 'wreckp' && b.gtype !== 'flank' && !b.scan && !b.circ && now >= (b.trT || 0) && now >= (b.trOff || 0)) { b.trT = now + 0.8; botTrailStep(now); }
+      else if (b.inFog && b.fogT > 1.5 && !U && !b.alienT && !(typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state()) && b.gtype !== 'roof' && b.gtype !== 'wreck' && b.gtype !== 'wreckp' && b.gtype !== 'flank' && !b.scan && !b.circ && now >= (b.trT || 0) && now >= (b.trOff || 0)) { b.trT = now + 0.8; botTrailStep(now); }
       /* Avance con rumbo libre; el hiperimpulso dura 5 s */
       if (b.goal) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
@@ -7124,7 +7136,7 @@ window.startMap = function (RAW, AUTH) {
           dw = Math.hypot(tw.x - b.x, tw.z - b.z);
           want = Math.atan2(tw.x - b.x, tw.z - b.z);
           spd = b.gtype === 'wreckp' ? BOT_WALK : (b.gtype === 'hunt' || b.gtype === 'wreck' || b.gtype === 'flank') ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : b.gtype === 'trail' ? BOT_RUN * 0.75 : b.gtype === 'orbit' ? BOT_WALK * 1.7 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
-          if (gd < 3) spd = Math.min(spd, 3.2);
+          if (gd < 3 && b.gtype !== 'orbit' && b.gtype !== 'wreckp') spd = Math.min(spd, 3.2);
           if (b.wxDense && b.gtype !== 'trail') spd = Math.min(spd, BOT_WALK * 1.4); /* niebla densa: avanza apuntando, un poco más rápido que caminando */ /* con niebla hay poca visibilidad: solo camina (bajo la lluvia sí corre, pero sin hiperimpulso) */
           /* Más de 10 s en la niebla: se detiene, llama al dron y se deja llevar fuera de ella rumbo a su meta */
           if (!invIn && b.fogT > (b.gtype === 'trail' ? 40 : 20) && !b.alert && now >= (b.liftCD || 0) && b.gtype !== 'roof' && gd > 25) {
@@ -7546,11 +7558,11 @@ window.startMap = function (RAW, AUTH) {
     }
 
     /* Disparo: ráfagas de 3 láseres verdes si hay alcance, línea de tiro y el rifle ya apunta */
-    if (b.aiming && pred && !b.ball && d3 <= (b.alienT ? Math.min(botRng(), 24) : botRng()) && (b.alienT || now >= (ufo.noFireUntil || 0))) {
+    if (b.aiming && pred && !b.ball && d3 <= (b.alienT ? Math.min(botRng(), 24) : botRng()) && (b.alienT || (now >= (ufo.noFireUntil || 0) && !ufoOverVolc()))) {
       b.fireT -= dt;
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
-      canShoot = b.los && errY < (b.alienT ? 0.2 : 0.45) && errP < (b.alienT ? 0.2 : 0.45) && b.hold > 0.5; /* el láser sale directo al objetivo: no espera a terminar de girar el rifle */
+      canShoot = b.los && errY < (b.alienT ? (orbOn ? 0.8 : 0.2) : 0.45) && errP < (b.alienT ? (orbOn ? 0.8 : 0.2) : 0.45) && b.hold > 0.5; /* el láser sale directo al objetivo: no espera a terminar de girar el rifle */
       if (canShoot && b.fireT <= 0) {
         botShoot(bkMuz, b.alienT ? pred : U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
         b.fireT = b.alienT ? 0.35 : 0.12; /* fuego continuo (más pausado contra aliens) */
@@ -8904,8 +8916,9 @@ window.startMap = function (RAW, AUTH) {
         if (!hud._mn) { hud._mn = true; mn.classList.add('on'); }
         (function () { /* directriz actual del robot */
           var el2 = document.getElementById('bDir'), tx2, red = false, b2 = bot, dn = b2.dest, ufoOn = !!(ufo && !ufoDown() && b2.hasUp);
-          if (S && !S.end) { red = true; tx2 = b2.alienT ? ((typeof ALN !== 'undefined' && ALN.rock && ALN.rock()) ? 'Destruyendo meteorito' : 'Exterminando aliens') + ' · ' + S.name : 'Viajando a ' + S.name; }
+          if (S && !S.end) { red = true; tx2 = S.entered ? ((typeof ALN !== 'undefined' && ALN.rock && ALN.rock()) ? 'Destruyendo meteorito' : 'Exterminando aliens') + ' · ' + S.name : 'Viajando a ' + S.name; }
           else if (ufoOn) { red = true; tx2 = 'Cazando OVNI'; }
+          else if (b2.trk) tx2 = 'Vigilando la caída del OVNI';
           else if (b2.circ || b2.scan || b2.gtype === 'wreck' || b2.gtype === 'wreckp') tx2 = 'Revisando restos del OVNI';
           else if (b2.mode === 'lift') tx2 = 'Viajando en dron' + (dn ? ' a ' + dn.name : '');
           else if (b2.inFog) tx2 = 'Saliendo de la niebla';
