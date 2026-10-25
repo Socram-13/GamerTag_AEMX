@@ -503,6 +503,7 @@ window.startMap = function (RAW, AUTH) {
   renderer.setClearColor(0x050a18, 1);
 
   var scene = new THREE.Scene();
+  var monBlk = []; /* monumentos fijos: obstáculos circulares {x, z, r} */
   var vegCull = null; /* culling de vegetación por bloques (se define al construirla) */
   var camera = new THREE.PerspectiveCamera(48, 1, 0.5, 60000);
   var controls = new THREE.OrbitControls(camera, canvas);
@@ -1856,6 +1857,7 @@ window.startMap = function (RAW, AUTH) {
     if (!dx && !dz) return;
     d.group.position.x += dx; d.group.position.z += dz;
     d.cx += dx; d.cz += dz;
+    if (d.mon) { d.mon.x += dx; d.mon.z += dz; }
     d.list.forEach(function (p) { p.x += dx; p.z += dz; if (p.wpos) { p.wpos.x += dx; p.wpos.z += dz; } });
     d.pin.position.x += dx; d.pin.position.z += dz;
     d.pinPos.x += dx; d.pinPos.z += dz;
@@ -3480,6 +3482,85 @@ window.startMap = function (RAW, AUTH) {
       if (b.userData.heli && !REDUCED) makeDrone(d, b, pl);
     });
   });
+
+  /* Ángel de la Independencia: columna con la Victoria alada dorada, justo frente al balcón del Palacio (el balcón mira hacia +z) */
+  (function () {
+    var A = new THREE.Group(), stone = new THREE.MeshLambertMaterial({ color: 0xe9e2cd, emissive: 0x1d1a12 }), stoneD = new THREE.MeshLambertMaterial({ color: 0xc9bfa4, emissive: 0x15120c }),
+        gld = new THREE.MeshLambertMaterial({ color: 0xf0b90b, emissive: 0x5a4000 }), gldD = new THREE.MeshLambertMaterial({ color: 0xc89407, emissive: 0x3a2800 }), m, i, y, a, o;
+    function add(geo, mat, x, yy, z, sx, sy, sz, rx, ry, rz, par) { var o = new THREE.Mesh(geo, mat); o.position.set(x, yy, z); if (sx !== undefined) o.scale.set(sx, sy, sz); if (rx || ry || rz) o.rotation.set(rx || 0, ry || 0, rz || 0); o.castShadow = true; (par || A).add(o); return o; }
+    var uB = new THREE.BoxGeometry(1, 1, 1), uC = new THREE.CylinderGeometry(1, 1, 1, 14), uCn = new THREE.ConeGeometry(1, 1, 12), uS = new THREE.SphereGeometry(1, 10, 8), uT = new THREE.TorusGeometry(1, 0.16, 6, 20);
+    /* Gradas, basamento y zócalo */
+    y = 0; [[2.7, 0.2], [2.3, 0.2], [1.95, 0.2]].forEach(function (st) { add(uB, stone, 0, y + st[1] / 2, 0, st[0], st[1], st[0]); y += st[1]; });
+    add(uB, stoneD, 0, y + 0.45, 0, 1.5, 0.9, 1.5); y += 0.9;
+    add(uB, stone, 0, y + 0.06, 0, 1.7, 0.12, 1.7); y += 0.12;
+    /* Torno: perfil [radio, altura] girado; "fold" le da pliegues verticales a la túnica */
+    function lathe(pts, mat, segs, fold, par, px, py, pz, sc) {
+      var g2 = new THREE.LatheGeometry(pts.map(function (q) { return new THREE.Vector2(q[0], q[1]); }), segs || 20), pa = g2.attributes.position, k, vx, vy, vz, th, f;
+      if (fold) { for (k = 0; k < pa.count; k++) { vx = pa.getX(k); vy = pa.getY(k); vz = pa.getZ(k); th = Math.atan2(vz, vx); f = 1 + fold * Math.sin(th * 5 + vy * 5) * (0.4 + 0.6 * Math.min(1, vy / 0.6)); pa.setXYZ(k, vx * f, vy, vz * f); } g2.computeVertexNormals(); }
+      var o = new THREE.Mesh(g2, mat); o.position.set(px || 0, py || 0, pz || 0); if (sc) o.scale.setScalar(sc); o.castShadow = true; (par || A).add(o); return o;
+    }
+    function tube(pts, r, mat, par) { var o = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(function (q) { return new THREE.Vector3(q[0], q[1], q[2]); })), 12, r, 7, false), mat); o.castShadow = true; (par || A).add(o); return o; }
+    /* Figura alada (la Victoria): se arma de pie, mirando a +z, con el pie en el origen del grupo */
+    function victory(par, sc, lite) {
+      var V = new THREE.Group(), k, w, sd, f, an, ln, o;
+      V.scale.setScalar(sc); par.add(V);
+      /* Túnica con pliegues: pies, falda amplia que ondea, cintura, torso y cuello */
+      lathe([[0.001, 0], [0.12, 0.02], [0.17, 0.12], [0.26, 0.35], [0.31, 0.58], [0.25, 0.78], [0.14, 0.93], [0.13, 1.08], [0.17, 1.24], [0.19, 1.34], [0.12, 1.42], [0.055, 1.46], [0.001, 1.47]], gld, 28, 0.07, V);
+      /* Manto que ondea hacia atrás y al costado, y banda cruzada en la cadera */
+      o = lathe([[0.001, 0], [0.07, 0.1], [0.09, 0.35], [0.05, 0.6], [0.001, 0.75]], gldD, 14, 0.16, V, 0.2, 0.3, -0.12); o.rotation.set(0.75, 0, -0.7); o.scale.set(1.2, 1, 0.5);
+      o = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.045, 7, 22, 4.2), gld); o.position.set(0, 0.95, 0); o.rotation.set(1.18, 0.25, 0.5); o.castShadow = true; V.add(o);
+      /* Piernas y pies: uno adelante, el otro atrás levantado */
+      add(uS, gld, 0.06, 0.04, 0.16, 0.07, 0.04, 0.14, 0, 0, 0, V);
+      add(uS, gld, -0.09, 0.3, -0.34, 0.06, 0.04, 0.12, -0.9, 0, 0, V);
+      /* Cabeza con peinado ondulado y rostro mirando al frente */
+      add(uS, gld, 0, 1.58, 0.01, 0.085, 0.1, 0.09, 0, 0, 0, V);
+      add(uS, gldD, 0, 1.63, -0.02, 0.1, 0.085, 0.1, 0, 0, 0, V);
+      for (k = 0; k < 5; k++) add(uS, gldD, Math.cos(k * 1.25 + 0.6) * 0.085, 1.56 + (k % 2) * 0.05, -0.04 - Math.sin(k * 1.25) * 0.02, 0.045, 0.05, 0.05, 0, 0, 0, V);
+      /* Brazo derecho en alto con la corona de laurel; el izquierdo extendido con la cadena rota */
+      tube([[0.17, 1.33, 0], [0.3, 1.4, 0.02], [0.34, 1.7, 0.01], [0.36, 2.0, 0]], 0.045, gld, V);
+      add(uS, gld, 0.36, 2.03, 0, 0.06, 0.07, 0.055, 0, 0, 0, V);
+      o = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.04, 7, 26), gld); o.position.set(0.36, 2.28, 0); o.rotation.set(0.15, 0.1, 0); o.castShadow = true; V.add(o);
+      for (k = 0; k < (lite ? 0 : 18); k++) { an = k / 18 * 6.2832; add(uS, k % 2 ? gldD : gld, 0.36 + Math.cos(an) * 0.27, 2.28 + Math.sin(an) * 0.27, 0, 0.05, 0.1, 0.03, 0, 0, an + 1.5708, V); }
+      tube([[-0.18, 1.32, 0], [-0.36, 1.18, 0.05], [-0.5, 1.12, 0.12]], 0.038, gld, V);
+      add(uS, gld, -0.52, 1.1, 0.13, 0.05, 0.05, 0.05, 0, 0, 0, V);
+      for (k = 0; k < 4; k++) { o = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.01, 5, 8), gldD); o.position.set(-0.53 - k * 0.01, 1.02 - k * 0.055, 0.14); o.rotation.set(k % 2 ? 1.57 : 0, k % 2 ? 0 : 1.57, 0); V.add(o); }
+      /* Alas: dos abanicos de plumas curvas en capas, la derecha alzada y la izquierda más abierta */
+      [-1, 1].forEach(function (sd2) {
+        w = new THREE.Group(); w.position.set(sd2 * 0.1, 1.25, -0.13); w.rotation.set(-0.3, sd2 * -0.35, 0); V.add(w);
+        for (k = 0; k < (lite ? 4 : 9); k++) {
+          ln = 1.7 - k * 0.1 + (k > 6 ? -0.1 : 0); an = 0.3 + k * (lite ? 0.34 : 0.15);
+          f = new THREE.Group(); f.rotation.z = -sd2 * an; w.add(f);
+          o = new THREE.Mesh(uS, k % 2 ? gldD : gld); o.scale.set(0.11 + k * 0.006, ln / 2, 0.025); o.position.set(0, ln / 2 * 0.98, 0); o.rotation.x = 0.12; o.castShadow = true; f.add(o);
+          o = new THREE.Mesh(uS, k % 2 ? gld : gldD); o.scale.set(0.075, ln * 0.3, 0.02); o.position.set(0, ln * 0.3, 0.02); o.rotation.x = 0.1; f.add(o);
+        }
+        o = new THREE.Mesh(uS, gld); o.scale.set(0.13, 0.28, 0.045); o.position.set(sd2 * 0.03, 0.1, 0); o.rotation.z = -sd2 * 0.5; w.add(o);
+      });
+      return V;
+    }
+    /* Cuatro figuras doradas en las esquinas del basamento, con alas y túnica torneada */
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c) {
+      add(uB, stoneD, c[0] * 0.95, 0.9, c[1] * 0.95, 0.4, 0.2, 0.4);
+      var Vf = victory(A, 0.2, true); Vf.position.set(c[0] * 0.95, 1.0, c[1] * 0.95); Vf.rotation.y = Math.atan2(c[0], c[1]);
+    });
+    /* Fuste: columna con éntasis y cornisas torneadas, con estrías */
+    var sh0 = y, sH = 5.4;
+    lathe([[0.001, 0], [0.62, 0], [0.62, 0.12], [0.54, 0.22], [0.5, 0.34], [0.52, sH * 0.3], [0.53, sH * 0.5], [0.5, sH * 0.8], [0.46, sH - 0.2], [0.5, sH - 0.1], [0.5, sH]], stone, 28, 0, A, 0, sh0, 0);
+    for (i = 0; i < 12; i++) { a = i / 12 * 6.2832; add(uB, stoneD, Math.cos(a) * 0.52, sh0 + sH * 0.52, Math.sin(a) * 0.52, 0.045, sH * 0.8, 0.045, 0, -a, 0); }
+    [0.28, 0.52, 0.78].forEach(function (f) { lathe([[0.5, -0.07], [0.62, -0.05], [0.66, 0], [0.62, 0.06], [0.5, 0.08]], f === 0.52 ? gld : stoneD, 24, 0, A, 0, sh0 + sH * f, 0); });
+    y = sh0 + sH;
+    /* Capitel: ábaco, volutas doradas y remate donde se posa la figura */
+    lathe([[0.001, 0], [0.52, 0], [0.64, 0.06], [0.7, 0.14], [0.6, 0.22], [0.42, 0.27], [0.001, 0.3]], stone, 24, 0, A, 0, y, 0);
+    lathe([[0.55, 0.06], [0.68, 0.1], [0.71, 0.15], [0.58, 0.2]], gld, 24, 0, A, 0, y, 0);
+    for (i = 0; i < 4; i++) { a = i * 1.5708 + 0.785; o = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.035, 6, 10), gld); o.position.set(Math.cos(a) * 0.58, y + 0.18, Math.sin(a) * 0.58); o.rotation.set(0, -a, 0); A.add(o); }
+    y += 0.3;
+    var VV = victory(A, 1.15); VV.position.set(0, y, 0); VV.rotation.y = Math.PI; /* mira hacia el Palacio (-z) */
+    A.traverse(function (o) { if (o.isMesh) { o.receiveShadow = true; o.raycast = function () {}; } });
+    var ax = pres.x, az = pres.z + 6.0;
+    var dC = districts.filter(function (dd) { return dd.list.indexOf(pres) >= 0; })[0];
+    A.position.set(ax, BASE, az); A.userData.angel = true; (dC ? dC.group : scene).add(A); /* dentro del grupo del distrito: se mueve con él si se reacomoda */
+    var mk = { x: ax, z: az, r: 1.9 }; monBlk.push(mk); if (dC) dC.mon = mk;
+    window.__angel = A;
+  })();
 
   /* Hexágonos vacíos alrededor de las ciudades: losa y base tenues + borde, instanciados (uno por distrito, dentro de su grupo) */
   (function () {
@@ -6270,6 +6351,7 @@ window.startMap = function (RAW, AUTH) {
   /* Libre = tierra (nunca agua), fuera de edificios */
   var metBlock = null; /* meteorito de la invasión: obstáculo circular {x, z, r} para el robot y los aliens */
   function botFree(x, z) {
+    for (var mbi = 0; mbi < monBlk.length; mbi++) if (Math.hypot(x - monBlk[mbi].x, z - monBlk[mbi].z) < monBlk[mbi].r) return false;
     if (metBlock && Math.hypot(x - metBlock.x, z - metBlock.z) < metBlock.r) return false;
     if (landAt && !(landAt(x, z) && landAt(x + 0.5, z) && landAt(x - 0.5, z) && landAt(x, z + 0.5) && landAt(x, z - 0.5))) return false;
     if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false; /* el volcán está vedado */
