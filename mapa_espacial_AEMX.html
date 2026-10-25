@@ -4887,7 +4887,7 @@ window.startMap = function (RAW, AUTH) {
         L.crk.g.gain.setTargetAtTime(0.0001, tc, 0.05); L.alG.gain.setTargetAtTime(0.0001, tc, 0.05);
       }
       /* Fuego: mientras el OVNI cae (crash) y arde en el suelo (wreck) */
-      if (u && (u.state === 'crash' || u.state === 'stuck' || u.state === 'wreck')) {
+      if (u && (u.state === 'crash' || u.state === 'stuck' || (u.state === 'wreck' && !u.gone))) { /* el fuego se apaga cuando desaparecen los restos */
         s = spat({ x: u.x, y: u.state === 'wreck' ? (u.gy || 0) + 1 : u.y, z: u.z }, RNG.fire);
         setBus(L.fireBus, s, tc, 0.1);
         L.fireRoar.g.gain.setTargetAtTime(0.035 * (0.8 + 0.2 * Math.sin(t * 3.1)) * (u.state === 'crash' || u.state === 'stuck' ? 1.3 : 1), tc, 0.15);
@@ -5367,13 +5367,13 @@ window.startMap = function (RAW, AUTH) {
     } else if (u.state === 'wreck') {
       if (u.T >= 25 && !u.gone) { u.gone = true; if (wreck) wreck.visible = false; fxSpawn(u.x, (u.gy || 0) + 0.8, u.z, 0, 1.5, 0, 1.2, 1.5, 4, 0x555a66, 0.5, false); } /* las piezas desaparecen a los 25 s (el robot deja de rondarlas) */
       /* Columna de humo larga (~25 de alto) */
-      if (u.sm <= 0 && u.T < 60) {
+      if (u.sm <= 0 && !u.gone) {
         u.sm = 0.12;
         fxSpawn(u.x + (r() - 0.5), (u.gy || 0) + 1.0, u.z + (r() - 0.5), (r() - 0.5) * 0.6, 5 + r() * 1.5, (r() - 0.5) * 0.6, 4.5, 0.6, 3.8, 0x2f3036, 0.55, false);
       }
       /* Llamas verdes y resplandor en la base */
       u.fl = (u.fl || 0) - dt;
-      if (u.fl <= 0 && u.T < 60) {
+      if (u.fl <= 0 && !u.gone) {
         u.fl = 0.05;
         fxSpawn(u.x + (r() - 0.5) * 1.6, (u.gy || 0) + 0.3 + r() * 0.3, u.z + (r() - 0.5) * 1.6, (r() - 0.5) * 0.8, 2 + r() * 2.5, (r() - 0.5) * 0.8, 0.45 + r() * 0.2, 0.8, 0.1, r() < 0.5 ? 0x39ff6a : 0xb6ff3d, 0.9, true);
         fxSpawn(u.x + (r() - 0.5) * 1.6, (u.gy || 0) + 0.3 + r() * 0.3, u.z + (r() - 0.5) * 1.6, (r() - 0.5) * 0.8, 2 + r() * 2.5, (r() - 0.5) * 0.8, 0.45 + r() * 0.2, 0.8, 0.1, r() < 0.5 ? 0x39ff6a : 0xb6ff3d, 0.9, true);
@@ -8694,6 +8694,11 @@ window.startMap = function (RAW, AUTH) {
       }
       if (inv.met) { metStep(inv.met, dt, t); updP(dt); }
       if (inv.met && !live && inv.met.state === 'rest' && inv.ph === 'alien') inv.ph = 'rock'; /* sin aliens: toca el meteorito */
+      if (inv.t > 480 && !inv.end && !inv.to) { /* tope de 8 min: los aliens que queden se desvanecen y el meteorito se rompe */
+        inv.to = true;
+        inv.al.forEach(function (q) { if (q.s !== 'dying') { q.s = 'dying'; q.dy = 0; } });
+        if (inv.met && inv.met.state === 'rest') metBreak(inv.met);
+      }
       if (inv.met && inv.met.state === 'dead' && !inv.end) inv.end = true; /* el evento termina al destruir el meteorito */
       if (!inv.met && !live && !inv.end) inv.end = true;
       if (inv.end && inv.wk <= 0.001 && !inv.al.length && (!inv.met || inv.met.deadT > 5.5)) stopNow();
