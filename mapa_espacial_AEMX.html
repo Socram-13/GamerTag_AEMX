@@ -63,6 +63,22 @@
   #res small { color: var(--muted); font-weight: 500; }
   .tools { display: flex; gap: 8px; pointer-events: auto; margin-left: auto; }
   /* Interfaz oculta: solo queda el botón para volver a mostrarla */
+  #botHud { position: absolute; inset: 0; z-index: 4; pointer-events: none; display: none; }
+  #botHud.on { display: block; }
+  #invAl { position: absolute; top: max(140px, 18vh); left: 50%; transform: translateX(-50%); display: none; align-items: center; gap: 12px; padding: 10px 26px; border-radius: 10px; border: 1px solid rgba(255,70,70,0.8); background: rgba(190,15,15,0.38); backdrop-filter: blur(4px); color: #ffe3e3; font: 800 20px/1.1 var(--f-display); letter-spacing: 0.14em; text-transform: uppercase; text-shadow: 0 0 10px rgba(255,40,40,0.9); box-shadow: 0 0 24px rgba(255,30,30,0.45); white-space: nowrap; animation: invPulse 1.1s ease-in-out infinite; }
+  #invAl.on { display: flex; }
+  #invAl small { font: 700 11px var(--f-body); letter-spacing: 0.2em; color: #ffb3b3; display: block; }
+  @keyframes invPulse { 0%, 100% { background: rgba(190,15,15,0.30); box-shadow: 0 0 14px rgba(255,30,30,0.3); } 50% { background: rgba(215,20,20,0.48); box-shadow: 0 0 32px rgba(255,30,30,0.6); } }
+  #bTank { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 24px; display: flex; align-items: flex-end; gap: 8px; }
+  #bTank .tk { position: relative; width: 34px; height: 130px; border-radius: 10px 10px 14px 14px; border: 2px solid rgba(190,230,255,0.75); background: rgba(8,14,26,0.55); backdrop-filter: blur(3px); overflow: hidden; box-shadow: 0 0 12px rgba(63,208,255,0.25); }
+  #bTank .tk::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 38%; background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0)); z-index: 2; }
+  #bTank .fl { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; background: linear-gradient(180deg, #8ff0ff, #1aa8e8); transition: background 0.2s; }
+  #bTank .fl::after { content: ''; position: absolute; left: 0; right: 0; top: -2px; height: 4px; background: rgba(255,255,255,0.7); }
+  #bTank.low .fl { background: linear-gradient(180deg, #ffd27a, #ff8a1a); }
+  #bTank.use .tk { box-shadow: 0 0 18px rgba(63,208,255,0.8); }
+  #bTank .tick { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.28); z-index: 3; }
+  #bTank .lb { font: 700 10px var(--f-body); letter-spacing: 0.16em; color: #bfeaff; writing-mode: vertical-rl; transform: rotate(180deg); text-shadow: 0 0 6px rgba(0,0,0,0.7); }
+  .stage.ui-off #botHud { display: none !important; }
   .stage.ui-off .me, .stage.ui-off .search, .stage.ui-off #card, .stage.ui-off .tools button:not(#b-ui) { display: none !important; }
   .tools button {
     height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel);
@@ -124,6 +140,10 @@
 <main class="stage" id="stage">
   <canvas id="gl" aria-label="Mapa de México en 3D con una ciudad espacial. Arrastra para girar, pellizca o usa la rueda para acercar."></canvas>
   <div id="labels"></div>
+  <div id="botHud" aria-hidden="true">
+    <div id="invAl"><span>⚠</span><span><small>ALERTA</small>INVASIÓN DE <b id="invNm"></b></span><span>⚠</span></div>
+    <div id="bTank"><div class="tk"><div class="fl" id="bFill"></div><i class="tick" style="bottom:25%"></i><i class="tick" style="bottom:50%"></i><i class="tick" style="bottom:75%"></i></div><span class="lb">HIPERIMPULSO</span></div>
+  </div>
   <div class="hud">
     <header class="top">
       <button type="button" class="me" id="me" aria-label="Mi perfil" hidden>
@@ -6997,7 +7017,7 @@ window.startMap = function (RAW, AUTH) {
             }
           }
           if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxDense = !!(WX && WX.denseAt && (WX.denseAt(b.x, b.z) || WX.denseAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); if (invIn) { b.wxFog = b.wxDense = b.wxBad = false; } }
-          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12 && botLandAhead(b.x, b.z, want, 80)) { b.boostT = (typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && statePolys[S.name] && botInRings(statePolys[S.name], b.x, b.z); })(ALN.state())) ? 1 : 10; /* dentro del estado invadido durante la invasión, el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12 && botLandAhead(b.x, b.z, want, 80)) { b.boostT = b.bMax = invIn ? 1 : 10; /* dentro del estado invadido durante la invasión, el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
             if (b.wxBad || gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12 || !botLandAhead(b.x, b.z, b.yaw, 32)) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
@@ -8716,6 +8736,19 @@ window.startMap = function (RAW, AUTH) {
       tcP.set(0, 0.85, -0.35); car.bar.localToWorld(tcP); camera.position.copy(tcP);
       tcT.set(0, 0.15, 10); car.bar.localToWorld(tcT); camera.lookAt(tcT);
     }
+    (function () {
+      var hud = document.getElementById('botHud'), on = !!(botFollow && bot), S, nm, lvl, tk, el;
+      if (!hud) return;
+      if (on !== hud._on) { hud._on = on; hud.classList.toggle('on', on); }
+      if (!on) return;
+      S = (typeof ALN !== 'undefined' && ALN && ALN.state) ? ALN.state() : null; nm = S && !S.end ? S.name : '';
+      if (nm !== hud._nm) { hud._nm = nm; document.getElementById('invNm').textContent = nm; document.getElementById('invAl').classList.toggle('on', !!nm); }
+      if (bot.boostT > 0) lvl = bot.boostT / (bot.bMax || 10); else if (bot.boostCD > 0) lvl = 1 - bot.boostCD / BOT_BOOST_CD; else lvl = 1;
+      lvl = Math.max(0, Math.min(1, lvl)); tk = document.getElementById('bTank');
+      if (Math.abs(lvl - (hud._lv === undefined ? -1 : hud._lv)) > 0.004) { hud._lv = lvl; document.getElementById('bFill').style.height = (lvl * 100).toFixed(1) + '%'; }
+      el = lvl < 0.3; if (el !== hud._lo) { hud._lo = el; tk.classList.toggle('low', el); }
+      el = bot.boostT > 0; if (el !== hud._us) { hud._us = el; tk.classList.toggle('use', el); }
+    })();
     if (botFollow && bot && !fly) { botChasePos(camera.position); botChaseTarget(controls.target); camera.lookAt(controls.target); }
     updateRuins(t);
     updateCamps(t, dt);
