@@ -7127,7 +7127,7 @@ window.startMap = function (RAW, AUTH) {
           }
           if (b.rec > 0) {
             /* Recuperación de atasco: retrocede en diagonal hacia el lado libre y luego replanifica la ruta */
-            b.rec -= dt; b.v = 2.6; b.yaw += nAng(b.recDir + 3.1416 - b.yaw) * Math.min(1, dt * 6);
+            b.rec -= dt; b.v = 2.6; b.yaw += nAng(b.recDir - b.yaw) * Math.min(1, dt * 6); /* avanza de frente hacia el lado libre, sin caminar de espaldas */
             nx = b.x + Math.sin(b.recDir) * 2.6 * dt; nz = b.z + Math.cos(b.recDir) * 2.6 * dt;
             if (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz)) { b.x = nx; b.z = nz; }
             else { b.recDir += b.side * 0.9; }
@@ -7210,7 +7210,7 @@ window.startMap = function (RAW, AUTH) {
         b.x = ju.x0 + (rp.lx - ju.x0) * Math.pow(us, 2.2); b.z = ju.z0 + (rp.lz - ju.z0) * Math.pow(us, 2.2);
         if (us < 1 && ud === 0) b.y = ju.y0 + (rp.roofY + 1.0 - ju.y0) * Math.sin(uh * 1.5708);
         else if (ud > 0) b.y = rp.roofY + 1.0 - ud * ud * (3 - 2 * ud);
-        b.yaw += nAng((thr && U && !b.ball ? Math.atan2(U.x - b.x, U.z - b.z) : Math.atan2(rp.lx - ju.x0, rp.lz - ju.z0)) - b.yaw) * Math.min(1, dt * 10); /* sigue mirando al objetivo durante el salto */
+        b.yaw += nAng(Math.atan2(rp.lx - ju.x0, rp.lz - ju.z0) - b.yaw) * Math.min(1, dt * 10);
         if (us >= 1) { b.ju = null; b.x = rp.lx; b.z = rp.lz; b.y = rp.roofY; b.mode = 'perch'; b.perchT = 0; b.maxPerch = 7 + Math.random() * 6; b.vy = 0; b.losT = 0; }
       } else {
         /* Bajada: se deja caer de la azotea con un pequeño salto y solo usa el propulsor al final para amortiguar */
@@ -7220,7 +7220,7 @@ window.startMap = function (RAW, AUTH) {
         /* salta hacia afuera a velocidad constante; no baja del techo mientras siga sobre el edificio */
         var jex = rp.dx - b.x, jez = rp.dz - b.z, jpd = Math.hypot(jex, jez), jsp = Math.max(9, Math.hypot(rp.dx - jd.x0, rp.dz - jd.z0) / Math.max(0.4, jd.Tf) * 1.3);
         if (jpd > 0.05) { b.x += jex / jpd * Math.min(jpd, jsp * dt); b.z += jez / jpd * Math.min(jpd, jsp * dt); }
-        b.yaw += nAng((thr && U && !b.ball ? Math.atan2(U.x - b.x, U.z - b.z) : Math.atan2(rp.dx - jd.x0, rp.dz - jd.z0)) - b.yaw) * Math.min(1, dt * 8);
+        b.yaw += nAng(Math.atan2(rp.dx - jd.x0, rp.dz - jd.z0) - b.yaw) * Math.min(1, dt * 8);
         gd = botGround(b.x, b.z);
         if (!jd.cu && b.y - gd < 0.95 && b.vy < 0) jd.cu = true;
         if (jd.cu) b.vy += (-2.6 - b.vy) * Math.min(1, dt * 22); else b.vy = Math.max(-16, b.vy - 24 * dt); /* cae rápido y frena con el propulsor justo antes del suelo */
@@ -7290,7 +7290,7 @@ window.startMap = function (RAW, AUTH) {
         if (hp.t < hp.tb) { gs = 30 * hp.t; gy = hp.y0 + hp.H * Math.sin(hp.t / hp.tb * 1.5708); }
         else { gv = Math.min(1, (hp.t - hp.tb) / hp.tb); gs = 0.6 * hp.d + 0.4 * hp.d * gv; gy = hp.gE + (hp.y0 + hp.H - hp.gE) * (1 - gv * gv); }
         b.x = hp.x0 + hp.ux * gs; b.z = hp.z0 + hp.uz * gs; b.y = gy; b.ball = hp.t > hp.tb;
-        b.yaw += nAng((thr && U && !b.ball ? Math.atan2(U.x - b.x, U.z - b.z) : Math.atan2(hp.ux, hp.uz)) - b.yaw) * Math.min(1, dt * 8);
+        b.yaw += nAng(Math.atan2(hp.ux, hp.uz) - b.yaw) * Math.min(1, dt * 8);
         if (hp.t >= 2 * hp.tb) {
           var hg2 = b.hopGoal; b.mode = 'walk'; b.ball = false; b.rp = null; b.y = hp.gE; b.bh = 0; b.bvy = 0; b.v = 6; b.boostT = 0; b.boostCD = BOT_BOOST_CD; b.hopGoal = null; b.tallRoof = false; b.idle = 0.3; b.goal = null; b.gtype = ''; b.path = null;
           if (hg2) botSetGoal(hg2.x, hg2.z, hg2.t);
@@ -7300,7 +7300,7 @@ window.startMap = function (RAW, AUTH) {
       b.x = hp.x0 + (hp.rp2.lx - hp.x0) * hs; b.z = hp.z0 + (hp.rp2.lz - hp.z0) * hs;
       hz = hs * hs * (3 - 2 * hs);
       b.y = hp.y0 + (hp.rp2.roofY - hp.y0) * hz + hp.ah * 4 * hs * (1 - hs);
-      b.yaw += nAng((thr && U && !b.ball ? Math.atan2(U.x - b.x, U.z - b.z) : Math.atan2(hp.rp2.lx - hp.x0, hp.rp2.lz - hp.z0)) - b.yaw) * Math.min(1, dt * 8);
+      b.yaw += nAng(Math.atan2(hp.rp2.lx - hp.x0, hp.rp2.lz - hp.z0) - b.yaw) * Math.min(1, dt * 8);
       if (hs >= 1) { b.rp = hp.rp2; b.y = hp.rp2.roofY; b.mode = 'perch'; b.perchT = 0; b.maxPerch = 7 + Math.random() * 6; b.hopN = (b.hopN || 0) + 1; b.losT = 0; }
       }
     } else { /* perch: sobre la azotea, vigila y dispara */
@@ -7350,7 +7350,8 @@ window.startMap = function (RAW, AUTH) {
     } else { yT = b.yaw; pT = 0.06; }
     b.aimYaw += nAng(yT - b.aimYaw) * Math.min(1, dt * 14);
     b.aimPitch += (pT - b.aimPitch) * Math.min(1, dt * 14);
-    if (Math.abs(nAng(b.aimYaw - b.yaw)) > 2.2) b.aimYaw = b.yaw + (nAng(b.aimYaw - b.yaw) > 0 ? 2.2 : -2.2);
+    var TW = 1.3; /* giro máximo del torso respecto a las piernas (~75°) */
+    if (Math.abs(nAng(b.aimYaw - b.yaw)) > TW) b.aimYaw = b.yaw + (nAng(b.aimYaw - b.yaw) > 0 ? TW : -TW);
     if ((b.mode === 'perch' || (b.mode === 'walk' && b.v < 0.6)) && b.aiming) b.yaw += nAng(b.aimYaw - b.yaw) * Math.min(1, dt * 3);
     errY = Math.abs(nAng(yT - b.aimYaw)); errP = Math.abs(pT - b.aimPitch);
 
@@ -7384,7 +7385,7 @@ window.startMap = function (RAW, AUTH) {
       b.legs[i].th.rotation.z = (i === 0 ? -0.4 : 0) * hk; /* colgado: una pierna abierta al lado, la otra recta bajo el brazo en alto */
     }
     /* Puntería vertical: el cuello y los brazos suben o bajan el rifle; el torso solo gira en horizontal */
-    var stA = -0.85 * b.hold, stC = Math.cos(stA), stS = Math.sin(stA), hq, pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.12, 0.45, 0.4], [0.12, 0.39, 0.35]];
+    var stA = -0.85 * b.hold * Math.max(0, Math.min(1, 1 + nAng(b.aimYaw - b.yaw) / 0.9)) /* la postura de costado se quita si el objetivo está al otro lado: así el torso nunca queda de espaldas */, stC = Math.cos(stA), stS = Math.sin(stA), hq, pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.12, 0.45, 0.4], [0.12, 0.39, 0.35]];
     if (b.hold > 0.01) {
       for (i = 0; i < 2; i++) {
         hy = hT[i][1] - 0.43; hz = hT[i][2];
