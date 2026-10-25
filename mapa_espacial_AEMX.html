@@ -821,18 +821,10 @@ window.startMap = function (RAW, AUTH) {
   function addPresident(g, x, y, z, ph) {
     var a = new THREE.Group(), m, k, ang, sg;
     function put(geo, mat, px, py, pz) { var mm = new THREE.Mesh(geo, mat); mm.position.set(px, py, pz); a.add(mm); return mm; }
-    function limb(geo, px, py, len, kind) {
-      var piv = new THREE.Group(), mm = new THREE.Mesh(geo, prSuit);
-      piv.position.set(px, py, 0); mm.position.y = -len / 2; piv.add(mm); a.add(piv);
-      if (kind) dsBend(piv, mm, len, kind === 'L', prSuit);
-      return piv;
-    }
-    put(dsGTorso, prSuit, 0, 0.95, 0);
-    put(dsGPack, prPack, 0, 0.98, -0.27);
-    put(dsGHelmet, prSuit, 0, 1.5, 0);
-    m = put(dsGVisor, prVisor, 0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75);
-    var legL = limb(dsGLeg, -0.13, 0.65, 0.55, 'L'), legR = limb(dsGLeg, 0.13, 0.65, 0.55, 'L');
-    var armL = limb(dsGArm, -0.33, 1.2, 0.5, 'A'), armR = limb(dsGArm, 0.33, 1.2, 0.5); /* el brazo derecho queda recto: lleva la pistola */
+    var ast = makeAstronaut(true); /* mismo cuerpo y casco que los astronautas (traje negro, visor azul) */
+    ast.g.scale.setScalar(1); a.add(ast.g);
+    ast.parts.armRJ = new THREE.Group(); /* el brazo derecho queda recto: lleva la pistola */
+    var legL = ast.parts.legL, legR = ast.parts.legR, armL = ast.parts.armL, armR = ast.parts.armR;
     armL.rotation.z = -0.12;
     /* Pistola dorada en la mano derecha (solo se ve al disparar) */
     var gun = new THREE.Group(), gm1, muz = new THREE.Object3D();
@@ -848,8 +840,8 @@ window.startMap = function (RAW, AUTH) {
       var st = new THREE.Mesh(uBox, mat); st.scale.set(0.07, 0.64, 0.025); st.position.x = (i - 1) * 0.07; sg.add(st);
     });
     /* Corona dorada */
-    put(prCrownBase, prGold, 0, 1.8, 0);
-    for (k = 0; k < 5; k++) { ang = k / 5 * Math.PI * 2; put(prSpike, prGold, Math.cos(ang) * 0.175, 1.92, Math.sin(ang) * 0.175); }
+    put(prCrownBase, prGold, 0, 1.74, 0);
+    for (k = 0; k < 5; k++) { ang = k / 5 * Math.PI * 2; put(prSpike, prGold, Math.cos(ang) * 0.175, 1.86, Math.sin(ang) * 0.175); }
     a.scale.setScalar(0.5);
     a.position.set(x, y, z);
     a.rotation.y = Math.PI; /* mira hacia afuera del balcón */
@@ -2144,11 +2136,11 @@ window.startMap = function (RAW, AUTH) {
         ast.parts.legL.rotation.z = -0.06; ast.parts.legR.rotation.z = 0.06;
         /* Bikini rojo (coordenadas del modelo: torso de 0.5 x 0.6 x 0.32 centrado en y = 0.95) */
         [-1, 1].forEach(function (sd) {
-          var cup = new THREE.Mesh(uSphere, bik); cup.scale.set(0.12, 0.11, 0.06); cup.position.set(sd * 0.12, 1.1, 0.17); ast.g.add(cup);
+          var cup = new THREE.Mesh(uSphere, bik); cup.scale.set(0.11, 0.1, 0.06); cup.position.set(sd * 0.1, 1.1, 0.185); ast.g.add(cup);
         });
-        m = new THREE.Mesh(uBox, bik); m.scale.set(0.52, 0.04, 0.34); m.position.set(0, 1.1, 0); ast.g.add(m);   /* tira del pecho */
-        m = new THREE.Mesh(uBox, bik); m.scale.set(0.52, 0.2, 0.34); m.position.set(0, 0.72, 0); ast.g.add(m);   /* parte de abajo */
-        [-1, 1].forEach(function (sd) { var tr = new THREE.Mesh(uBox, bik); tr.scale.set(0.03, 0.16, 0.04); tr.position.set(sd * 0.12, 1.2, 0.0); ast.g.add(tr); });
+        m = new THREE.Mesh(uBox, bik); m.scale.set(0.46, 0.04, 0.3); m.position.set(0, 1.1, 0); ast.g.add(m);   /* tira del pecho */
+        m = new THREE.Mesh(uBox, bik); m.scale.set(0.38, 0.16, 0.27); m.position.set(0, 0.68, 0); ast.g.add(m);   /* parte de abajo */
+        [-1, 1].forEach(function (sd) { var tr = new THREE.Mesh(uBox, bik); tr.scale.set(0.03, 0.12, 0.04); tr.position.set(sd * 0.1, 1.22, 0.0); ast.g.add(tr); });
         root.add(ast.g);
         root.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
         scene.add(root);
@@ -2171,9 +2163,9 @@ window.startMap = function (RAW, AUTH) {
           for (li = 0; li < lens2.length; li++) if (pathOK(Kx, Kz, Kx + ddx * lens2[li], Kz + ddz * lens2[li])) { L2 = lens2[li]; break; }
           if (L1 >= 1.5 && L2 >= 1.5) {
             var wa = makeAstronaut(), blue = new THREE.MeshLambertMaterial({ color: 0x1b5cff, emissive: 0x06174a });
-            [-1, 1].forEach(function (sd) { var cup = new THREE.Mesh(uSphere, blue); cup.scale.set(0.12, 0.11, 0.06); cup.position.set(sd * 0.12, 1.1, 0.17); wa.g.add(cup); });
-            m = new THREE.Mesh(uBox, blue); m.scale.set(0.52, 0.04, 0.34); m.position.set(0, 1.1, 0); wa.g.add(m);
-            m = new THREE.Mesh(uBox, blue); m.scale.set(0.52, 0.2, 0.34); m.position.set(0, 0.72, 0); wa.g.add(m);
+            [-1, 1].forEach(function (sd) { var cup = new THREE.Mesh(uSphere, blue); cup.scale.set(0.11, 0.1, 0.06); cup.position.set(sd * 0.1, 1.1, 0.185); wa.g.add(cup); });
+            m = new THREE.Mesh(uBox, blue); m.scale.set(0.46, 0.04, 0.3); m.position.set(0, 1.1, 0); wa.g.add(m);
+            m = new THREE.Mesh(uBox, blue); m.scale.set(0.38, 0.16, 0.27); m.position.set(0, 0.68, 0); wa.g.add(m);
             wa.g.visible = false; wa.g.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; }); scene.add(wa.g);
             var tWk = L1 / 1.4, tKk = 2.2, tRn = L2 / 4.2, tBk = (L1 + L2) / 1.4, Cc = tWk + tKk + tRn + tBk;
             W = { a: wa, Kx: Kx, Kz: Kz, dx: ddx, dz: ddz, sx: sxn, sz: szn, L1: L1, L2: L2, tW: tWk, tK: tKk, tR: tRn, tB: tBk, C: Cc, off: vr() * Cc, yaw: Math.atan2(ddx, ddz), sc: 0 };
@@ -2182,9 +2174,9 @@ window.startMap = function (RAW, AUTH) {
         if (!W) { /* último recurso: tramo corto a lo largo de la orilla, sin filtros de ruta */
           var wb = makeAstronaut(), blue2 = new THREE.MeshLambertMaterial({ color: 0x1b5cff, emissive: 0x06174a }), tw0, tk0, tr0, tb0, c0;
           ddx = -szn; ddz = sxn; L1 = 3; L2 = 3;
-          [-1, 1].forEach(function (sd) { var cup = new THREE.Mesh(uSphere, blue2); cup.scale.set(0.12, 0.11, 0.06); cup.position.set(sd * 0.12, 1.1, 0.17); wb.g.add(cup); });
-          m = new THREE.Mesh(uBox, blue2); m.scale.set(0.52, 0.04, 0.34); m.position.set(0, 1.1, 0); wb.g.add(m);
-          m = new THREE.Mesh(uBox, blue2); m.scale.set(0.52, 0.2, 0.34); m.position.set(0, 0.72, 0); wb.g.add(m);
+          [-1, 1].forEach(function (sd) { var cup = new THREE.Mesh(uSphere, blue2); cup.scale.set(0.11, 0.1, 0.06); cup.position.set(sd * 0.1, 1.1, 0.185); wb.g.add(cup); });
+          m = new THREE.Mesh(uBox, blue2); m.scale.set(0.46, 0.04, 0.3); m.position.set(0, 1.1, 0); wb.g.add(m);
+          m = new THREE.Mesh(uBox, blue2); m.scale.set(0.38, 0.16, 0.27); m.position.set(0, 0.68, 0); wb.g.add(m);
           wb.g.visible = false; wb.g.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; }); scene.add(wb.g);
           tw0 = L1 / 1.4; tk0 = 2.2; tr0 = L2 / 4.2; tb0 = (L1 + L2) / 1.4; c0 = tw0 + tk0 + tr0 + tb0;
           W = { a: wb, Kx: Kx, Kz: Kz, dx: ddx, dz: ddz, sx: sxn, sz: szn, L1: L1, L2: L2, tW: tw0, tK: tk0, tR: tr0, tB: tb0, C: c0, off: vr() * c0, yaw: Math.atan2(ddx, ddz), sc: 0 };
@@ -3180,7 +3172,7 @@ window.startMap = function (RAW, AUTH) {
   var astSuitO = new THREE.MeshLambertMaterial({ color: 0xf26a1b });
   var astPackO = new THREE.MeshLambertMaterial({ color: 0xa8440c });
   var astVisorO = new THREE.MeshLambertMaterial({ color: 0x08090b, emissive: 0x020203 });
-  var astHair = new THREE.MeshLambertMaterial({ color: 0xf7c92b, emissive: 0x3a2c00 });
+  var astHair = new THREE.MeshLambertMaterial({ color: 0xffd21f, emissive: 0x7a5c00 });
   /* Astronauta del coche lunar: traje azul y visor oscuro */
   var astSuitBl = new THREE.MeshLambertMaterial({ color: 0x2f6bff });
   var astPackBl = new THREE.MeshLambertMaterial({ color: 0x1d3f9e });
@@ -3199,50 +3191,135 @@ window.startMap = function (RAW, AUTH) {
   var gJL = new THREE.SphereGeometry(0.1, 10, 8), gJA = new THREE.SphereGeometry(0.072, 10, 8);
 
   var astAll = [], gLegH = capsGeo(0.1, 0.285, 1, 1.1), gArmH = capsGeo(0.07, 0.26, 1, 1);
+  /* Astronauta con el cuerpo del robot (paneles angulares, articulaciones y botas) y casco angular con visor, sin antenas, sin hombreras y con la mochila sin cohetes.
+     Cada pieza se fusiona en una sola malla con colores por vértice y se guarda en caché por tipo, así que cada astronauta cuesta pocas mallas. */
+  var astVC = new THREE.MeshLambertMaterial({ vertexColors: true });
+  var astGeoCache = {}, astPackGeo = null, astEgg = null, astUCyl = new THREE.CylinderGeometry(1, 1, 1, 10), astUSph = new THREE.SphereGeometry(1, 10, 7), astHSph = new THREE.SphereGeometry(1, 24, 16);
+  var AST_G = 0x80878f, AST_D = 0x0a0c0f, AST_J = 0x3a414b;
+  function astMerge(items) {
+    var pos = [], nor = [], col = [], i, it, m, g2, p, n, k, c = new THREE.Color(), geo = new THREE.BufferGeometry();
+    for (i = 0; i < items.length; i++) {
+      it = items[i];
+      if (it.g) g2 = it.g.clone(); else { m = new THREE.Mesh(it.t === 'c' ? astUCyl : it.t === 's' ? astUSph : it.t === 'h' ? astHSph : uBox); m.position.set(it.p[0], it.p[1], it.p[2]); m.scale.set(it.s[0], it.s[1], it.s[2]); if (it.r) m.rotation.set(it.r[0], it.r[1], it.r[2]); m.updateMatrix(); g2 = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()); g2.applyMatrix4(m.matrix); }
+      if (g2.index) g2 = g2.toNonIndexed();
+      if (it.g && it.p) g2.translate(it.p[0], it.p[1], it.p[2]);
+      p = g2.attributes.position.array; n = g2.attributes.normal.array; c.setHex(it.c);
+      for (k = 0; k < p.length; k++) { pos.push(p[k]); nor.push(n[k]); }
+      for (k = 0; k < p.length / 3; k++) col.push(c.r, c.g, c.b);
+    }
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    return geo;
+  }
+  function aB(c, x, y, z, sx, sy, sz, r) { return { t: 'b', c: c, p: [x, y, z], s: [sx, sy, sz], r: r }; }
+  function aS(c, x, y, z, r) { return { t: 's', c: c, p: [x, y, z], s: [r, r, r] }; }
+  function aH(c, x, y, z, sx, sy, sz) { return { t: 'h', c: c, p: [x, y, z], s: [sx, sy, sz] }; }
+  /* Caja de esquinas redondeadas (ancho, alto, fondo, radio) */
+  function roundedBox(w, h, d, r) {
+    var q = new THREE.BoxGeometry(w, h, d, 6, 6, 6), P = q.attributes.position, N = q.attributes.normal, i, x, y, z, ix, iy, iz, dx, dy, dz, l, hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
+    for (i = 0; i < P.count; i++) {
+      x = P.getX(i); y = P.getY(i); z = P.getZ(i);
+      ix = Math.max(-hx, Math.min(hx, x)); iy = Math.max(-hy, Math.min(hy, y)); iz = Math.max(-hz, Math.min(hz, z));
+      dx = x - ix; dy = y - iy; dz = z - iz; l = Math.hypot(dx, dy, dz) || 1;
+      P.setXYZ(i, ix + dx / l * r, iy + dy / l * r, iz + dz / l * r); N.setXYZ(i, dx / l, dy / l, dz / l);
+    }
+    return q;
+  }
+  /* Casco ovalado liso: elipsoide más angosto hacia el mentón y abultado atrás */
+  var EGG = [0.21, 0.24, 0.27];
+  function eggPt(dx, dy, dz, k) {
+    var t = dy < 0 ? 1 - 0.28 * -dy : 1, zz = dz * EGG[2] * (dz < 0 ? 1.08 : 1);
+    return [dx * EGG[0] * t * k, dy * EGG[1] * k, zz * t * k];
+  }
+  function eggShell() {
+    var q = new THREE.SphereGeometry(1, 26, 18), P = q.attributes.position, i, e;
+    for (i = 0; i < P.count; i++) { e = eggPt(P.getX(i), P.getY(i), P.getZ(i), 1); P.setXYZ(i, e[0], e[1], e[2]); }
+    q.computeVertexNormals(); return q;
+  }
+  function eggVisor() { /* parche de cristal en forma de escudo: ancho arriba, más angosto hacia el mentón */
+    var N = 14, M = 18, pos = [], idx = [], i, j, th, ph, ph0, e, q = new THREE.BufferGeometry();
+    for (i = 0; i <= N; i++) {
+      th = 0.95 + (2.3 - 0.95) * i / N; ph0 = 0.95 - 0.4 * (i / N);
+      for (j = 0; j <= M; j++) { ph = -ph0 + 2 * ph0 * j / M; e = eggPt(Math.sin(th) * Math.sin(ph), Math.cos(th), Math.sin(th) * Math.cos(ph), 1.014); pos.push(e[0], e[1], e[2]); }
+    }
+    for (i = 0; i < N; i++) for (j = 0; j < M; j++) { var a = i * (M + 1) + j, b = a + M + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
+    q.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); q.setIndex(idx); q.computeVertexNormals(); return q;
+  }
+  function aR(c, x, y, z, w, h, d, r) { return { g: roundedBox(w, h, d, r), p: [x, y, z], c: c }; }
+  function aC(c, x, y, z, r, len) { return { t: 'c', c: c, p: [x, y, z], s: [r, len, r] }; }
+  var AST_STY = {
+    w: { suit: astSuit, pack: astPack, vis: astVisor, light: 0x49d6ff },
+    b: { suit: astSuitB, pack: astPackB, vis: astVisorB, light: 0x9cc8ff },
+    o: { suit: astSuitO, pack: astPackO, vis: astVisorO, light: 0xffb12a },
+    bl: { suit: astSuitBl, pack: astPackBl, vis: astVisorBl, light: 0x49d6ff }
+  };
+  function astGeo(key, build) { return astGeoCache[key] || (astGeoCache[key] = build()); }
   function makeAstronaut(kind, noBend) {
-    var black = kind === true, orange = kind === 'orange', blue = kind === 'blue';
-    var g = new THREE.Group(), m, suit = blue ? astSuitBl : orange ? astSuitO : black ? astSuitB : astSuit, pack = blue ? astPackBl : orange ? astPackO : black ? astPackB : astPack, vis = blue ? astVisorBl : orange ? astVisorO : black ? astVisorB : astVisor;
+    var ky = kind === true ? 'b' : kind === 'orange' ? 'o' : kind === 'blue' ? 'bl' : 'w', st = AST_STY[ky], SU = st.suit.color.getHex(), PK = st.pack.color.getHex();
+    var g = new THREE.Group(), m, parts = {}, bendK = noBend ? 'n' : 'y', lightM = astGeoCache['lm' + ky] || (astGeoCache['lm' + ky] = new THREE.MeshBasicMaterial({ color: st.light }));
     g.rotation.order = 'YXZ';
-    m = new THREE.Mesh(gTorso, suit); m.position.y = 0.95; g.add(m);
-    m = new THREE.Mesh(gPack, pack); m.position.set(0, 0.98, -0.26); g.add(m);
-    m = new THREE.Mesh(gHelmet, suit); m.position.y = 1.5; g.add(m);
-    m = new THREE.Mesh(gVisor, vis); m.position.set(0, 1.5, 0.2); m.scale.set(1.1, 0.8, 0.75); g.add(m);
-    if (orange) {
+    var ACC = ky === 'b' ? 0x4a4f58 : 0x15181d; /* detalles negros curvos sobre el traje (gris en el traje negro) */
+    /* tronco: pecho con placa y luz, abdomen articulado, pelvis, cuello */
+    m = new THREE.Group();
+    var tm = new THREE.Mesh(astGeo('t' + ky, function () { return astMerge([aB(SU, 0, 1.04, 0, 0.44, 0.36, 0.28), aB(ACC, 0, 1.07, 0.145, 0.34, 0.2, 0.04), aB(AST_D, 0, 0.95, 0.145, 0.26, 0.05, 0.03), aB(ACC, 0, 1.24, 0, 0.3, 0.06, 0.2), aB(AST_J, 0, 0.84, 0, 0.24, 0.16, 0.18), aB(SU, 0, 0.68, 0, 0.36, 0.14, 0.24), aB(ACC, 0, 0.68, 0.125, 0.16, 0.1, 0.03), aB(ACC, -0.19, 0.68, 0, 0.04, 0.12, 0.2), aB(ACC, 0.19, 0.68, 0, 0.04, 0.12, 0.2), aC(AST_J, 0, 1.29, 0, 0.07, 0.12)]); }), astVC);
+    m.add(tm);
+    var tl = new THREE.Mesh(astGeo('tl', function () { return astMerge([aB(0xffffff, 0, 1.07, 0.168, 0.07, 0.07, 0.012)]); }), lightM); m.add(tl);
+    g.add(m); /* children[0] */
+    /* mochila aerodinámica del robot, sin cohetes, con franja luminosa */
+    if (!astPackGeo) {
+      var ps = new THREE.Shape();
+      ps.moveTo(-0.13, 0.54); ps.lineTo(-0.27, 0.5); ps.lineTo(-0.36, 0.3); ps.lineTo(-0.35, 0.06); ps.lineTo(-0.27, -0.04); ps.lineTo(-0.13, 0.0); ps.closePath();
+      astPackGeo = new THREE.ExtrudeGeometry(ps, { depth: 0.26, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
+      astPackGeo.scale(0.75, 0.75, 0.75); astPackGeo.rotateY(-Math.PI / 2); astPackGeo.translate(0.1, 0, -0.02);
+    }
+    m = new THREE.Group();
+    m.add(new THREE.Mesh(astGeo('p' + ky, function () { return astMerge([{ g: astPackGeo, p: [0, 0.78, 0], c: PK }, aB(ACC, 0, 1.18, -0.2, 0.12, 0.025, 0.12, [-0.25, 0, 0])]); }), astVC));
+    m.add(new THREE.Mesh(astGeo('pl', function () { return astMerge([aB(0xffffff, 0, 1.02, -0.292, 0.026, 0.22, 0.012)]); }), lightM));
+    g.add(m); /* children[1] */
+    /* casco moderno: carcasa ovalada y lisa, aro de cuello redondo con junta */
+    m = new THREE.Mesh(astGeo('h' + ky, function () { return astMerge([{ g: astEgg || (astEgg = eggShell()), p: [0, 1.52, -0.03], c: SU }, aC(SU, 0, 1.3, 0, 0.15, 0.06), aC(AST_D, 0, 1.335, 0, 0.135, 0.03)]); }), astVC);
+    g.add(m); /* children[2] */
+    /* visor grande de cristal negro y brillante en forma de escudo (children[3]) */
+    var vg = new THREE.Group(), vm = astGeoCache['vm' + ky] || (astGeoCache['vm' + ky] = new THREE.MeshPhongMaterial({ color: st.vis.color.getHex(), emissive: st.vis.emissive.getHex(), specular: 0xb4c4d6, shininess: 110, side: THREE.DoubleSide }));
+    m = new THREE.Mesh(astGeo('vv', function () { var q = eggVisor(); q.translate(0, 1.52, -0.03); return q; }), vm);
+    vg.add(m);
+    g.add(vg); /* children[3] */
+    if (kind === 'orange') {
       /* Moicano: cresta de picos sobre el casco, cada vez más inclinada hacia la frente; el último cae como flequillo */
-      var hz = [-0.2, -0.1, 0, 0.1, 0.19, 0.26], hs = [0.9, 1.0, 1.1, 1.15, 1.2, 1.0], ht = [0.45, 0.65, 0.85, 1.05, 1.25, 1.6], hi;
-      var hxs = [0, -0.12, 0.12], hxi;
+      var hz = [-0.2, -0.12, -0.04, 0.03, 0.09, 0.13], hs = [1.2, 1.35, 1.5, 1.55, 1.5, 1.2], ht = [0.45, 0.6, 0.75, 0.85, 0.95, 1.05], hi;
+      var hxs = [0, -0.1, 0.1], hxi;
       for (hxi = 0; hxi < hxs.length; hxi++) {
         for (hi = 0; hi < hz.length; hi++) {
           m = new THREE.Mesh(gSpike, astHair);
-          m.position.set(hxs[hxi], 1.5 + Math.sqrt(Math.max(0, 0.09 - hxs[hxi] * hxs[hxi] - hz[hi] * hz[hi])) * 0.97, hz[hi]);
+          m.position.set(hxs[hxi], 1.52 + 0.24 * Math.sqrt(Math.max(0, 1 - Math.pow((hz[hi] + 0.03) / 0.27, 2) - hxs[hxi] * hxs[hxi] / 0.044)) - 0.03, hz[hi]);
           m.rotation.x = ht[hi];
           m.rotation.z = -hxs[hxi] * 1.5; /* laterales abiertos hacia afuera */
-          m.scale.set(1, hs[hi], 1);
+          m.scale.set(1.3, hs[hi], 1.3);
           g.add(m);
         }
       }
     }
-    function limb(geo, x, y, len) {
-      var piv = new THREE.Group();
+    /* extremidades con la estructura del robot: cadera/hombro, rodilla/codo y bota/mano; children[0] de cada pivote es la parte alta */
+    function limb(name, leg, sd, x, y) {
+      var L = leg ? (noBend ? 0.55 : 0.275) : (noBend ? 0.5 : 0.25), piv = new THREE.Group(), jt, up, lo, gu, gl;
       piv.position.set(x, y, 0);
-      var mm = new THREE.Mesh(geo, suit);
-      mm.position.y = -len / 2;
-      piv.add(mm);
-      g.add(piv);
-      return piv;
-    }
-    var parts = { legL: limb(gLeg, -0.13, 0.65, 0.55), legR: limb(gLeg, 0.13, 0.65, 0.55), armL: limb(gArm, -0.33, 1.2, 0.5), armR: limb(gArm, 0.33, 1.2, 0.5) };
-    if (!noBend) {
-      /* Rodillas y codos: cada extremidad se parte en dos mitades con una articulación en medio */
-      var jn = [['legL', gLegH, 0.55], ['legR', gLegH, 0.55], ['armL', gArmH, 0.5], ['armR', gArmH, 0.5]], ji, pv, up, jt, lo;
-      for (ji = 0; ji < 4; ji++) {
-        pv = parts[jn[ji][0]]; up = pv.children[0]; up.geometry = jn[ji][1]; up.position.y = -jn[ji][2] / 4;
-        jt = new THREE.Group(); jt.position.y = -jn[ji][2] / 2;
-        lo = new THREE.Mesh(jn[ji][1], up.material); lo.position.y = -jn[ji][2] / 4; jt.add(lo); jt.add(new THREE.Mesh(ji < 2 ? gJL : gJA, up.material)); pv.add(jt);
-        parts[jn[ji][0] + 'J'] = jt;
+      gu = astGeo('u' + ky + name + bendK, function () {
+        return leg ? astMerge([aB(SU, 0, -L / 2, 0, 0.15, L, 0.17), aB(ACC, sd * 0.085, -L / 2, 0, 0.025, L * 0.8, 0.1), aS(AST_J, 0, 0, 0, 0.095)].concat(noBend ? [aB(AST_D, 0, -L + 0.02, 0.07, 0.15, 0.08, 0.3)] : []))
+          : astMerge([aB(SU, 0, -L / 2, 0, 0.11, L, 0.12), aB(ACC, sd * 0.065, -L / 2, 0, 0.02, L * 0.7, 0.09), aS(AST_J, 0, 0, 0, 0.075)].concat(noBend ? [aB(AST_D, 0, -L, 0, 0.09, 0.1, 0.1)] : []));
+      });
+      up = new THREE.Mesh(gu, astVC); piv.add(up);
+      if (!noBend) {
+        jt = new THREE.Group(); jt.position.y = -L; piv.add(jt);
+        gl = astGeo('l' + ky + name, function () {
+          return leg ? astMerge([aB(SU, 0, -L / 2, 0, 0.13, L, 0.15), aB(ACC, 0, -L / 2, 0.085, 0.1, L * 0.7, 0.03), aS(AST_J, 0, 0, 0, 0.085), aB(AST_D, 0, -L + 0.02, 0.07, 0.15, 0.08, 0.3)])
+            : astMerge([aB(SU, 0, -L / 2, 0, 0.1, L, 0.11), aB(ACC, 0, -L / 2, 0.065, 0.08, L * 0.6, 0.03), aS(AST_J, 0, 0, 0, 0.065), aB(AST_D, 0, -L, 0, 0.09, 0.1, 0.1)]);
+        });
+        lo = new THREE.Mesh(gl, astVC); jt.add(lo);
+        parts[name + 'J'] = jt;
       }
-      astAll.push(parts);
+      g.add(piv); parts[name] = piv;
     }
+    limb('legL', true, -1, -0.13, 0.65); limb('legR', true, 1, 0.13, 0.65); limb('armL', false, -1, -0.275, 1.2); limb('armR', false, 1, 0.275, 1.2);
+    if (!noBend) astAll.push(parts);
     g.scale.setScalar(0.425);
     return { g: g, parts: parts };
   }
@@ -6987,12 +7064,13 @@ window.startMap = function (RAW, AUTH) {
   var wand = null, wandFollow = false, wandOff = new THREE.Vector3();
   var wCloth = new THREE.MeshLambertMaterial({ color: 0x7a4e2a, side: THREE.DoubleSide });
   var wClothD = new THREE.MeshLambertMaterial({ color: 0x5a3a20, side: THREE.DoubleSide });
+  var wGlove = new THREE.MeshLambertMaterial({ color: 0x15181d });
   var wWood = new THREE.MeshLambertMaterial({ color: 0x8a5a2b });
   var wPac = new THREE.MeshLambertMaterial({ color: 0xffd100, emissive: 0x332a00, side: THREE.DoubleSide });
   var wInner = new THREE.MeshLambertMaterial({ color: 0x15171c });
   var wEye = new THREE.MeshBasicMaterial({ color: 0x000000 });
   function makeWanderer() {
-    var a = makeAstronaut(undefined, true), g = a.g, m, mouth = 1.0, cape, hand;
+    var a = makeAstronaut(undefined, true), g = a.g, m, mouth = 1.0, cape, hand, flaps;
     g.children[2].visible = false; g.children[3].visible = false; /* se quita el casco normal y su visor */
     /* Casco de Pac-Man con la boca hacia el frente (+z) */
     var pg = new THREE.SphereGeometry(0.34, 20, 14, Math.PI / 2 + mouth / 2, Math.PI * 2 - mouth); pg.rotateZ(Math.PI / 2); /* la boca se abre en vertical (mandíbula arriba y abajo), al frente */
@@ -7000,14 +7078,25 @@ window.startMap = function (RAW, AUTH) {
     m = new THREE.Mesh(uSphere, wInner); m.scale.setScalar(0.3); m.position.y = 1.5; g.add(m);
     [-1, 1].forEach(function (sd) { var e = new THREE.Mesh(uSphere, wEye); e.scale.setScalar(0.05); e.position.set(sd * 0.2, 1.68, 0.12); g.add(e); });
     /* Túnica larga y capa en la espalda */
-    m = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.56, 1.0, 12, 1, true), wCloth); m.position.y = 0.78; g.add(m);
-    m = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.36, 0.22, 12, 1, true), wClothD); m.position.y = 1.17; g.add(m);
+    /* Túnica de faldones sueltos que se abren y se balancean con el paso, bajo un canesú que ciñe el torso */
+    m = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.27, 0.24, 12, 1, true), wClothD); m.position.y = 1.16; g.add(m);
+    flaps = [];
+    for (var fi = 0; fi < 12; fi++) {
+      var faz = fi / 12 * Math.PI * 2, fg = new THREE.Group(), fp = new THREE.Group(), fl = 0.74 + (fi % 2) * 0.06;
+      fg.position.set(Math.sin(faz) * 0.285, 1.05, Math.cos(faz) * 0.285); fg.rotation.y = faz; g.add(fg);
+      fp.rotation.x = -0.14; fg.add(fp);
+      m = new THREE.Mesh(uBox, fi % 2 ? wCloth : wClothD); m.scale.set(0.2, fl, 0.02); m.position.y = -fl / 2; fp.add(m);
+      flaps.push({ p: fp, az: faz });
+    }
     cape = new THREE.Group(); cape.position.set(0, 1.25, -0.3); g.add(cape);
     m = new THREE.Mesh(uBox, wClothD); m.scale.set(0.62, 0.95, 0.05); m.position.y = -0.47; cape.add(m);
-    a.parts.armL.children[0].material = wCloth; a.parts.armR.children[0].material = wCloth;
-    /* Mangas anchas y brazos separados del cuerpo para que se vean fuera de la túnica */
-    a.parts.armL.children[0].scale.set(1.7, 1, 1.7); a.parts.armR.children[0].scale.set(1.7, 1, 1.7);
-    a.parts.armL.position.x = -0.44; a.parts.armR.position.x = 0.44;
+    /* Mangas anchas (se ensanchan hacia la muñeca) con guante oscuro; brazos algo separados del cuerpo */
+    [a.parts.armL, a.parts.armR].forEach(function (ar) {
+      var sl = ar.children[0], sg = new THREE.CylinderGeometry(0.07, 0.15, 0.5, 8, 1, true);
+      sg.translate(0, -0.25, 0); sl.geometry = sg; sl.material = wCloth;
+      m = new THREE.Mesh(uSphere, wGlove); m.scale.setScalar(0.075); m.position.y = -0.52; ar.add(m);
+    });
+    a.parts.armL.position.x = -0.4; a.parts.armR.position.x = 0.4;
     a.parts.armL.rotation.z = -0.22; a.parts.armR.rotation.z = 0.22;
     /* Bastón largo en la mano derecha (se contrarrota para que siempre quede vertical) */
     hand = new THREE.Group(); hand.position.set(0, -0.45, 0.05); a.parts.armR.add(hand);
@@ -7035,7 +7124,7 @@ window.startMap = function (RAW, AUTH) {
       gGrp.scale.setScalar(0.19); gGrp.visible = false; noRay(gGrp); scene.add(gGrp);
       gh.push({ g: gGrp, lag: 1.0 + gi * 0.9, yaw: null, lx: 0, lz: 0 });
     }
-    return { gh: gh, hist: [], trav: 0, px: null, pz: null, a: a, cape: cape, hand: hand, path: null, next: null, s: 0, x: 0, z: 0, yaw: null, last: -1, off: 0, side: 1, dodge: false, hop: 0 };
+    return { gh: gh, hist: [], trav: 0, px: null, pz: null, a: a, cape: cape, flaps: flaps, hand: hand, path: null, next: null, s: 0, x: 0, z: 0, yaw: null, last: -1, off: 0, side: 1, dodge: false, hop: 0 };
   }
   function updateWanderer(t, dt) {
     var W = wand, path, seg, f, x, z, tx, tz, l, nx, nz, i, c, cand, ti, nxt, lp, dc, bx, bz, hopY = 0, u, sw, gy, a, vis;
@@ -7117,6 +7206,12 @@ window.startMap = function (RAW, AUTH) {
     /* El bastón se balancea con el paso: se adelanta y se atrasa mientras camina */
     W.hand.rotation.x = -a.parts.armR.rotation.x + (hopY > 0.02 ? 0 : 0.6 * sw); W.hand.rotation.z = -a.parts.armR.rotation.z;
     W.cape.rotation.x = 0.12 + 0.1 * Math.sin(t * 5 + 1);
+    /* Faldones de la túnica: los de adelante se echan atrás y los de atrás vuelan con el paso, con ondulación; al saltar se abren */
+    var fq, fz;
+    for (fq = 0; fq < W.flaps.length; fq++) {
+      fz = W.flaps[fq];
+      fz.p.rotation.x = -0.14 + Math.cos(fz.az) * (0.2 + 0.5 * sw) + 0.35 * Math.sin(fz.az) * sw * (fq % 2 ? 1 : -1) * 0.5 + 0.06 * Math.sin(t * 6 + fz.az * 3) - (hopY > 0.02 ? 0.55 : 0);
+    }
   }
 
   /* Presidente: camina saludando por el balcón; si el OVNI pasa por el frente, saca la pistola y le dispara */
