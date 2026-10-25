@@ -81,6 +81,10 @@
   #bMini { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 24px; width: 168px; display: none; flex-direction: column; align-items: center; gap: 4px; }
   #bMini.on { display: flex; }
   #bMini canvas { width: 168px; height: 168px; border-radius: 50%; border: 2px solid rgba(255,90,90,0.75); background: rgba(10,8,16,0.55); backdrop-filter: blur(3px); box-shadow: 0 0 16px rgba(255,40,40,0.35); }
+  #invCd { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); padding: 1px 9px; font: 700 15px var(--f-body); letter-spacing: 0.08em; color: #fff; background: rgba(150,20,20,0.72); border: 1px solid rgba(255,120,120,0.8); border-radius: 10px; display: none; text-shadow: 0 0 5px rgba(0,0,0,0.8); pointer-events: none; }
+  #invCd.on { display: block; }
+  #invCd.hot { background: rgba(230,20,20,0.9); animation: invPulse 0.7s ease-in-out infinite; }
+  @keyframes invPulse { 50% { transform: translateX(-50%) scale(1.18); box-shadow: 0 0 14px rgba(255,40,40,0.9); } }
   #bMini .ct { font: 700 12px var(--f-body); letter-spacing: 0.14em; color: #ffd0d0; text-shadow: 0 0 6px rgba(0,0,0,0.8); text-transform: uppercase; }
   .stage.ui-off #botHud { display: none !important; }
   .stage.ui-off .me, .stage.ui-off .search, .stage.ui-off #card, .stage.ui-off .tools button:not(#b-ui) { display: none !important; }
@@ -146,7 +150,7 @@
   <div id="labels"></div>
   <div id="botHud" aria-hidden="true">
     <div id="invAl"><span>⚠</span><span><small>ALERTA</small>INVASIÓN EN <b id="invNm"></b></span><span>⚠</span></div>
-    <div id="bMini"><canvas id="bMiniC" width="336" height="336"></canvas><span class="ct" id="bMiniT"></span></div>
+    <div id="bMini"><div id="invCd"></div><canvas id="bMiniC" width="336" height="336"></canvas><span class="ct" id="bMiniT"></span></div>
     <div id="bTank"><div class="tk"><div class="fl" id="bFill"></div><i class="tick" style="bottom:25%"></i><i class="tick" style="bottom:50%"></i><i class="tick" style="bottom:75%"></i></div><span class="lb">HIPERIMPULSO</span></div>
   </div>
   <div class="hud">
@@ -503,6 +507,14 @@ window.startMap = function (RAW, AUTH) {
   renderer.setClearColor(0x050a18, 1);
 
   var scene = new THREE.Scene();
+  var invLock = null; /* zona de invasión que retiene al robot: {rings, x0, x1, z0, z1} */
+  function invOut(x, z) { /* true si hay bloqueo y el punto queda fuera de la zona */
+    var L = invLock, r, m, a, q, ins = false;
+    if (!L) return false;
+    if (x < L.x0 || x > L.x1 || z < L.z0 || z > L.z1) return true;
+    for (r = 0; r < L.rings.length; r++) { m = L.rings[r]; for (a = 0, q = m.length - 1; a < m.length; q = a++) if ((m[a][1] > z) !== (m[q][1] > z) && x < (m[q][0] - m[a][0]) * (z - m[a][1]) / (m[q][1] - m[a][1]) + m[a][0]) ins = !ins; }
+    return !ins;
+  }
   var monBlk = []; /* monumentos fijos: obstáculos circulares {x, z, r} */
   var vegCull = null; /* culling de vegetación por bloques (se define al construirla) */
   var camera = new THREE.PerspectiveCamera(48, 1, 0.5, 60000);
@@ -6369,6 +6381,7 @@ window.startMap = function (RAW, AUTH) {
   /* Libre = tierra (nunca agua), fuera de edificios */
   var metBlock = null; /* meteorito de la invasión: obstáculo circular {x, z, r} para el robot y los aliens */
   function botFree(x, z) {
+    if (invLock && invOut(x, z)) return false; /* retenido en la zona invadida */
     for (var mbi = 0; mbi < monBlk.length; mbi++) if (Math.hypot(x - monBlk[mbi].x, z - monBlk[mbi].z) < monBlk[mbi].r) return false;
     if (metBlock && Math.hypot(x - metBlock.x, z - metBlock.z) < metBlock.r) return false;
     if (landAt && !(landAt(x, z) && landAt(x + 0.5, z) && landAt(x - 0.5, z) && landAt(x, z + 0.5) && landAt(x, z - 0.5))) return false;
@@ -6527,6 +6540,7 @@ window.startMap = function (RAW, AUTH) {
         if (ni < 0 || nj < 0 || ni >= NX || nj >= nv.NZ) continue;
         m = nj * NX + ni;
         if (!nv.pass[m] || nv.closed[m] === st) continue;
+        if (invLock && invOut(nv.X0 + (ni + 0.5) * nv.C, nv.Z0 + (nj + 0.5) * nv.C)) continue;
         if (di && dj && !(nv.pass[cj * NX + ni] && nv.pass[nj * NX + ci])) continue;
         if (Math.abs(nv.H[m] - nv.H[cur]) > 0.9 * nv.C * (di && dj ? 1.414 : 1)) continue;
         ng = nv.g[cur] + (di && dj ? 1.414 : 1);
@@ -6804,7 +6818,7 @@ window.startMap = function (RAW, AUTH) {
         k = a + (tries % 2 ? 1 : -1) * Math.ceil(tries / 2) * 0.45; x = d.cx + Math.cos(k) * (d.r + 8); z = d.cz + Math.sin(k) * (d.r + 8);
         if (botFree(x, z)) {
           var okG = botSetGoal(x, z, 'patrol'), Dd = Math.hypot(x - b.x, z - b.z), Lp = okG ? botPathLen(b.path) : 1e9;
-          if (Dd > 120 && (!okG || (Lp > 300 && Lp > 2.2 * Dd)) && clock.elapsedTime >= (b.liftCD || 0)) { b.vis.push(d); botStartLift(x, z, 'sea', null); return true; } /* ruta por tierra muy larga o inexistente: viaja en dron */
+          if (Dd > 120 && (!okG || (Lp > 300 && Lp > 2.2 * Dd)) && clock.elapsedTime >= (b.liftCD || 0) && !invLock) { b.vis.push(d); botStartLift(x, z, 'sea', null); return true; } /* ruta por tierra muy larga o inexistente: viaja en dron */
           if (okG) { b.vis.push(d); b.jog = true; return true; }
         }
       }
@@ -6865,6 +6879,7 @@ window.startMap = function (RAW, AUTH) {
   /* ¿Hay tierra firme en todo el rumbo hasta 'dist'? (el hiperimpulso no se usa hacia el mar) */
   function botLandAhead(x, z, yaw, dist) {
     var d, sx = Math.sin(yaw), cz = Math.cos(yaw);
+    if (invLock && invOut(x + sx * dist, z + cz * dist)) return false;
     if (!landAt) return true;
     for (d = 8; d <= dist; d += 8) if (!landAt(x + sx * d, z + cz * d) || (VOLC && Math.hypot(x + sx * d - VOLC.x, z + cz * d - VOLC.z) < VOLC.R + 8)) return false; /* ni mar ni volcán adelante */
     return true;
@@ -7107,7 +7122,7 @@ window.startMap = function (RAW, AUTH) {
             if (fo > 0) {
               fo = Math.min(gd, fo + 10); fxx = fx0 + fdx * fo; fzz = fz0 + fdz * fo;
               for (fs = 0; fs < 24 && !fok; fs++) { var fa = fs * 0.9, fr = fs ? 2 + fs * 0.5 : 0, qx = fxx + Math.cos(fa) * fr, qz = fzz + Math.sin(fa) * fr; if (botFree(qx, qz)) { fxx = qx; fzz = qz; fok = true; } }
-              if (fok && Math.hypot(fxx - b.x, fzz - b.z) > 20) botStartLift(fxx, fzz, 'fog', { x: b.goal.x, z: b.goal.z, t: b.gtype });
+              if (fok && !invLock && Math.hypot(fxx - b.x, fzz - b.z) > 20) botStartLift(fxx, fzz, 'fog', { x: b.goal.x, z: b.goal.z, t: b.gtype });
             }
           }
           /* Cruzando una ciudad con una meta lejana: sube a una azotea y salta de techo en techo en dirección a la meta */
@@ -8576,7 +8591,7 @@ window.startMap = function (RAW, AUTH) {
       inv.al.forEach(function (a) { dispose(a.o); disposeBar(a); if (a.beam) { grp.remove(a.beam); a.beam.material.dispose(); } });
       if (inv.wall) { grp.remove(inv.wall); inv.wall.geometry.dispose(); inv.wall.material.dispose(); }
       metClean(inv.met);
-      inv = null; cur = null; nextAt = clock.elapsedTime + 360; /* descanso de 6 min entre invasiones */
+      invLock = null; inv = null; cur = null; nextAt = clock.elapsedTime + 360; /* descanso de 6 min entre invasiones */
     }
     /* Rumbo de huida: el más cercano a "alejarse del robot" que no choca con la frontera, el agua ni los edificios */
     function flee(a, want) {
@@ -8685,6 +8700,20 @@ window.startMap = function (RAW, AUTH) {
         }
         return;
       }
+      if (bot && !inv.entered && inPoly(inv.rings, bot.x, bot.z)) { /* el robot entra: arranca la cuenta de 8 min y queda retenido */
+        inv.entered = true; inv.tIn = 0; inv.px = bot.x; inv.pz = bot.z; inv.pT = 0; inv.pS = 0;
+        var x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+        inv.rings.forEach(function (rg) { rg.forEach(function (q) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); }); });
+        invLock = { rings: inv.rings, x0: x0, x1: x1, z0: z0, z1: z1 };
+      }
+      if (inv.entered) {
+        inv.tIn += dt;
+        if (invLock) { /* seguridad: sin avanzar 20 s o con barrera ya caída, se suelta */
+          inv.pT += dt;
+          if (inv.pT >= 1) { inv.pS = Math.hypot(bot.x - inv.px, bot.z - inv.pz) < 2 ? inv.pS + inv.pT : 0; inv.px = bot.x; inv.pz = bot.z; inv.pT = 0; }
+          if (inv.pS >= 20 || (inv.end && inv.wk <= 0.001)) invLock = null;
+        }
+      }
       inv.t += dt; inv.wk = inv.end ? Math.max(0, inv.wk - dt / 2) : (inv.t >= T_FALL ? Math.min(1, inv.wk + dt / 1.5) : 0); /* la barrera se forma después del impacto */
       if (inv.wall) { inv.wall.material.opacity = inv.wk * (0.62 + 0.16 * Math.sin(t * 3)); wtex.offset.x = -t * 0.04; }
       for (i = inv.al.length - 1; i >= 0; i--) {
@@ -8694,7 +8723,7 @@ window.startMap = function (RAW, AUTH) {
       }
       if (inv.met) { metStep(inv.met, dt, t); updP(dt); }
       if (inv.met && !live && inv.met.state === 'rest' && inv.ph === 'alien') inv.ph = 'rock'; /* sin aliens: toca el meteorito */
-      if (inv.t > 480 && !inv.end && !inv.to) { /* tope de 8 min: los aliens que queden se desvanecen y el meteorito se rompe */
+      if ((inv.entered ? inv.tIn > 480 : inv.t > 600) && !inv.end && !inv.to) { /* tope de 8 min: los aliens que queden se desvanecen y el meteorito se rompe */
         inv.to = true;
         inv.al.forEach(function (q) { if (q.s !== 'dying') { q.s = 'dying'; q.dy = 0; } });
         if (inv.met && inv.met.state === 'rest') metBreak(inv.met);
@@ -8748,7 +8777,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
 
@@ -8860,6 +8889,12 @@ window.startMap = function (RAW, AUTH) {
         var inA = !!(nm && statePolys[nm] && botInRings(statePolys[nm], bot.x, bot.z)), al = document.getElementById('invAl'), mn = document.getElementById('bMini');
         if (inA !== hud._ia || nm !== hud._nm2) { hud._ia = inA; hud._nm2 = nm; al.classList.toggle('on', !!nm && !inA); } /* el letrero se quita al entrar al área invadida */
         if (!hud._mn) { hud._mn = true; mn.classList.add('on'); }
+        (function () { /* cuenta regresiva del límite de la invasión (desde que el robot entra) */
+          var cd = document.getElementById('invCd'), sh = !!(S && !S.end && S.entered), sec = sh ? Math.ceil(S.left) : 0, tx = sh ? ('0' + ((sec / 60) | 0)).slice(-2) + ':' + ('0' + (sec % 60)).slice(-2) : '';
+          if (sh !== hud._cdOn) { hud._cdOn = sh; cd.classList.toggle('on', sh); }
+          if (tx !== hud._cdTx) { hud._cdTx = tx; cd.textContent = tx; }
+          var hot = sh && sec <= 60; if (hot !== hud._cdHot) { hud._cdHot = hot; cd.classList.toggle('hot', hot); }
+        })();
         if (!hud._mrd) hud._mrd = 0; if (++hud._mrd % 3) return; /* el minimapa se redibuja cada 3 cuadros */
         var cv = document.getElementById('bMiniC'), g = cv.getContext('2d'), W = cv.width, R = W / 2, RNG = nm ? 70 : 230, SC = R / RNG, ys = botYawCam, sy = Math.sin(ys), cy = Math.cos(ys), i, e, dx, dz, f, r, px, py, d, n = 0, rk = nm ? ALN.rock() : null, L = nm ? ALN.list() : [], q, k, st, pt;
         function P(x, z) { dx = x - bot.x; dz = z - bot.z; f = dx * sy + dz * cy; r = -dx * cy + dz * sy; px = R + r * SC; py = R - f * SC; return px; }
