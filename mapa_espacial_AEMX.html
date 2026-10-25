@@ -8188,7 +8188,7 @@ window.startMap = function (RAW, AUTH) {
     if (!window.__fogW) window.__fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x8d96a3) };
     var FW = window.__fogW, inF = !!(WX && WX.fogAt && WX.fogAt(camera.position.x, camera.position.z));
     FW.k += ((inF ? 1 : 0) - FW.k) * Math.min(1, dt * 1.2);
-    scene.fog.density = FW.d0 + (0.09 - FW.d0) * FW.k; /* ~10 unidades de visibilidad */
+    scene.fog.density = FW.d0 + (0.069 - FW.d0) * FW.k; /* ~13 unidades de visibilidad */
     scene.fog.color.copy(FW.c0).lerp(FW.c1, FW.k);
     var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS; starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
     sun.target.position.copy(controls.target);
