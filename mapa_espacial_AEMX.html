@@ -7993,8 +7993,8 @@ window.startMap = function (RAW, AUTH) {
       th.rotation.order = 'YXZ'; th.position.set(sx * 0.108, -0.04, 0); pelvis.add(th);
       ball(auDark, 0, 0, 0, 0.08, th);
       tap(auPearl, 0.125, 0.14, 0.095, 0.11, 0.34, 0, -0.18, 0, th);
-      tap(auPearl, 0.135, 0.07, 0.1, 0.06, 0.22, 0, -0.09, -0.05, th); /* parte trasera del muslo: más volumen hacia atrás */
-      tap(auPearl, 0.17, 0.105, 0.14, 0.08, 0.15, -sx * 0.035, 0.0, -0.075, th).rotation.x = 0.12; ball(auPearl, -sx * 0.035, -0.01, -0.075, 1, th).scale.set(0.085, 0.085, 0.065); bx(auGray, -sx * 0.035, -0.05, -0.14, 0.09, 0.012, 0.012, th); /* glúteo */
+      tap(auPearl, 0.135, 0.08, 0.1, 0.06, 0.22, 0, -0.09, -0.07, th); /* parte trasera del muslo: más volumen hacia atrás */
+      tap(auPearl, 0.17, 0.105, 0.17, 0.105, 0.15, -sx * 0.035, 0.0, -0.075, th); /* glúteo */
       bx(auGray, sx * 0.062, -0.17, 0, 0.022, 0.26, 0.1, th); bx(auRed, sx * 0.07, -0.17, 0.02, 0.008, 0.24, 0.012, th);
       kn.position.y = -0.36; th.add(kn);
       ball(auDark, 0, 0, 0, 0.07, kn); bx(auGray, 0, 0, 0.082, 0.1, 0.12, 0.04, kn);
@@ -8053,7 +8053,7 @@ window.startMap = function (RAW, AUTH) {
         locks.push({ g: lk, sx: sx, ph: li * 1.1 });
       }
     });
-    var back = new THREE.Group(); back.position.set(0, 0.06, -0.135); head.add(back);
+    var back = new THREE.Group(); back.position.set(0, 0.06, -0.105); head.add(back);
     for (var bi = 0; bi < 9; bi++) { seg = bx(auHair, 0.012 * Math.sin(bi * 1.5), -0.04 - bi * 0.03, -0.012 * bi, 0.17 + bi * 0.006, 0.04, 0.036 + bi * 0.003, back); seg.rotation.z = 0.06 * Math.sin(bi * 1.7); seg.rotation.x = -0.12; } /* se abre hacia atrás al bajar, por fuera de la espalda */
     locks.push({ g: back, sx: 0, ph: 0.5, back: true });
     /* Auriculares-sensor con brazo hacia la mejilla */
@@ -8069,7 +8069,6 @@ window.startMap = function (RAW, AUTH) {
       var sh = new THREE.Group(), el = new THREE.Group();
       sh.position.set(sx * 0.2, 0.45, 0); sh.rotation.order = 'YXZ'; shell.add(sh);
        /* hombrera */
-      bx(auBlack, sx * 0.04, 0.06, 0, 0.05, 0.012, 0.09, sh).rotation.z = -sx * 0.2; bx(auRed, sx * 0.045, 0.045, 0.082, 0.07, 0.007, 0.007, sh).rotation.z = -sx * 0.2;
       ball(auDark, 0, 0, 0, 0.058, sh);
       tap(auPearl, 0.092, 0.105, 0.075, 0.09, 0.27, 0, -0.145, 0, sh);
       bx(auGray, sx * 0.047, -0.14, 0, 0.016, 0.18, 0.08, sh); bx(auRed, sx * 0.05, -0.14, 0.02, 0.008, 0.2, 0.012, sh);
@@ -8146,7 +8145,25 @@ window.startMap = function (RAW, AUTH) {
   function auraFreeNear(x, z) { var r, a, px, pz; for (r = 0; r < 60; r += 4) for (a = 0; a < 6.28; a += 0.7) { px = x + Math.cos(a) * r; pz = z + Math.sin(a) * r; if (botFree(px, pz)) return [px, pz]; } return null; }
   function auraJump(A, x, z, mode) { /* desaparece con destello y reaparece en (x,z) */
     A.jmp = { x: x, z: z, t: 0, mode: mode, done: false };
-    A.mode = 'jump'; fxSpawn(A.x, A.y + 0.6, A.z, 0, 0, 0, 0.45, 1, 5, 0xe8c8ff, 0.9, true); AUD.chime({ x: A.x, y: A.y + 1, z: A.z });
+    A.mode = 'jump'; AUD.glitch(0.4, 0.6, { x: A.x, y: A.y + 0.4, z: A.z });
+  }
+  function auraGlitchFx(A) { /* cilindro glitch (cian/magenta/verde) en el punto de salida y de llegada */
+    var f = A.fxg, i, m, cg;
+    if (!f) {
+      f = A.fxg = { g: new THREE.Group(), bands: [], tm: 0 };
+      cg = new THREE.CylinderGeometry(1, 1, 1, 16, 1, true);
+      function mk(op, wire) { return new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: op, wireframe: !!wire, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }); }
+      f.core = new THREE.Mesh(cg, mk(0.3)); f.wire = new THREE.Mesh(cg, mk(0.8, true)); f.wire.scale.set(1.06, 1, 1.06); f.g.add(f.core); f.g.add(f.wire);
+      for (i = 0; i < 3; i++) { m = new THREE.Mesh(cg, mk(0.7)); f.bands.push(m); f.g.add(m); }
+      noRay(f.g); f.g.frustumCulled = false; scene.add(f.g);
+    }
+    f.g.visible = true; f.g.position.set(A.x, A.y, A.z); f.g.scale.set(0.24, 0.8, 0.24);
+    f.tm -= 1 / 60;
+    if (f.tm <= 0) {
+      f.tm = 0.03 + Math.random() * 0.03; i = GL_COLS[(Math.random() * 3) | 0]; f.core.material.color.setHex(i); f.wire.material.color.setHex(i);
+      f.core.position.y = f.wire.position.y = 0.5; f.core.visible = Math.random() > 0.2;
+      f.bands.forEach(function (b) { var y = Math.random(); b.position.set((Math.random() - 0.5) * 0.5, y, (Math.random() - 0.5) * 0.3); b.scale.set(1.25, 0.1, 1.25); b.material.color.setHex(GL_COLS[(Math.random() * 3) | 0]); b.visible = Math.random() > 0.15; });
+    }
   }
   function auraGoPath(A, gx, gz) { var q = null; try { q = botAStar(A.x, A.z, gx, gz); if (q && q.length > 2) q = botRefine(q); } catch (e) { q = null; } if (!q || q.length < 1) return false; A.wp = q; A.pi = 0; return true; }
   function auraFinishJoin(A) { A.path = A.jp; A.next = null; A.s = 0; A.last = A.jti; A.off = 0; A.mode = 'trail'; A.evCD = 6; A.sn = 0; }
@@ -8206,12 +8223,14 @@ window.startMap = function (RAW, AUTH) {
         }
       }
     } else if (A.mode === 'jump') {
-      A.jmp.t += dt; A.k = Math.max(0, 1 - A.jmp.t / 0.5);
-      if (!A.jmp.done && A.jmp.t >= 0.5) {
+      A.jmp.t += dt; A.k = Math.max(0, 1 - A.jmp.t / 0.3);
+      if (!A.jmp.done && A.jmp.t >= 0.3) {
         A.jmp.done = true; A.x = A.jmp.x; A.z = A.jmp.z; A.y = botGround(A.x, A.z); A.k = 0;
-        fxSpawn(A.x, A.y + 0.6, A.z, 0, 0, 0, 0.45, 1, 5, 0xe8c8ff, 0.9, true); AUD.chime({ x: A.x, y: A.y + 1, z: A.z });
       }
-      if (A.jmp.done) { A.k = Math.min(1, (A.jmp.t - 0.5) / 0.5); if (A.jmp.t >= 1) { A.k = 1; if (A.jmp.mode === 'back') auraResume(A, A.bc); else if (A.jmp.mode === 'join') auraFinishJoin(A); else if (!(A.ev && auraStart(A, A.ev))) auraBack(A); } }
+      if (A.jmp.done) A.k = Math.min(1, (A.jmp.t - 0.3) / 0.3);
+      A.k *= Math.random() < 0.3 ? 0.25 : 1; /* parpadeo */
+      auraGlitchFx(A);
+      if (A.jmp.done) { if (A.jmp.t >= 0.6) { A.k = 1; A.fxg.g.visible = false; if (A.jmp.mode === 'back') auraResume(A, A.bc); else if (A.jmp.mode === 'join') auraFinishJoin(A); else if (!(A.ev && auraStart(A, A.ev))) auraBack(A); } }
     } else {
       /* a pie fuera de los senderos: ir, investigar o volver */
       e = auraEvent(); I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
@@ -8269,6 +8288,7 @@ window.startMap = function (RAW, AUTH) {
     }
     if (A.hop > 0) A.hop -= dt;
     /* ----- pose y animación ----- */
+    if (A.fxg && A.mode !== 'jump') A.fxg.g.visible = false;
     vis = A.k > 0.01 && Math.hypot(camera.position.x - A.x, camera.position.z - A.z) < 500;
     if (A.g.visible !== vis) A.g.visible = vis;
     if (!vis) { A.holo.g.visible = false; A.holo.beam.visible = false; return; }
