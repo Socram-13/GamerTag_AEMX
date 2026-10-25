@@ -5074,6 +5074,7 @@ window.startMap = function (RAW, AUTH) {
         tone('sawtooth', 880, 300, 0.7, 0.22, 0, b); tone('square', 932, 310, 0.7, 0.12, 0, b); tone('sawtooth', 622, 210, 0.9, 0.16, 0.02, b);
         noise(0.7, 0.45, 7000, 500, 'bandpass', 0, b); noise(0.3, 0.25, 9000, 3000, 'highpass', 0, b);
       },
+      holo: function (pos) { var b = shotBus(pos, 'beep'); if (!b) return; tone('sine', 260, 980, 0.7, 0.05, 0, b); tone('triangle', 520, 1500, 0.6, 0.025, 0.1, b); tone('sine', 1500, 1500, 0.4, 0.02, 0.6, b); },
       shutter: function (pos) { var b = shotBus(pos, 'beep'); if (!b) return; noise(0.03, 0.06, 3200, 1400, 'bandpass', 0, b); tone('square', 1900, 1300, 0.03, 0.035, 0, b); noise(0.04, 0.05, 2200, 800, 'bandpass', 0.07, b); },
       beep: function (pos) {
         var b = shotBus(pos, 'beep');
@@ -7952,15 +7953,23 @@ window.startMap = function (RAW, AUTH) {
     c.fillStyle = '#e1232b'; [[148, 338, 0.6], [162, 358, 0.55], [180, 346, 0.6], [364, 336, -0.6], [350, 356, -0.55], [334, 346, -0.6]].forEach(function (m) { c.save(); c.translate(m[0], m[1]); c.rotate(m[2]); c.beginPath(); c.ellipse(0, 0, 2.6, 6.4, 0, 0, 6.2832); c.fill(); c.restore(); });
     /* pecas */
     for (i = 0; i < 90; i++) { var fx = 256 + (rnd2() - 0.5) * 330, fy = 320 + rnd2() * 120; if (Math.abs(fx - 256) < 24) continue; c.fillStyle = 'rgba(150,92,78,' + (0.2 + rnd2() * 0.25) + ')'; c.beginPath(); c.arc(fx, fy, 1 + rnd2() * 1.5, 0, 6.2832); c.fill(); }
-    /* labios con volumen, líneas verticales y brillo */
-    gr = c.createLinearGradient(0, 470, 0, 545); gr.addColorStop(0, '#a94f52'); gr.addColorStop(0.5, '#cc7776'); gr.addColorStop(1, '#a95658');
-    c.fillStyle = gr; c.beginPath(); c.moveTo(204, 498); c.quadraticCurveTo(230, 466, 256, 483); c.quadraticCurveTo(282, 466, 308, 498); c.quadraticCurveTo(256, 510, 204, 498); c.fill();
-    c.beginPath(); c.moveTo(204, 498); c.quadraticCurveTo(256, 510, 308, 498); c.quadraticCurveTo(286, 542, 256, 544); c.quadraticCurveTo(226, 542, 204, 498); c.fill();
-    c.strokeStyle = 'rgba(120,50,55,0.28)'; c.lineWidth = 1; for (i = 0; i < 20; i++) { var lx = 222 + i * 3.8; c.beginPath(); c.moveTo(lx, 504 + Math.sin(i) * 1.5); c.lineTo(lx, 531 - Math.abs(i - 10) * 0.8); c.stroke(); }
-    c.strokeStyle = '#64302f'; c.lineWidth = 2.6; c.beginPath(); c.moveTo(204, 498); c.quadraticCurveTo(256, 510, 308, 498); c.stroke();
-    c.strokeStyle = 'rgba(120,55,55,0.8)'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(232, 478); c.quadraticCurveTo(256, 486, 280, 478); c.stroke();
-    soft(256, 523, 24, 7, 'rgba(255,230,225,A)', 0.55); soft(240, 480, 12, 4, 'rgba(255,215,210,A)', 0.4); soft(272, 480, 12, 4, 'rgba(255,215,210,A)', 0.4);
-    soft(256, 562, 34, 13, 'rgba(255,238,228,A)', 0.28); soft(256, 553, 40, 10, 'rgba(140,80,78,A)', 0.2);
+    c.save(); c.translate(256, 478); c.scale(1.45, 1.2); c.translate(-256, -490); /* boca más ancha para que la sonrisa se lea */
+    /* sonrisa suave: comisuras arriba, dientes apenas visibles, labios con volumen y brillo */
+    c.fillStyle = '#f4efec'; c.beginPath(); c.moveTo(204, 488); c.quadraticCurveTo(256, 508, 308, 488); c.quadraticCurveTo(256, 522, 204, 488); c.fill();
+    gr = c.createLinearGradient(0, 495, 0, 520); gr.addColorStop(0, 'rgba(120,80,80,0.45)'); gr.addColorStop(1, 'rgba(120,80,80,0)'); c.fillStyle = gr; c.fillRect(214, 494, 84, 20);
+    gr = c.createLinearGradient(0, 462, 0, 515); gr.addColorStop(0, '#a94f52'); gr.addColorStop(0.55, '#cc7776'); gr.addColorStop(1, '#a95658');
+    c.fillStyle = gr; c.beginPath(); c.moveTo(204, 488); c.quadraticCurveTo(230, 462, 256, 478); c.quadraticCurveTo(282, 462, 308, 488); c.quadraticCurveTo(256, 508, 204, 488); c.fill();
+    gr = c.createLinearGradient(0, 505, 0, 556); gr.addColorStop(0, '#c26a6a'); gr.addColorStop(0.5, '#d68a89'); gr.addColorStop(1, '#a95658');
+    c.fillStyle = gr; c.beginPath(); c.moveTo(204, 488); c.quadraticCurveTo(256, 522, 308, 488); c.quadraticCurveTo(288, 552, 256, 554); c.quadraticCurveTo(224, 552, 204, 488); c.fill();
+    c.strokeStyle = 'rgba(120,50,55,0.28)'; c.lineWidth = 1; for (i = 0; i < 18; i++) { var lx = 224 + i * 3.7; c.beginPath(); c.moveTo(lx, 528 + Math.abs(i - 9) * 0.7); c.lineTo(lx, 546 - Math.abs(i - 9) * 1.0); c.stroke(); }
+    c.strokeStyle = 'rgba(100,42,48,0.8)'; c.lineWidth = 2.2; c.beginPath(); c.moveTo(204, 488); c.quadraticCurveTo(256, 508, 308, 488); c.stroke(); c.beginPath(); c.moveTo(204, 488); c.quadraticCurveTo(256, 522, 308, 488); c.stroke();
+    c.strokeStyle = 'rgba(140,70,70,0.55)'; c.lineWidth = 2; c.beginPath(); c.moveTo(194, 478); c.quadraticCurveTo(190, 490, 200, 498); c.stroke(); c.beginPath(); c.moveTo(318, 478); c.quadraticCurveTo(322, 490, 312, 498); c.stroke(); /* hoyuelos de la sonrisa */
+    c.fillStyle = 'rgba(110,45,50,0.6)'; c.beginPath(); c.arc(203, 487, 2.6, 0, 6.2832); c.fill(); c.beginPath(); c.arc(309, 487, 2.6, 0, 6.2832); c.fill();
+    c.strokeStyle = 'rgba(120,55,55,0.8)'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(232, 476); c.quadraticCurveTo(256, 484, 280, 476); c.stroke();
+    soft(256, 538, 24, 7, 'rgba(255,230,225,A)', 0.6); soft(240, 478, 12, 4, 'rgba(255,215,210,A)', 0.4); soft(272, 478, 12, 4, 'rgba(255,215,210,A)', 0.4);
+    soft(176, 452, 34, 20, 'rgba(255,238,228,A)', 0.4, -0.5); soft(336, 452, 34, 20, 'rgba(255,238,228,A)', 0.4, 0.5); /* mejillas elevadas por la sonrisa */
+    soft(256, 574, 34, 13, 'rgba(255,238,228,A)', 0.28); soft(256, 565, 40, 10, 'rgba(140,80,78,A)', 0.2);
+    c.restore();
     /* bordes difuminados para fundirse con la cabeza */
     c.globalCompositeOperation = 'destination-in'; gr = c.createRadialGradient(256, 320, 150, 256, 320, 335); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.72, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = gr; c.fillRect(0, 0, 512, 640);
@@ -7980,7 +7989,7 @@ window.startMap = function (RAW, AUTH) {
     bx(auGray, -0.15, 0, 0, 0.035, 0.1, 0.16, body); bx(auGray, 0.15, 0, 0, 0.035, 0.1, 0.16, body); bx(auRed, 0, 0.0, 0.118, 0.1, 0.008, 0.008, body);
     [-1, 1].forEach(function (sx) {
       var th = new THREE.Group(), kn = new THREE.Group(), ft = new THREE.Group();
-      th.rotation.order = 'YXZ'; th.position.set(sx * 0.1, -0.04, 0); body.add(th);
+      th.rotation.order = 'YXZ'; th.position.set(sx * 0.108, -0.04, 0); body.add(th);
       ball(auDark, 0, 0, 0, 0.08, th);
       tap(auPearl, 0.125, 0.14, 0.095, 0.11, 0.34, 0, -0.18, 0, th);
       bx(auGray, sx * 0.062, -0.17, 0, 0.022, 0.26, 0.1, th); bx(auRed, sx * 0.07, -0.17, 0.02, 0.008, 0.24, 0.012, th);
@@ -8080,6 +8089,48 @@ window.startMap = function (RAW, AUTH) {
     noRay(g); g.visible = false; scene.add(g);
     return { g: g, body: body, upper: upper, shell: shell, head: head, legs: legs, arms: arms, locks: locks, tab: tab, tabScr: scr };
   }
+  var auHoloV1 = new THREE.Vector3(), auHoloV2 = new THREE.Vector3(), auHoloUp = new THREE.Vector3(0, 1, 0);
+  function auraHoloBuild() {
+    var g = new THREE.Group(), list = [], i, m;
+    function hm(col, op, wire) { var mt = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, wireframe: !!wire, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }); list.push({ m: mt, b: op }); return mt; }
+    var rock = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), hm(0x4fd8ff, 0.7, true)); rock.position.y = 1.7; rock.scale.set(1.15, 0.9, 1.0); g.add(rock);
+    var rockS = new THREE.Mesh(new THREE.IcosahedronGeometry(0.96, 1), hm(0x1a8cff, 0.18, false)); rockS.position.y = 1.7; rockS.scale.copy(rock.scale); g.add(rockS);
+    var sau = new THREE.Group(); sau.position.y = 1.7; g.add(sau);
+    var sb = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 8), hm(0x4fd8ff, 0.7, true)); sb.scale.set(1.7, 0.4, 1.7); sau.add(sb);
+    var dome = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), hm(0x7fe8ff, 0.7, true)); dome.position.y = 0.25; sau.add(dome);
+    var base = new THREE.Mesh(new THREE.RingGeometry(2.6, 2.74, 64), hm(0x4fd8ff, 0.8)); base.rotation.x = -Math.PI / 2; base.position.y = 0.08; g.add(base);
+    var base2 = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.56, 48), hm(0x4fd8ff, 0.55)); base2.rotation.x = -Math.PI / 2; base2.position.y = 0.09; g.add(base2);
+    var col = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.6, 3.4, 36, 1, true), hm(0x2aa8ff, 0.07)); col.position.y = 1.7; g.add(col);
+    var sc = []; for (i = 0; i < 2; i++) { m = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.26, 40), hm(0x9ff0ff, 0.8)); m.rotation.x = -Math.PI / 2; g.add(m); sc.push(m); }
+    var bars = new THREE.Group(), bl = []; g.add(bars);
+    for (i = 0; i < 6; i++) { m = new THREE.Mesh(uBox, hm(0x6fdcff, 0.7)); m.scale.set(0.2, 1, 0.05); m.position.x = (i - 2.5) * 0.34; bars.add(m); bl.push(m); }
+    m = new THREE.Mesh(uBox, hm(0x4fd8ff, 0.5)); m.scale.set(2.2, 0.05, 0.04); bars.add(m);
+    var pts = [], k, tt; for (k = 0; k <= 24; k++) { tt = k / 24; pts.push(new THREE.Vector3(-9 + 9 * tt, 1.2 + 13 * (1 - tt) * (1 - tt), -7 + 7 * tt)); }
+    var arcMt = new THREE.LineBasicMaterial({ color: 0x7fe8ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }); list.push({ m: arcMt, b: 0.7 });
+    var arc = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), arcMt); g.add(arc);
+    var beamMt = new THREE.MeshBasicMaterial({ color: 0x66d8ff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    var beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.1, 1, 8, 1, true), beamMt); beam.visible = false; beam.frustumCulled = false; scene.add(beam);
+    g.visible = false; noRay(g); noRay(beam); scene.add(g);
+    return { g: g, list: list, rock: rock, rockS: rockS, sau: sau, sc: sc, bars: bars, bl: bl, arc: arc, base: base, base2: base2, beam: beam, beamMt: beamMt };
+  }
+  function auraHoloStep(A, t, dt) {
+    var H = A.holo, ev = A.ev, i, sc, hv = auHoloV1, hv2 = auHoloV2, len, k, u, rs, bh, ya;
+    A.hk = (A.hk || 0) + ((A.hOn ? 1 : 0) - (A.hk || 0)) * Math.min(1, dt * 2.5);
+    if (!(A.hk > 0.02 && ev)) { H.g.visible = false; H.beam.visible = false; return; }
+    sc = ev.R / 7; k = A.hk * (0.82 + 0.18 * Math.sin(t * 23) * Math.sin(t * 7.3));
+    H.g.visible = true; H.g.position.set(ev.x, botGround(ev.x, ev.z), ev.z); H.g.scale.setScalar(sc * (0.6 + 0.4 * A.hk));
+    for (i = 0; i < H.list.length; i++) H.list[i].m.opacity = H.list[i].b * k;
+    H.rock.visible = H.rockS.visible = H.arc.visible = ev.kind === 'met'; H.sau.visible = ev.kind !== 'met';
+    H.rock.rotation.y = t * 0.9; H.rock.rotation.x = t * 0.4; H.rockS.rotation.copy(H.rock.rotation); H.sau.rotation.y = t * 0.9;
+    H.rock.position.y = H.rockS.position.y = H.sau.position.y = 1.7 + 0.12 * Math.sin(t * 2);
+    H.base.rotation.z = t * 0.5; H.base2.rotation.z = -t * 0.8;
+    for (i = 0; i < 2; i++) { u = (t * 0.55 + i * 0.5) % 1; H.sc[i].position.y = 0.1 + 3.2 * u; rs = 0.7 + 0.5 * Math.sin(Math.PI * u); H.sc[i].scale.set(rs, rs, 1); }
+    for (i = 0; i < H.bl.length; i++) { bh = 0.35 + 0.8 * (0.5 + 0.5 * Math.sin(t * 2.6 + i * 1.3)); H.bl[i].scale.y = bh; H.bl[i].position.y = bh / 2; }
+    ya = Math.atan2(A.x - ev.x, A.z - ev.z); H.bars.rotation.y = ya; H.bars.position.set(Math.sin(ya) * 3.6, 0.1, Math.cos(ya) * 3.6); /* las barras de datos flotan hacia ella */
+    A.arms[0].el.localToWorld(hv.set(0, -0.33, 0.01)); hv2.set(ev.x, H.g.position.y + 1.7 * sc, ev.z); /* haz desde la muñeca izquierda */
+    len = hv.distanceTo(hv2); H.beam.visible = true; H.beam.position.copy(hv).add(hv2).multiplyScalar(0.5); H.beam.scale.set(0.4, len, 0.4);
+    H.beam.quaternion.setFromUnitVectors(auHoloUp, hv2.clone().sub(hv).normalize()); H.beamMt.opacity = 0.3 * k;
+  }
   function auraEvent() { /* sitio a investigar: restos del OVNI o el meteorito de la invasión */
     var u = ufo, I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
     if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 14, left: I.left, kind: 'met', al: I.al };
@@ -8110,10 +8161,10 @@ window.startMap = function (RAW, AUTH) {
     var A = aura, a, path, seg, f, x, z, tx, tz, l, nx, nz, i, c, cand, ti, nxt, lp, bx, bz, u, vis, moving = false, e, gy, I, sp, k, dd, ang, G, mn, yawT = null, scan = false;
     if (!trails.length) return;
     if (!A) {
-      A = aura = makeAura(); A.ph = 0; A.gk = 0; A.sk = 0; A.k = 1; A.mode = 'trail'; A.yaw = 0; A.evCD = 20; A.x = 0; A.z = 0; A.y = 0; A.hop = 0; A.dodge = false; A.off = 0; A.side = 1;
+      A = aura = makeAura(); A.holo = auraHoloBuild(); A.ph = 0; A.gk = 0; A.sk = 0; A.k = 1; A.mode = 'trail'; A.yaw = 0; A.evCD = 20; A.x = 0; A.z = 0; A.y = 0; A.hop = 0; A.dodge = false; A.off = 0; A.side = 1;
       i = (Math.random() * trails.length) | 0; A.path = edgePath(i, trails[i].b); A.last = i; A.s = Math.random() * A.path.len * 0.5; A.next = null;
     }
-    a = A; A.hyT = A.mode === 'trail' ? 0.1 * Math.sin(t * 0.6) : 0; A.hxT = 0.02;
+    a = A; A.hOn = false; A.hyT = A.mode === 'trail' ? 0.1 * Math.sin(t * 0.6) : 0; A.hxT = 0.02;
     if (A.mode === 'trail') {
       A.s += 1.35 * dt; path = A.path; moving = true;
       while (path && A.s >= path.len) {
@@ -8178,7 +8229,7 @@ window.startMap = function (RAW, AUTH) {
           tx = A.wp[A.pi][0] - A.x; tz = A.wp[A.pi][1] - A.z; dd = Math.hypot(tx, tz);
           if (dd < 0.7) A.pi++;
           else { A.yaw += nAng(Math.atan2(tx, tz) - A.yaw) * Math.min(1, dt * 5); A.x += Math.sin(A.yaw) * sp * dt; A.z += Math.cos(A.yaw) * sp * dt; moving = true; }
-        } else if (A.mode === 'go') { A.mode = 'inspect'; A.cyc = 0; A.f1 = A.f2 = 0; A.vt = 0; A.oR = A.ev.R; A.odir = Math.random() < 0.5 ? 1 : -1; }
+        } else if (A.mode === 'go') { A.mode = 'inspect'; A.cyc = 0; A.f1 = A.f2 = A.h1 = 0; A.vt = 0; A.oR = A.ev.R; A.odir = Math.random() < 0.5 ? 1 : -1; }
         else if (A.mode === 'join') auraFinishJoin(A);
         else { c = A.bc; auraResume(A, c); }
       }
@@ -8186,11 +8237,19 @@ window.startMap = function (RAW, AUTH) {
         A.cyc += dt;
         dd = Math.hypot(A.x - A.ev.x, A.z - A.ev.z);
         if (dd > A.ev.R + 8) auraStart(A, A.ev); /* se alejó: vuelve al sitio */
-        var ty = Math.atan2(A.ev.x - A.x, A.ev.z - A.z), cp = A.cyc % 13, odir = A.odir || 1, oR = A.oR || A.ev.R, rx, rz, r, tgx, tgz, vx, vz, th, des;
+        var ty = Math.atan2(A.ev.x - A.x, A.ev.z - A.z), cp = A.cyc % 19, odir = A.odir || 1, oR = A.oR || A.ev.R, rx, rz, r, tgx, tgz, vx, vz, th, des, rb = bot ? Math.hypot(A.x - bot.x, A.z - bot.z) : 99;
         A.vt = (A.vt || 0) - dt;
         if (A.vt <= 0) { A.vt = 14 + Math.random() * 10; if (Math.random() < 0.45) A.odir = odir = -odir; A.oR = oR = A.ev.R * (0.88 + Math.random() * 0.3); }
-        if (cp < 5.5) { /* rodea el sitio caminando hacia adelante a lo largo del círculo; la cabeza lo sigue con el cuello */
-          A.f1 = A.f2 = 0;
+        if (bot && rb < 2 && !(A.yb > 0)) { A.yb = 1.6; A.ybYaw = Math.atan2(A.x - bot.x, A.z - bot.z); } /* el robot invade su espacio: se aparta caminando */
+        if (A.yb > 0) {
+          A.yb -= dt; A.yaw += nAng(A.ybYaw - A.yaw) * Math.min(1, dt * 5);
+          if (Math.abs(nAng(A.ybYaw - A.yaw)) < 0.8) { nx = A.x + Math.sin(A.yaw) * 1.3 * dt; nz = A.z + Math.cos(A.yaw) * 1.3 * dt; if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; moving = true; } }
+          A.hyT = Math.max(-1.1, Math.min(1.1, nAng(Math.atan2(bot.x - A.x, bot.z - A.z) - A.yaw))); A.hxT = 0.02;
+        } else if (bot && rb < 5) { /* el robot pasa cerca: se queda donde está y solo lo mira */
+          A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 2);
+          A.hyT = Math.max(-1.2, Math.min(1.2, nAng(Math.atan2(bot.x - A.x, bot.z - A.z) - A.yaw))); A.hxT = 0.02;
+        } else if (cp < 5.5) { /* rodea el sitio caminando hacia adelante a lo largo del círculo; la cabeza lo sigue con el cuello */
+          A.f1 = A.f2 = A.h1 = 0;
           rx = A.x - A.ev.x; rz = A.z - A.ev.z; r = Math.max(0.5, Math.hypot(rx, rz));
           tgx = odir * (rz / r); tgz = odir * (-rx / r);
           vx = tgx * 1.25 + (rx / r) * (oR - r) * 0.5; vz = tgz * 1.25 + (rz / r) * (oR - r) * 0.5;
@@ -8200,18 +8259,17 @@ window.startMap = function (RAW, AUTH) {
           if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; moving = true; } else A.odir = -odir;
           A.hyT = Math.max(-1.22, Math.min(1.22, nAng(ty - A.yaw))); A.hxT = 0.1;
         } else if (cp < 7) { /* pausa: se planta frente al sitio y barre la vista */
-          A.f1 = A.f2 = 0; A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 3);
+          A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 3);
           A.hyT = 0.55 * Math.sin(A.cyc * 1.1); A.hxT = 0.12;
+        } else if (cp < 13) { /* proyecta un holograma sobre el cráter con el brazo izquierdo */
+          A.hOn = true; A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 3); A.hyT = 0; A.hxT = 0.05;
+          if (!A.h1) { A.h1 = 1; AUD.holo({ x: A.x, y: A.y + 0.5, z: A.z }); }
         } else { /* saca la tablet, apunta y toma dos fotos */
-          scan = true; cp -= 7; A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 3); A.hxT = -0.03;
+          scan = true; cp -= 13; A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 3); A.hxT = -0.03;
           if (!A.f1 && cp > 3.0) { A.f1 = 1; A.flash = 0.2; AUD.shutter({ x: A.x, y: A.y + 0.5, z: A.z }); }
           if (!A.f2 && cp > 4.8) { A.f2 = 1; A.flash = 0.2; AUD.shutter({ x: A.x, y: A.y + 0.5, z: A.z }); }
           if (cp > 5.6) scan = false;
         }
-      }
-      if (bot) { /* le cede el paso al robot */
-        dd = Math.hypot(A.x - bot.x, A.z - bot.z);
-        if (dd < 5 && dd > 0.01) { nx = A.x + (A.x - bot.x) / dd * 1.8 * dt; nz = A.z + (A.z - bot.z) / dd * 1.8 * dt; if (botFree(nx, nz)) { A.x = nx; A.z = nz; moving = true; } }
       }
       A.y += (botGround(A.x, A.z) - A.y) * Math.min(1, dt * 10);
     }
@@ -8219,20 +8277,21 @@ window.startMap = function (RAW, AUTH) {
     /* ----- pose y animación ----- */
     vis = A.k > 0.01 && Math.hypot(camera.position.x - A.x, camera.position.z - A.z) < 500;
     if (A.g.visible !== vis) A.g.visible = vis;
-    if (!vis) return;
+    if (!vis) { A.holo.g.visible = false; A.holo.beam.visible = false; return; }
     var hopY = A.hop > 0 ? Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - A.hop / 0.55))) * 0.55 : 0;
-    A.gk += ((moving ? 1 : 0) - A.gk) * Math.min(1, dt * 7); A.sk += ((scan ? 1 : 0) - A.sk) * Math.min(1, dt * 5);
-    if (moving) A.ph += dt * 5.6;
-    var am = 0.38 * A.gk, kf = 0.6 * A.gk, la, sg, sw, tk, sph = Math.sin(A.ph);
+    A.gk += ((moving ? 1 : 0) - A.gk) * Math.min(1, dt * 7); A.sk += ((scan ? 1 : 0) - A.sk) * Math.min(1, dt * 5); A.pk = (A.pk || 0) + ((A.hOn ? 1 : 0) - (A.pk || 0)) * Math.min(1, dt * 4);
+    if (moving) A.ph += dt * 6.4;
+    var am = 0.285 * A.gk, kf = 0.45 * A.gk, la, sg, sw, tk, sph = Math.sin(A.ph);
     for (i = 0; i < 2; i++) {
       la = -am * Math.sin(A.ph + i * Math.PI); sg = kf * Math.max(0, Math.cos(A.ph + i * Math.PI));
       if (hopY > 0.02) { la = i ? -0.5 : -0.8; sg = 0.9; }
       A.legs[i].th.rotation.x = la; A.legs[i].kn.rotation.x = sg; A.legs[i].ft.rotation.x = -(la + sg) * 0.5 + sg * 0.3;
-      A.legs[i].th.rotation.z = (i ? -1 : 1) * (0.05 + 0.05 * A.gk * Math.max(0, Math.cos(A.ph + i * Math.PI))); /* rodillas juntas, pies sobre una línea */
-      A.legs[i].ft.rotation.y = (i ? -1 : 1) * 0.14; /* puntas hacia adentro */
+      A.legs[i].th.rotation.z = (i ? -1 : 1) * (0.045 + 0.015 * A.gk * Math.max(0, Math.cos(A.ph + i * Math.PI))); /* piernas algo inclinadas hacia adentro */
+      A.legs[i].ft.rotation.z = -A.legs[i].th.rotation.z * 1.0; A.legs[i].ft.rotation.y = 0; /* el pie queda plano y al frente */
       sw = Math.sin(A.ph + i * Math.PI) * 0.55 * A.gk; tk = A.sk;
       A.arms[i].sh.rotation.x = sw * (1 - tk) + tk * -1.0; A.arms[i].sh.rotation.z = (i ? 1 : -1) * ((0.1 + 0.03 * Math.sin(t * 1.3 + i)) * (1 - tk) - 0.3 * tk);
       A.arms[i].el.rotation.x = (-0.18 - 0.25 * A.gk * Math.max(0, -Math.sin(A.ph + i * Math.PI))) * (1 - tk) + tk * -1.4;
+      if (i === 0 && A.pk > 0.01) { A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.pk) - 1.45 * A.pk; A.arms[0].sh.rotation.z = A.arms[0].sh.rotation.z * (1 - A.pk) - 0.12 * A.pk; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.pk) - 0.15 * A.pk; } /* brazo extendido hacia el sitio */
     }
     A.body.position.y = 0.86 + Math.abs(Math.sin(A.ph)) * 0.03 * A.gk + 0.008 * Math.sin(t * 1.7);
     A.body.position.x = 0.022 * sph * A.gk; A.body.rotation.z = 0.065 * sph * A.gk; A.body.rotation.y = 0.14 * sph * A.gk; /* contoneo: la pelvis se desplaza, se inclina y gira */
@@ -8243,6 +8302,7 @@ window.startMap = function (RAW, AUTH) {
     A.flash = Math.max(0, (A.flash || 0) - dt);
     A.tab.visible = A.sk > 0.04; A.tab.scale.setScalar(Math.max(0.001, A.sk)); A.tabScr.material.color.setHex(A.flash > 0 ? 0xffffff : 0x2a8cff);
     A.g.rotation.y = A.yaw; A.g.position.set(A.x, A.y + hopY + (A.mode === 'trail' ? Math.abs(Math.sin(A.ph)) * 0.0 : 0), A.z); A.g.scale.setScalar(0.37 * Math.max(0.001, A.k));
+    auraHoloStep(A, t, dt);
   }
   function auraStart(A, e) { /* ruta a pie hasta un punto a distancia R del sitio, del lado por el que llega */
     var ang0 = Math.atan2(A.x - e.x, A.z - e.z), j, ang, gx, gz, off = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2, 3.1];
