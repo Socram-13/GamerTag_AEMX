@@ -7055,16 +7055,19 @@ window.startMap = function (RAW, AUTH) {
       b.fxo = { fk: 0, blob: new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cvB), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })) };
       b.fxo.blob.rotation.x = -Math.PI / 2; noRay(b.fxo.blob); scene.add(b.fxo.blob);
       /* Lámpara de casco: se enciende al caminar en la niebla (haz de luz aditivo + foco; sin luces reales para no recompilar shaders) */
-      var lgm = new THREE.ConeGeometry(2.8, 9, 20, 1, true); lgm.rotateX(-Math.PI / 2); lgm.translate(0, 0, 4.5);
-      (function () { var ps = lgm.attributes.position, cs = new Float32Array(ps.count * 3), q, tt; for (q = 0; q < ps.count; q++) { tt = Math.max(0, 1 - ps.getZ(q) / 9); tt *= tt; cs[q * 3] = tt; cs[q * 3 + 1] = tt * 0.94; cs[q * 3 + 2] = tt * 0.72; } lgm.setAttribute('color', new THREE.BufferAttribute(cs, 3)); })();
+      var lgm = new THREE.ConeGeometry(3.4, 16, 20, 1, true); lgm.rotateX(-Math.PI / 2); lgm.translate(0, 0, 8);
+      (function () { var ps = lgm.attributes.position, cs = new Float32Array(ps.count * 3), q, tt; for (q = 0; q < ps.count; q++) { tt = Math.max(0, 1 - ps.getZ(q) / 16); tt *= tt; cs[q * 3] = tt; cs[q * 3 + 1] = tt * 0.94; cs[q * 3 + 2] = tt * 0.72; } lgm.setAttribute('color', new THREE.BufferAttribute(cs, 3)); })();
       b.fxo.beam = new THREE.Mesh(lgm, new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
-      b.fxo.beam.position.set(0, 0.2, 0.12); b.fxo.beam.rotation.x = 0.1; noRay(b.fxo.beam); b.head.add(b.fxo.beam);
+      b.fxo.beam.position.set(0, 0.2, 0.12); b.fxo.beam.rotation.x = 0.26; /* inclinado hacia abajo: el haz toca el suelo unos 4 pasos adelante */ noRay(b.fxo.beam); b.head.add(b.fxo.beam);
+      b.fxo.pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cvF), color: 0xffe9a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      b.fxo.pool.rotation.order = 'YXZ'; b.fxo.pool.rotation.x = -Math.PI / 2; noRay(b.fxo.pool); scene.add(b.fxo.pool);
       b.fxo.bulb = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.05), new THREE.MeshBasicMaterial({ color: 0xffe9a0, fog: false }));
       b.fxo.bulb.position.set(0, 0.19, 0.1); noRay(b.fxo.bulb); b.head.add(b.fxo.bulb);
     }
     var FXo = b.fxo, onGnd = (b.mode === 'walk' || b.mode === 'perch') && b.shell.visible, fxBase = onGnd ? b.y - (b.bh || 0) : 0, fxFl = onGnd ? Math.max(0, 1 - (b.bh || 0) / 1.5) * (1 - bk) : 0, fxI;
     FXo.fk += ((b.inFog && onGnd ? 1 : 0) - FXo.fk) * Math.min(1, dt * 1.5);
-    FXo.beam.material.opacity = 0.55 * FXo.fk * (0.95 + 0.05 * Math.sin(t * 9)); FXo.beam.visible = FXo.fk > 0.02; FXo.bulb.material.color.setHex(FXo.fk > 0.3 ? 0xfff2b0 : 0x6a6a5a);
+    FXo.beam.material.opacity = 0.55 * FXo.fk * (0.95 + 0.05 * Math.sin(t * 9)); FXo.beam.visible = FXo.fk > 0.02;
+    FXo.pool.visible = FXo.fk > 0.02 && onGnd; if (FXo.pool.visible) { var plx = b.x + Math.sin(b.yaw) * 5.5, plz = b.z + Math.cos(b.yaw) * 5.5; FXo.pool.position.set(plx, terrainH(plx, plz) + 0.06, plz); FXo.pool.rotation.y = b.yaw; FXo.pool.scale.set(5.5, 9, 1); FXo.pool.material.opacity = 0.4 * FXo.fk; } FXo.bulb.material.color.setHex(FXo.fk > 0.3 ? 0xfff2b0 : 0x6a6a5a);
     FXo.blob.visible = onGnd; FXo.blob.position.set(b.x, fxBase + 0.03, b.z); FXo.blob.scale.setScalar(0.75 * (1 + (b.bh || 0) * 0.05)); FXo.blob.material.opacity = 0.5 / (1 + (b.bh || 0) * 0.3);
     b.head.rotation.x = -b.aimPitch - b.lean;
     b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6) - stA;
