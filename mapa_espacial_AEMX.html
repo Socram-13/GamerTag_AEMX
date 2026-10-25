@@ -7343,11 +7343,10 @@ window.startMap = function (RAW, AUTH) {
     /* Niebla gris y densa que cubre todo el estado sin jugadores */
     var fogs = [], fogDone = {};
     function addFog(x, z, size) {
-      /* capa horizontal flotando a la altura de la cintura del robot: él la atraviesa */
-      var sp = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: puff, color: 0x8d96a3, transparent: true, opacity: 0, depthWrite: false, fog: false, side: THREE.DoubleSide }));
-      sp.rotation.x = -Math.PI / 2; sp.rotation.z = rnd(0, 6.28);
-      sp.scale.set(size, size * 0.8, 1);
-      var b = { x: x, z: z, y: rnd(0.45, 0.65) };
+      /* nubes de siempre, pero con el centro a la cintura del robot (poco espesor): él las atraviesa */
+      var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: 0x8d96a3, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+      sp.scale.set(size, rnd(2.2, 3), 1);
+      var b = { x: x, z: z, y: rnd(0.5, 0.7) };
       sp.position.set(b.x, b.y, b.z); group.add(sp);
       fogs.push({ sp: sp, b: b, ph: rnd(0, 6.28), amp: rnd(1.5, 3.5), base: rnd(0.5, 0.7) });
     }
