@@ -4600,9 +4600,9 @@ window.startMap = function (RAW, AUTH) {
       if (aura) {
         deselect();
         var as2 = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
-        as2.radius = 9; as2.phi = 1.0;
+        as2.radius = 2.6; as2.phi = 1.25;
         auraOff.setFromSpherical(as2);
-        flyTo(aura.x, aura.y + 0.8, aura.z, 9, 1.0);
+        flyTo(aura.x, aura.y + 0.55, aura.z, 2.6, 1.25);
         auraFollow = true;
       }
     } else if (m.kind === 't') {
@@ -7988,8 +7988,8 @@ window.startMap = function (RAW, AUTH) {
       tap(auPearl, 0.095, 0.115, 0.07, 0.085, 0.32, 0, -0.17, -0.005, kn);
       bx(auGray, 0, -0.17, 0.065, 0.06, 0.22, 0.03, kn); bx(auBlack, 0, -0.31, 0, 0.085, 0.04, 0.1, kn);
       ft.position.y = -0.36; kn.add(ft);
-      ball(auDark, 0, 0, 0, 0.055, ft);
-      bx(auPearl, 0, -0.05, 0.065, 0.12, 0.085, 0.27, ft); bx(auBlack, 0, -0.098, 0.075, 0.125, 0.032, 0.29, ft); bx(auRed, 0, -0.01, 0.19, 0.05, 0.012, 0.05, ft);
+      ball(auDark, 0, 0, 0, 0.045, ft);
+      bx(auPearl, 0, -0.048, 0.055, 0.1, 0.07, 0.22, ft); bx(auBlack, 0, -0.088, 0.062, 0.105, 0.028, 0.235, ft); bx(auRed, 0, -0.012, 0.15, 0.04, 0.01, 0.04, ft);
       legs.push({ th: th, kn: kn, ft: ft });
     });
     /* Torso femenino: cintura estrecha, caja torácica que se ensancha hacia el pecho, placas de pecho anguladas con bordes rojos */
@@ -8084,11 +8084,15 @@ window.startMap = function (RAW, AUTH) {
     A.mode = 'jump'; fxSpawn(A.x, A.y + 0.6, A.z, 0, 0, 0, 0.45, 1, 5, 0xe8c8ff, 0.9, true); AUD.chime({ x: A.x, y: A.y + 1, z: A.z });
   }
   function auraGoPath(A, gx, gz) { var q = null; try { q = botAStar(A.x, A.z, gx, gz); if (q && q.length > 2) q = botRefine(q); } catch (e) { q = null; } if (!q || q.length < 1) return false; A.wp = q; A.pi = 0; return true; }
-  function auraResume(A, c) { /* de vuelta al sistema de senderos desde la ciudad c */
-    var ti, cand = [];
+  function auraFinishJoin(A) { A.path = A.jp; A.next = null; A.s = 0; A.last = A.jti; A.off = 0; A.mode = 'trail'; A.evCD = 6; A.sn = 0; }
+  function auraResume(A, c) { /* de vuelta al sistema de senderos: camina hasta el inicio del sendero (o reaparece ahí) y solo entonces lo sigue */
+    var ti, cand = [], e0, dd;
     for (ti = 0; ti < trails.length; ti++) if (trails[ti].a === c || trails[ti].b === c) cand.push(ti);
     if (!cand.length) { ti = (Math.random() * trails.length) | 0; c = trails[ti].a; } else ti = cand[(Math.random() * cand.length) | 0];
-    A.path = edgePath(ti, c); A.next = null; A.s = 0; A.last = ti; A.off = 0; A.mode = 'trail'; A.evCD = 6; A.px = A.x; A.pz = A.z; A.sn = 1;
+    A.jp = edgePath(ti, c); A.jti = ti; e0 = A.jp.pts[0]; dd = Math.hypot(e0[0] - A.x, e0[1] - A.z);
+    if (dd < 2) { auraFinishJoin(A); return; }
+    if (dd < 140 && auraGoPath(A, e0[0], e0[1])) { A.mode = 'join'; return; }
+    auraJump(A, e0[0], e0[1], 'join');
   }
   function updateAura(t, dt) {
     var A = aura, a, path, seg, f, x, z, tx, tz, l, nx, nz, i, c, cand, ti, nxt, lp, bx, bz, u, vis, moving = false, e, gy, I, sp, k, dd, ang, G, mn, yawT = null, scan = false;
@@ -8123,8 +8127,6 @@ window.startMap = function (RAW, AUTH) {
       if (car) { dd = Math.hypot(car.x - bx, car.z - bz); if (!A.dodge && dd < 14 && (car.v > 2 || dd < 6)) { A.dodge = true; A.side = Math.random() < 0.5 ? 1 : -1; A.hop = 0.55; } else if (A.dodge && dd > 17) A.dodge = false; } else A.dodge = false;
       A.off += ((A.dodge ? A.side * 2.6 : 0) - A.off) * Math.min(1, dt * 8);
       A.x = bx + nx * A.off; A.z = bz + nz * A.off;
-      if (A.sn === 1) { A.sx = A.px - A.x; A.sz = A.pz - A.z; A.sn = 2; }
-      if (A.sn === 2) { l = Math.hypot(A.sx, A.sz) - 1.3 * dt; if (l <= 0.02) A.sn = 0; else { dd = l / Math.hypot(A.sx, A.sz); A.sx *= dd; A.sz *= dd; A.x += A.sx; A.z += A.sz; } } /* suaviza el reenganche al sendero */
       u = terrainH(A.x, A.z); gy = Math.max(0, u) + 0.06; u = 0.012 + u + Math.min(0.08, u * 0.8) + 0.04; if (u > gy) gy = u; A.y = gy;
       /* ¿hay algo que investigar? */
       A.evCD -= dt;
@@ -8144,19 +8146,21 @@ window.startMap = function (RAW, AUTH) {
         A.jmp.done = true; A.x = A.jmp.x; A.z = A.jmp.z; A.y = botGround(A.x, A.z); A.k = 0;
         fxSpawn(A.x, A.y + 0.6, A.z, 0, 0, 0, 0.45, 1, 5, 0xe8c8ff, 0.9, true); AUD.chime({ x: A.x, y: A.y + 1, z: A.z });
       }
-      if (A.jmp.done) { A.k = Math.min(1, (A.jmp.t - 0.5) / 0.5); if (A.jmp.t >= 1) { A.k = 1; if (A.jmp.mode === 'back') auraResume(A, A.bc); else if (!(A.ev && auraStart(A, A.ev))) auraBack(A); } }
+      if (A.jmp.done) { A.k = Math.min(1, (A.jmp.t - 0.5) / 0.5); if (A.jmp.t >= 1) { A.k = 1; if (A.jmp.mode === 'back') auraResume(A, A.bc); else if (A.jmp.mode === 'join') auraFinishJoin(A); else if (!(A.ev && auraStart(A, A.ev))) auraBack(A); } }
     } else {
       /* a pie fuera de los senderos: ir, investigar o volver */
       e = auraEvent(); I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
-      if (A.mode !== 'back' && (!e || !A.ev || e.key !== A.ev.key || e.left < 8)) { auraBack(A); }
-      else if (A.mode !== 'back' && I) { for (i = 0; i < I.al.length; i++) if (Math.hypot(I.al[i][0] - A.x, I.al[i][1] - A.z) < 25) { auraBack(A); break; } }
-      sp = A.mode === 'back' ? 1.9 : 1.7;
-      if (A.mode === 'go' || A.mode === 'back') {
+      var act = A.mode === 'go' || A.mode === 'inspect';
+      if (act && (!e || !A.ev || e.key !== A.ev.key || e.left < 8)) { auraBack(A); }
+      else if (act && I) { for (i = 0; i < I.al.length; i++) if (Math.hypot(I.al[i][0] - A.x, I.al[i][1] - A.z) < 25) { auraBack(A); break; } }
+      sp = A.mode === 'go' ? 1.7 : 1.9;
+      if (A.mode === 'go' || A.mode === 'back' || A.mode === 'join') {
         if (A.wp && A.pi < A.wp.length) {
           tx = A.wp[A.pi][0] - A.x; tz = A.wp[A.pi][1] - A.z; dd = Math.hypot(tx, tz);
           if (dd < 0.7) A.pi++;
           else { A.yaw += nAng(Math.atan2(tx, tz) - A.yaw) * Math.min(1, dt * 5); A.x += Math.sin(A.yaw) * sp * dt; A.z += Math.cos(A.yaw) * sp * dt; moving = true; }
         } else if (A.mode === 'go') { A.mode = 'inspect'; A.insT = 0; A.insDur = 22 + Math.random() * 18; A.ang = Math.atan2(A.x - A.ev.x, A.z - A.ev.z); A.cyc = 0; }
+        else if (A.mode === 'join') auraFinishJoin(A);
         else { c = A.bc; auraResume(A, c); }
       }
       if (A.mode === 'inspect') {
@@ -9495,7 +9499,7 @@ window.startMap = function (RAW, AUTH) {
       }
     }
     if (auraFollow && aura) {
-      var ay = aura.y + 0.8;
+      var ay = aura.y + 0.55;
       if (fly) { fly.fb.set(aura.x, ay, aura.z); fly.pb.set(aura.x, ay, aura.z).add(auraOff); }
       else {
         var ak = Math.min(1, dt * 4), adx = (aura.x - controls.target.x) * ak, ady = (ay - controls.target.y) * ak, adz = (aura.z - controls.target.z) * ak;
@@ -9733,7 +9737,8 @@ window.startMap = function (RAW, AUTH) {
     presPin.scale.setScalar(Math.max(1, dp / 90) * 1.3 / 3);
     presPin.visible = labelsOn && dp > PIN_D;
 
-    var botFps = !!(turretCam && turretMode === 'bot' && bot), wantNear = botFps ? 0.08 : 0.5;
+    var botFps = !!(turretCam && turretMode === 'bot' && bot), wantNear = botFps ? 0.08 : (auraFollow ? 0.1 : 0.5);
+    controls.minDistance = auraFollow ? 0.4 : 14; /* con AURA se puede acercar hasta verle la cara */
     if (bot) bot.shell.visible = !botFps;
     if (camera.near !== wantNear) { camera.near = wantNear; camera.updateProjectionMatrix(); }
     try { ALN.update(dt, t); } catch (e) { ALN.update = function () {}; console.warn('Invasión desactivada:', e); }
