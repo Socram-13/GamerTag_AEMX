@@ -7303,7 +7303,7 @@ window.startMap = function (RAW, AUTH) {
           if (b.boostT <= 0 && b.boostCD <= 0 && gd > (chA ? 25 : 45) && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > (chA ? 12 : 30) && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > (chA ? 6 : 12) && botLandAhead(b.x, b.z, want, chA ? 60 : 80)) { b.boostT = b.bMax = invIn ? (chA ? 3 : 1) : 10; /* dentro del estado invadido durante la invasión, el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
-            if (b.wxBad || gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12 || !botLandAhead(b.x, b.z, b.yaw, 32)) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
+            if (b.wxBad || gd < 10 || ((b.bh || 0) < 12 && botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) || !botLandAhead(b.x, b.z, b.yaw, 32)) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
           }
           if (b.rec > 0) {
             /* Recuperación de atasco: retrocede en diagonal hacia el lado libre y luego replanifica la ruta */
@@ -7371,7 +7371,7 @@ window.startMap = function (RAW, AUTH) {
       }
       if (b.boostT <= 0 && (b.glr || 0) > 0 && (b.bh || 0) > 0) {
         b.glr -= b.v * dt;
-        if (b.wxBad || !b.goal || botCityDist(b.x + Math.sin(b.yaw) * 12, b.z + Math.cos(b.yaw) * 12) < 8 || !botLandAhead(b.x, b.z, b.yaw, 24)) b.glr = 0;
+        if (b.wxBad || !b.goal || ((b.bh || 0) < 12 && botCityDist(b.x + Math.sin(b.yaw) * 12, b.z + Math.cos(b.yaw) * 12) < 8) || !botLandAhead(b.x, b.z, b.yaw, 24)) b.glr = 0;
         if (b.glr > 0) { var gu = 1 - b.glr / b.glr0, bhO = b.bh; b.bh = Math.max(0.05, b.bh0 * (1 - Math.pow(gu, 4))); b.bvy = 0; if (b.flew && (b.bh - bhO) / Math.max(dt, 0.001) < -6) b.ball = true; /* planea extendido y se encoge solo en la picada final */ } else { b.glr0 = 0; }
       } else if (b.boostT <= 0 && !(b.glr > 0)) { b.glr0 = 0; if ((b.bh || 0) <= 0) b.bdist = 0; }
       if (b.boostT > 0) { }
@@ -7553,6 +7553,7 @@ window.startMap = function (RAW, AUTH) {
     b.runK += ((runSpd ? 1 : 0) - b.runK) * Math.min(1, dt * 6);
     b.flyK += ((flying ? 1 : 0) - b.flyK) * Math.min(1, dt * 8);
     fK = b.flyK;
+    b.gK = (b.gK || 0) + ((((b.glr || 0) > 0 && b.boostT <= 0 && (b.bh || 0) > 0.15 && !b.ball) ? 1 : 0) - (b.gK || 0)) * Math.min(1, dt * 6); /* planeando: brazos abiertos como en caída libre */
     b.kneel += (((b.mode === 'perch' && b.alert) || (b.mode === 'ride' && b.ride && b.ride.ph === 1) ? 1 : 0) - b.kneel) * Math.min(1, dt * 3.5);
     var kq = b.kneel, hk, bk;
     b.ballK = (b.ballK || 0) + (((b.ball && b.mode !== 'lift') ? 1 : 0) - (b.ballK || 0)) * Math.min(1, dt * ((b.ball) ? 7 : 6)); bk = b.ballK;
@@ -7592,8 +7593,8 @@ window.startMap = function (RAW, AUTH) {
     /* Brazos: libres (balanceo al correr, o a los lados en vuelo) o sujetando el rifle */
     for (i = 0; i < 2; i++) {
       f = (i === 0 ? -1 : 1) * Math.sin(b.ph) * Math.min(0.85, 0.1 + b.v * 0.1) * b.gk * (1 - fK);
-      elf = (0.3 + 1.1 * b.runK) * (1 - fK) + 0.12 * fK;
-      bkE.set((-f + 0.1 * fK - (i === 0 ? 0.25 * (b.hangK || 0) : 0)) * (1 - bk) - 1.35 * bk, 0, (i === 0 ? -1 : 1) * (0.03 + 0.04 * fK) * (1 - bk) + (i === 0 ? 0.3 : -0.3) * bk);
+      elf = (0.3 + 1.1 * b.runK) * (1 - fK) + 0.12 * fK + 0.45 * (b.gK || 0);
+      bkE.set((-f + 0.1 * fK + 0.3 * (b.gK || 0) - (i === 0 ? 0.25 * (b.hangK || 0) : 0)) * (1 - bk) - 1.35 * bk, 0, (i === 0 ? -1 : 1) * (0.03 + 0.04 * fK + 0.6 * (b.gK || 0)) * (1 - bk) + (i === 0 ? 0.3 : -0.3) * bk);
       bkQ1.setFromEuler(bkE).slerp(b.arms[i].hs, b.hold);
       bkE.set(-(elf + 0.5 * Math.max(0, f)) * (1 - bk) - 1.8 * bk, 0, 0);
       bkQ2.setFromEuler(bkE).slerp(b.arms[i].he, b.hold);
