@@ -7993,6 +7993,8 @@ window.startMap = function (RAW, AUTH) {
       th.rotation.order = 'YXZ'; th.position.set(sx * 0.108, -0.04, 0); pelvis.add(th);
       ball(auDark, 0, 0, 0, 0.08, th);
       tap(auPearl, 0.125, 0.14, 0.095, 0.11, 0.34, 0, -0.18, 0, th);
+      tap(auPearl, 0.135, 0.085, 0.1, 0.07, 0.22, 0, -0.09, -0.095, th); /* parte trasera del muslo: más volumen hacia atrás */
+      tap(auPearl, 0.15, 0.115, 0.125, 0.085, 0.15, sx * 0.01, 0.0, -0.115, th).rotation.x = 0.12; bx(auGray, 0, -0.05, -0.165, 0.09, 0.012, 0.012, th); /* glúteo */
       bx(auGray, sx * 0.062, -0.17, 0, 0.022, 0.26, 0.1, th); bx(auRed, sx * 0.07, -0.17, 0.02, 0.008, 0.24, 0.012, th);
       kn.position.y = -0.36; th.add(kn);
       ball(auDark, 0, 0, 0, 0.07, kn); bx(auGray, 0, 0, 0.082, 0.1, 0.12, 0.04, kn);
@@ -8044,15 +8046,15 @@ window.startMap = function (RAW, AUTH) {
     [-1, 1].forEach(function (sx) {
       ball(auHair, sx * 0.04, 0.145, 0.082, 1, head).scale.set(0.05, 0.011, 0.034); head.children[head.children.length - 1].rotation.set(1.0, 0, sx * 0.4); /* flequillo pegado a la frente */
       ball(auHair, sx * 0.078, 0.13, 0.052, 1, head).scale.set(0.024, 0.045, 0.034); head.children[head.children.length - 1].rotation.set(0.3, 0, sx * 0.3);
-      for (var li = 0; li < 3; li++) {
-        var lk = new THREE.Group(), sg;
-        lk.position.set(sx * (0.09 + li * 0.004), 0.085 - li * 0.012, -0.03 + li * 0.04); head.add(lk);
-        for (sg = 0; sg < 11; sg++) { seg = bx(auHair, sx * (0.002 + 0.01 * Math.sin(sg * 0.9 + li * 2) + sg * 0.002), -0.027 * sg - 0.02, 0.006 * Math.cos(sg * 0.9 + li) - sg * 0.0015, 0.036 - sg * 0.0012, 0.034, 0.02, lk); seg.rotation.z = sx * 0.12 * Math.sin(sg * 0.9 + li * 2); }
-        locks.push({ g: lk, sx: sx, ph: li * 1.4 });
+      for (var li = 0; li < 6; li++) {
+        var lk = new THREE.Group(), sg, ns = 7 + (li % 3) * 2;
+        lk.position.set(sx * (0.088 + (li % 2) * 0.006), 0.09 - (li % 3) * 0.008, -0.06 + li * 0.025); head.add(lk);
+        for (sg = 0; sg < ns; sg++) { seg = bx(auHair, sx * (0.002 + 0.01 * Math.sin(sg * 0.9 + li * 1.7) + sg * 0.002), -0.027 * sg - 0.02, 0.006 * Math.cos(sg * 0.9 + li) - sg * 0.0012, 0.04 - sg * 0.0012, 0.034, 0.024, lk); seg.rotation.z = sx * 0.12 * Math.sin(sg * 0.9 + li * 1.7); }
+        locks.push({ g: lk, sx: sx, ph: li * 1.1 });
       }
     });
-    var back = new THREE.Group(); back.position.set(0, 0.06, -0.078); head.add(back);
-    for (var bi = 0; bi < 9; bi++) { seg = bx(auHair, 0.012 * Math.sin(bi * 1.5), -0.04 - bi * 0.03, 0.003 * bi, 0.17 - bi * 0.004, 0.04, 0.03, back); seg.rotation.z = 0.06 * Math.sin(bi * 1.7); }
+    var back = new THREE.Group(); back.position.set(0, 0.06, -0.135); head.add(back);
+    for (var bi = 0; bi < 9; bi++) { seg = bx(auHair, 0.012 * Math.sin(bi * 1.5), -0.04 - bi * 0.03, -0.012 * bi, 0.17 + bi * 0.006, 0.04, 0.036 + bi * 0.003, back); seg.rotation.z = 0.06 * Math.sin(bi * 1.7); seg.rotation.x = -0.12; } /* se abre hacia atrás al bajar, por fuera de la espalda */
     locks.push({ g: back, sx: 0, ph: 0.5, back: true });
     /* Auriculares-sensor con brazo hacia la mejilla */
     [-1, 1].forEach(function (sx) {
@@ -8118,7 +8120,7 @@ window.startMap = function (RAW, AUTH) {
     var H = A.holo, ev = A.ev, i, sc, hv = auHoloV1, hv2 = auHoloV2, len, k, u, rs, bh, ya;
     A.hk = (A.hk || 0) + ((A.hOn ? 1 : 0) - (A.hk || 0)) * Math.min(1, dt * 2.5);
     if (!(A.hk > 0.02 && ev)) { H.g.visible = false; H.beam.visible = false; return; }
-    sc = 1; k = A.hk * (0.82 + 0.18 * Math.sin(t * 23) * Math.sin(t * 7.3));
+    sc = ev.kind === 'met' ? 1.3 : 1; k = A.hk * (0.82 + 0.18 * Math.sin(t * 23) * Math.sin(t * 7.3));
     H.g.visible = true; H.g.position.set(ev.x, botGround(ev.x, ev.z), ev.z); H.g.scale.setScalar(sc * (0.6 + 0.4 * A.hk));
     for (i = 0; i < H.list.length; i++) H.list[i].m.opacity = H.list[i].b * k;
     H.rock.visible = H.rockS.visible = H.arc.visible = ev.kind === 'met'; H.sau.visible = ev.kind !== 'met';
@@ -8134,7 +8136,7 @@ window.startMap = function (RAW, AUTH) {
   }
   function auraEvent() { /* sitio a investigar: restos del OVNI o el meteorito de la invasión */
     var u = ufo, I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
-    if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 6.5, left: I.left, kind: 'met', al: I.al };
+    if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 9.5, left: I.left, kind: 'met', al: I.al };
     var ci, cr, best = null, bl = 0; /* OVNI caído: el evento dura lo que dure su cráter, aunque los restos ya hayan desaparecido */
     for (ci = 0; ci < craters.length; ci++) { cr = craters[ci]; if (cr.on && CRATER_LIFE - cr.age > bl) { bl = CRATER_LIFE - cr.age; best = cr; } }
     if (best) return { key: 'w' + Math.round(best.x) + ',' + Math.round(best.z), x: best.x, z: best.z, R: 5.3, left: bl, kind: 'wreck', al: [] };
@@ -8290,7 +8292,7 @@ window.startMap = function (RAW, AUTH) {
     A.upper.rotation.z = 0; A.upper.rotation.y = -0.07 * sph * A.gk; A.upper.rotation.x = 0.03 * A.gk; /* el torso queda erguido, con un leve contragiro de hombros */
     A.hy = (A.hy || 0) + (A.hyT - (A.hy || 0)) * Math.min(1, dt * 6); A.hx = (A.hx || 0) + (A.hxT - (A.hx || 0)) * Math.min(1, dt * 6);
     A.head.rotation.y = A.hy; A.head.rotation.x = A.hx; A.upper.rotation.y += A.hy * 0.2;
-    for (i = 0; i < A.locks.length; i++) { k = A.locks[i]; k.g.rotation.x = (k.back ? 0.06 : 0.03) * Math.sin(A.ph * 2 + k.ph) * A.gk - 0.05 * A.gk; if (!k.back) k.g.rotation.z = k.sx * (0.04 * Math.sin(A.ph + k.ph) * A.gk); }
+    for (i = 0; i < A.locks.length; i++) { k = A.locks[i]; k.g.rotation.x = (k.back ? 0.1 : 0.03) * Math.sin(A.ph * 2 + k.ph) * A.gk - (k.back ? 0.02 : 0.05) * A.gk; if (!k.back) k.g.rotation.z = k.sx * (0.04 * Math.sin(A.ph + k.ph) * A.gk); }
     A.flash = Math.max(0, (A.flash || 0) - dt);
     A.tab.visible = A.sk > 0.04; A.tab.scale.setScalar(Math.max(0.001, A.sk)); A.tabScr.material.color.setHex(A.flash > 0 ? 0xffffff : 0x2a8cff);
     A.g.rotation.y = A.yaw; A.g.position.set(A.x, A.y + hopY + (A.mode === 'trail' ? Math.abs(Math.sin(A.ph)) * 0.0 : 0), A.z); A.g.scale.setScalar(0.37 * Math.max(0.001, A.k));
