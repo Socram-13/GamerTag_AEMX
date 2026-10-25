@@ -7031,7 +7031,7 @@ window.startMap = function (RAW, AUTH) {
       if (Dd.leave) { Dd.lt += dt; Dd.y += (4 + Dd.lt * 3) * dt; Dd.x += Dd.vx * dt; Dd.z += Dd.vz * dt; Dd.g.position.set(Dd.x, Dd.y, Dd.z); if (Dd.lt > 3.5) { Dd.g.visible = false; Dd.leave = false; } }
     }
     if (b.boostT > 0) { b.boostT -= dt; if (b.boostT <= 0 || b.mode !== 'walk' || !b.goal) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; } }
-    else if (b.boostCD > 0 && b.mode === 'walk' && (b.bh || 0) <= 0.05) b.boostCD -= dt; /* el enfriamiento cuenta desde que toca el suelo */
+    else if (b.boostCD > 0 && b.mode === 'walk' && (b.bh || 0) <= 0.05) b.boostCD -= dt * (b.alienT && invIn ? 2.3 : 1); /* el enfriamiento cuenta desde que toca el suelo */
 
     /* Restos del OVNI: va a revisarlos (sobre todo si él lo derribó) y se detiene fuera del cráter */
     if (b.circ) { b.circT = (b.circT || 0) + dt; if (b.circT > 22 && ufo) { ufo.done = true; b.circ = false; b.circT = 0; } } else b.circT = 0; /* rondar el cráter dura como máximo ~22 s */
@@ -7168,7 +7168,8 @@ window.startMap = function (RAW, AUTH) {
             }
           }
           if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxDense = !!(WX && WX.denseAt && (WX.denseAt(b.x, b.z) || WX.denseAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); if (invIn) { b.wxFog = b.wxDense = b.wxBad = false; } }
-          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12 && botLandAhead(b.x, b.z, want, 80)) { b.boostT = b.bMax = invIn ? 1 : 10; /* dentro del estado invadido durante la invasión, el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          var chA = !!(b.alienT && invIn); /* persiguiendo aliens dentro de la invasión: impulso más corto pero más frecuente */
+          if (b.boostT <= 0 && b.boostCD <= 0 && gd > (chA ? 25 : 45) && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > (chA ? 12 : 30) && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > (chA ? 6 : 12) && botLandAhead(b.x, b.z, want, chA ? 60 : 80)) { b.boostT = b.bMax = invIn ? (chA ? 3 : 1) : 10; /* dentro del estado invadido durante la invasión, el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
             if (b.wxBad || gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12 || !botLandAhead(b.x, b.z, b.yaw, 32)) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
