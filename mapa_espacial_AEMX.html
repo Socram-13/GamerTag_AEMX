@@ -6819,7 +6819,7 @@ window.startMap = function (RAW, AUTH) {
         if (botFree(x, z)) {
           var okG = botSetGoal(x, z, 'patrol'), Dd = Math.hypot(x - b.x, z - b.z), Lp = okG ? botPathLen(b.path) : 1e9;
           if (Dd > 120 && (!okG || (Lp > 300 && Lp > 2.2 * Dd)) && clock.elapsedTime >= (b.liftCD || 0) && !invLock) { b.vis.push(d); botStartLift(x, z, 'sea', null); return true; } /* ruta por tierra muy larga o inexistente: viaja en dron */
-          if (okG) { b.vis.push(d); b.jog = true; return true; }
+          if (okG) { b.vis.push(d); b.jog = true; b.tour = { d: d, n: 4 }; return true; }
         }
       }
       b.vis.push(d); /* inalcanzable por tierra: se descarta */
@@ -6829,6 +6829,16 @@ window.startMap = function (RAW, AUTH) {
   function botPick() {
     var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown() && !ufoOverVolc()) ? ufo.g.position : null, toward = !!Up && Math.hypot(Up.x - b.x, Up.z - b.z) < 500 && Math.random() < 0.7;
     var freeT = ufoDown() && !(typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state()); /* sin OVNI ni invasión: explora ciudades */
+    if (!freeT) b.tour = null;
+    if (b.tour && b.tour.n > 0) { /* visita la ciudad: recorre varios puntos de dentro, a veces sube a una azotea */
+      var td = b.tour.d, tr, tk, ta;
+      b.tour.n--;
+      if (Math.random() < 0.25 && botPickRoof(40)) return;
+      for (tk = 0; tk < 20; tk++) {
+        ta = Math.random() * 6.2832; tr = Math.sqrt(Math.random()) * td.r * 0.8; x = td.cx + Math.cos(ta) * tr; z = td.cz + Math.sin(ta) * tr;
+        if (Math.hypot(x - b.x, z - b.z) > 8 && botFree(x, z) && botSetGoal(x, z, 'patrol')) { b.jog = false; return; }
+      }
+    }
     if (Math.random() < (freeT ? 0.9 : 0.55) && botPickCity()) return;
     if (Math.random() < 0.5 && botPickRoof(60)) return;
     for (i = 0; i < 30; i++) {
