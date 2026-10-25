@@ -6339,6 +6339,11 @@ window.startMap = function (RAW, AUTH) {
     if (botSetGoal(tx, tz, 'trail')) return;
     b.goal = null; b.gtype = ''; b.path = null; b.trD = null; b.trOff = now + 8;
   }
+  function botInRings(rings, x, z) {
+    var r, m, a, q, ins = false;
+    for (r = 0; r < rings.length; r++) { m = rings[r]; for (a = 0, q = m.length - 1; a < m.length; q = a++) { if ((m[a][1] > z) !== (m[q][1] > z) && x < (m[q][0] - m[a][0]) * (z - m[a][1]) / (m[q][1] - m[a][1]) + m[a][0]) ins = !ins; } }
+    return ins;
+  }
   /* Contra aliens (van por el suelo): si un edificio tapa el tiro, rodea hasta un punto de suelo a 8-14 del alien con línea de tiro; no sube a azoteas */
   function botAlienFlank(U) {
     var b = bot, c = [], i, r, an, x, z, y, ci, k, hp;
@@ -6738,7 +6743,7 @@ window.startMap = function (RAW, AUTH) {
             }
           }
           if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxDense = !!(WX && WX.denseAt && (WX.denseAt(b.x, b.z) || WX.denseAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); }
-          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12 && botLandAhead(b.x, b.z, want, 80)) { b.boostT = (typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state()) ? 1 : 10; /* en invasión alienígena el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          if (b.boostT <= 0 && b.boostCD <= 0 && gd > 45 && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > 30 && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > 12 && botLandAhead(b.x, b.z, want, 80)) { b.boostT = (typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && statePolys[S.name] && botInRings(statePolys[S.name], b.x, b.z); })(ALN.state())) ? 1 : 10; /* dentro del estado invadido durante la invasión, el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
             if (b.wxBad || gd < 10 || botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12 || !botLandAhead(b.x, b.z, b.yaw, 32)) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
