@@ -8939,13 +8939,13 @@ window.startMap = function (RAW, AUTH) {
             else if (b2.boostT > 0) ax = 'Hiperimpulso';
             else if ((b2.glr || 0) > 0) ax = 'Planeando';
             else if (m2 === 'jetUp' || m2 === 'jetDown' || m2 === 'hop' || b2.ball) ax = 'Saltando';
-            else if (m2 === 'perch') ax = b2.aiming ? 'Apuntando desde la azotea' : 'En la azotea';
+            else if (m2 === 'perch') ax = (b2.aiming && (b2.alienT || b2.hasUp)) ? 'Apuntando desde la azotea' : 'En la azotea';
             else if (b2.scan) ax = 'Escaneando restos';
             else if (b2.circ) ax = 'Rodeando los restos';
             else if (b2.gtype === 'orbit') ax = b2.aiming ? 'Rodeando y disparando al meteorito' : 'Rodeando el meteorito';
             else if (b2.gtype === 'roof') ax = 'Rumbo a una azotea';
             else if (b2.gtype === 'trail') ax = 'Siguiendo un sendero fuera de la niebla';
-            else if (b2.aiming) ax = b2.alienT ? 'Apuntando al alien' : 'Apuntando al OVNI';
+            else if (b2.aiming) ax = b2.alienT ? 'Apuntando al alien' : b2.hasUp ? 'Apuntando al OVNI' : b2.trk ? 'Siguiendo la caída del OVNI' : b2.wk ? 'Vigilando los restos' : 'Rifle listo';
             else if (b2.stuck >= 2) ax = 'Esquivando un obstáculo';
             else if (b2.wxDense) ax = 'Avanzando a ciegas en la niebla';
             else if (b2.v > 3.4) ax = 'Corriendo';
