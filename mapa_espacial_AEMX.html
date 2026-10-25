@@ -6566,13 +6566,6 @@ window.startMap = function (RAW, AUTH) {
     /* tiempo acumulado dentro de la niebla (en cualquier modo); se reinicia solo tras 3 s fuera de ella */
     if (WX && WX.fogAt && b.mode !== 'lift') {
       b.inFog = !!WX.fogAt(b.x, b.z);
-      /* inmersión: dentro de la niebla sube la niebla del mundo (gris, densa) y al salir vuelve a la normal */
-      if (scene.fog) {
-        if (!b.fogW) b.fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x8d96a3) };
-        b.fogW.k += ((b.inFog ? 1 : 0) - b.fogW.k) * Math.min(1, dt * 1.2);
-        scene.fog.density = b.fogW.d0 + (0.09 - b.fogW.d0) * b.fogW.k; /* ~10 unidades de visibilidad */
-        scene.fog.color.copy(b.fogW.c0).lerp(b.fogW.c1, b.fogW.k);
-      }
       if (b.inFog) { b.fogT = (b.fogT || 0) + dt; b.fogOut = 0; } else { b.fogOut = (b.fogOut || 0) + dt; if (b.fogOut > 3) b.fogT = 0; }
     } /* hay enemigo cerca: postura de combate */
     if (botDrone && botDrone.g.visible) {
@@ -8191,7 +8184,13 @@ window.startMap = function (RAW, AUTH) {
     starsA.position.copy(camera.position); starsB.position.copy(camera.position);
     starsA.material.opacity = 0.65 + 0.3 * Math.sin(t * 1.3);
     starsB.material.opacity = 0.65 + 0.3 * Math.sin(t * 1.7 + 2.0);
-    var fkS = (bot && bot.fogW) ? bot.fogW.k : 0; sky.material.uniforms.uFogK.value = fkS; starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
+    /* inmersión: cuando la cámara está dentro de una zona de niebla sube la niebla del mundo (gris, densa) y el cielo se vuelve gris; al salir vuelve a la normal */
+    if (!window.__fogW) window.__fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x8d96a3) };
+    var FW = window.__fogW, inF = !!(WX && WX.fogAt && WX.fogAt(camera.position.x, camera.position.z));
+    FW.k += ((inF ? 1 : 0) - FW.k) * Math.min(1, dt * 1.2);
+    scene.fog.density = FW.d0 + (0.09 - FW.d0) * FW.k; /* ~10 unidades de visibilidad */
+    scene.fog.color.copy(FW.c0).lerp(FW.c1, FW.k);
+    var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS; starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
     sun.target.position.copy(controls.target);
     sun.position.copy(controls.target).add(SUN_OFF);
 
