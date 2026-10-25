@@ -8821,8 +8821,103 @@ window.startMap = function (RAW, AUTH) {
       if (a.bar) { a.bar.position.set(a.x, a.y + 1.85, a.z); a.bar.visible = true; } g.rotation.y = a.yaw; g.position.set(a.x, a.y, a.z); g.scale.setScalar(SC);
     }
     function an2(a) { var k, an, rr, x, z; for (k = 0; k < 8; k++) { an = rnd(0, 6.28); rr = rnd(4, 12); x = a.x + Math.sin(an) * rr; z = a.z + Math.cos(an) * rr; if (k < 4 && a.home && Math.hypot(x - a.home[0], z - a.home[1]) > 16) continue; if (free(a, x, z)) { a.tx = x; a.tz = z; return; } } a.tx = a.x; a.tz = a.z; }
+    /* ---------- Alien disfrazado: sombrero vaquero, lentes oscuros y bigote; pasea por las ciudades tratando de pasar desapercibido ---------- */
+    var DIS = null, disMat = null;
+    function disMake() {
+      var o = mk(), hd = o.head, m, s2;
+      if (!disMat) disMat = { hat: new THREE.MeshLambertMaterial({ color: 0x8a5a2b }), band: new THREE.MeshLambertMaterial({ color: 0x1d1510 }), glass: new THREE.MeshPhongMaterial({ color: 0x050507, specular: 0xaabbcc, shininess: 140 }), must: new THREE.MeshLambertMaterial({ color: 0x2b1a0e }) };
+      var M = disMat, gC = new THREE.CylinderGeometry(1, 1, 1, 16);
+      /* sombrero vaquero pequeño: ala curvada, copa con pellizco y banda, ladeado */
+      var hat = new THREE.Group(); hat.position.set(0, 0.235, -0.01); hat.rotation.set(-0.12, 0, 0.1); hd.add(hat);
+      m = new THREE.Mesh(gC, M.hat); m.scale.set(0.2, 0.012, 0.17); m.position.y = 0.0; hat.add(m);
+      for (s2 = -1; s2 <= 1; s2 += 2) { m = new THREE.Mesh(gC, M.hat); m.scale.set(0.05, 0.012, 0.15); m.position.set(s2 * 0.19, 0.022, 0); m.rotation.z = s2 * -0.5; hat.add(m); } /* ala doblada hacia arriba a los lados */
+      m = new THREE.Mesh(gC, M.hat); m.scale.set(0.095, 0.08, 0.085); m.position.y = 0.045; hat.add(m);
+      m = new THREE.Mesh(gC, M.band); m.scale.set(0.098, 0.016, 0.088); m.position.y = 0.02; hat.add(m);
+      m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), M.hat); m.scale.set(0.095, 0.03, 0.085); m.position.y = 0.088; hat.add(m);
+      /* lentes de sol oscuros */
+      for (s2 = -1; s2 <= 1; s2 += 2) {
+        m = new THREE.Mesh(gSph, M.glass); m.position.set(s2 * 0.078, 0.05, 0.138); m.scale.set(0.088, 0.058, 0.032); m.rotation.z = s2 * 0.5; m.rotation.y = s2 * 0.45; hd.add(m);
+        m = new THREE.Mesh(gSph, M.glass); m.position.set(s2 * 0.155, 0.075, 0.05); m.scale.set(0.01, 0.008, 0.09); m.rotation.y = s2 * 0.1; hd.add(m);
+      }
+      m = new THREE.Mesh(gSph, M.glass); m.position.set(0, 0.065, 0.158); m.scale.set(0.03, 0.008, 0.008); hd.add(m);
+      /* bigote grueso */
+      for (s2 = -1; s2 <= 1; s2 += 2) { m = new THREE.Mesh(gSph, M.must); m.position.set(s2 * 0.045, -0.09, 0.152); m.scale.set(0.058, 0.019, 0.022); m.rotation.z = s2 * 0.3; hd.add(m); m = new THREE.Mesh(gSph, M.must); m.position.set(s2 * 0.09, -0.098, 0.138); m.scale.set(0.02, 0.026, 0.016); m.rotation.z = s2 * 0.5; hd.add(m); }
+      var bg = new THREE.Group(), bi, ba;
+      function bl(c) { return new THREE.MeshLambertMaterial({ color: c }); }
+      function bcy(rt, rb, h, y, c) { var q = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 16), bl(c)); q.position.y = y; bg.add(q); }
+      bcy(0.5, 0.44, 0.14, 0.07, 0xd9923a); bcy(0.54, 0.54, 0.05, 0.165, 0x4cb04a); bcy(0.47, 0.47, 0.06, 0.22, 0xd8382b); bcy(0.5, 0.5, 0.15, 0.325, 0x4a2a17); /* mismo diseño de la hamburguesa del volcán */
+      m = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.03, 0.98), bl(0xffc72c)); m.position.y = 0.42; m.rotation.y = 0.78; bg.add(m);
+      m = new THREE.Mesh(new THREE.SphereGeometry(0.52, 16, 8, 0, 6.2832, 0, 1.5708), bl(0xd9923a)); m.scale.y = 0.85; m.position.y = 0.43; bg.add(m);
+      for (bi = 0; bi < 9; bi++) { ba = bi / 9 * 6.2832; m = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, 0.04), bl(0xf5e6b8)); m.position.set(Math.cos(ba) * 0.27 * (bi % 2 ? 1 : 0.6), 0.43 + 0.4 * Math.sqrt(Math.max(0, 1 - Math.pow(0.27 * (bi % 2 ? 1 : 0.6) / 0.52, 2))), Math.sin(ba) * 0.27 * (bi % 2 ? 1 : 0.6)); m.rotation.y = ba; bg.add(m); }
+      bg.scale.setScalar(0.1); bg.position.set(0, -0.075, 0.04); o.arm[0].wr.add(bg);
+      o.g.traverse(function (q) { q.raycast = function () {}; });
+      grp.add(o.g); o.g.visible = false;
+      return { burger: bg, bites: 0, eat: 0, btT: 0, o: o, x: 0, z: 0, y: 0, yaw: 0, ph: 0, gk: 0, k: 0, path: null, pi: 0, wait: 1, city: null, moveAt: 0, leaving: false, near: false, fz: 0 };
+    }
+    function disSpot(d) {
+      var i, a, r, x, z;
+      for (i = 0; i < 40; i++) { a = Math.random() * 6.2832; r = Math.sqrt(Math.random()) * d.r * 0.7; x = d.cx + Math.cos(a) * r; z = d.cz + Math.sin(a) * r; if (botFree(x, z)) return [x, z]; }
+      return null;
+    }
+    function disStep(dt, t) {
+      var B = bot, hide, i, c, sp, tx, tz, dd, ph, am, p, q, W, D2;
+      if (!B || !BN || !districts.length) return;
+      hide = !!inv || !!(ufo && !ufoDown() && ufo.g && ufo.g.visible);
+      if (!DIS) { if (hide) return; DIS = disMake(); DIS.moveAt = 0; }
+      D2 = DIS;
+      if (t >= D2.moveAt && D2.city && !D2.leaving) D2.leaving = true;
+      D2.k += (((hide || D2.leaving || !D2.city) ? 0 : 1) - D2.k) * Math.min(1, dt * 2.2);
+      if (D2.k < 0.03) {
+        D2.o.g.visible = false; D2.near = false;
+        if (!hide && (D2.leaving || !D2.city)) { /* se muda a otra ciudad */
+          c = districts.filter(function (d) { return d.list.length && d !== D2.city; });
+          if (c.length) { q = c[(Math.random() * c.length) | 0]; p = disSpot(q); if (p) { D2.city = q; D2.x = p[0]; D2.z = p[1]; D2.y = botGround(p[0], p[1]); D2.path = null; D2.wait = 1; D2.leaving = false; D2.bites = 0; D2.burger.scale.setScalar(0.1); D2.moveAt = t + 180 + Math.random() * 120; } }
+        }
+        return;
+      }
+      D2.o.g.visible = true;
+      dd = Math.hypot(B.x - D2.x, B.z - D2.z); D2.near = dd < 26;
+      sp = 0;
+      if (D2.near) { D2.fz = Math.min(1, D2.fz + dt * 3); }
+      else {
+        D2.fz = Math.max(0, D2.fz - dt * 2);
+        if (D2.fz <= 0) {
+          if (!D2.path) {
+            D2.wait -= dt;
+            if (D2.wait <= 0) { p = disSpot(D2.city); if (p) { q = botAStar(D2.x, D2.z, p[0], p[1]); if (q) { try { q = botRefine(q); } catch (e) { } D2.path = q; D2.pi = Math.min(1, q.length - 1); } } D2.wait = 0.8; }
+          } else {
+            W = D2.path[D2.pi]; tx = W[0] - D2.x; tz = W[1] - D2.z; dd = Math.hypot(tx, tz);
+            if (dd < 0.6) { D2.pi++; if (D2.pi >= D2.path.length) { D2.path = null; D2.wait = 2 + Math.random() * 4; } }
+            else { sp = 1.25; D2.yaw += nAngl(Math.atan2(tx, tz) - D2.yaw) * Math.min(1, dt * 5); D2.x += Math.sin(D2.yaw) * sp * dt; D2.z += Math.cos(D2.yaw) * sp * dt; }
+          }
+        }
+      }
+      D2.y += (botGround(D2.x, D2.z) - D2.y) * Math.min(1, dt * 12);
+      D2.gk += ((sp > 0.1 ? 1 : 0) - D2.gk) * Math.min(1, dt * 8);
+      if (sp > 0.1) D2.ph += dt * 2.6;
+      am = 0.3 * D2.gk;
+      for (i = 0; i < 2; i++) {
+        ph = D2.ph + i * Math.PI;
+        D2.o.leg[i].th.rotation.x = Math.sin(ph) * am; D2.o.leg[i].kn.rotation.x = Math.max(0, Math.cos(ph)) * am * 1.2;
+        D2.o.arm[i].sh.rotation.x = -Math.sin(ph) * am * 0.9; D2.o.arm[i].el.rotation.x = -0.1 - 0.15 * D2.gk; D2.o.arm[i].wr.rotation.x = -0.1;
+        D2.o.arm[i].sh.rotation.z = (i ? 1 : -1) * 0.06;
+      }
+      /* hamburguesa: la lleva en la mano y, cuando se detiene, se la come a mordidas */
+      var eating = !D2.near && !D2.path && D2.fz <= 0.01 && D2.bites < 5 && D2.wait > 0.2;
+      D2.eat += ((eating ? 1 : 0) - D2.eat) * Math.min(1, dt * 3);
+      if (eating && D2.eat > 0.9) { D2.btT += dt; if (D2.btT > 1.2) { D2.btT = 0; D2.bites++; D2.burger.scale.setScalar(Math.max(0.01, 0.1 * (1 - 0.18 * D2.bites))); } }
+      D2.burger.visible = D2.bites < 5 && D2.fz < 0.5;
+      D2.o.arm[0].sh.rotation.x = D2.o.arm[0].sh.rotation.x * (1 - D2.eat) - 0.35 * D2.eat; D2.o.arm[0].el.rotation.x = D2.o.arm[0].el.rotation.x * (1 - D2.eat) - 2.75 * D2.eat; D2.o.arm[0].sh.rotation.z = D2.o.arm[0].sh.rotation.z * (1 - D2.eat) + 0.3 * D2.eat;
+      /* al ver al robot: se congela casual, una mano al sombrero y silbando, mirando a otro lado */
+      D2.o.arm[1].sh.rotation.x = D2.o.arm[1].sh.rotation.x * (1 - D2.fz) + (-2.55) * D2.fz; D2.o.arm[1].el.rotation.x = D2.o.arm[1].el.rotation.x * (1 - D2.fz) + (-1.3) * D2.fz;
+      D2.o.head.rotation.y = (D2.fz > 0.01) ? -0.7 * D2.fz * Math.sign(nAngl(Math.atan2(B.x - D2.x, B.z - D2.z) - D2.yaw) || 1) + 0.06 * Math.sin(t * 9) * D2.fz : 0.3 * Math.sin(t * 0.5) * (1 - D2.gk);
+      D2.o.head.rotation.z = 0.06 * Math.sin(t * 0.9); D2.o.head.rotation.x = 0.06 * Math.sin(t * 13) * D2.eat;
+      D2.o.g.rotation.y = D2.yaw; D2.o.g.position.set(D2.x, D2.y, D2.z); D2.o.g.scale.setScalar(SC * D2.k);
+    }
+    function disNear() { return !!(DIS && DIS.k > 0.6 && DIS.near); }
     function update(dt, t) {
       var i, a, live = 0, names, nm;
+      try { disStep(dt, t); } catch (e) { disStep = function () {}; console.warn('Alien disfrazado desactivado:', e); }
       if (!inv) {
         if (t >= nextAt && bot && landAt) {
           names = Object.keys(statePolys).filter(function (n) { return statePolys[n] && statePolys[n].length && n !== lastName; });
@@ -8907,7 +9002,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
 
@@ -9052,11 +9147,12 @@ window.startMap = function (RAW, AUTH) {
             if (ax !== hud._act) { hud._act = ax; ac.textContent = ax; }
           })();
           (function () { /* comentarios del robot */
-            var say = document.getElementById('bSay'), nowMs = performance.now(), base = tx2.indexOf('Explorando') === 0 ? 'city' : tx2.indexOf('Cazando') === 0 ? 'ufo' : tx2.indexOf('Exterminando') === 0 ? 'al' : tx2.indexOf('Destruyendo') === 0 ? 'rock' : tx2.indexOf('Revisando') === 0 ? 'wreck' : tx2.indexOf('Vigilando') === 0 ? 'fall' : tx2.indexOf('Viajando a ') === 0 && S && !S.end ? 'inv' : tx2.indexOf('Saliendo') === 0 ? 'fog' : tx2.indexOf('dron') > 0 ? 'drone' : tx2 === 'Patrullando' ? 'chat' : '', sit = '', cat, L2, ph2, q2, k2, n1, n2, nm2, wk3, REP = { city: 11000, chat: 15000, ghost: 9000, rain: 14000, snow: 14000, dense: 12000, fog2: 14000, volc: 14000, angel: 12000, sea: 16000, ufo: 20000, al: 18000, rock: 16000, inv: 20000, wreck: 14000, t60: 9000 }, cd2;
+            var say = document.getElementById('bSay'), nowMs = performance.now(), base = tx2.indexOf('Explorando') === 0 ? 'city' : tx2.indexOf('Cazando') === 0 ? 'ufo' : tx2.indexOf('Exterminando') === 0 ? 'al' : tx2.indexOf('Destruyendo') === 0 ? 'rock' : tx2.indexOf('Revisando') === 0 ? 'wreck' : tx2.indexOf('Vigilando') === 0 ? 'fall' : tx2.indexOf('Viajando a ') === 0 && S && !S.end ? 'inv' : tx2.indexOf('Saliendo') === 0 ? 'fog' : tx2.indexOf('dron') > 0 ? 'drone' : tx2 === 'Patrullando' ? 'chat' : '', sit = '', cat, L2, ph2, q2, k2, n1, n2, nm2, wk3, REP = { city: 11000, chat: 15000, ghost: 9000, rain: 14000, snow: 14000, dense: 12000, fog2: 14000, volc: 14000, angel: 12000, sea: 16000, ufo: 20000, al: 18000, rock: 16000, inv: 20000, wreck: 14000, t60: 9000, dis: 30000 }, cd2;
             if (hud._sayT && nowMs > hud._sayT) { hud._sayT = 0; say.classList.remove('on'); }
             if (nowMs <= (hud._sayGate || 0)) return;
             if (WX && WX.ghostNear && WX.ghostNear(b2.x, b2.z, 45)) sit = 'ghost';
             else if (S && !S.end && S.entered && S.left <= 60) sit = 't60';
+            else if (typeof ALN !== 'undefined' && ALN.disNear && ALN.disNear()) sit = 'dis';
             else if (WX && WX.kindAt && (wk3 = WX.kindAt(b2.x, b2.z))) sit = wk3 === 'fog' ? (b2.wxDense ? 'dense' : 'fog2') : wk3;
             else if (VOLC && Math.hypot(b2.x - VOLC.x, b2.z - VOLC.z) < VOLC.R + 90) sit = 'volc';
             else { for (k2 = 0; k2 < districts.length; k2++) if (districts[k2].name === 'Ciudad de México' && districts[k2].mon && Math.hypot(b2.x - districts[k2].mon.x, b2.z - districts[k2].mon.z) < 45) sit = 'angel'; }
@@ -9099,6 +9195,7 @@ window.startMap = function (RAW, AUTH) {
                 volc: ['Ese volcán mejor lo dejo en paz.', 'El volcán ruge, mejor no acercarse.', 'Nadie dispara sobre el volcán, regla de oro.', 'Calorcito de volcán.', 'Humo al fondo, ¿será el volcán?', 'Con tanta lava no hay botas que alcancen.', 'Lo bonito del volcán es verlo de lejos.'],
                 angel: ['Ahí está el Ángel de la Independencia.', 'Qué elegante el Ángel con sus alas doradas.', 'Saludo al Ángel de la Independencia.', 'El Ángel vigila toda la ciudad.', 'Ni los aliens se atreven con el Ángel.', 'Desde aquí se ve de lujo el Ángel.', 'Una foto con el Ángel, por favor.'],
                 sea: ['Mar a la vista.', 'Qué ganas de nadar… pero soy de metal.', 'El mar se ve enorme desde aquí.', 'Cuidado con el agua, mejor por tierra.', 'Playas desiertas, qué paz.', 'Olas y silencio.', 'El horizonte no tiene fin.'],
+                dis: ['Ese señor del sombrero me parece sospechoso…', 'Nadie con esos lentes es de fiar.', 'Qué bigote tan… extraterrestre.', 'Un vaquero con la cabeza enorme, ¿seguro que es de aquí?', 'Dice que es turista. Ajá.', 'Ese bigote no se ve natural.', 'Disimula muy mal, pero lo dejaré pasar.', 'Buenas tardes, caballero… de otro planeta.', '¿Una hamburguesa? Qué alien tan terrícola.', 'Con ese bigote, seguro se mancha de salsa.', 'Se come una hamburguesa como si nada. Muy sospechoso.', '¿Será que también le gusta con queso?'],
                 t60: ['¡Queda poco tiempo!', 'Último minuto, a apurarse.', '¡Corre el reloj!', 'Hay que acabar antes de que acabe el tiempo.', 'Un minuto para la victoria.', 'Concentración total.', 'Sin distracciones, se acaba el reloj.'],
                 chat: ['Todo tranquilo por aquí.', 'Patrullando… nada nuevo.', 'Qué silencio tan sospechoso.', 'Revisando que no falte nadie.', '¿Será que hoy el OVNI llega tarde?', 'Aprovecho para estirar las piernas.', 'Los robots también necesitamos un descanso.', 'Mapa limpio, por ahora.', 'Dicen que las invasiones llegan sin avisar.', 'Estoy atento, siempre atento.', 'Un paseo no le hace daño a nadie.', 'Mis baterías al máximo.', 'Si ven algo raro, avisen.', 'Hoy huele a aventura.'],
                 city: [] }[cat];
