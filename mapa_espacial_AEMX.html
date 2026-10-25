@@ -923,11 +923,13 @@ window.startMap = function (RAW, AUTH) {
     g.add(m); /* children[1] */
     /* casco moderno: carcasa ovalada y lisa, aro de cuello redondo con junta */
     m = new THREE.Mesh(astGeo('h' + ky, function () { return astMerge([{ g: astEgg || (astEgg = eggShell()), p: [0, 1.52, -0.03], c: SU }, aC(SU, 0, 1.3, 0, 0.15, 0.06), aC(AST_D, 0, 1.335, 0, 0.135, 0.03)]); }), astVC);
+    m.scale.setScalar(0.75); m.position.y = 0.33; /* casco al 75%, escalado desde la base del cuello (y = 1.32) */
     g.add(m); /* children[2] */
     /* visor grande de cristal negro y brillante en forma de escudo (children[3]) */
     var vg = new THREE.Group(), vm = astGeoCache['vm' + ky] || (astGeoCache['vm' + ky] = new THREE.MeshPhongMaterial({ color: st.vis.color.getHex(), emissive: st.vis.emissive.getHex(), specular: 0xb4c4d6, shininess: 110, side: THREE.DoubleSide }));
     m = new THREE.Mesh(astGeo('vv', function () { var q = eggVisor(); q.translate(0, 1.52, -0.03); return q; }), vm);
     vg.add(m);
+    vg.scale.setScalar(0.75); vg.position.y = 0.33;
     g.add(vg); /* children[3] */
     if (kind === 'orange') {
       /* Moicano: cresta de picos sobre el casco, cada vez más inclinada hacia la frente; el último cae como flequillo */
@@ -936,10 +938,10 @@ window.startMap = function (RAW, AUTH) {
       for (hxi = 0; hxi < hxs.length; hxi++) {
         for (hi = 0; hi < hz.length; hi++) {
           m = new THREE.Mesh(gSpike, astHair);
-          m.position.set(hxs[hxi], 1.52 + 0.24 * Math.sqrt(Math.max(0, 1 - Math.pow((hz[hi] + 0.03) / 0.27, 2) - hxs[hxi] * hxs[hxi] / 0.044)) - 0.03, hz[hi]);
+          m.position.set(hxs[hxi] * 0.75, (1.52 + 0.24 * Math.sqrt(Math.max(0, 1 - Math.pow((hz[hi] + 0.03) / 0.27, 2) - hxs[hxi] * hxs[hxi] / 0.044)) - 0.03) * 0.75 + 0.33, hz[hi] * 0.75);
           m.rotation.x = ht[hi];
           m.rotation.z = -hxs[hxi] * 1.5; /* laterales abiertos hacia afuera */
-          m.scale.set(1.3, hs[hi], 1.3);
+          m.scale.set(1.05, hs[hi] * 0.8, 1.05);
           g.add(m);
         }
       }
@@ -1005,8 +1007,8 @@ window.startMap = function (RAW, AUTH) {
       var st = new THREE.Mesh(uBox, mat); st.scale.set(0.07, 0.64, 0.025); st.position.x = (i - 1) * 0.07; sg.add(st);
     });
     /* Corona dorada */
-    put(prCrownBase, prGold, 0, 1.74, 0);
-    for (k = 0; k < 5; k++) { ang = k / 5 * Math.PI * 2; put(prSpike, prGold, Math.cos(ang) * 0.175, 1.86, Math.sin(ang) * 0.175); }
+    put(prCrownBase, prGold, 0, 1.64, 0).scale.setScalar(0.75);
+    for (k = 0; k < 5; k++) { ang = k / 5 * Math.PI * 2; put(prSpike, prGold, Math.cos(ang) * 0.13, 1.725, Math.sin(ang) * 0.13).scale.setScalar(0.75); }
     a.scale.setScalar(0.5);
     a.position.set(x, y, z);
     a.rotation.y = Math.PI; /* mira hacia afuera del balcón */
@@ -6742,16 +6744,16 @@ window.startMap = function (RAW, AUTH) {
       /* Hiperimpulso en arco: sube suavemente hasta ~2.2 a mitad del impulso y baja al terminar; si se corta antes, cae al suelo */
       if (b.boostT > 0) { b.bh = (b.bh || 0) + (((thr && b.gtype === 'hunt') ? Math.max(3, Math.min(35, U.y - botGround(b.x, b.z) + 1.0)) : Math.min(35, 5 + 0.13 * (b.bdist || 0))) - (b.bh || 0)) * Math.min(1, dt * 2.2); b.bvy = 0; b.bdist = (b.bdist || 0) + b.v * dt; b.glr = 0; } /* el impulso la eleva hasta ~6 y vuela alto */
       else if ((b.bh || 0) > 0 && (b.bdist || 0) > 20 && !b.glr0) { /* fin del impulso: planea 2/3 de lo recorrido impulsado */
-        if (b.wxBad || !b.goal) { b.bdist = 0; } else { b.glr0 = b.glr = b.bdist * 2 / 3; b.bh0 = b.bh; b.bdist = 0; b.ball = true; }
+        if (b.wxBad || !b.goal) { b.bdist = 0; } else { b.glr0 = b.glr = b.bdist * 2 / 3; b.bh0 = b.bh; b.bdist = 0; b.flew = true; }
       }
       if (b.boostT <= 0 && (b.glr || 0) > 0 && (b.bh || 0) > 0) {
         b.glr -= b.v * dt;
         if (b.wxBad || !b.goal || botCityDist(b.x + Math.sin(b.yaw) * 12, b.z + Math.cos(b.yaw) * 12) < 8 || !botLandAhead(b.x, b.z, b.yaw, 24)) b.glr = 0;
-        if (b.glr > 0) { var gu = 1 - b.glr / b.glr0; b.bh = Math.max(0.05, b.bh0 * (1 - gu * gu)); b.bvy = 0; } else { b.glr0 = 0; }
+        if (b.glr > 0) { var gu = 1 - b.glr / b.glr0, bhO = b.bh; b.bh = Math.max(0.05, b.bh0 * (1 - Math.pow(gu, 4))); b.bvy = 0; if (b.flew && (b.bh - bhO) / Math.max(dt, 0.001) < -6) b.ball = true; /* planea extendido y se encoge solo en la picada final */ } else { b.glr0 = 0; }
       } else if (b.boostT <= 0 && !(b.glr > 0)) { b.glr0 = 0; if ((b.bh || 0) <= 0) b.bdist = 0; }
       if (b.boostT > 0) { }
-      else if ((b.bh || 0) > 0 && !(b.glr > 0)) { b.bvy = (b.bvy || 0) - (b.ball ? 42 : 9) * dt; b.bh = Math.max(0, b.bh + b.bvy * dt); /* si frena en bolita, cae rápido */ if (b.bh <= 0) b.bvy = 0; } /* se agota: cae en arco */
-      if (b.ball && b.boostT <= 0 && (b.bh || 0) <= 0.05 && !(b.glr > 0)) b.ball = false;
+      else if ((b.bh || 0) > 0 && !(b.glr > 0)) { if (b.flew && !b.ball && b.bh > 1.0) b.ball = true; b.bvy = (b.bvy || 0) - (b.ball ? 32 : 9) * dt; b.bh = Math.max(0, b.bh + b.bvy * dt); /* si frena en bolita, cae rápido */ if (b.bh <= 0) b.bvy = 0; } /* se agota: cae en arco */
+      if (b.boostT <= 0 && (b.bh || 0) <= 0.05 && !(b.glr > 0)) { b.ball = false; b.flew = false; }
       b.y += (botGround(b.x, b.z) + (b.bh || 0) - b.y) * Math.min(1, dt * 14);
       b.air += (0 - b.air) * Math.min(1, dt * 6);
     } else if (b.mode === 'jetUp' || b.mode === 'jetDown') {
@@ -6878,7 +6880,7 @@ window.startMap = function (RAW, AUTH) {
       swx = sdx * Math.cos(b.yaw); var swzz = -sdx * Math.sin(b.yaw); b.g.position.set(b.x + swx, b.y + swy, b.z + swzz);
     } else b.g.position.set(b.x, b.y, b.z);
     b.g.rotation.y = b.yaw; b.g.rotation.z = swz;
-    if (thr && (d3 <= botRng() + 5 || (b.mode === 'walk' && b.gtype === 'hunt' && d3 < 260)) && b.boostT <= 0 && !b.ball && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch' || (b.mode === 'ride' && b.ride && b.ride.ph === 1))) {
+    if (thr && (d3 <= botRng() + 5 || (b.mode === 'walk' && b.gtype === 'hunt' && d3 < 260)) && b.boostT <= 0 && !b.ball && !((b.glr || 0) > 0) && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch' || (b.mode === 'ride' && b.ride && b.ride.ph === 1))) {
       pd = d3 / BOT_LASER_V * 0.85;
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
       b.aiming = true;
@@ -6921,7 +6923,8 @@ window.startMap = function (RAW, AUTH) {
     var kq = b.kneel, hk, bk;
     b.ballK = (b.ballK || 0) + (((b.ball && b.mode !== 'lift') ? 1 : 0) - (b.ballK || 0)) * Math.min(1, dt * ((b.ball) ? 7 : 6)); bk = b.ballK;
     b.spin = b.spin || 0;
-    if (b.ball) b.spin += dt * 11; else b.spin += (Math.round(b.spin / 6.2832) * 6.2832 - b.spin) * Math.min(1, dt * 9);
+    var vyS = Math.abs((b.y - (b.pyS === undefined ? b.y : b.pyS)) / Math.max(dt, 0.001)); b.pyS = b.y; /* el giro sigue a la velocidad de caída: lento al encogerse y más rápido mientras acelera */
+    if (b.ball) b.spin += dt * Math.min(12, 2 + 0.22 * vyS); else b.spin += (Math.round(b.spin / 6.2832) * 6.2832 - b.spin) * Math.min(1, dt * 9);
     b.hangK = (b.hangK || 0) + (((b.mode === 'lift' && b.lift && b.lift.ph >= 2) ? 1 : 0) - (b.hangK || 0)) * Math.min(1, dt * 4);
     b.gk += ((moving ? 1 : 0) - b.gk) * Math.min(1, dt * 8);
     if (moving) b.ph += dt * Math.min(12, 3.0 + b.v * 0.6);
