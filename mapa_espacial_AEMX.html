@@ -478,6 +478,7 @@ window.startMap = function (RAW, AUTH) {
   renderer.setClearColor(0x050a18, 1);
 
   var scene = new THREE.Scene();
+  var vegCull = null; /* culling de vegetación por bloques (se define al construirla) */
   var camera = new THREE.PerspectiveCamera(48, 1, 0.5, 60000);
   var controls = new THREE.OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -2675,17 +2676,59 @@ window.startMap = function (RAW, AUTH) {
         if (vr() < 0.5) part('tuft', 0.1, 0, -0.3, 0.5, 0.5, 0.5, gTuft, 0, vr() * 6, 0);
       }
     });
+    /* Vegetación en bloques (VCH de lado): cada bloque se oculta si queda fuera de cámara o muy lejos, y a media/larga distancia muestra solo una fracción de sus instancias */
+    var VCH = 300, vcells = {};
     keys.forEach(function (kk) {
-      var l = lists[kk], mesh, i;
+      var l = lists[kk], i, e, ck, bk = {}, b2, a, j, tmp, mesh, c2;
       if (!l.length) return;
-      mesh = new THREE.InstancedMesh(GEO[kk], vMat, l.length);
-      for (i = 0; i < l.length; i++) { mesh.setMatrixAt(i, l[i].m); mesh.setColorAt(i, l[i].c); }
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      mesh.frustumCulled = false;
-      mesh.raycast = function () {};
-      scene.add(mesh);
+      for (i = 0; i < l.length; i++) {
+        e = l[i].m.elements; ck = Math.floor(e[12] / VCH) + ',' + Math.floor(e[14] / VCH);
+        (bk[ck] || (bk[ck] = [])).push(l[i]);
+      }
+      Object.keys(bk).forEach(function (ck2) {
+        b2 = bk[ck2];
+        for (i = b2.length - 1; i > 0; i--) { j = Math.floor(vr() * (i + 1)); tmp = b2[i]; b2[i] = b2[j]; b2[j] = tmp; } /* orden al azar: así recortar el conteo no deja huecos con forma */
+        mesh = new THREE.InstancedMesh(GEO[kk], vMat, b2.length);
+        var x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+        for (i = 0; i < b2.length; i++) {
+          mesh.setMatrixAt(i, b2[i].m); mesh.setColorAt(i, b2[i].c); e = b2[i].m.elements;
+          if (e[12] < x0) x0 = e[12]; if (e[12] > x1) x1 = e[12]; if (e[13] < y0) y0 = e[13]; if (e[13] > y1) y1 = e[13]; if (e[14] < z0) z0 = e[14]; if (e[14] > z1) z1 = e[14];
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        mesh.frustumCulled = false;
+        mesh.raycast = function () {};
+        scene.add(mesh);
+        c2 = vcells[ck2];
+        if (!c2) c2 = vcells[ck2] = { ms: [], x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9, z0: 1e9, z1: -1e9, lv: -1 };
+        c2.ms.push({ m: mesh, n: b2.length });
+        c2.x0 = Math.min(c2.x0, x0); c2.x1 = Math.max(c2.x1, x1); c2.y0 = Math.min(c2.y0, y0); c2.y1 = Math.max(c2.y1, y1); c2.z0 = Math.min(c2.z0, z0); c2.z1 = Math.max(c2.z1, z1);
+      });
     });
+    var vcl = Object.keys(vcells).map(function (k2) {
+      var c3 = vcells[k2], sp = new THREE.Sphere(new THREE.Vector3((c3.x0 + c3.x1) / 2, (c3.y0 + c3.y1) / 2, (c3.z0 + c3.z1) / 2), 0);
+      sp.radius = Math.sqrt(Math.pow(c3.x1 - c3.x0, 2) + Math.pow(c3.y1 - c3.y0, 2) + Math.pow(c3.z1 - c3.z0, 2)) / 2 + 8; c3.sp = sp; return c3;
+    });
+    var vFr = new THREE.Frustum(), vPM = new THREE.Matrix4(), VLV = [[350, 1], [700, 0.6], [1300, 0.3], [2200, 0.12], [3500, 0.05]];
+    window.__vegStats = { cells: vcl.length, shown: 0, inst: 0 };
+    vegCull = function () {
+      var i, j, c, d, lv, f, ms, sh = 0, ins = 0;
+      vPM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); vFr.setFromProjectionMatrix(vPM);
+      for (i = 0; i < vcl.length; i++) {
+        c = vcl[i]; lv = -2;
+        if (vFr.intersectsSphere(c.sp)) {
+          d = Math.max(0, camera.position.distanceTo(c.sp.center) - c.sp.radius); lv = 5;
+          for (j = 0; j < VLV.length; j++) if (d < VLV[j][0]) { lv = j; break; }
+        }
+        if (lv !== c.lv) {
+          c.lv = lv; f = lv < 0 || lv > 4 ? 0 : VLV[lv][1];
+          for (j = 0; j < c.ms.length; j++) { ms = c.ms[j]; ms.m.visible = f > 0; ms.m.count = Math.max(1, Math.ceil(ms.n * f)); }
+        }
+        if (lv >= 0 && lv <= 4) { sh++; for (j = 0; j < c.ms.length; j++) ins += c.ms[j].m.count; }
+      }
+      window.__vegStats.shown = sh; window.__vegStats.inst = ins;
+    };
+    window.__vegCull = vegCull;
   }
   /* ---------- Senderos de tierra entre ciudades ---------- */
   var trails = [], trailGrid = {}, trailsBuilt = false, TRAIL_W = 2.0;
@@ -8707,6 +8750,7 @@ window.startMap = function (RAW, AUTH) {
     if (camera.near !== wantNear) { camera.near = wantNear; camera.updateProjectionMatrix(); }
     try { ALN.update(dt, t); } catch (e) { ALN.update = function () {}; console.warn('Invasión desactivada:', e); }
     try { WX.update(dt, t); } catch (e) { WX.update = function () {}; console.warn("Clima desactivado:", e); }
+    if (vegCull) { camera.updateMatrixWorld(); vegCull(); }
     renderer.render(scene, camera);
   }
   frame();
