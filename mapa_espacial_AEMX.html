@@ -7389,7 +7389,7 @@ window.startMap = function (RAW, AUTH) {
     }
 
     /* Disparo: ráfagas de 3 láseres verdes si hay alcance, línea de tiro y el rifle ya apunta */
-    if (b.aiming && pred && !b.ball && d3 <= botRng() && (b.alienT || now >= (ufo.noFireUntil || 0))) {
+    if (b.aiming && pred && !b.ball && d3 <= (b.alienT ? Math.min(botRng(), 16) : botRng()) && (b.alienT || now >= (ufo.noFireUntil || 0))) {
       b.fireT -= dt;
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
