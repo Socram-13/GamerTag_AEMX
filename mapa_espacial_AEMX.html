@@ -7681,7 +7681,7 @@ window.startMap = function (RAW, AUTH) {
         sp.scale.set(sz, sz * 0.5, 1);
         b = { x: d.cx + Math.cos(ang) * rd, z: d.cz + Math.sin(ang) * rd, y: rnd(0.3, 1.0) };
         sp.position.set(b.x, b.y, b.z); group.add(sp);
-        list.push({ sp: sp, b: b, ph: rnd(0, 6.28), amp: rnd(1.5, 3.5), base: rnd(0.5, 0.7) });
+        list.push({ sp: sp, b: b, ph: rnd(0, 6.28), amp: rnd(1.5, 3.5), base: rnd(0.7, 0.9) });
       }
       var fe = { d: d, list: list, age: 0, dur: dur };
       addGhosts({ cx: d.cx, cz: d.cz, r: 52, fx: d.cx, fz: d.cz }, fe);
@@ -7696,7 +7696,7 @@ window.startMap = function (RAW, AUTH) {
         if (fe.age >= fe.dur) { fe.list.forEach(function (q) { group.remove(q.sp); q.sp.material.dispose(); }); ghosts.forEach(function (g) { if (g.fe === fe) g.dead = true; }); fogEvents.splice(k, 1); continue; }
         fade = Math.min(1, fe.age / 10, (fe.dur - fe.age) / 12); fe.fade = fade;
         for (i = 0; i < fe.list.length; i++) {
-          f = fe.list[i]; dd = 0.4 + 0.6 * Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140)); /* cerca de la cámara queda al menos el 40 % */
+          f = fe.list[i]; dd = 0.85 + 0.15 * Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140)); /* cerca de la cámara queda al menos el 85 % */
           f.sp.position.x = f.b.x + Math.sin(t * 0.05 + f.ph) * f.amp;
           f.sp.position.z = f.b.z + Math.cos(t * 0.04 + f.ph) * f.amp;
           f.sp.position.y = terrainH(f.b.x, f.b.z) + f.b.y; /* sigue el relieve, a ras del robot */
