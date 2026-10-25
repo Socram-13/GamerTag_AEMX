@@ -7343,10 +7343,10 @@ window.startMap = function (RAW, AUTH) {
     /* Niebla gris y densa que cubre todo el estado sin jugadores */
     var fogs = [], fogDone = {};
     function addFog(x, z, size) {
-      /* nubes de siempre, pero con el centro a la cintura del robot (poco espesor): él las atraviesa */
+      /* niebla fija de estados sin jugadores (original) */
       var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: 0x8d96a3, transparent: true, opacity: 0, depthWrite: false, fog: false }));
-      sp.scale.set(size, rnd(2.2, 3), 1);
-      var b = { x: x, z: z, y: rnd(0.5, 0.7) };
+      sp.scale.set(size, size * 0.5, 1);
+      var b = { x: x, z: z, y: rnd(1.6, 4.5) };
       sp.position.set(b.x, b.y, b.z); group.add(sp);
       fogs.push({ sp: sp, b: b, ph: rnd(0, 6.28), amp: rnd(1.5, 3.5), base: rnd(0.5, 0.7) });
     }
@@ -7679,7 +7679,7 @@ window.startMap = function (RAW, AUTH) {
         ang = rnd(0, 6.2832); rd = 52 * Math.sqrt(Math.random()); sz = rnd(45, 75);
         sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: 0x8d96a3, transparent: true, opacity: 0, depthWrite: false, fog: false }));
         sp.scale.set(sz, sz * 0.5, 1);
-        b = { x: d.cx + Math.cos(ang) * rd, z: d.cz + Math.sin(ang) * rd, y: rnd(1.6, 4.5) };
+        b = { x: d.cx + Math.cos(ang) * rd, z: d.cz + Math.sin(ang) * rd, y: rnd(0.3, 1.0) };
         sp.position.set(b.x, b.y, b.z); group.add(sp);
         list.push({ sp: sp, b: b, ph: rnd(0, 6.28), amp: rnd(1.5, 3.5), base: rnd(0.5, 0.7) });
       }
@@ -7699,6 +7699,7 @@ window.startMap = function (RAW, AUTH) {
           f = fe.list[i]; dd = Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140));
           f.sp.position.x = f.b.x + Math.sin(t * 0.05 + f.ph) * f.amp;
           f.sp.position.z = f.b.z + Math.cos(t * 0.04 + f.ph) * f.amp;
+          f.sp.position.y = terrainH(f.b.x, f.b.z) + f.b.y; /* sigue el relieve, a ras del robot */
           f.sp.material.opacity = f.base * fade * dd * (0.9 + 0.1 * Math.sin(t * 0.3 + f.ph));
         }
       }
@@ -7751,7 +7752,6 @@ window.startMap = function (RAW, AUTH) {
         var f = fogs[i], dd = Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140));
         f.sp.position.x = f.b.x + Math.sin(t * 0.05 + f.ph) * f.amp;
         f.sp.position.z = f.b.z + Math.cos(t * 0.04 + f.ph) * f.amp;
-        f.sp.position.y = terrainH(f.b.x, f.b.z) + f.b.y;
         f.sp.material.opacity = f.base * dd * (0.9 + 0.1 * Math.sin(t * 0.3 + f.ph));
       }
       nextAt -= dt;
