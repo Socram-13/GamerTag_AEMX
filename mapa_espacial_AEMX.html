@@ -6366,7 +6366,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* Edificios como obstáculos: huella real (con los bloques laterales de los módulos) + margen, en una rejilla de celdas */
   function botInitObs() {
-    botObs = {}; botList = [];
+    botObs = {}; botList = []; bfC.clear();
     scene.updateMatrixWorld(true); /* matrices del mundo al día: si no, las cajas salen en coordenadas locales del distrito */
     /* Edificios, tiendas C.R.E.L. (se pueden pisar por la azotea) y campamentos (solo obstáculo) */
     var items = [], wp = new THREE.Vector3();
@@ -6440,7 +6440,7 @@ window.startMap = function (RAW, AUTH) {
   }
   var BOT_VR = { pine: 0.22, oak: 0.22, round: 0.22, birch: 0.2, jacaranda: 0.22, golden: 0.22, palm: 0.18, cactus: 0.2, rock: 0.3, bush: 0.25, agave: 0.22, dead: 0.16 };
   function botBuildVeg() {
-    botVG = {};
+    botVG = {}; bfC.clear();
     vegObs.forEach(function (pl) {
       var r = BOT_VR[pl.type], k;
       if (!r) return;
@@ -6477,11 +6477,19 @@ window.startMap = function (RAW, AUTH) {
   /* Libre = tierra (nunca agua), fuera de edificios */
   var metBlock = null; /* meteorito de la invasión: obstáculo circular {x, z, r} para el robot y los aliens */
   function botCrater(x, z) { var i, c; for (i = 0; i < craters.length; i++) { c = craters[i]; if (c.on && Math.hypot(x - c.x, z - c.z) < c.R * 1.15 + 0.5) return true; } return false; }
+  var bfC = new Map();
   function botFree(x, z) {
+    var k, v;
     if (invLock && invOut(x, z)) return false; /* retenido en la zona invadida */
-    for (var mbi = 0; mbi < monBlk.length; mbi++) if (Math.hypot(x - monBlk[mbi].x, z - monBlk[mbi].z) < monBlk[mbi].r) return false;
     if (metBlock && Math.hypot(x - metBlock.x, z - metBlock.z) < metBlock.r) return false;
     if (botCrater(x, z)) return false; /* los cráteres del OVNI son zona vedada mientras duran */
+    k = (Math.round(x * 4) + 60000) * 200000 + Math.round(z * 4) + 60000; /* parte estática (monumentos, mar, volcán, edificios, plantas) guardada por celda de 0.25 */
+    v = bfC.get(k);
+    if (v === undefined) { v = botFreeS(x, z); if (bfC.size > 400000) bfC.clear(); bfC.set(k, v); }
+    return v;
+  }
+  function botFreeS(x, z) {
+    for (var mbi = 0; mbi < monBlk.length; mbi++) if (Math.hypot(x - monBlk[mbi].x, z - monBlk[mbi].z) < monBlk[mbi].r) return false;
     if (landAt && !(landAt(x, z) && landAt(x + 0.5, z) && landAt(x - 0.5, z) && landAt(x, z + 0.5) && landAt(x, z - 0.5))) return false;
     if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false; /* el volcán está vedado */
     return !botBld(x, z, 0) && !botVeg(x, z);
@@ -7961,7 +7969,9 @@ window.startMap = function (RAW, AUTH) {
     function rnd(a, b) { return a + Math.random() * (b - a); }
     function byName(n) { for (var i = 0; i < districts.length; i++) if (districts[i].name === n) return districts[i]; return null; }
     function inPoly(rings, x, z) {
-      var ins = false, r, m, a, b;
+      var ins = false, r, m, a, b, bb = rings._bb;
+      if (!bb) { bb = rings._bb = [1e9, 1e9, -1e9, -1e9]; rings.forEach(function (rg) { rg.forEach(function (c) { if (c[0] < bb[0]) bb[0] = c[0]; if (c[1] < bb[1]) bb[1] = c[1]; if (c[0] > bb[2]) bb[2] = c[0]; if (c[1] > bb[3]) bb[3] = c[1]; }); }); }
+      if (x < bb[0] || x > bb[2] || z < bb[1] || z > bb[3]) return false;
       for (r = 0; r < rings.length; r++) {
         m = rings[r];
         for (a = 0, b = m.length - 1; a < m.length; b = a++) {
@@ -8205,17 +8215,20 @@ window.startMap = function (RAW, AUTH) {
         ghT.push(c.wp);
       }
     }
+    var ghNowT = 0;
     function ghNear(g, R) {
       var j, o, dx, dz, dd, bd = R, r = null;
+      if (g._ncT !== undefined && g._ncR === R && ghNowT - g._ncT < 0.15 && ghNowT >= g._ncT) return g._nc; /* se revisa 6 veces por segundo, no cada cuadro */
       for (j = 0; j < ghT.length; j++) {
         o = ghT[j]; dx = o.x - g.x; dz = o.z - g.z; dd = Math.sqrt(dx * dx + dz * dz);
         if (dd < bd && inArea(g.area, o.x, o.z)) { bd = dd; r = o; }
       }
+      g._nc = r; g._ncT = ghNowT; g._ncR = R;
       return r;
     }
     function updateGhosts(dt, t) {
       var cp = camera.position, k, g, y, dx, dz, d, dd, c, a, fade, near, q, dT, step, best = 1e9, bestPos = null, ev, tg, spd, ang, rr, tries, x, z, fl, jit;
-      ghTargets();
+      ghNowT = t; ghTargets();
       for (k = ghosts.length - 1; k >= 0; k--) {
         g = ghosts[k];
         if (g.dead) { ghKill(g); ghosts.splice(k, 1); continue; }
@@ -8251,7 +8264,8 @@ window.startMap = function (RAW, AUTH) {
             else if (dT < 0.4) { g.wait = rnd(2, 6); q = randIn(g.area); if (q) { g.tx = q[0]; g.tz = q[1]; } }
             else { step = Math.min(dT, 1.5 * dt); g.x += dx / dT * step; g.z += dz / dT * step; }
           }
-          if (!inArea(g.area, g.x, g.z)) { g.state = 'evap'; g.ev = 0; } /* salió de la niebla: se evapora */
+          if (g._ix === undefined || Math.abs(g.x - g._ix) + Math.abs(g.z - g._iz) > 0.4 || ghNowT - g._iaT > 0.5 || ghNowT < g._iaT) { g._ix = g.x; g._iz = g.z; g._iaT = ghNowT; g._in = inArea(g.area, g.x, g.z); } /* solo se revisa si se movió o cada 0.5 s */
+          if (!g._in) { g.state = 'evap'; g.ev = 0; g._ix = undefined; } /* salió de la niebla: se evapora */
         } else { g.ev += dt; if (g.ev >= 1.6) { g.state = 'gone'; g.respawn = rnd(8, 20); g.sp.visible = false; continue; } }
         g.born += dt;
         dx = g.x - cp.x; dz = g.z - cp.z; d = Math.sqrt(dx * dx + dz * dz);
@@ -8421,13 +8435,15 @@ window.startMap = function (RAW, AUTH) {
       AUD.setRain(Math.min(1, sa), Math.min(1, sb));
     }
     /* ¿Hay lluvia o niebla en este punto? (el robot no usa el hiperimpulso ahí) */
-    function bad(x, z) {
+    function bad(x, z) { return wxMemo('b', badRaw, x, z); }
+    function badRaw(x, z) {
       var i;
       for (i = 0; i < events.length; i++) if (events[i].area && inArea(events[i].area, x, z)) return true;
-      return fogAt(x, z);
+      return fogAtRaw(x, z);
     }
     /* Niebla densa: la fija de los estados sin jugadores y el núcleo de las nieblas ya formadas; ahí no hay visibilidad y el robot solo camina */
-    function denseAt(x, z) {
+    function denseAt(x, z) { return wxMemo('d', denseAtRaw, x, z); }
+    function denseAtRaw(x, z) {
       var i, d, fe;
       for (i = 0; i < fogEvents.length; i++) { fe = fogEvents[i]; if ((fe.fade || 0) > 0.7 && Math.hypot(x - fe.d.cx, z - fe.d.cz) < 42) return true; }
       for (i = 0; i < districts.length; i++) {
@@ -8437,7 +8453,17 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    function fogAt(x, z) {
+    var wxC = { f: {}, d: {}, b: {}, t: -9 };
+    function wxKey(x, z) { return Math.round(x * 0.25) * 40009 + Math.round(z * 0.25); }
+    function wxMemo(tab, fn, x, z) {
+      var tn = clock.elapsedTime, k, v;
+      if (tn - wxC.t > 0.3 || tn < wxC.t) { wxC.f = {}; wxC.d = {}; wxC.b = {}; wxC.t = tn; } /* el resultado se reutiliza 0.3 s por celda de 4 */
+      k = wxKey(x, z); v = wxC[tab][k];
+      if (v === undefined) { v = fn(x, z); wxC[tab][k] = v; }
+      return v;
+    }
+    function fogAt(x, z) { return wxMemo('f', fogAtRaw, x, z); }
+    function fogAtRaw(x, z) {
       var i, d, fe;
       for (i = 0; i < fogEvents.length; i++) { fe = fogEvents[i]; if (Math.hypot(x - fe.d.cx, z - fe.d.cz) < 64) return true; }
       for (i = 0; i < districts.length; i++) {
@@ -8605,7 +8631,9 @@ window.startMap = function (RAW, AUTH) {
       hideP();
     }
     function inPoly(rings, x, z) {
-      var ins = false, r, m, a, b;
+      var ins = false, r, m, a, b, bb = rings._bb;
+      if (!bb) { bb = rings._bb = [1e9, 1e9, -1e9, -1e9]; rings.forEach(function (rg) { rg.forEach(function (c) { if (c[0] < bb[0]) bb[0] = c[0]; if (c[1] < bb[1]) bb[1] = c[1]; if (c[0] > bb[2]) bb[2] = c[0]; if (c[1] > bb[3]) bb[3] = c[1]; }); }); }
+      if (x < bb[0] || x > bb[2] || z < bb[1] || z > bb[3]) return false;
       for (r = 0; r < rings.length; r++) { m = rings[r]; for (a = 0, b = m.length - 1; a < m.length; b = a++) if ((m[a][1] > z) !== (m[b][1] > z) && x < (m[b][0] - m[a][0]) * (z - m[a][1]) / (m[b][1] - m[a][1]) + m[a][0]) ins = !ins; }
       return ins;
     }
@@ -9049,7 +9077,15 @@ window.startMap = function (RAW, AUTH) {
 
   function frame() {
     requestAnimationFrame(frame);
-    var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, k, n;
+    var dtRaw = clock.getDelta(), dt = Math.min(dtRaw, 0.05), t = clock.elapsedTime, k, n;
+    (function () { /* resolución adaptativa: baja si el cuadro tarda mucho y sube cuando hay holgura */
+      var A = window.__adp || (window.__adp = { ema: 0.016, pr: renderer.getPixelRatio(), max: Math.min(window.devicePixelRatio || 1, 2), hold: 0, lo: 0, hi: 0 });
+      if (dtRaw > 0.25 || dtRaw <= 0) return;
+      A.ema += (dtRaw - A.ema) * 0.05; A.hold = Math.max(0, A.hold - dtRaw);
+      if (A.hold > 0) return;
+      if (A.ema > 0.026 && A.pr > 0.75) { A.pr = Math.max(0.75, A.pr - 0.25); renderer.setPixelRatio(A.pr); resize(); A.hold = 2.5; A.ema = 0.02; }
+      else if (A.ema < 0.017 && A.pr < A.max) { A.pr = Math.min(A.max, A.pr + 0.25); renderer.setPixelRatio(A.pr); resize(); A.hold = 6; A.ema = 0.02; }
+    })();
 
     if (fly) {
       fly.t = Math.min(1, fly.t + dt / fly.dur);
@@ -9297,8 +9333,8 @@ window.startMap = function (RAW, AUTH) {
     if (selected) selRing.rotation.z = t * 0.8;
 
     var labelsOn = labelsEl.style.display !== 'none';
-    var rects = blockedRects();
-    for (n = 0; n < players.length; n++) {
+    var rects = labelsOn ? blockedRects() : null; /* con las etiquetas ocultas no se proyecta ni se mide nada */
+    if (labelsOn) for (n = 0; n < players.length; n++) {
       var p = players[n];
       var d = camera.position.distanceTo(p.wpos);
       placeLabel(p.pill, p.wpos, (p.isPres && d < 220) || p === selected || d < LABEL_D, p === selected ? null : rects, true);
@@ -9312,11 +9348,11 @@ window.startMap = function (RAW, AUTH) {
       dd.pin.visible = labelsOn && d0 > PIN_D;
       dd.wpos.y = 0.35 + 6.6 * (d0 > PIN_D ? s : 1);
     }
-    for (n = 0; n < districts._order.length; n++) {
+    if (labelsOn) for (n = 0; n < districts._order.length; n++) {
       var d1 = districts._order[n];
       placeLabel(d1.el, d1.wpos, camera.position.distanceTo(d1.pinPos) > DIST_NEAR, rects);
     }
-    if (CHI_D && CHI_D.el) { var dch = camera.position.distanceTo(CHI_D.wpos); placeLabel(CHI_D.el, CHI_D.wpos, dch < 520 && dch > 7, rects); }
+    if (labelsOn && CHI_D && CHI_D.el) { var dch = camera.position.distanceTo(CHI_D.wpos); placeLabel(CHI_D.el, CHI_D.wpos, dch < 520 && dch > 7, rects); }
     var dp = camera.position.distanceTo(presPinPos);
     presPin.scale.setScalar(Math.max(1, dp / 90) * 1.3 / 3);
     presPin.visible = labelsOn && dp > PIN_D;
