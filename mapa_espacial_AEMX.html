@@ -4608,7 +4608,7 @@ window.startMap = function (RAW, AUTH) {
     } else if (m.kind === 't') {
       if (car) { deselect(); fly = null; turretCam = true; turretMode = 'car'; }
     } else if (m.kind === 's') {
-      if (bot) { deselect(); botFollow = true; botYawCam = bot.yaw; flyTo(bot.x, bot.y + 0.5, bot.z, 8, 1.2); }
+      if (bot) { deselect(); botFollow = true; botFree = false; botYawCam = bot.yaw; flyTo(bot.x, bot.y + 0.5, bot.z, 8, 1.2); }
     } else if (m.kind === 'g') {
       if (bot) { deselect(); fly = null; turretCam = true; turretMode = 'bot'; }
     } else if (m.kind === 'd') flyToDistrict(m.d); else select(m.p);
@@ -4662,6 +4662,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* Tocar o arrastrar el mapa desactiva el seguimiento del OVNI para ajustar la cámara */
   function stopUfoFollow() {
+    if (botFollow && !turretCam && !ufoFollow && !carFollow && !wandFollow) { botFree = true; fly = null; return; } /* con el robot: sigue siguiéndolo, pero la cámara queda libre para orbitar y acercarse */
     if (turretCam) {
       var dv = camera.getWorldDirection(new THREE.Vector3());
       controls.target.set(camera.position.x + dv.x * 30, Math.max(0, camera.position.y + dv.y * 30), camera.position.z + dv.z * 30);
@@ -6233,7 +6234,7 @@ window.startMap = function (RAW, AUTH) {
   }
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
-  var vegObs = null, botVG = null, bot = null, botFollow = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
+  var vegObs = null, botVG = null, bot = null, botFollow = false, botFree = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
   var BOT_RANGE = 35, BOT_HUNT_D = 6, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
@@ -9647,7 +9648,11 @@ window.startMap = function (RAW, AUTH) {
     }
     if (botFollow && bot) {
       botYawCam += nAng((bot.aiming ? bot.aimYaw : bot.yaw) - botYawCam) * Math.min(1, dt * 2.5);
-      if (fly) { botChaseTarget(fly.fb); botChasePos(fly.pb); }
+      if (fly && !botFree) { botChaseTarget(fly.fb); botChasePos(fly.pb); }
+      else if (botFree && !fly) { /* cámara libre: el punto de mira sigue al robot y conserva la distancia y el ángulo */
+        var bk2 = Math.min(1, dt * 8), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
+        controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
+      }
     }
     controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !auraFollow && !botFollow && !turretCam;
     controls.update();
@@ -9844,7 +9849,7 @@ window.startMap = function (RAW, AUTH) {
       el = lvl < 0.3; if (el !== hud._lo) { hud._lo = el; tk.classList.toggle('low', el); }
       el = bot.boostT > 0; if (el !== hud._us) { hud._us = el; tk.classList.toggle('use', el); }
     })();
-    if (botFollow && bot && !fly) { botChasePos(camera.position); botChaseTarget(controls.target); camera.lookAt(controls.target); }
+    if (botFollow && bot && !fly && !botFree) { botChasePos(camera.position); botChaseTarget(controls.target); camera.lookAt(controls.target); }
     updateRuins(t);
     updateCamps(t, dt);
     updateSunbathers(t, dt);
@@ -9875,8 +9880,8 @@ window.startMap = function (RAW, AUTH) {
     presPin.scale.setScalar(Math.max(1, dp / 90) * 1.3 / 3);
     presPin.visible = labelsOn && dp > PIN_D;
 
-    var botFps = !!(turretCam && turretMode === 'bot' && bot), wantNear = botFps ? 0.08 : (auraFollow ? 0.1 : 0.5);
-    controls.minDistance = auraFollow ? 0.4 : 14; /* con AURA se puede acercar hasta verle la cara */
+    var botFps = !!(turretCam && turretMode === 'bot' && bot), wantNear = botFps ? 0.08 : ((auraFollow || (botFollow && botFree)) ? 0.1 : 0.5);
+    controls.minDistance = auraFollow ? 0.4 : ((botFollow && botFree) ? 0.6 : 14); /* con AURA se puede acercar hasta verle la cara */
     if (bot) bot.shell.visible = !botFps;
     if (camera.near !== wantNear) { camera.near = wantNear; camera.updateProjectionMatrix(); }
     try { ALN.update(dt, t); } catch (e) { ALN.update = function () {}; console.warn('Invasión desactivada:', e); }
