@@ -9041,15 +9041,31 @@ window.startMap = function (RAW, AUTH) {
     }
     /* Objetivo del robot: el alien vivo más cercano (con algo de histéresis para no cambiar a cada rato) */
     function pick(bx, bz, now) {
-      var i, a, d, bd = 1e9, cd = 1e9, best = null;
+      var i, a, d, bd = 1e9, cd = 1e9, best = null, ok, k, n, cand = [];
       if (!inv || inv.end) return null;
       if (now >= pickT || (cur && cur.s === 'dying')) {
         pickT = now + 0.5;
-        for (i = 0; i < inv.al.length; i++) {
-          a = inv.al[i]; if (a.s !== 'live') continue;
-          d = Math.hypot(a.x - bx, a.z - bz); if (a === cur) cd = d; if (d < bd) { bd = d; best = a; }
+        /* anti-atoro: mismo objetivo, sin daño y el robot casi sin moverse durante 5 s → lo descarta unos segundos */
+        if (cur && cur.s === 'live') {
+          if (cur.pk0 === undefined || cur.hp !== cur.pk0 || Math.hypot(bx - (cur.pkx || 0), bz - (cur.pkz || 0)) > 3) { cur.pk0 = cur.hp; cur.pkx = bx; cur.pkz = bz; cur.pkT = now; }
+          else if (now - cur.pkT > 5) { cur.ban = now + 12; cur.pk0 = undefined; }
         }
-        if (!cur || cur.s !== 'live' || bd < cd * 0.7) cur = best;
+        for (i = 0; i < inv.al.length; i++) {
+          a = inv.al[i]; if (a.s !== 'live' || (a.ban || 0) > now) continue;
+          d = Math.hypot(a.x - bx, a.z - bz); cand.push(a); a.pd = d;
+          ok = true; n = Math.min(14, Math.ceil(d / 4)); /* la línea recta no debe salir de la zona (barrera) */
+          for (k = 1; k < n && ok; k++) if (invOut(bx + (a.x - bx) * k / n, bz + (a.z - bz) * k / n)) ok = false;
+          if (!ok) continue;
+          if (a === cur) cd = d; if (d < bd) { bd = d; best = a; }
+        }
+        if (!best && cand.length) { /* ninguno con vía libre: el más cercano al que se pueda llegar caminando */
+          cand.sort(function (u, v) { return u.pd - v.pd; });
+          for (i = 0; i < cand.length && i < 3 && !best; i++) { try { if (botAStar(bx, bz, cand[i].x, cand[i].z)) best = cand[i]; } catch (e) { } }
+          if (!best) best = cand[0];
+          cd = 1e9;
+        }
+        if (cur && cur.s === 'live' && cd >= 1e9 && best) cur = best; /* el actual quedó tras la barrera o descartado */
+        else if (!cur || cur.s !== 'live' || (cur.ban || 0) > now || bd < cd * 0.7) cur = best;
       }
       if (!cur || cur.s !== 'live') { if (inv.ph === 'rock' && inv.met && inv.met.state === 'rest') return tpos.set(inv.met.x, inv.met.y + 1.4, inv.met.z); return null; }
       return tpos.set(cur.x, cur.y + 0.8, cur.z);
