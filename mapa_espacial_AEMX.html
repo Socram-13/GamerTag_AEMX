@@ -6712,7 +6712,7 @@ window.startMap = function (RAW, AUTH) {
             b.nullT = 0;
             b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 12);
             tg = spd * Math.max(0.2, Math.cos(nAng(hd - b.yaw))) * Math.max(0.35, Math.min(1, (b.blockD - 1.2) / (b.v * 0.5 + 2)));
-            if ((b.bh || 0) > 0.15 && b.boostT <= 0) tg = Math.max(tg, (b.glr || 0) > 0 ? 30 : 16); /* conserva el impulso mientras cae */
+            if ((b.bh || 0) > 0.15 && b.boostT <= 0) tg = Math.max(tg, (b.glr || 0) > 0 ? 30 - 15 * (1 - b.glr / Math.max(1, b.glr0)) : 16); /* conserva el impulso mientras cae */
             b.v += (tg - b.v) * Math.min(1, dt * 5);
           }
           steps = Math.max(1, Math.ceil(b.v * dt / 0.5));
@@ -6744,8 +6744,8 @@ window.startMap = function (RAW, AUTH) {
       }
       /* Hiperimpulso en arco: sube suavemente hasta ~2.2 a mitad del impulso y baja al terminar; si se corta antes, cae al suelo */
       if (b.boostT > 0) { b.bh = (b.bh || 0) + (((thr && b.gtype === 'hunt') ? Math.max(3, Math.min(35, U.y - botGround(b.x, b.z) + 1.0)) : Math.min(35, 5 + 0.13 * (b.bdist || 0))) - (b.bh || 0)) * Math.min(1, dt * 2.2); b.bvy = 0; b.bdist = (b.bdist || 0) + b.v * dt; b.glr = 0; } /* el impulso la eleva hasta ~6 y vuela alto */
-      else if ((b.bh || 0) > 0 && (b.bdist || 0) > 20 && !b.glr0) { /* fin del impulso: planea 2/3 de lo recorrido impulsado */
-        if (b.wxBad || !b.goal) { b.bdist = 0; } else { b.glr0 = b.glr = b.bdist * 2 / 3; b.bh0 = b.bh; b.bdist = 0; b.flew = true; }
+      else if ((b.bh || 0) > 0 && (b.bdist || 0) > 20 && !b.glr0) { /* fin del impulso: planea 1/4 de lo recorrido impulsado, frenando */
+        if (b.wxBad || !b.goal) { b.bdist = 0; } else { b.glr0 = b.glr = Math.max(8, b.bdist * 0.25); b.bh0 = b.bh; b.bdist = 0; b.flew = true; }
       }
       if (b.boostT <= 0 && (b.glr || 0) > 0 && (b.bh || 0) > 0) {
         b.glr -= b.v * dt;
