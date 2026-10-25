@@ -1486,7 +1486,8 @@ window.startMap = function (RAW, AUTH) {
   }
   var seaU = {
     uTime: { value: 0 }, uDist: { value: seaTex }, uMin: { value: new THREE.Vector2(SEA_X0, SEA_Z0) },
-    uSize: { value: new THREE.Vector2(SEA_W, SEA_H) }, uMaxD: { value: SEA_MAXD }, uSunDir: { value: SUN_OFF.clone().normalize() }
+    uSize: { value: new THREE.Vector2(SEA_W, SEA_H) }, uMaxD: { value: SEA_MAXD }, uSunDir: { value: SUN_OFF.clone().normalize() },
+    uFogK: { value: 0 }, uFogD: { value: 0 }, uFogC: { value: new THREE.Color(0x626c88) }
   };
   var seaMat = new THREE.ShaderMaterial({
     uniforms: seaU,
@@ -1502,7 +1503,7 @@ window.startMap = function (RAW, AUTH) {
     ].join('\n'),
     fragmentShader: [
       '#include <logdepthbuf_pars_fragment>',
-      'uniform float uTime; uniform sampler2D uDist; uniform vec2 uMin; uniform vec2 uSize; uniform float uMaxD; uniform vec3 uSunDir;',
+      'uniform float uTime; uniform sampler2D uDist; uniform vec2 uMin; uniform vec2 uSize; uniform float uMaxD; uniform vec3 uSunDir; uniform float uFogK; uniform float uFogD; uniform vec3 uFogC;',
       'varying vec3 vWorld; varying vec3 vView;',
       'vec2 wv(vec2 p, vec2 dir, float k, float w, float amp, float t) { return dir * (amp * cos(dot(p, dir) * k + w * t)); }',
       'void main() {',
@@ -1526,6 +1527,7 @@ window.startMap = function (RAW, AUTH) {
       '  col = mix(col, vec3(0.22, 0.17, 0.42), fr * 0.55);',
       '  col += vec3(1.0, 0.78, 0.90) * spec * 0.9;',
       '  col = mix(col, vec3(0.13, 0.10, 0.30), smoothstep(5000.0, 24000.0, dist));',
+      '  float ff = 1.0 - exp(-pow(uFogD * dist, 2.0)); col = mix(col, uFogC, ff * uFogK);', /* niebla del mundo cuando la cámara está en una zona de niebla */
       '  gl_FragColor = vec4(col, 1.0);',
       '}'
     ].join('\n')
@@ -8437,7 +8439,7 @@ window.startMap = function (RAW, AUTH) {
     FW.k += ((inF ? 1 : 0) - FW.k) * Math.min(1, dt * 1.2);
     scene.fog.density = FW.d0 + (0.069 - FW.d0) * FW.k; /* ~13 unidades de visibilidad */
     scene.fog.color.copy(FW.c0).lerp(FW.c1, FW.k);
-    var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS; starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
+    var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS * 0.6; seaU.uFogK.value = FW.k; seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
     sun.target.position.copy(controls.target);
     sun.position.copy(controls.target).add(SUN_OFF);
 
