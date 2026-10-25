@@ -6564,7 +6564,8 @@ window.startMap = function (RAW, AUTH) {
     }
     /* tiempo acumulado dentro de la niebla (en cualquier modo); se reinicia solo tras 3 s fuera de ella */
     if (WX && WX.fogAt && b.mode !== 'lift') {
-      if (WX.fogAt(b.x, b.z)) { b.fogT = (b.fogT || 0) + dt; b.fogOut = 0; } else { b.fogOut = (b.fogOut || 0) + dt; if (b.fogOut > 3) b.fogT = 0; }
+      b.inFog = !!WX.fogAt(b.x, b.z);
+      if (b.inFog) { b.fogT = (b.fogT || 0) + dt; b.fogOut = 0; } else { b.fogOut = (b.fogOut || 0) + dt; if (b.fogOut > 3) b.fogT = 0; }
     } /* hay enemigo cerca: postura de combate */
     if (botDrone && botDrone.g.visible) {
       var Dd = botDrone, di;
@@ -6977,8 +6978,37 @@ window.startMap = function (RAW, AUTH) {
     b.lean = (b.lean || 0) + (lean - (b.lean || 0)) * Math.min(1, dt * 6);
     b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin; b.body.rotation.z = -0.18 * b.hangK; /* torso ligeramente inclinado */
     b.body.position.y = -0.38 * bk + (0.84 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.595 * kq;
-    b.upper.rotation.y = nAng(b.aimYaw - b.yaw) + stA;
+    /* Al caminar (suave) y al correr (más marcado) el torso se balancea de lado a lado y gira un poco con la zancada; al apuntar no */
+    var swA = (0.044 + 0.061 * b.runK) * (1 - b.hold) * b.gk * (1 - fK) * (1 - bk) * (1 - kq);
+    b.upper.rotation.y = nAng(b.aimYaw - b.yaw) + stA + swA * 0.8 * Math.sin(b.ph + 1.0);
+    b.upper.rotation.z = swA * Math.sin(b.ph);
     b.upper.rotation.x = 0.9 * bk;
+    b.head.rotation.z = -0.6 * b.upper.rotation.z;
+    /* Sombra del sol sobre el robot, sombra suave bajo los pies y capa de niebla que le cubre hasta la cintura */
+    if (!b.fxo) {
+      var cvF = document.createElement('canvas'), cF, grF, cvB = document.createElement('canvas'), cB, grB, pi3, spF;
+      cvF.width = cvF.height = 64; cF = cvF.getContext('2d'); grF = cF.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grF.addColorStop(0, 'rgba(255,255,255,0.9)'); grF.addColorStop(0.5, 'rgba(255,255,255,0.45)'); grF.addColorStop(1, 'rgba(255,255,255,0)'); cF.fillStyle = grF; cF.fillRect(0, 0, 64, 64);
+      cvB.width = cvB.height = 64; cB = cvB.getContext('2d'); grB = cB.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grB.addColorStop(0, 'rgba(0,0,0,0.85)'); grB.addColorStop(0.6, 'rgba(0,0,0,0.4)'); grB.addColorStop(1, 'rgba(0,0,0,0)'); cB.fillStyle = grB; cB.fillRect(0, 0, 64, 64);
+      b.g.traverse(function (o) { if (o.isMesh && o.material && o.material.isMeshLambertMaterial) o.castShadow = true; });
+      b.fxo = { puffs: [], fk: 0, blob: new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cvB), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })) };
+      b.fxo.blob.rotation.x = -Math.PI / 2; noRay(b.fxo.blob); scene.add(b.fxo.blob);
+      var texF = new THREE.CanvasTexture(cvF);
+      for (pi3 = 0; pi3 < 10; pi3++) {
+        spF = new THREE.Sprite(new THREE.SpriteMaterial({ map: texF, color: 0xb4bfcc, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+        spF.visible = false; scene.add(spF);
+        b.fxo.puffs.push({ sp: spF, a: Math.random() * 6.28, r: 0.2 + Math.random() * 0.45, y: 0.06 + Math.random() * 0.38, s: 0.7 + Math.random() * 0.5, ph: Math.random() * 6.28, w: (Math.random() - 0.5) * 0.9 });
+      }
+    }
+    var FXo = b.fxo, onGnd = (b.mode === 'walk' || b.mode === 'perch') && b.shell.visible, fxBase = onGnd ? b.y - (b.bh || 0) : 0, fxFl = onGnd ? Math.max(0, 1 - (b.bh || 0) / 1.5) * (1 - bk) : 0, fxI;
+    FXo.fk += ((b.inFog && onGnd ? 1 : 0) - FXo.fk) * Math.min(1, dt * 1.5);
+    FXo.blob.visible = onGnd; FXo.blob.position.set(b.x, fxBase + 0.03, b.z); FXo.blob.scale.setScalar(0.75 * (1 + (b.bh || 0) * 0.05)); FXo.blob.material.opacity = 0.5 / (1 + (b.bh || 0) * 0.3);
+    for (fxI = 0; fxI < FXo.puffs.length; fxI++) {
+      var pf = FXo.puffs[fxI], pa = pf.a + t * pf.w, po = 0.3 * FXo.fk * fxFl;
+      pf.sp.visible = po > 0.01;
+      if (pf.sp.visible) { pf.sp.position.set(b.x + Math.cos(pa) * pf.r, fxBase + pf.y + 0.03 * Math.sin(t * 1.3 + pf.ph), b.z + Math.sin(pa) * pf.r); pf.sp.scale.set(pf.s * 1.15, pf.s * 0.8, 1); pf.sp.material.opacity = po; }
+    }
     b.head.rotation.x = -b.aimPitch - b.lean;
     b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6) - stA;
 
