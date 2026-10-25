@@ -81,8 +81,10 @@
   #bMini { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 24px; width: 168px; display: none; flex-direction: column; align-items: center; gap: 4px; }
   #bMini.on { display: flex; }
   #bMini canvas { width: 168px; height: 168px; border-radius: 50%; border: 2px solid rgba(255,90,90,0.75); background: rgba(10,8,16,0.55); backdrop-filter: blur(3px); box-shadow: 0 0 16px rgba(255,40,40,0.35); }
-  #bDir { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 190px; max-width: 46vw; padding: 3px 12px; font: 700 12px var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #dff6ff; background: rgba(8,14,26,0.6); border: 1px solid rgba(150,220,255,0.55); border-radius: 12px; backdrop-filter: blur(3px); text-shadow: 0 0 6px rgba(0,0,0,0.8); pointer-events: none; }
-  #bSay { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 162px; max-width: min(340px, 46vw); font: italic 600 13px var(--f-body); color: #e8f6ff; text-shadow: 0 0 6px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.5s; pointer-events: none; }
+  #bInfo { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 160px; max-width: min(340px, 46vw); display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; }
+  #bDir, #bAct { padding: 3px 12px; font: 700 12px var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; color: #dff6ff; background: rgba(8,14,26,0.6); border: 1px solid rgba(150,220,255,0.55); border-radius: 12px; backdrop-filter: blur(3px); text-shadow: 0 0 6px rgba(0,0,0,0.8); }
+  #bAct { font-size: 10.5px; padding: 2px 10px; color: #bfe6ff; border-color: rgba(150,220,255,0.35); background: rgba(8,14,26,0.5); }
+  #bSay { min-height: 17px; font: italic 600 13px var(--f-body); color: #e8f6ff; text-shadow: 0 0 6px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.5s; }
   #bSay.on { opacity: 0.92; }
   #bDir.red { color: #ffd0d0; border-color: rgba(255,110,110,0.8); }
   #invCd { position: absolute; z-index: 5; top: 8px; left: 50%; transform: translateX(-50%); padding: 1px 9px; font: 700 15px var(--f-body); letter-spacing: 0.08em; color: #fff; background: rgba(150,20,20,0.72); border: 1px solid rgba(255,120,120,0.8); border-radius: 10px; display: none; text-shadow: 0 0 5px rgba(0,0,0,0.8); pointer-events: none; }
@@ -154,7 +156,7 @@
   <div id="labels"></div>
   <div id="botHud" aria-hidden="true">
     <div id="invAl"><span>⚠</span><span><small>ALERTA</small>INVASIÓN EN <b id="invNm"></b></span><span>⚠</span></div>
-    <div id="bDir"></div><div id="bSay"></div>
+    <div id="bInfo"><div id="bDir"></div><div id="bAct"></div><div id="bSay"></div></div>
     <div id="bMini"><div id="invCd"></div><canvas id="bMiniC" width="336" height="336"></canvas><span class="ct" id="bMiniT"></span></div>
     <div id="bTank"><div class="tk"><div class="fl" id="bFill"></div><i class="tick" style="bottom:25%"></i><i class="tick" style="bottom:50%"></i><i class="tick" style="bottom:75%"></i></div><span class="lb">HIPERIMPULSO</span></div>
   </div>
@@ -8313,7 +8315,9 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { bad: bad, fogAt: fogAt, denseAt: denseAt, update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
+    function kindAt(x, z) { var i; for (i = 0; i < events.length; i++) if (events[i].area && inArea(events[i].area, x, z)) return events[i].rain ? 'rain' : 'snow'; return fogAt(x, z) ? 'fog' : ''; }
+    function ghostNear(x, z, r) { var i; for (i = 0; i < ghosts.length; i++) if (!ghosts[i].dead && Math.hypot(ghosts[i].x - x, ghosts[i].z - z) < r) return true; return false; }
+    return { kindAt: kindAt, ghostNear: ghostNear, bad: bad, fogAt: fogAt, denseAt: denseAt, update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
   })();
   window.__aemxClima = WX; /* prueba manual: __aemxClima.start('rain','Veracruz',60) */
 
@@ -8927,43 +8931,81 @@ window.startMap = function (RAW, AUTH) {
           else if (b2.tour && dn && b2.tour.d === dn) tx2 = Math.hypot(b2.x - dn.cx, b2.z - dn.cz) <= dn.r + 5 ? 'Explorando ' + dn.name : 'Viajando a ' + dn.name;
           else tx2 = 'Patrullando';
           if (tx2 !== hud._dir) { hud._dir = tx2; el2.textContent = tx2; }
+          (function () { /* segunda línea: acción actual */
+            var ac = document.getElementById('bAct'), m2 = b2.mode, ax;
+            if (m2 === 'lift') ax = (b2.lift && b2.lift.ph === 2) ? 'Volando en dron' : 'Llamando al dron';
+            else if (m2 === 'ride') ax = 'Montando el OVNI';
+            else if (b2.boostT > 0) ax = 'Hiperimpulso';
+            else if ((b2.glr || 0) > 0) ax = 'Planeando';
+            else if (m2 === 'jetUp' || m2 === 'jetDown' || m2 === 'hop' || b2.ball) ax = 'Saltando';
+            else if (m2 === 'perch') ax = b2.aiming ? 'Apuntando desde la azotea' : 'En la azotea';
+            else if (b2.scan) ax = 'Escaneando restos';
+            else if (b2.circ) ax = 'Rodeando los restos';
+            else if (b2.gtype === 'orbit') ax = b2.aiming ? 'Rodeando y disparando al meteorito' : 'Rodeando el meteorito';
+            else if (b2.gtype === 'roof') ax = 'Rumbo a una azotea';
+            else if (b2.gtype === 'trail') ax = 'Siguiendo un sendero fuera de la niebla';
+            else if (b2.aiming) ax = b2.alienT ? 'Apuntando al alien' : 'Apuntando al OVNI';
+            else if (b2.stuck >= 2) ax = 'Esquivando un obstáculo';
+            else if (b2.wxDense) ax = 'Avanzando a ciegas en la niebla';
+            else if (b2.v > 3.4) ax = 'Corriendo';
+            else if (b2.v > 0.3) ax = 'Caminando';
+            else ax = 'Esperando';
+            if (ax !== hud._act) { hud._act = ax; ac.textContent = ax; }
+          })();
           (function () { /* comentarios del robot */
-            var say = document.getElementById('bSay'), nowMs = performance.now(), cat = tx2.indexOf('Explorando') === 0 ? 'city' : tx2.indexOf('Cazando') === 0 ? 'ufo' : tx2.indexOf('Exterminando') === 0 ? 'al' : tx2.indexOf('Destruyendo') === 0 ? 'rock' : tx2.indexOf('Revisando') === 0 ? 'wreck' : tx2.indexOf('Vigilando') === 0 ? 'fall' : tx2.indexOf('Viajando a ') === 0 && S && !S.end ? 'inv' : tx2.indexOf('Saliendo') === 0 ? 'fog' : tx2.indexOf('dron') > 0 ? 'drone' : '', L2, ph2, q2, k2, n1, n2, nm2;
-            if (!cat) hud._cat = '';
-            if (cat !== 'city') hud._quesa = false;
+            var say = document.getElementById('bSay'), nowMs = performance.now(), base = tx2.indexOf('Explorando') === 0 ? 'city' : tx2.indexOf('Cazando') === 0 ? 'ufo' : tx2.indexOf('Exterminando') === 0 ? 'al' : tx2.indexOf('Destruyendo') === 0 ? 'rock' : tx2.indexOf('Revisando') === 0 ? 'wreck' : tx2.indexOf('Vigilando') === 0 ? 'fall' : tx2.indexOf('Viajando a ') === 0 && S && !S.end ? 'inv' : tx2.indexOf('Saliendo') === 0 ? 'fog' : tx2.indexOf('dron') > 0 ? 'drone' : tx2 === 'Patrullando' ? 'chat' : '', sit = '', cat, L2, ph2, q2, k2, n1, n2, nm2, wk3, REP = { city: 11000, chat: 15000, ghost: 9000, rain: 14000, snow: 14000, dense: 12000, fog2: 14000, volc: 14000, angel: 12000, sea: 16000, ufo: 20000, al: 18000, rock: 16000, inv: 20000, wreck: 14000, t60: 9000 }, cd2;
             if (hud._sayT && nowMs > hud._sayT) { hud._sayT = 0; say.classList.remove('on'); }
-            if (cat && (cat !== hud._cat || (cat === 'city' && nowMs > (hud._nextC || 0))) && nowMs > (hud._sayGate || 0)) {
-              hud._cat = cat;
-              if (cat === 'city' && b2.dest) {
-                q2 = b2.dest; nm2 = q2.name; n1 = 0; n2 = 0; for (k2 = 0; k2 < q2.list.length; k2++) { if (q2.list[k2].banned) n2++; else if (q2.list[k2].inactive) n1++; }
-                L2 = ['Qué árboles tan lindos tiene ' + nm2 + '.', 'Me encantan los árboles de aquí.', 'Da gusto pasear entre tanto árbol.', 'Dan buena sombra estos árboles.', 'Alguien cuida bien la vegetación de ' + nm2 + '.', 'Un árbol más y me quedo a vivir aquí.', 'Se respira diferente entre tantos árboles.', 'Los árboles de ' + nm2 + ' le ganan a cualquier antena.', 'Qué paz se siente caminando por ' + nm2 + '.', 'Revisando calles de ' + nm2 + '… todo en orden.', 'Cada edificio aquí es un jugador de verdad.', 'Los edificios más altos son de los que más coleccionan.'];
-                if (nm2 === 'Ciudad de México') L2.push('Aquí hasta el aire huele a tacos.', 'Cuánta historia en esta ciudad.', 'Ni el Ángel se ve tan alto como estos edificios.');
-                else if (nm2 === 'Guadalajara') L2.push('Se escucha un mariachi por algún lado.', 'Guadalajara y su tequila… solo de ver.');
-                else if (nm2 === 'Monterrey') L2.push('Cerro de la Silla al fondo, qué postal.', 'Aquí el cabrito se respeta.');
-                else if (nm2 === 'Puebla') L2.push('Huele a mole poblano desde aquí.', 'Puebla y sus chiles en nogada…');
-                else if (nm2 === 'Oaxaca') L2.push('Oaxaca: mezcal y tlayudas.');
-                else if (nm2 === 'Mérida') L2.push('Mérida: cochinita pibil, ya me dio hambre.');
-                else if (nm2 === 'Cancún') L2.push('Playa a la vista, pero estoy trabajando.');
-                n1 ? L2.push('En ' + nm2 + ' hay ' + n1 + (n1 > 1 ? ' edificios apagados' : ' edificio apagado') + ' por inactividad… qué abandono.', 'Edificios apagados: ' + n1 + '. Falta que sus dueños regresen.', 'Hay luces apagadas en ' + nm2 + '. ¿Dónde andan sus jugadores?', 'Un edificio apagado se ve muy triste.') : L2.push('Todos los edificios de ' + nm2 + ' están activos. ¡Así me gusta!');
-                if (n2) L2.push(n2 + (n2 > 1 ? ' ruinas' : ' ruina') + ' de baneados en ' + nm2 + '. Las trampas se pagan.', 'Esas ruinas humeantes son de baneados. Se lo buscaron.', 'Con trampa no se llega lejos… ahí están las ruinas.', 'Las ruinas de baneados dan un poco de miedo.');
-                if (q2.list.length) { k2 = q2.list[(Math.random() * q2.list.length) | 0]; if (k2 && k2.name && !k2.banned) L2.push('Qué buen edificio el de @' + k2.name + '.'); }
-                if (nm2 === 'Ciudad de México' && !hud._quesa) { hud._quesa = true; L2 = ['¿Aquí venden quesadillas sin queso?']; } /* siempre es lo primero que comenta en la CDMX */
-                hud._nextC = nowMs + 11000;
-              } else {
-                L2 = { ufo: ['Ahí estás…', 'No te me escapas, OVNI.', 'Te tengo en la mira.', 'Una nave menos en el cielo.', 'Siempre te escondes en la niebla, pero te encuentro.', 'Calculando trayectoria…', 'Hoy no aterrizas en paz.', 'OVNI a la vista, cañones listos.', 'Voy tras de ti, no te muevas tanto.', 'Se acabó el paseo, platillo.', 'Corre todo lo que quieras.'],
-                  al: ['Aliens detectados. Los limpio.', 'Esta zona es nuestra.', 'Uno menos, faltan los demás.', 'Fuera de aquí, invasores.', 'Aguanten, ya llegué.', 'Qué feos son estos aliens.', 'Cuidando el estado, un alien a la vez.', 'No pasarán de este mapa.', 'Apunten… ¡fuego!', 'Ninguno se me escapa.', 'Limpieza alienígena en proceso.'],
-                  rock: ['Esta roca no se me escapa.', 'Solo queda el meteorito.', 'A romper esta piedra espacial.', 'Meteorito frente a mí, a darle.', 'Tiene mucha roca, pero tengo mucha puntería.', 'Un poco más y se rompe.', 'Rodeándolo y disparando.', 'Que no quede ni polvo.', 'Última etapa: el meteorito.', 'Las barreras caen en cuanto lo rompa.'],
-                  wreck: ['Veamos qué quedó aquí.', 'Pura chatarra alienígena.', 'Escaneando los restos…', 'Nada que rescatar de este platillo.', 'Que no quede ni un tornillo extraño.', 'Todavía humea, mejor me alejo un poco.', 'Revisando el cráter por seguridad.', 'Los restos desaparecerán pronto.', 'Material desconocido… mejor no tocarlo.', 'Dando la vuelta para asegurar la zona.'],
-                  fall: ['¡Cae, cae!', 'Objetivo derribado, veamos dónde aterriza.', 'Ahí va, directo al suelo.', 'Tremendo estruendo se viene.', 'Vigilando dónde cae.', 'Buen tiro, ¿no?', 'Caída confirmada.', 'Eso le pasa por volar tan alto.'],
-                  inv: ['Invasión en ' + (S ? S.name : '') + '. Voy para allá.', 'Aguanten, ya voy.', 'Rumbo a ' + (S ? S.name : '') + ', sin parar.', 'Que no se me adelanten los aliens.', 'Ya casi llego, resistan.', 'Cambio de planes: invasión.', 'Todo lo demás puede esperar.', 'Sin niebla que me detenga.', 'En camino, equipo cargado.', 'Los mapas necesitan ayuda, vamos.'],
-                  fog: ['No veo nada… sigo avanzando.', 'Qué niebla tan espesa.', 'La niebla no me detiene.', 'Esto parece sopa blanca.', 'Siguiendo mi brújula…', 'A ciegas, pero con rumbo.', 'Cuidado con tropezar con algo.', 'Primero los edificios, luego la niebla.', 'Seguro hay un camino por aquí.', 'Esperando que despeje.'],
-                  drone: ['Mejor vuelo para llegar más rápido.', 'Dron al rescate.', 'Agárrate, dron.', 'Vistas desde arriba, qué bonito.', 'Mi dron siempre me saca de apuros.', 'Cruzando el mar sin mojarme.', 'Volando se llega antes.', 'Gracias, dron, otra vez.'],
-                  city: [] }[cat];
-              }
-              if (L2 && L2.length) {
-                ph2 = L2[(Math.random() * L2.length) | 0]; if (ph2 === hud._lastSay && L2.length > 1) ph2 = L2[(L2.indexOf(ph2) + 1) % L2.length];
-                hud._lastSay = ph2; say.textContent = ph2; say.classList.add('on'); hud._sayT = nowMs + 4500; hud._sayGate = nowMs + 8000;
-              }
+            if (nowMs <= (hud._sayGate || 0)) return;
+            if (WX && WX.ghostNear && WX.ghostNear(b2.x, b2.z, 45)) sit = 'ghost';
+            else if (S && !S.end && S.entered && S.left <= 60) sit = 't60';
+            else if (WX && WX.kindAt && (wk3 = WX.kindAt(b2.x, b2.z))) sit = wk3 === 'fog' ? (b2.wxDense ? 'dense' : 'fog2') : wk3;
+            else if (VOLC && Math.hypot(b2.x - VOLC.x, b2.z - VOLC.z) < VOLC.R + 90) sit = 'volc';
+            else { for (k2 = 0; k2 < districts.length; k2++) if (districts[k2].name === 'Ciudad de México' && districts[k2].mon && Math.hypot(b2.x - districts[k2].mon.x, b2.z - districts[k2].mon.z) < 45) sit = 'angel'; }
+            if (!sit && landAt && !landAt(b2.x + Math.sin(b2.yaw) * 35, b2.z + Math.cos(b2.yaw) * 35)) sit = 'sea';
+            cat = (sit && (!base || base === 'city' || base === 'chat' || base === 'fog' || base === 'drone' || hud._alt)) ? sit : base;
+            if (!cat) { hud._cat = ''; hud._quesa = false; return; }
+            if (cat !== 'city') hud._quesa = cat === 'city' ? hud._quesa : false;
+            cd2 = REP[cat] || 0;
+            if (cat === hud._cat && !(cd2 && nowMs > (hud._nextC || 0))) return;
+            hud._cat = cat; hud._nextC = nowMs + cd2;
+            if (cat === 'city' && b2.dest) {
+              q2 = b2.dest; nm2 = q2.name; n1 = 0; n2 = 0; for (k2 = 0; k2 < q2.list.length; k2++) { if (q2.list[k2].banned) n2++; else if (q2.list[k2].inactive) n1++; }
+              L2 = ['Qué árboles tan lindos tiene ' + nm2 + '.', 'Me encantan los árboles de aquí.', 'Da gusto pasear entre tanto árbol.', 'Dan buena sombra estos árboles.', 'Alguien cuida bien la vegetación de ' + nm2 + '.', 'Un árbol más y me quedo a vivir aquí.', 'Se respira diferente entre tantos árboles.', 'Los árboles de ' + nm2 + ' le ganan a cualquier antena.', 'Qué paz se siente caminando por ' + nm2 + '.', 'Revisando calles de ' + nm2 + '… todo en orden.', 'Cada edificio aquí es un jugador de verdad.', 'Los edificios más altos son de los que más coleccionan.'];
+              if (nm2 === 'Ciudad de México') L2.push('Aquí hasta el aire huele a tacos.', 'Cuánta historia en esta ciudad.', 'Ni el Ángel se ve tan alto como estos edificios.');
+              else if (nm2 === 'Guadalajara') L2.push('Se escucha un mariachi por algún lado.', 'Guadalajara y su tequila… solo de ver.');
+              else if (nm2 === 'Monterrey') L2.push('Cerro de la Silla al fondo, qué postal.', 'Aquí el cabrito se respeta.');
+              else if (nm2 === 'Puebla') L2.push('Huele a mole poblano desde aquí.', 'Puebla y sus chiles en nogada…');
+              else if (nm2 === 'Oaxaca') L2.push('Oaxaca: mezcal y tlayudas.');
+              else if (nm2 === 'Mérida') L2.push('Mérida: cochinita pibil, ya me dio hambre.');
+              else if (nm2 === 'Cancún') L2.push('Playa a la vista, pero estoy trabajando.');
+              n1 ? L2.push('En ' + nm2 + ' hay ' + n1 + (n1 > 1 ? ' edificios apagados' : ' edificio apagado') + ' por inactividad… qué abandono.', 'Edificios apagados: ' + n1 + '. Falta que sus dueños regresen.', 'Hay luces apagadas en ' + nm2 + '. ¿Dónde andan sus jugadores?', 'Un edificio apagado se ve muy triste.') : L2.push('Todos los edificios de ' + nm2 + ' están activos. ¡Así me gusta!');
+              if (n2) L2.push(n2 + (n2 > 1 ? ' ruinas' : ' ruina') + ' de baneados en ' + nm2 + '. Las trampas se pagan.', 'Esas ruinas humeantes son de baneados. Se lo buscaron.', 'Con trampa no se llega lejos… ahí están las ruinas.', 'Las ruinas de baneados dan un poco de miedo.');
+              if (q2.list.length) { k2 = q2.list[(Math.random() * q2.list.length) | 0]; if (k2 && k2.name && !k2.banned) L2.push('Qué buen edificio el de @' + k2.name + '.'); }
+              if (nm2 === 'Ciudad de México' && !hud._quesa) { hud._quesa = true; L2 = ['¿Aquí venden quesadillas sin queso?']; } /* siempre es lo primero que comenta en la CDMX */
+            } else {
+              L2 = { ufo: ['Ahí estás…', 'No te me escapas, OVNI.', 'Te tengo en la mira.', 'Una nave menos en el cielo.', 'Siempre te escondes en la niebla, pero te encuentro.', 'Calculando trayectoria…', 'Hoy no aterrizas en paz.', 'OVNI a la vista, cañones listos.', 'Voy tras de ti, no te muevas tanto.', 'Se acabó el paseo, platillo.', 'Corre todo lo que quieras.'],
+                al: ['Aliens detectados. Los limpio.', 'Esta zona es nuestra.', 'Uno menos, faltan los demás.', 'Fuera de aquí, invasores.', 'Aguanten, ya llegué.', 'Qué feos son estos aliens.', 'Cuidando el estado, un alien a la vez.', 'No pasarán de este mapa.', 'Apunten… ¡fuego!', 'Ninguno se me escapa.', 'Limpieza alienígena en proceso.'],
+                rock: ['Esta roca no se me escapa.', 'Solo queda el meteorito.', 'A romper esta piedra espacial.', 'Meteorito frente a mí, a darle.', 'Tiene mucha roca, pero tengo mucha puntería.', 'Un poco más y se rompe.', 'Rodeándolo y disparando.', 'Que no quede ni polvo.', 'Última etapa: el meteorito.', 'Las barreras caen en cuanto lo rompa.'],
+                wreck: ['Veamos qué quedó aquí.', 'Pura chatarra alienígena.', 'Escaneando los restos…', 'Nada que rescatar de este platillo.', 'Que no quede ni un tornillo extraño.', 'Todavía humea, mejor me alejo un poco.', 'Revisando el cráter por seguridad.', 'Los restos desaparecerán pronto.', 'Material desconocido… mejor no tocarlo.', 'Dando la vuelta para asegurar la zona.'],
+                fall: ['¡Cae, cae!', 'Objetivo derribado, veamos dónde aterriza.', 'Ahí va, directo al suelo.', 'Tremendo estruendo se viene.', 'Vigilando dónde cae.', 'Buen tiro, ¿no?', 'Caída confirmada.', 'Eso le pasa por volar tan alto.'],
+                inv: ['Invasión en ' + (S ? S.name : '') + '. Voy para allá.', 'Aguanten, ya voy.', 'Rumbo a ' + (S ? S.name : '') + ', sin parar.', 'Que no se me adelanten los aliens.', 'Ya casi llego, resistan.', 'Cambio de planes: invasión.', 'Todo lo demás puede esperar.', 'Sin niebla que me detenga.', 'En camino, equipo cargado.', 'Los mapas necesitan ayuda, vamos.'],
+                fog: ['No veo nada… sigo avanzando.', 'Qué niebla tan espesa.', 'La niebla no me detiene.', 'Esto parece sopa blanca.', 'Siguiendo mi brújula…', 'A ciegas, pero con rumbo.', 'Cuidado con tropezar con algo.', 'Primero los edificios, luego la niebla.', 'Seguro hay un camino por aquí.', 'Esperando que despeje.'],
+                drone: ['Mejor vuelo para llegar más rápido.', 'Dron al rescate.', 'Agárrate, dron.', 'Vistas desde arriba, qué bonito.', 'Mi dron siempre me saca de apuros.', 'Cruzando el mar sin mojarme.', 'Volando se llega antes.', 'Gracias, dron, otra vez.'],
+                ghost: ['¿Vieron eso? Algo se movió en la niebla…', 'Juraría que algo me susurró.', 'Creo que me sigue un fantasma.', 'Los fantasmas no me asustan… mucho.', 'Ese gemido no es del viento.', 'Fantasma a las doce, no lo miren fijo.', '¿Quién anda ahí? … Nadie. Qué raro.', 'Mejor acelero el paso.', 'No creo en fantasmas, pero ellos sí creen en mí.', 'Escalofríos… y eso que soy un robot.', 'Los edificios apagados deben tener sus fantasmas.'],
+                rain: ['Está lloviendo, a cuidar los circuitos.', 'Charcos por todos lados.', 'Mi armadura necesitaba un lavado.', 'Con esta lluvia no hay hiperimpulso.', 'Gotas en el visor, poca visibilidad.', 'Qué bonito suena la lluvia sobre mi casco.', 'Llueve y sigo trabajando.', 'Oxidación en 3, 2, 1… es broma.', 'No hay paraguas para robots.', 'Con esta lluvia hasta el OVNI se lo piensa.'],
+                snow: ['Nieve en pleno México, ¿quién lo diría?', 'Copos en el visor, qué lindo.', 'Frío… por suerte soy de metal.', 'Dejando huellas en la nieve.', 'Un robot de nieve sería buen proyecto.', 'Brrr, hasta los circuitos se congelan.', 'Qué bonito se ve todo blanco.', 'Cuidado con resbalar.', 'Hora del chocolate caliente, para ustedes.'],
+                dense: ['No veo ni mi mano.', 'Niebla cerrada, sigo por sensores.', 'Visibilidad cero.', 'Hasta el rifle se pierde en la niebla.', 'Esto parece película de terror.', 'Menos mal que tengo sensores.', 'Avanzo despacio, hay mucha niebla.', 'Aquí cualquier cosa puede esconderse.', 'La niebla me abraza.', 'Qué silencio tan raro…'],
+                fog2: ['Bastante neblina por aquí.', 'La niebla se levanta poco a poco.', 'Mejor ir con cuidado.', 'Humedad al 100 %.', 'Se ven siluetas entre la bruma.', 'Neblina, pero se avanza.', 'La niebla trae misterio.', 'Mis sensores están al máximo.'],
+                volc: ['Ese volcán mejor lo dejo en paz.', 'El volcán ruge, mejor no acercarse.', 'Nadie dispara sobre el volcán, regla de oro.', 'Calorcito de volcán.', 'Humo al fondo, ¿será el volcán?', 'Con tanta lava no hay botas que alcancen.', 'Lo bonito del volcán es verlo de lejos.'],
+                angel: ['Ahí está el Ángel de la Independencia.', 'Qué elegante el Ángel con sus alas doradas.', 'Saludo al Ángel de la Independencia.', 'El Ángel vigila toda la ciudad.', 'Ni los aliens se atreven con el Ángel.', 'Desde aquí se ve de lujo el Ángel.', 'Una foto con el Ángel, por favor.'],
+                sea: ['Mar a la vista.', 'Qué ganas de nadar… pero soy de metal.', 'El mar se ve enorme desde aquí.', 'Cuidado con el agua, mejor por tierra.', 'Playas desiertas, qué paz.', 'Olas y silencio.', 'El horizonte no tiene fin.'],
+                t60: ['¡Queda poco tiempo!', 'Último minuto, a apurarse.', '¡Corre el reloj!', 'Hay que acabar antes de que acabe el tiempo.', 'Un minuto para la victoria.', 'Concentración total.', 'Sin distracciones, se acaba el reloj.'],
+                chat: ['Todo tranquilo por aquí.', 'Patrullando… nada nuevo.', 'Qué silencio tan sospechoso.', 'Revisando que no falte nadie.', '¿Será que hoy el OVNI llega tarde?', 'Aprovecho para estirar las piernas.', 'Los robots también necesitamos un descanso.', 'Mapa limpio, por ahora.', 'Dicen que las invasiones llegan sin avisar.', 'Estoy atento, siempre atento.', 'Un paseo no le hace daño a nadie.', 'Mis baterías al máximo.', 'Si ven algo raro, avisen.', 'Hoy huele a aventura.'],
+                city: [] }[cat];
+            }
+            if (L2 && L2.length) {
+              ph2 = L2[(Math.random() * L2.length) | 0]; if (ph2 === hud._lastSay && L2.length > 1) ph2 = L2[(L2.indexOf(ph2) + 1) % L2.length];
+              hud._lastSay = ph2; hud._alt = !hud._alt; say.textContent = ph2; say.classList.add('on'); hud._sayT = nowMs + 4500; hud._sayGate = nowMs + 8000;
             }
           })();
           if (red !== hud._dirR) { hud._dirR = red; el2.classList.toggle('red', red); }
