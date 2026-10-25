@@ -806,6 +806,171 @@ window.startMap = function (RAW, AUTH) {
     if (!off) domeAst.push({ g: a, y0: y + 0.04, armL: armL, armR: armR, legL: legL, legR: legR, ph: ph });
   }
 
+  /* ---------- Astronauta (cuerpo del robot, casco moderno): se define antes del presidente y de las ciudades porque ambos lo usan ---------- */
+  var astSuit = new THREE.MeshLambertMaterial({ color: 0xe8f0ff });
+  var astPack = new THREE.MeshLambertMaterial({ color: 0x9fb0c8 });
+  var astVisor = new THREE.MeshLambertMaterial({ color: 0x1c2026, emissive: 0x050607 });
+  /* Astronauta especial: traje negro y visor azul */
+  var astSuitB = new THREE.MeshLambertMaterial({ color: 0x15171c });
+  var astPackB = new THREE.MeshLambertMaterial({ color: 0x2a2d34 });
+  var astVisorB = new THREE.MeshLambertMaterial({ color: 0x2d7bff, emissive: 0x0a3a99 });
+  /* Astronauta especial: traje naranja, visor negro y moicano rubio inclinado al frente */
+  var astSuitO = new THREE.MeshLambertMaterial({ color: 0xf26a1b });
+  var astPackO = new THREE.MeshLambertMaterial({ color: 0xa8440c });
+  var astVisorO = new THREE.MeshLambertMaterial({ color: 0x08090b, emissive: 0x020203 });
+  var astHair = new THREE.MeshLambertMaterial({ color: 0xffd21f, emissive: 0x7a5c00 });
+  /* Astronauta del coche lunar: traje azul y visor oscuro */
+  var astSuitBl = new THREE.MeshLambertMaterial({ color: 0x2f6bff });
+  var astPackBl = new THREE.MeshLambertMaterial({ color: 0x1d3f9e });
+  var astVisorBl = new THREE.MeshLambertMaterial({ color: 0x08090b, emissive: 0x020203 });
+  var gSpike = new THREE.ConeGeometry(0.065, 0.3, 5);
+  /* Cápsula redondeada (radio r, alto total h), escalada en x/z para darle forma de torso, mochila o extremidad */
+  function capsGeo(r, h, sx, sz) {
+    var pts = [], k, a, N = 6, g;
+    for (k = 0; k <= N; k++) { a = -Math.PI / 2 + k / N * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(0.0001, r * Math.cos(a)), -h / 2 + r + r * Math.sin(a))); }
+    for (k = 0; k <= N; k++) { a = k / N * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(0.0001, r * Math.cos(a)), h / 2 - r + r * Math.sin(a))); }
+    g = new THREE.LatheGeometry(pts, 14); g.scale(sx, 1, sz); return g;
+  }
+  var gTorso = capsGeo(0.22, 0.62, 1.1, 0.75), gLeg = capsGeo(0.1, 0.55, 1, 1.1);
+  var gArm = capsGeo(0.07, 0.5, 1, 1), gHelmet = new THREE.SphereGeometry(0.3, 14, 10);
+  var gVisor = new THREE.SphereGeometry(0.18, 14, 10), gPack = capsGeo(0.1, 0.5, 2, 1);
+  var gJL = new THREE.SphereGeometry(0.1, 10, 8), gJA = new THREE.SphereGeometry(0.072, 10, 8);
+
+  var astAll = [], gLegH = capsGeo(0.1, 0.285, 1, 1.1), gArmH = capsGeo(0.07, 0.26, 1, 1);
+  /* Astronauta con el cuerpo del robot (paneles angulares, articulaciones y botas) y casco angular con visor, sin antenas, sin hombreras y con la mochila sin cohetes.
+     Cada pieza se fusiona en una sola malla con colores por vértice y se guarda en caché por tipo, así que cada astronauta cuesta pocas mallas. */
+  var astVC = new THREE.MeshLambertMaterial({ vertexColors: true });
+  var astGeoCache = {}, astPackGeo = null, astEgg = null, astUCyl = new THREE.CylinderGeometry(1, 1, 1, 10), astUSph = new THREE.SphereGeometry(1, 10, 7), astHSph = new THREE.SphereGeometry(1, 24, 16);
+  var AST_G = 0x80878f, AST_D = 0x0a0c0f, AST_J = 0x3a414b;
+  function astMerge(items) {
+    var pos = [], nor = [], col = [], i, it, m, g2, p, n, k, c = new THREE.Color(), geo = new THREE.BufferGeometry();
+    for (i = 0; i < items.length; i++) {
+      it = items[i];
+      if (it.g) g2 = it.g.clone(); else { m = new THREE.Mesh(it.t === 'c' ? astUCyl : it.t === 's' ? astUSph : it.t === 'h' ? astHSph : uBox); m.position.set(it.p[0], it.p[1], it.p[2]); m.scale.set(it.s[0], it.s[1], it.s[2]); if (it.r) m.rotation.set(it.r[0], it.r[1], it.r[2]); m.updateMatrix(); g2 = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()); g2.applyMatrix4(m.matrix); }
+      if (g2.index) g2 = g2.toNonIndexed();
+      if (it.g && it.p) g2.translate(it.p[0], it.p[1], it.p[2]);
+      p = g2.attributes.position.array; n = g2.attributes.normal.array; c.setHex(it.c);
+      for (k = 0; k < p.length; k++) { pos.push(p[k]); nor.push(n[k]); }
+      for (k = 0; k < p.length / 3; k++) col.push(c.r, c.g, c.b);
+    }
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    return geo;
+  }
+  function aB(c, x, y, z, sx, sy, sz, r) { return { t: 'b', c: c, p: [x, y, z], s: [sx, sy, sz], r: r }; }
+  function aS(c, x, y, z, r) { return { t: 's', c: c, p: [x, y, z], s: [r, r, r] }; }
+  function aH(c, x, y, z, sx, sy, sz) { return { t: 'h', c: c, p: [x, y, z], s: [sx, sy, sz] }; }
+  /* Caja de esquinas redondeadas (ancho, alto, fondo, radio) */
+  function roundedBox(w, h, d, r) {
+    var q = new THREE.BoxGeometry(w, h, d, 6, 6, 6), P = q.attributes.position, N = q.attributes.normal, i, x, y, z, ix, iy, iz, dx, dy, dz, l, hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
+    for (i = 0; i < P.count; i++) {
+      x = P.getX(i); y = P.getY(i); z = P.getZ(i);
+      ix = Math.max(-hx, Math.min(hx, x)); iy = Math.max(-hy, Math.min(hy, y)); iz = Math.max(-hz, Math.min(hz, z));
+      dx = x - ix; dy = y - iy; dz = z - iz; l = Math.hypot(dx, dy, dz) || 1;
+      P.setXYZ(i, ix + dx / l * r, iy + dy / l * r, iz + dz / l * r); N.setXYZ(i, dx / l, dy / l, dz / l);
+    }
+    return q;
+  }
+  /* Casco ovalado liso: elipsoide más angosto hacia el mentón y abultado atrás */
+  var EGG = [0.21, 0.24, 0.27];
+  function eggPt(dx, dy, dz, k) {
+    var t = dy < 0 ? 1 - 0.28 * -dy : 1, zz = dz * EGG[2] * (dz < 0 ? 1.08 : 1);
+    return [dx * EGG[0] * t * k, dy * EGG[1] * k, zz * t * k];
+  }
+  function eggShell() {
+    var q = new THREE.SphereGeometry(1, 26, 18), P = q.attributes.position, i, e;
+    for (i = 0; i < P.count; i++) { e = eggPt(P.getX(i), P.getY(i), P.getZ(i), 1); P.setXYZ(i, e[0], e[1], e[2]); }
+    q.computeVertexNormals(); return q;
+  }
+  function eggVisor() { /* parche de cristal en forma de escudo: ancho arriba, más angosto hacia el mentón */
+    var N = 14, M = 18, pos = [], idx = [], i, j, th, ph, ph0, e, q = new THREE.BufferGeometry();
+    for (i = 0; i <= N; i++) {
+      th = 0.95 + (2.3 - 0.95) * i / N; ph0 = 0.95 - 0.4 * (i / N);
+      for (j = 0; j <= M; j++) { ph = -ph0 + 2 * ph0 * j / M; e = eggPt(Math.sin(th) * Math.sin(ph), Math.cos(th), Math.sin(th) * Math.cos(ph), 1.014); pos.push(e[0], e[1], e[2]); }
+    }
+    for (i = 0; i < N; i++) for (j = 0; j < M; j++) { var a = i * (M + 1) + j, b = a + M + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
+    q.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); q.setIndex(idx); q.computeVertexNormals(); return q;
+  }
+  function aR(c, x, y, z, w, h, d, r) { return { g: roundedBox(w, h, d, r), p: [x, y, z], c: c }; }
+  function aC(c, x, y, z, r, len) { return { t: 'c', c: c, p: [x, y, z], s: [r, len, r] }; }
+  var AST_STY = {
+    w: { suit: astSuit, pack: astPack, vis: astVisor, light: 0x49d6ff },
+    b: { suit: astSuitB, pack: astPackB, vis: astVisorB, light: 0x9cc8ff },
+    o: { suit: astSuitO, pack: astPackO, vis: astVisorO, light: 0xffb12a },
+    bl: { suit: astSuitBl, pack: astPackBl, vis: astVisorBl, light: 0x49d6ff }
+  };
+  function astGeo(key, build) { return astGeoCache[key] || (astGeoCache[key] = build()); }
+  function makeAstronaut(kind, noBend) {
+    var ky = kind === true ? 'b' : kind === 'orange' ? 'o' : kind === 'blue' ? 'bl' : 'w', st = AST_STY[ky], SU = st.suit.color.getHex(), PK = st.pack.color.getHex();
+    var g = new THREE.Group(), m, parts = {}, bendK = noBend ? 'n' : 'y', lightM = astGeoCache['lm' + ky] || (astGeoCache['lm' + ky] = new THREE.MeshBasicMaterial({ color: st.light }));
+    g.rotation.order = 'YXZ';
+    var ACC = ky === 'b' ? 0x4a4f58 : 0x15181d; /* detalles negros curvos sobre el traje (gris en el traje negro) */
+    /* tronco: pecho con placa y luz, abdomen articulado, pelvis, cuello */
+    m = new THREE.Group();
+    var tm = new THREE.Mesh(astGeo('t' + ky, function () { return astMerge([aB(SU, 0, 1.04, 0, 0.44, 0.36, 0.28), aB(ACC, 0, 1.07, 0.145, 0.34, 0.2, 0.04), aB(AST_D, 0, 0.95, 0.145, 0.26, 0.05, 0.03), aB(ACC, 0, 1.24, 0, 0.3, 0.06, 0.2), aB(AST_J, 0, 0.84, 0, 0.24, 0.16, 0.18), aB(SU, 0, 0.68, 0, 0.36, 0.14, 0.24), aB(ACC, 0, 0.68, 0.125, 0.16, 0.1, 0.03), aB(ACC, -0.19, 0.68, 0, 0.04, 0.12, 0.2), aB(ACC, 0.19, 0.68, 0, 0.04, 0.12, 0.2), aC(AST_J, 0, 1.29, 0, 0.07, 0.12)]); }), astVC);
+    m.add(tm);
+    var tl = new THREE.Mesh(astGeo('tl', function () { return astMerge([aB(0xffffff, 0, 1.07, 0.168, 0.07, 0.07, 0.012)]); }), lightM); m.add(tl);
+    g.add(m); /* children[0] */
+    /* mochila aerodinámica del robot, sin cohetes, con franja luminosa */
+    if (!astPackGeo) {
+      var ps = new THREE.Shape();
+      ps.moveTo(-0.13, 0.54); ps.lineTo(-0.27, 0.5); ps.lineTo(-0.36, 0.3); ps.lineTo(-0.35, 0.06); ps.lineTo(-0.27, -0.04); ps.lineTo(-0.13, 0.0); ps.closePath();
+      astPackGeo = new THREE.ExtrudeGeometry(ps, { depth: 0.26, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
+      astPackGeo.scale(0.75, 0.75, 0.75); astPackGeo.rotateY(-Math.PI / 2); astPackGeo.translate(0.1, 0, -0.02);
+    }
+    m = new THREE.Group();
+    m.add(new THREE.Mesh(astGeo('p' + ky, function () { return astMerge([{ g: astPackGeo, p: [0, 0.78, 0], c: PK }, aB(ACC, 0, 1.18, -0.2, 0.12, 0.025, 0.12, [-0.25, 0, 0])]); }), astVC));
+    m.add(new THREE.Mesh(astGeo('pl', function () { return astMerge([aB(0xffffff, 0, 1.02, -0.292, 0.026, 0.22, 0.012)]); }), lightM));
+    g.add(m); /* children[1] */
+    /* casco moderno: carcasa ovalada y lisa, aro de cuello redondo con junta */
+    m = new THREE.Mesh(astGeo('h' + ky, function () { return astMerge([{ g: astEgg || (astEgg = eggShell()), p: [0, 1.52, -0.03], c: SU }, aC(SU, 0, 1.3, 0, 0.15, 0.06), aC(AST_D, 0, 1.335, 0, 0.135, 0.03)]); }), astVC);
+    g.add(m); /* children[2] */
+    /* visor grande de cristal negro y brillante en forma de escudo (children[3]) */
+    var vg = new THREE.Group(), vm = astGeoCache['vm' + ky] || (astGeoCache['vm' + ky] = new THREE.MeshPhongMaterial({ color: st.vis.color.getHex(), emissive: st.vis.emissive.getHex(), specular: 0xb4c4d6, shininess: 110, side: THREE.DoubleSide }));
+    m = new THREE.Mesh(astGeo('vv', function () { var q = eggVisor(); q.translate(0, 1.52, -0.03); return q; }), vm);
+    vg.add(m);
+    g.add(vg); /* children[3] */
+    if (kind === 'orange') {
+      /* Moicano: cresta de picos sobre el casco, cada vez más inclinada hacia la frente; el último cae como flequillo */
+      var hz = [-0.2, -0.12, -0.04, 0.03, 0.09, 0.13], hs = [1.2, 1.35, 1.5, 1.55, 1.5, 1.2], ht = [0.45, 0.6, 0.75, 0.85, 0.95, 1.05], hi;
+      var hxs = [0, -0.1, 0.1], hxi;
+      for (hxi = 0; hxi < hxs.length; hxi++) {
+        for (hi = 0; hi < hz.length; hi++) {
+          m = new THREE.Mesh(gSpike, astHair);
+          m.position.set(hxs[hxi], 1.52 + 0.24 * Math.sqrt(Math.max(0, 1 - Math.pow((hz[hi] + 0.03) / 0.27, 2) - hxs[hxi] * hxs[hxi] / 0.044)) - 0.03, hz[hi]);
+          m.rotation.x = ht[hi];
+          m.rotation.z = -hxs[hxi] * 1.5; /* laterales abiertos hacia afuera */
+          m.scale.set(1.3, hs[hi], 1.3);
+          g.add(m);
+        }
+      }
+    }
+    /* extremidades con la estructura del robot: cadera/hombro, rodilla/codo y bota/mano; children[0] de cada pivote es la parte alta */
+    function limb(name, leg, sd, x, y) {
+      var L = leg ? (noBend ? 0.55 : 0.275) : (noBend ? 0.5 : 0.25), piv = new THREE.Group(), jt, up, lo, gu, gl;
+      piv.position.set(x, y, 0);
+      gu = astGeo('u' + ky + name + bendK, function () {
+        return leg ? astMerge([aB(SU, 0, -L / 2, 0, 0.15, L, 0.17), aB(ACC, sd * 0.085, -L / 2, 0, 0.025, L * 0.8, 0.1), aS(AST_J, 0, 0, 0, 0.095)].concat(noBend ? [aB(AST_D, 0, -L + 0.02, 0.07, 0.15, 0.08, 0.3)] : []))
+          : astMerge([aB(SU, 0, -L / 2, 0, 0.11, L, 0.12), aB(ACC, sd * 0.065, -L / 2, 0, 0.02, L * 0.7, 0.09), aS(AST_J, 0, 0, 0, 0.075)].concat(noBend ? [aB(AST_D, 0, -L, 0, 0.09, 0.1, 0.1)] : []));
+      });
+      up = new THREE.Mesh(gu, astVC); piv.add(up);
+      if (!noBend) {
+        jt = new THREE.Group(); jt.position.y = -L; piv.add(jt);
+        gl = astGeo('l' + ky + name, function () {
+          return leg ? astMerge([aB(SU, 0, -L / 2, 0, 0.13, L, 0.15), aB(ACC, 0, -L / 2, 0.085, 0.1, L * 0.7, 0.03), aS(AST_J, 0, 0, 0, 0.085), aB(AST_D, 0, -L + 0.02, 0.07, 0.15, 0.08, 0.3)])
+            : astMerge([aB(SU, 0, -L / 2, 0, 0.1, L, 0.11), aB(ACC, 0, -L / 2, 0.065, 0.08, L * 0.6, 0.03), aS(AST_J, 0, 0, 0, 0.065), aB(AST_D, 0, -L, 0, 0.09, 0.1, 0.1)]);
+        });
+        lo = new THREE.Mesh(gl, astVC); jt.add(lo);
+        parts[name + 'J'] = jt;
+      }
+      g.add(piv); parts[name] = piv;
+    }
+    limb('legL', true, -1, -0.13, 0.65); limb('legR', true, 1, 0.13, 0.65); limb('armL', false, -1, -0.275, 1.2); limb('armR', false, 1, 0.275, 1.2);
+    if (!noBend) astAll.push(parts);
+    g.scale.setScalar(0.425);
+    return { g: g, parts: parts };
+  }
+
+
   /* ---------- Astronauta presidente: traje negro formal, triángulo blanco, banda tricolor y corona; saluda siempre ---------- */
   var presAst = [], prL = new THREE.Vector3(), prP = new THREE.Vector3(), prT = new THREE.Vector3(), prM = new THREE.Vector3();
   var prSuit = new THREE.MeshLambertMaterial({ color: 0x15171c, emissive: 0x05060a });
@@ -3161,169 +3326,6 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Astronautas que caminan por las calles entre hexágonos ---------- */
   var walkers = [], wTmp = new THREE.Vector3(), shDoor = new THREE.Vector3(), shLoc = new THREE.Vector3(), shC = new THREE.Vector3();
-  var astSuit = new THREE.MeshLambertMaterial({ color: 0xe8f0ff });
-  var astPack = new THREE.MeshLambertMaterial({ color: 0x9fb0c8 });
-  var astVisor = new THREE.MeshLambertMaterial({ color: 0x1c2026, emissive: 0x050607 });
-  /* Astronauta especial: traje negro y visor azul */
-  var astSuitB = new THREE.MeshLambertMaterial({ color: 0x15171c });
-  var astPackB = new THREE.MeshLambertMaterial({ color: 0x2a2d34 });
-  var astVisorB = new THREE.MeshLambertMaterial({ color: 0x2d7bff, emissive: 0x0a3a99 });
-  /* Astronauta especial: traje naranja, visor negro y moicano rubio inclinado al frente */
-  var astSuitO = new THREE.MeshLambertMaterial({ color: 0xf26a1b });
-  var astPackO = new THREE.MeshLambertMaterial({ color: 0xa8440c });
-  var astVisorO = new THREE.MeshLambertMaterial({ color: 0x08090b, emissive: 0x020203 });
-  var astHair = new THREE.MeshLambertMaterial({ color: 0xffd21f, emissive: 0x7a5c00 });
-  /* Astronauta del coche lunar: traje azul y visor oscuro */
-  var astSuitBl = new THREE.MeshLambertMaterial({ color: 0x2f6bff });
-  var astPackBl = new THREE.MeshLambertMaterial({ color: 0x1d3f9e });
-  var astVisorBl = new THREE.MeshLambertMaterial({ color: 0x08090b, emissive: 0x020203 });
-  var gSpike = new THREE.ConeGeometry(0.065, 0.3, 5);
-  /* Cápsula redondeada (radio r, alto total h), escalada en x/z para darle forma de torso, mochila o extremidad */
-  function capsGeo(r, h, sx, sz) {
-    var pts = [], k, a, N = 6, g;
-    for (k = 0; k <= N; k++) { a = -Math.PI / 2 + k / N * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(0.0001, r * Math.cos(a)), -h / 2 + r + r * Math.sin(a))); }
-    for (k = 0; k <= N; k++) { a = k / N * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(0.0001, r * Math.cos(a)), h / 2 - r + r * Math.sin(a))); }
-    g = new THREE.LatheGeometry(pts, 14); g.scale(sx, 1, sz); return g;
-  }
-  var gTorso = capsGeo(0.22, 0.62, 1.1, 0.75), gLeg = capsGeo(0.1, 0.55, 1, 1.1);
-  var gArm = capsGeo(0.07, 0.5, 1, 1), gHelmet = new THREE.SphereGeometry(0.3, 14, 10);
-  var gVisor = new THREE.SphereGeometry(0.18, 14, 10), gPack = capsGeo(0.1, 0.5, 2, 1);
-  var gJL = new THREE.SphereGeometry(0.1, 10, 8), gJA = new THREE.SphereGeometry(0.072, 10, 8);
-
-  var astAll = [], gLegH = capsGeo(0.1, 0.285, 1, 1.1), gArmH = capsGeo(0.07, 0.26, 1, 1);
-  /* Astronauta con el cuerpo del robot (paneles angulares, articulaciones y botas) y casco angular con visor, sin antenas, sin hombreras y con la mochila sin cohetes.
-     Cada pieza se fusiona en una sola malla con colores por vértice y se guarda en caché por tipo, así que cada astronauta cuesta pocas mallas. */
-  var astVC = new THREE.MeshLambertMaterial({ vertexColors: true });
-  var astGeoCache = {}, astPackGeo = null, astEgg = null, astUCyl = new THREE.CylinderGeometry(1, 1, 1, 10), astUSph = new THREE.SphereGeometry(1, 10, 7), astHSph = new THREE.SphereGeometry(1, 24, 16);
-  var AST_G = 0x80878f, AST_D = 0x0a0c0f, AST_J = 0x3a414b;
-  function astMerge(items) {
-    var pos = [], nor = [], col = [], i, it, m, g2, p, n, k, c = new THREE.Color(), geo = new THREE.BufferGeometry();
-    for (i = 0; i < items.length; i++) {
-      it = items[i];
-      if (it.g) g2 = it.g.clone(); else { m = new THREE.Mesh(it.t === 'c' ? astUCyl : it.t === 's' ? astUSph : it.t === 'h' ? astHSph : uBox); m.position.set(it.p[0], it.p[1], it.p[2]); m.scale.set(it.s[0], it.s[1], it.s[2]); if (it.r) m.rotation.set(it.r[0], it.r[1], it.r[2]); m.updateMatrix(); g2 = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()); g2.applyMatrix4(m.matrix); }
-      if (g2.index) g2 = g2.toNonIndexed();
-      if (it.g && it.p) g2.translate(it.p[0], it.p[1], it.p[2]);
-      p = g2.attributes.position.array; n = g2.attributes.normal.array; c.setHex(it.c);
-      for (k = 0; k < p.length; k++) { pos.push(p[k]); nor.push(n[k]); }
-      for (k = 0; k < p.length / 3; k++) col.push(c.r, c.g, c.b);
-    }
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    return geo;
-  }
-  function aB(c, x, y, z, sx, sy, sz, r) { return { t: 'b', c: c, p: [x, y, z], s: [sx, sy, sz], r: r }; }
-  function aS(c, x, y, z, r) { return { t: 's', c: c, p: [x, y, z], s: [r, r, r] }; }
-  function aH(c, x, y, z, sx, sy, sz) { return { t: 'h', c: c, p: [x, y, z], s: [sx, sy, sz] }; }
-  /* Caja de esquinas redondeadas (ancho, alto, fondo, radio) */
-  function roundedBox(w, h, d, r) {
-    var q = new THREE.BoxGeometry(w, h, d, 6, 6, 6), P = q.attributes.position, N = q.attributes.normal, i, x, y, z, ix, iy, iz, dx, dy, dz, l, hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
-    for (i = 0; i < P.count; i++) {
-      x = P.getX(i); y = P.getY(i); z = P.getZ(i);
-      ix = Math.max(-hx, Math.min(hx, x)); iy = Math.max(-hy, Math.min(hy, y)); iz = Math.max(-hz, Math.min(hz, z));
-      dx = x - ix; dy = y - iy; dz = z - iz; l = Math.hypot(dx, dy, dz) || 1;
-      P.setXYZ(i, ix + dx / l * r, iy + dy / l * r, iz + dz / l * r); N.setXYZ(i, dx / l, dy / l, dz / l);
-    }
-    return q;
-  }
-  /* Casco ovalado liso: elipsoide más angosto hacia el mentón y abultado atrás */
-  var EGG = [0.21, 0.24, 0.27];
-  function eggPt(dx, dy, dz, k) {
-    var t = dy < 0 ? 1 - 0.28 * -dy : 1, zz = dz * EGG[2] * (dz < 0 ? 1.08 : 1);
-    return [dx * EGG[0] * t * k, dy * EGG[1] * k, zz * t * k];
-  }
-  function eggShell() {
-    var q = new THREE.SphereGeometry(1, 26, 18), P = q.attributes.position, i, e;
-    for (i = 0; i < P.count; i++) { e = eggPt(P.getX(i), P.getY(i), P.getZ(i), 1); P.setXYZ(i, e[0], e[1], e[2]); }
-    q.computeVertexNormals(); return q;
-  }
-  function eggVisor() { /* parche de cristal en forma de escudo: ancho arriba, más angosto hacia el mentón */
-    var N = 14, M = 18, pos = [], idx = [], i, j, th, ph, ph0, e, q = new THREE.BufferGeometry();
-    for (i = 0; i <= N; i++) {
-      th = 0.95 + (2.3 - 0.95) * i / N; ph0 = 0.95 - 0.4 * (i / N);
-      for (j = 0; j <= M; j++) { ph = -ph0 + 2 * ph0 * j / M; e = eggPt(Math.sin(th) * Math.sin(ph), Math.cos(th), Math.sin(th) * Math.cos(ph), 1.014); pos.push(e[0], e[1], e[2]); }
-    }
-    for (i = 0; i < N; i++) for (j = 0; j < M; j++) { var a = i * (M + 1) + j, b = a + M + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
-    q.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); q.setIndex(idx); q.computeVertexNormals(); return q;
-  }
-  function aR(c, x, y, z, w, h, d, r) { return { g: roundedBox(w, h, d, r), p: [x, y, z], c: c }; }
-  function aC(c, x, y, z, r, len) { return { t: 'c', c: c, p: [x, y, z], s: [r, len, r] }; }
-  var AST_STY = {
-    w: { suit: astSuit, pack: astPack, vis: astVisor, light: 0x49d6ff },
-    b: { suit: astSuitB, pack: astPackB, vis: astVisorB, light: 0x9cc8ff },
-    o: { suit: astSuitO, pack: astPackO, vis: astVisorO, light: 0xffb12a },
-    bl: { suit: astSuitBl, pack: astPackBl, vis: astVisorBl, light: 0x49d6ff }
-  };
-  function astGeo(key, build) { return astGeoCache[key] || (astGeoCache[key] = build()); }
-  function makeAstronaut(kind, noBend) {
-    var ky = kind === true ? 'b' : kind === 'orange' ? 'o' : kind === 'blue' ? 'bl' : 'w', st = AST_STY[ky], SU = st.suit.color.getHex(), PK = st.pack.color.getHex();
-    var g = new THREE.Group(), m, parts = {}, bendK = noBend ? 'n' : 'y', lightM = astGeoCache['lm' + ky] || (astGeoCache['lm' + ky] = new THREE.MeshBasicMaterial({ color: st.light }));
-    g.rotation.order = 'YXZ';
-    var ACC = ky === 'b' ? 0x4a4f58 : 0x15181d; /* detalles negros curvos sobre el traje (gris en el traje negro) */
-    /* tronco: pecho con placa y luz, abdomen articulado, pelvis, cuello */
-    m = new THREE.Group();
-    var tm = new THREE.Mesh(astGeo('t' + ky, function () { return astMerge([aB(SU, 0, 1.04, 0, 0.44, 0.36, 0.28), aB(ACC, 0, 1.07, 0.145, 0.34, 0.2, 0.04), aB(AST_D, 0, 0.95, 0.145, 0.26, 0.05, 0.03), aB(ACC, 0, 1.24, 0, 0.3, 0.06, 0.2), aB(AST_J, 0, 0.84, 0, 0.24, 0.16, 0.18), aB(SU, 0, 0.68, 0, 0.36, 0.14, 0.24), aB(ACC, 0, 0.68, 0.125, 0.16, 0.1, 0.03), aB(ACC, -0.19, 0.68, 0, 0.04, 0.12, 0.2), aB(ACC, 0.19, 0.68, 0, 0.04, 0.12, 0.2), aC(AST_J, 0, 1.29, 0, 0.07, 0.12)]); }), astVC);
-    m.add(tm);
-    var tl = new THREE.Mesh(astGeo('tl', function () { return astMerge([aB(0xffffff, 0, 1.07, 0.168, 0.07, 0.07, 0.012)]); }), lightM); m.add(tl);
-    g.add(m); /* children[0] */
-    /* mochila aerodinámica del robot, sin cohetes, con franja luminosa */
-    if (!astPackGeo) {
-      var ps = new THREE.Shape();
-      ps.moveTo(-0.13, 0.54); ps.lineTo(-0.27, 0.5); ps.lineTo(-0.36, 0.3); ps.lineTo(-0.35, 0.06); ps.lineTo(-0.27, -0.04); ps.lineTo(-0.13, 0.0); ps.closePath();
-      astPackGeo = new THREE.ExtrudeGeometry(ps, { depth: 0.26, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
-      astPackGeo.scale(0.75, 0.75, 0.75); astPackGeo.rotateY(-Math.PI / 2); astPackGeo.translate(0.1, 0, -0.02);
-    }
-    m = new THREE.Group();
-    m.add(new THREE.Mesh(astGeo('p' + ky, function () { return astMerge([{ g: astPackGeo, p: [0, 0.78, 0], c: PK }, aB(ACC, 0, 1.18, -0.2, 0.12, 0.025, 0.12, [-0.25, 0, 0])]); }), astVC));
-    m.add(new THREE.Mesh(astGeo('pl', function () { return astMerge([aB(0xffffff, 0, 1.02, -0.292, 0.026, 0.22, 0.012)]); }), lightM));
-    g.add(m); /* children[1] */
-    /* casco moderno: carcasa ovalada y lisa, aro de cuello redondo con junta */
-    m = new THREE.Mesh(astGeo('h' + ky, function () { return astMerge([{ g: astEgg || (astEgg = eggShell()), p: [0, 1.52, -0.03], c: SU }, aC(SU, 0, 1.3, 0, 0.15, 0.06), aC(AST_D, 0, 1.335, 0, 0.135, 0.03)]); }), astVC);
-    g.add(m); /* children[2] */
-    /* visor grande de cristal negro y brillante en forma de escudo (children[3]) */
-    var vg = new THREE.Group(), vm = astGeoCache['vm' + ky] || (astGeoCache['vm' + ky] = new THREE.MeshPhongMaterial({ color: st.vis.color.getHex(), emissive: st.vis.emissive.getHex(), specular: 0xb4c4d6, shininess: 110, side: THREE.DoubleSide }));
-    m = new THREE.Mesh(astGeo('vv', function () { var q = eggVisor(); q.translate(0, 1.52, -0.03); return q; }), vm);
-    vg.add(m);
-    g.add(vg); /* children[3] */
-    if (kind === 'orange') {
-      /* Moicano: cresta de picos sobre el casco, cada vez más inclinada hacia la frente; el último cae como flequillo */
-      var hz = [-0.2, -0.12, -0.04, 0.03, 0.09, 0.13], hs = [1.2, 1.35, 1.5, 1.55, 1.5, 1.2], ht = [0.45, 0.6, 0.75, 0.85, 0.95, 1.05], hi;
-      var hxs = [0, -0.1, 0.1], hxi;
-      for (hxi = 0; hxi < hxs.length; hxi++) {
-        for (hi = 0; hi < hz.length; hi++) {
-          m = new THREE.Mesh(gSpike, astHair);
-          m.position.set(hxs[hxi], 1.52 + 0.24 * Math.sqrt(Math.max(0, 1 - Math.pow((hz[hi] + 0.03) / 0.27, 2) - hxs[hxi] * hxs[hxi] / 0.044)) - 0.03, hz[hi]);
-          m.rotation.x = ht[hi];
-          m.rotation.z = -hxs[hxi] * 1.5; /* laterales abiertos hacia afuera */
-          m.scale.set(1.3, hs[hi], 1.3);
-          g.add(m);
-        }
-      }
-    }
-    /* extremidades con la estructura del robot: cadera/hombro, rodilla/codo y bota/mano; children[0] de cada pivote es la parte alta */
-    function limb(name, leg, sd, x, y) {
-      var L = leg ? (noBend ? 0.55 : 0.275) : (noBend ? 0.5 : 0.25), piv = new THREE.Group(), jt, up, lo, gu, gl;
-      piv.position.set(x, y, 0);
-      gu = astGeo('u' + ky + name + bendK, function () {
-        return leg ? astMerge([aB(SU, 0, -L / 2, 0, 0.15, L, 0.17), aB(ACC, sd * 0.085, -L / 2, 0, 0.025, L * 0.8, 0.1), aS(AST_J, 0, 0, 0, 0.095)].concat(noBend ? [aB(AST_D, 0, -L + 0.02, 0.07, 0.15, 0.08, 0.3)] : []))
-          : astMerge([aB(SU, 0, -L / 2, 0, 0.11, L, 0.12), aB(ACC, sd * 0.065, -L / 2, 0, 0.02, L * 0.7, 0.09), aS(AST_J, 0, 0, 0, 0.075)].concat(noBend ? [aB(AST_D, 0, -L, 0, 0.09, 0.1, 0.1)] : []));
-      });
-      up = new THREE.Mesh(gu, astVC); piv.add(up);
-      if (!noBend) {
-        jt = new THREE.Group(); jt.position.y = -L; piv.add(jt);
-        gl = astGeo('l' + ky + name, function () {
-          return leg ? astMerge([aB(SU, 0, -L / 2, 0, 0.13, L, 0.15), aB(ACC, 0, -L / 2, 0.085, 0.1, L * 0.7, 0.03), aS(AST_J, 0, 0, 0, 0.085), aB(AST_D, 0, -L + 0.02, 0.07, 0.15, 0.08, 0.3)])
-            : astMerge([aB(SU, 0, -L / 2, 0, 0.1, L, 0.11), aB(ACC, 0, -L / 2, 0.065, 0.08, L * 0.6, 0.03), aS(AST_J, 0, 0, 0, 0.065), aB(AST_D, 0, -L, 0, 0.09, 0.1, 0.1)]);
-        });
-        lo = new THREE.Mesh(gl, astVC); jt.add(lo);
-        parts[name + 'J'] = jt;
-      }
-      g.add(piv); parts[name] = piv;
-    }
-    limb('legL', true, -1, -0.13, 0.65); limb('legR', true, 1, 0.13, 0.65); limb('armL', false, -1, -0.275, 1.2); limb('armR', false, 1, 0.275, 1.2);
-    if (!noBend) astAll.push(parts);
-    g.scale.setScalar(0.425);
-    return { g: g, parts: parts };
-  }
-
   /* Las articulaciones se derivan de la pose de cadera/hombro de cada animación */
   function updateAstJoints() {
     var i, p, x, q;
