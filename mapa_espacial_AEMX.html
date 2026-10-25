@@ -7994,7 +7994,7 @@ window.startMap = function (RAW, AUTH) {
       ball(auDark, 0, 0, 0, 0.08, th);
       tap(auPearl, 0.125, 0.14, 0.095, 0.11, 0.34, 0, -0.18, 0, th);
       tap(auPearl, 0.135, 0.08, 0.1, 0.06, 0.22, 0, -0.09, -0.07, th); /* parte trasera del muslo: más volumen hacia atrás */
-      tap(auPearl, 0.17, 0.105, 0.17, 0.105, 0.15, -sx * 0.035, 0.0, -0.075, th); /* glúteo */
+      tap(auPearl, 0.15, 0.105, 0.15, 0.105, 0.15, sx * 0.073, -0.04, -0.075, pelvis); /* glúteo */
       bx(auGray, sx * 0.062, -0.17, 0, 0.022, 0.26, 0.1, th); bx(auRed, sx * 0.07, -0.17, 0.02, 0.008, 0.24, 0.012, th);
       kn.position.y = -0.36; th.add(kn);
       ball(auDark, 0, 0, 0, 0.07, kn); bx(auGray, 0, 0, 0.082, 0.1, 0.12, 0.04, kn);
@@ -8308,7 +8308,7 @@ window.startMap = function (RAW, AUTH) {
       if (i === 0 && A.pk > 0.01) { A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.pk) - 1.45 * A.pk; A.arms[0].sh.rotation.z = A.arms[0].sh.rotation.z * (1 - A.pk) - 0.12 * A.pk; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.pk) - 0.15 * A.pk; } /* brazo extendido hacia el sitio */
     }
     A.body.position.y = 0.86 + Math.abs(Math.sin(A.ph)) * 0.03 * A.gk + 0.008 * Math.sin(t * 1.7);
-    A.pelvis.position.x = 0.022 * sph * A.gk; A.pelvis.rotation.z = 0.075 * sph * A.gk; A.pelvis.rotation.y = 0.14 * sph * A.gk; /* contoneo: solo la pelvis y las piernas se desplazan, se inclinan y giran */
+    A.pelvis.position.x = 0.012 * sph * A.gk; A.pelvis.rotation.z = 0.04 * sph * A.gk; A.pelvis.rotation.y = 0.08 * sph * A.gk; /* contoneo: solo la pelvis y las piernas se desplazan, se inclinan y giran */
     A.upper.rotation.z = 0; A.upper.rotation.y = -0.07 * sph * A.gk; A.upper.rotation.x = 0.03 * A.gk; /* el torso queda erguido, con un leve contragiro de hombros */
     A.hy = (A.hy || 0) + (A.hyT - (A.hy || 0)) * Math.min(1, dt * 6); A.hx = (A.hx || 0) + (A.hxT - (A.hx || 0)) * Math.min(1, dt * 6);
     A.head.rotation.y = A.hy; A.head.rotation.x = A.hx; A.upper.rotation.y += A.hy * 0.2;
