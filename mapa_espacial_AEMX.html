@@ -2095,6 +2095,37 @@ window.startMap = function (RAW, AUTH) {
         }
       }
     });
+    /* Árboles secos en los estados sin jugadores: grupos dispersos, poco densos */
+    (function () {
+      var withP = {}, deadL = [], q, j, tmp;
+      districts.forEach(function (d) { if (d.list.length) withP[d.name] = 1; });
+      stNames.forEach(function (n) {
+        if (withP[n]) return;
+        var b = stBox[n], gx, gz, x, z, patch, p, rr, m, a, c, ins, k2;
+        for (gx = b[0]; gx <= b[2]; gx += 11) {
+          for (gz = b[1]; gz <= b[3]; gz += 11) {
+            x = gx + (vr() - 0.5) * 8; z = gz + (vr() - 0.5) * 8;
+            patch = 0.5 + 0.5 * Math.sin(x * 0.045 + 1.3) * Math.sin(z * 0.05 - 0.6) + 0.25 * Math.sin(x * 0.17 + z * 0.13);
+            p = Math.pow(Math.max(0, patch - 0.25), 1.6) * 0.5;
+            if (vr() > p) continue;
+            ins = false;
+            for (rr = 0; rr < statePolys[n].length; rr++) { m = statePolys[n][rr]; for (a = 0, c = m.length - 1; a < m.length; c = a++) if ((m[a][1] > z) !== (m[c][1] > z) && x < (m[c][0] - m[a][0]) * (z - m[a][1]) / (m[c][1] - m[a][1]) + m[a][0]) ins = !ins; }
+            if (!ins) continue;
+            if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 4) continue;
+            if (nearestHex(x, z) < HEX_R + 3) continue;
+            if (crowded(x, z) || trailNear(x, z, 1.5)) continue;
+            if (!onLand(x, z) || lastEdge < 1.2) continue;
+            k2 = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
+            (placed[k2] || (placed[k2] = [])).push([x, z]);
+            deadL.push({ type: 'dead', x: x, z: z, y: terrainH(x, z) + 0.02, zone: 'arid', edge: lastEdge });
+          }
+        }
+      });
+      for (q = deadL.length - 1; q > 0; q--) { j = Math.floor(vr() * (q + 1)); tmp = deadL[q]; deadL[q] = deadL[j]; deadL[j] = tmp; }
+      if (deadL.length > 3000) deadL.length = 3000;
+      deadL.forEach(function (o) { plants.push(o); });
+      VMAX += deadL.length; /* tope aparte: no desplaza a la vegetación de las ciudades */
+    })();
     /* Bosque en las faldas bajas del Popocatépetl: las plantas se apoyan en la superficie real del volcán */
     if (VOLC) (function () {
       var v = VOLC, gx, gz, x, z, fr, p, patch, rr2, ty, k2, tp;
@@ -2689,6 +2720,23 @@ window.startMap = function (RAW, AUTH) {
         nn = 14;
         for (kk = 0; kk < nn; kk++) part('penca', 0, 0.05 + (kk % 2) * 0.03, 0, 1.0, 0.6 + (kk % 3) * 0.14, 1.0, jit(c1, 0.07), 0, 0, 0, [kk * Math.PI * 2 / nn + vr() * 0.2, 0.28 + (kk % 3) * 0.28 + vr() * 0.15]);
         part('cone', 0, 0.28, 0, 0.06, 0.34, 0.06, jit(c1, 0.05));
+      } else if (pl.type === 'dead') {
+        /* Árbol seco: tronco gris retorcido con ramas peladas (algunos caídos) */
+        var dk = col(0.07 + vr() * 0.03, 0.07, 0.3 + vr() * 0.08), dkD = col(0.07, 0.06, 0.2 + vr() * 0.05), tl = 1.5 + vr() * 1.3, dyw = vr() * 6.28, di, dh, dya, dtl, dln, ex, ey, ez;
+        if (vr() < 0.18) { /* tronco caído */
+          branch(0, 0.12, 0, dyw, 1.45, tl, 0.1, dkD);
+          for (di = 0; di < 2; di++) branch(Math.sin(dyw) * tl * 0.2 * (di ? 1 : -1), 0.14, Math.cos(dyw) * tl * 0.2 * (di ? 1 : -1), dyw + 1 + di, 1.0 + vr() * 0.4, 0.5 + vr() * 0.3, 0.035, dk);
+        } else {
+          dtl = (vr() - 0.5) * 0.25; /* ligera inclinación */
+          branch(0, 0, 0, dyw, dtl, tl, 0.1 + vr() * 0.04, dkD);
+          for (di = 0; di < 4 + Math.floor(vr() * 3); di++) {
+            dh = tl * (0.3 + 0.65 * vr()); dya = vr() * 6.28; dln = 0.5 + vr() * 0.7 * (1.2 - dh / (tl * 1.1)); dtl = 0.5 + vr() * 0.7;
+            branch(0, dh, 0, dya, dtl, dln, 0.035 + vr() * 0.015, dk);
+            ex = -Math.sin(dtl) * Math.cos(dya) * dln; ey = dh + Math.cos(dtl) * dln; ez = Math.sin(dtl) * Math.sin(dya) * dln;
+            if (vr() < 0.7) branch(ex, ey, ez, dya + (vr() - 0.5) * 2, 0.3 + vr() * 0.7, dln * 0.55, 0.02, dk);
+          }
+          branch(0, tl * 0.98, 0, dyw + 1, 0.2 + vr() * 0.3, 0.4 + vr() * 0.3, 0.03, dk);
+        }
       } else if (pl.type === 'flower') {
         /* Mancha de flores silvestres de colores, con hojas */
         nn = 4 + Math.floor(vr() * 3);
@@ -6355,7 +6403,7 @@ window.startMap = function (RAW, AUTH) {
     }
     rp.dx = best ? best[0] : rp.cx; rp.dz = best ? best[1] : rp.cz;
   }
-  var BOT_VR = { pine: 0.22, oak: 0.22, round: 0.22, birch: 0.2, jacaranda: 0.22, golden: 0.22, palm: 0.18, cactus: 0.2, rock: 0.3, bush: 0.25, agave: 0.22 };
+  var BOT_VR = { pine: 0.22, oak: 0.22, round: 0.22, birch: 0.2, jacaranda: 0.22, golden: 0.22, palm: 0.18, cactus: 0.2, rock: 0.3, bush: 0.25, agave: 0.22, dead: 0.16 };
   function botBuildVeg() {
     botVG = {};
     vegObs.forEach(function (pl) {
@@ -7414,8 +7462,7 @@ window.startMap = function (RAW, AUTH) {
     moving = b.mode === 'walk' && b.v > 0.3;
     (function () { /* sonidos sutiles del robot: pasos, servos y hiperimpulso */
       var bp = bkMuz.set(b.x, b.y + 0.6, b.z), fl = b.boostT > 0, sv;
-      if (moving && (b.bh || 0) < 0.12 && !fl && !b.ball) { b.stD = (b.stD || 0) + b.v * dt; if (b.stD > (b.v > 3.4 ? 2.4 : 1.25)) { b.stD = 0; AUD.step(bp, b.v > 3.4); } } else if (!moving) b.stD = 0;
-      sv = Math.abs(nAng(b.aimYaw - (b._sy === undefined ? b.aimYaw : b._sy))) / Math.max(dt, 0.001); b._sy = b.aimYaw;
+            sv = Math.abs(nAng(b.aimYaw - (b._sy === undefined ? b.aimYaw : b._sy))) / Math.max(dt, 0.001); b._sy = b.aimYaw;
       if ((sv > 1.6 || (b.aiming && !b._ha) || (!b.aiming && b._ha)) && now >= (b.svT || 0) && b.mode !== 'lift') { b.svT = now + 0.28; AUD.servo(bp); }
       b._ha = b.aiming;
       if (fl && !b._bf) AUD.bOn(bp);
