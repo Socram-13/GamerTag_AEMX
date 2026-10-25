@@ -1408,7 +1408,7 @@ window.startMap = function (RAW, AUTH) {
         cyHolo(g, -(W * 0.5 + 0.7), 1.6 + r.top * 0.5, 0, 1.9, hhp, Math.PI / 2);
       }
       /* Balcón frontal con barandal dorado, dos columnas con luz y, en el Palacio del presidente, el presidente saludando */
-      var bk = new THREE.Group(); bk.rotation.y = p.isPres ? Math.PI + 0.5236 : Math.PI; g.add(bk); /* el del presidente mira al hexágono del Ángel (30° hacia +x) */
+      var bk = new THREE.Group(); bk.rotation.y = Math.PI; g.add(bk);
       var zb = -2.65, gm = off ? cyGoldOff : cyGold, px2;
       cyBox(bk, gm, 3.4, 0.2, 2.3, 0, yb, zb);
       cyBox(bk, N.gold, 3.48, 0.05, 2.38, 0, yb - 0.12, zb);
@@ -3368,7 +3368,7 @@ window.startMap = function (RAW, AUTH) {
   /* Celdas hexagonales (panal): la celda 0 es el centro y se llena hacia afuera */
   function hexCells(n, rsv) {
     var K = 0, q, r, out = [];
-    while (1 + 3 * K * (K + 1) < n + (rsv ? 1 : 0)) K++;
+    while (1 + 3 * K * (K + 1) < n + (rsv ? 4 : 0)) K++;
     for (q = -K; q <= K; q++) {
       for (r = Math.max(-K, -q - K); r <= Math.min(K, -q + K); r++) {
         var x = S * (q + r / 2), z = S * 0.8660254 * r;
@@ -3376,7 +3376,7 @@ window.startMap = function (RAW, AUTH) {
       }
     }
     out.sort(function (m, o) { return (m.d - o.d) || (m.a - o.a); });
-    if (rsv) out = out.filter(function (c) { return Math.hypot(c.x - S / 2, c.z - S * 0.8660254) > 0.1; }); /* el hexágono del monumento queda reservado */
+    if (rsv) out = out.filter(function (c) { return Math.hypot(c.x, c.z - 2 * S / Math.sqrt(3)) > S * 0.95; }); /* zona reservada para el hexágono del monumento, justo frente al balcón (+z) */
     return out.slice(0, n);
   }
 
@@ -3410,6 +3410,7 @@ window.startMap = function (RAW, AUTH) {
     districts.forEach(function (d) {
       d.cells.forEach(function (c) { placed.push([d.cx + c.x, d.cz + c.z]); });
       if (!d.list.length) placed.push([d.cx, d.cz]);
+      if (d.name === 'Ciudad de México') placed.push([d.cx, d.cz + 2 * S / Math.sqrt(3)]); /* hexágono del Ángel */
     });
     districts.forEach(function (d) {
       var seen = {}, far = 0, i;
@@ -3425,6 +3426,7 @@ window.startMap = function (RAW, AUTH) {
           d.extra.push({ x: x, z: z, d: Math.sqrt(x * x + z * z) });
         });
       });
+      if (d.name === 'Ciudad de México') d.extra.push({ x: 0, z: 2 * S / Math.sqrt(3), d: 2 * S / Math.sqrt(3), special: true });
       for (i = 0; i < d.cells.length; i++) far = Math.max(far, d.cells[i].d);
       for (i = 0; i < d.extra.length; i++) far = Math.max(far, d.extra[i].d);
       d.r = far + S;
@@ -3565,7 +3567,7 @@ window.startMap = function (RAW, AUTH) {
     y += 0.3;
     var VV = victory(A, 1.15); VV.position.set(0, y, 0); VV.rotation.y = Math.PI; /* mira hacia el Palacio (-z) */
     A.traverse(function (o) { if (o.isMesh) { o.receiveShadow = true; o.raycast = function () {}; } });
-    var ax = pres.x + S / 2, az = pres.z + S * 0.8660254;
+    var ax = pres.x, az = pres.z + 2 * S / Math.sqrt(3); /* hexágono propio, justo frente al balcón */
     var hp = new THREE.Mesh(padGeo, padMatCenter); hp.position.set(ax, 0.245, az); hp.receiveShadow = true;
     var hg = new THREE.LineLoop(hexGoldGeo, hexGoldMat); hg.position.set(ax, 0.37, az);
     var dC = districts.filter(function (dd) { return dd.list.indexOf(pres) >= 0; })[0];
@@ -3671,7 +3673,8 @@ window.startMap = function (RAW, AUTH) {
     districts.forEach(function (d) {
       var n = d.list.filter(function (q) { return !q.banned; }).length, best = null, i, c, s;
       if (n <= 3 || !d.extra.length) return;
-      for (i = 0; i < d.extra.length; i++) if (!best || d.extra[i].d < best.d) best = d.extra[i];
+      for (i = 0; i < d.extra.length; i++) if (!d.extra[i].special && (!best || d.extra[i].d < best.d)) best = d.extra[i];
+      if (!best) return;
       c = best;
       s = buildStore();
       s.position.set(d.cx + c.x, BASE, d.cz + c.z);
