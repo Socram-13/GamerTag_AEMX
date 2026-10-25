@@ -4679,7 +4679,7 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('input', function () {
     var v = q.value.trim().replace(/^@/, '').toLowerCase();
     resEl.textContent = '';
-    if (!v) { resEl.hidden = true; matches = []; return; }
+    if (!v || v === 'sombrero') { resEl.hidden = true; matches = []; return; } /* 'sombrero' es un código oculto: sin sugerencias */
     matches = [];
     if (ufo && v.length >= 2 && ('ovni'.indexOf(v) === 0 || 'ufo'.indexOf(v) === 0)) matches.push({ kind: 'u', label: '🛸 OVNI', sub: 'seguir' });
     if (car && v.length >= 2) {
@@ -4719,6 +4719,7 @@ window.startMap = function (RAW, AUTH) {
     resEl.hidden = false;
   });
   q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'sombrero') { q.value = ''; resEl.hidden = true; matches = []; botCallDis(); return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
   });
 
@@ -7011,6 +7012,20 @@ window.startMap = function (RAW, AUTH) {
     return false;
   }
   function now0() { return clock.elapsedTime; }
+  function botDisGoal(Dd) { /* punto de encuentro a 3.4 del alien, del lado del robot (o alrededor si está ocupado) */
+    var b = bot, dx = b.x - Dd.x, dz = b.z - Dd.z, a0 = Math.atan2(dx, dz), k, a, mx, mz;
+    for (k = 0; k < 12; k++) { a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5; mx = Dd.x + Math.sin(a) * 3.4; mz = Dd.z + Math.cos(a) * 3.4; if (botFree(mx, mz) && botSetGoal(mx, mz, 'patrol')) return true; }
+    return false;
+  }
+  function botCallDis() { /* código 'sombrero': fuerza al robot a buscar al alien disfrazado */
+    var Dd = (typeof ALN !== 'undefined' && ALN && ALN.dis) ? ALN.dis() : null, b = bot;
+    if (!b || !Dd || Dd.k < 0.5 || !ufoDown() || (ALN.state && ALN.state()) || invLock) return false;
+    b.disTalk = 0; b.disCD = 0;
+    if (!botDisGoal(Dd)) return false;
+    b.disMeet = now0(); b.disForce = 1; b.jog = false; b.tour = null; b.disRe = 0;
+    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botFollow = true; botCamFree = false; botYawCam = b.yaw; flyTo(b.x, b.y + 0.5, b.z, 8, 1.2); }
+    return true;
+  }
   function botPick() {
     var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown()) ? ufo.g.position : null, toward = !!Up && Math.hypot(Up.x - b.x, Up.z - b.z) < 500 && Math.random() < 0.7;
     var freeT = ufoDown() && !(typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state()); /* sin OVNI ni invasión: explora ciudades */
@@ -7194,15 +7209,16 @@ window.startMap = function (RAW, AUTH) {
     thr = !!U && now >= b.noHunt;
     (function () { /* encuentro con el alien disfrazado: se acerca, lo mira y charlan (él solo murmura) */
       var Dd = (typeof ALN !== 'undefined' && ALN && ALN.dis) ? ALN.dis() : null, free = ufoDown() && !U && !(typeof ALN !== 'undefined' && ALN.state && ALN.state()), dist, SCR, tt, ln;
-      if (!Dd || Dd.k < 0.5 || !free) { if (b.disTalk || b.disMeet) { b.disTalk = 0; b.disMeet = 0; b.disCD = now + 90; } return; }
+      if (!Dd || Dd.k < 0.5 || !free) { if (b.disTalk || b.disMeet) { b.disTalk = 0; b.disMeet = 0; b.disForce = 0; b.disCD = now + 90; } return; }
       dist = Math.hypot(Dd.x - b.x, Dd.z - b.z);
       if (b.disTalk) {
         tt = now - b.disTalk; b.goal = null; b.gtype = ''; b.path = null; b.idle = 3; b.v *= Math.max(0, 1 - dt * 6);
         b.yaw += nAng(Math.atan2(Dd.x - b.x, Dd.z - b.z) - b.yaw) * Math.min(1, dt * 3);
         SCR = b.disScr; ln = SCR[b.disI || 0];
-        if (ln && tt >= ln[0]) { b.disI = (b.disI || 0) + 1; if (ln[1] === 'R') window.__botSayQ = ln[2]; else if (ln[1] === 'A') ALN.disTalk(); else { b.disTalk = 0; b.disMeet = 0; b.disCD = now + 240; b.idle = 0.5; } }
+        if (ln && tt >= ln[0]) { b.disI = (b.disI || 0) + 1; if (ln[1] === 'R') window.__botSayQ = ln[2]; else if (ln[1] === 'A') ALN.disTalk(); else { b.disTalk = 0; b.disMeet = 0; b.disForce = 0; b.disCD = now + 240; b.idle = 0.5; } }
       } else if (b.disMeet) {
-        if (now - b.disMeet > 45) b.disMeet = 0;
+        if (now - b.disMeet > (b.disForce ? 400 : 45)) { b.disMeet = 0; b.disForce = 0; }
+        else if (b.disForce && dist > 5 && now - (b.disRe || 0) > 2.5) { b.disRe = now; botDisGoal(Dd); } /* el alien se mueve: vuelve a apuntar al encuentro */
         else if (dist < 4.6 && b.mode === 'walk' && b.v < 3.5) {
           b.disTalk = now; b.disI = 0;
           b.disScr = [
