@@ -2352,20 +2352,138 @@ window.startMap = function (RAW, AUTH) {
         sunbathers.push({ g: root, ast: ast, ph: vr() * 6, x: sp2.x, z: sp2.z, wk: W });
       });
     })();
-    /* Geometrías compartidas: una sola InstancedMesh por geometría, con color por instancia */
+    /* Geometrías compartidas: una sola InstancedMesh por geometría, con color por instancia y sombreado por vértice (degradado) */
+    function nzG(x, y, z) { return Math.sin(x * 3.1 + y * 2.3) * Math.cos(z * 2.7 - y * 1.9) * 0.5 + Math.sin((x + z) * 4.1 + y) * 0.25; }
+    function lumpy(geo, amp, grad) {
+      var ps = geo.attributes.position, cs = new Float32Array(ps.count * 3), i, x, y, z, l, r, k;
+      for (i = 0; i < ps.count; i++) {
+        x = ps.getX(i); y = ps.getY(i); z = ps.getZ(i); l = Math.hypot(x, y, z) || 1; x /= l; y /= l; z /= l;
+        r = 1 + amp * nzG(x, y, z); ps.setXYZ(i, x * r, y * r, z * r);
+        k = 1 - grad + grad * (y * 0.5 + 0.5) - 0.06 * Math.max(0, nzG(x * 1.7, y, z * 1.7)); cs[i * 3] = cs[i * 3 + 1] = cs[i * 3 + 2] = k;
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(cs, 3));
+      return geo;
+    }
+    /* constructor de mallas planas a mano: tri() agrega un triángulo por las dos caras con brillo por vértice */
+    function GB() { return { p: [], c: [] }; }
+    function tri2(g, a, b, c, ka, kb, kc) {
+      g.p.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); g.c.push(ka, ka, ka, kb, kb, kb, kc, kc, kc);
+      g.p.push(a[0], a[1], a[2], c[0], c[1], c[2], b[0], b[1], b[2]); g.c.push(ka, ka, ka, kc, kc, kc, kb, kb, kb);
+    }
+    function tri1(g, a, b, c, ka, kb, kc) { g.p.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); g.c.push(ka, ka, ka, kb, kb, kb, kc, kc, kc); }
+    function GBfin(g) {
+      var geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(g.p, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(g.c, 3)); geo.computeVertexNormals();
+      return geo;
+    }
+    /* Tronco: más ancho en la base (raíces), ligeramente afinado arriba, con bandas de corteza */
+    function mkTrunk() {
+      var tg = new THREE.CylinderGeometry(0.085, 0.115, 1, 7, 3, true), tp = tg.attributes.position, tc = new Float32Array(tp.count * 3), i, x, y, z, t, th, f, k;
+      for (i = 0; i < tp.count; i++) {
+        x = tp.getX(i); y = tp.getY(i); z = tp.getZ(i); t = y + 0.5; th = Math.atan2(z, x);
+        f = 1 + 0.9 * Math.pow(Math.max(0, 0.34 - t) / 0.34, 1.6) * (1 + 0.35 * Math.cos(th * 3));
+        tp.setXYZ(i, x * f, y, z * f); k = (0.6 + 0.4 * t) * (0.92 + 0.08 * Math.sin(t * 38 + th * 2));
+        tc[i * 3] = tc[i * 3 + 1] = tc[i * 3 + 2] = k;
+      }
+      tg.setAttribute('color', new THREE.BufferAttribute(tc, 3));
+      return tg;
+    }
+    /* Piso de pino: cono con falda irregular y caída de ramas */
+    function mkTier() {
+      var g = GB(), N = 10, i, a0, a1, m0, m1, b0, b1, bm, ap = [0, 0.5, 0], rm0, rm1, rb0, rb1, yb0, yb1, ybm, rbm, am, v;
+      function R(i2, base, amp) { return base * (1 + amp * Math.sin(i2 * 2.7 + 1.3)); }
+      for (i = 0; i < N; i++) {
+        a0 = i / N * 6.2832; a1 = (i + 1) / N * 6.2832; am = (a0 + a1) / 2;
+        rm0 = R(i, 0.62, 0.1); rm1 = R(i + 1, 0.62, 0.1);
+        m0 = [Math.cos(a0) * rm0, 0.02, Math.sin(a0) * rm0]; m1 = [Math.cos(a1) * rm1, 0.02, Math.sin(a1) * rm1];
+        rb0 = R(i, 0.98, 0.07) * ((i % 2) ? 1 : 0.74); rb1 = R(i + 1, 0.98, 0.07) * (((i + 1) % 2) ? 1 : 0.74);
+        yb0 = (i % 2) ? -0.5 : -0.36; yb1 = ((i + 1) % 2) ? -0.5 : -0.36;
+        b0 = [Math.cos(a0) * rb0, yb0, Math.sin(a0) * rb0]; b1 = [Math.cos(a1) * rb1, yb1, Math.sin(a1) * rb1];
+        tri1(g, ap, m1, m0, 1.0, 0.86, 0.86);
+        tri1(g, m0, m1, b0, 0.86, 0.86, 0.6);
+        tri1(g, m1, b1, b0, 0.86, 0.6, 0.6);
+        tri1(g, [0, -0.34, 0], b0, b1, 0.35, 0.4, 0.4); /* cara inferior, sombra */
+      }
+      return GBfin(g);
+    }
+    /* Hoja de palma: nervio curvo con foliolos finos a ambos lados que cuelgan */
+    function mkLeaf() {
+      var g = GB(), i, n = 10, s, s2, p0, p1, w, tp, sg, rw = 0.014;
+      function P(t) { return [-0.5 * t * t, t - 0.2 * t * t, 0]; }
+      for (i = 0; i < 6; i++) { /* nervio */
+        s = i / 6; s2 = (i + 1) / 6; p0 = P(s); p1 = P(s2);
+        tri2(g, [p0[0], p0[1], -rw * (1 - s * 0.6)], [p0[0], p0[1], rw * (1 - s * 0.6)], [p1[0], p1[1], rw * (1 - s2 * 0.6)], 1.25, 1.25, 1.25);
+        tri2(g, [p1[0], p1[1], -rw * (1 - s2 * 0.6)], [p0[0], p0[1], -rw * (1 - s * 0.6)], [p1[0], p1[1], rw * (1 - s2 * 0.6)], 1.25, 1.25, 1.25);
+      }
+      for (i = 0; i < n; i++) {
+        s = 0.07 + 0.93 * i / n; s2 = s + 0.1; if (s2 > 1) s2 = 1;
+        w = 0.3 * Math.pow(Math.sin(Math.min(1, s * 1.05) * 3.1416), 0.75) + 0.05;
+        p0 = P(s); p1 = P(s2); tp = P(s + 0.04);
+        for (sg = -1; sg <= 1; sg += 2) {
+          tri2(g, [p0[0], p0[1], sg * rw], [p1[0], p1[1], sg * rw], [tp[0] - 0.4 * w, tp[1] + 0.05, sg * w], 0.7, 0.8, 1.0);
+        }
+      }
+      return GBfin(g);
+    }
+    /* Penca de agave: hoja carnosa en canal, ancha en la base y puntiaguda */
+    function mkPenca() {
+      var g = GB(), i, n = 7, s, s2, w0, w1, c0, c1;
+      function P(t) { return [-0.38 * t * t, t, 0]; }
+      function W(t) { return 0.17 * Math.pow(1 - t, 0.65) * (0.3 + 0.7 * Math.min(1, t * 7)); }
+      for (i = 0; i < n; i++) {
+        s = i / n; s2 = (i + 1) / n; c0 = P(s); c1 = P(s2); w0 = W(s); w1 = W(s2);
+        var ch0 = -0.035 * (w0 / 0.17), ch1 = -0.035 * (w1 / 0.17), k0 = 0.7 + 0.3 * s, k1 = 0.7 + 0.3 * s2;
+        tri2(g, [c0[0] + ch0, c0[1], 0], [c0[0], c0[1], -w0], [c1[0] + ch1, c1[1], 0], k0 * 0.9, k0 * 1.12, k1 * 0.9);
+        tri2(g, [c1[0] + ch1, c1[1], 0], [c0[0], c0[1], -w0], [c1[0], c1[1], -w1], k1 * 0.9, k0 * 1.12, k1 * 1.12);
+        tri2(g, [c0[0] + ch0, c0[1], 0], [c1[0] + ch1, c1[1], 0], [c0[0], c0[1], w0], k0 * 0.9, k1 * 0.9, k0 * 1.12);
+        tri2(g, [c1[0] + ch1, c1[1], 0], [c1[0], c1[1], w1], [c0[0], c0[1], w0], k1 * 0.9, k1 * 1.12, k0 * 1.12);
+      }
+      return GBfin(g);
+    }
+    /* Mata de pasto: 8 hojas curvas */
+    function mkTuft() {
+      var g = GB(), b, a, h, j, s, s2, bx, bz, dx, dz, px, pz, w0, w1, p0, p1;
+      for (b = 0; b < 8; b++) {
+        a = b * 0.83 + 0.4 * Math.sin(b * 2.1); h = 0.55 + 0.4 * Math.abs(Math.sin(b * 1.7 + 0.5)); bx = Math.cos(a) * 0.07; bz = Math.sin(a) * 0.07; dx = Math.cos(a); dz = Math.sin(a); px = -dz; pz = dx;
+        for (j = 0; j < 3; j++) {
+          s = j / 3; s2 = (j + 1) / 3; w0 = 0.055 * (1 - s); w1 = 0.055 * (1 - s2);
+          p0 = [bx + dx * 0.3 * h * s * s, h * s, bz + dz * 0.3 * h * s * s]; p1 = [bx + dx * 0.3 * h * s2 * s2, h * s2, bz + dz * 0.3 * h * s2 * s2];
+          tri2(g, [p0[0] - px * w0, p0[1], p0[2] - pz * w0], [p0[0] + px * w0, p0[1], p0[2] + pz * w0], [p1[0] - px * w1, p1[1], p1[2] - pz * w1], 0.55 + 0.45 * s, 0.55 + 0.45 * s, 0.55 + 0.45 * s2);
+          if (j < 2) tri2(g, [p0[0] + px * w0, p0[1], p0[2] + pz * w0], [p1[0] + px * w1, p1[1], p1[2] + pz * w1], [p1[0] - px * w1, p1[1], p1[2] - pz * w1], 0.55 + 0.45 * s, 0.55 + 0.45 * s2, 0.55 + 0.45 * s2);
+        }
+      }
+      return GBfin(g);
+    }
+    /* Cactus: columna con costillas (8) y punta redondeada */
+    function mkRib() {
+      var cg = new THREE.CylinderGeometry(1, 0.92, 1, 12, 2), cp = cg.attributes.position, cc = new Float32Array(cp.count * 3), i, x, y, z, th, f, k, t;
+      for (i = 0; i < cp.count; i++) {
+        x = cp.getX(i); y = cp.getY(i); z = cp.getZ(i); th = Math.atan2(z, x); t = y + 0.5;
+        f = 1 + 0.1 * Math.cos(th * 8) - 0.5 * Math.pow(Math.max(0, t - 0.82) / 0.18, 2); k = 0.7 + 0.3 * (0.5 + 0.5 * Math.cos(th * 8)) * (0.6 + 0.4 * t);
+        cp.setXYZ(i, x * f, y, z * f); cc[i * 3] = cc[i * 3 + 1] = cc[i * 3 + 2] = k;
+      }
+      cg.setAttribute('color', new THREE.BufferAttribute(cc, 3));
+      return cg;
+    }
     var GEO = {
-      trunk: new THREE.CylinderGeometry(0.09, 0.12, 1, 6),
+      trunk: mkTrunk(),
       cone: new THREE.ConeGeometry(1, 1, 8),
-      ico: new THREE.IcosahedronGeometry(1, 1),
-      ico0: new THREE.IcosahedronGeometry(1, 0),
+      ico: lumpy(new THREE.IcosahedronGeometry(1, 1), 0.2, 0.42),
+      ico0: lumpy(new THREE.IcosahedronGeometry(1, 0), 0.14, 0.3),
       cyl: new THREE.CylinderGeometry(1, 1, 1, 7),
-      frond: new THREE.ConeGeometry(0.12, 1.1, 4)
+      frond: new THREE.ConeGeometry(0.12, 1.1, 4),
+      tier: mkTier(), leaf: mkLeaf(), penca: mkPenca(), tuft: mkTuft(), rib: mkRib()
     };
     GEO.frond.translate(0, 0.55, 0);
     var lists = {}, keys = Object.keys(GEO);
-    keys.forEach(function (kk) { GEO[kk] = GEO[kk].toNonIndexed(); GEO[kk].computeVertexNormals(); });
+    keys.forEach(function (kk) {
+      var gg = GEO[kk], cs, i;
+      if (gg.index) gg = GEO[kk] = gg.toNonIndexed();
+      if (!gg.attributes.color) { cs = new Float32Array(gg.attributes.position.count * 3); for (i = 0; i < cs.length; i++) cs[i] = 1; gg.setAttribute('color', new THREE.BufferAttribute(cs, 3)); }
+      gg.computeVertexNormals();
+    });
     keys.forEach(function (kk) { lists[kk] = []; });
-    var vMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    var vMat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
     var vB = new THREE.Matrix4(), vL = new THREE.Matrix4(), vP = new THREE.Vector3(), vS = new THREE.Vector3(), vQ = new THREE.Quaternion(), vQ2 = new THREE.Quaternion(), vE = new THREE.Euler();
     var AX_Y = new THREE.Vector3(0, 1, 0), AX_Z = new THREE.Vector3(0, 0, 1);
     function col(h, sat, l) { return new THREE.Color().setHSL(h, Math.min(1, sat), Math.max(0, Math.min(1, l))); }
@@ -2376,6 +2494,39 @@ window.startMap = function (RAW, AUTH) {
       lists[key].push({ m: vB.clone().multiply(vL), c: c });
     }
     var vqYaw = new THREE.Quaternion(), vOne = new THREE.Vector3();
+    function jit(c, dl) { var h = {}, o = c.getHSL(h); return col(h.h + (vr() - 0.5) * 0.015, h.s, h.l + (vr() - 0.5) * dl); }
+    /* Copa de varios lóbulos irregulares: n lóbulos repartidos en un elipsoide (rx, ry) + remate; los de abajo más oscuros */
+    function crown(cx, cy, cz, rx, ry, n, c1, c2, flat) {
+      var i, a, e, rr, yy, c;
+      for (i = 0; i < n; i++) {
+        a = i / n * 6.2832 + vr() * 0.7; e = 0.45 + vr() * 0.55; rr = rx * 0.58 * e; yy = (vr() - 0.35) * ry * 0.75;
+        c = (i % 2 ? c1 : c2);
+        part('ico', cx + Math.cos(a) * rr, cy + yy, cz + Math.sin(a) * rr, rx * (0.42 + vr() * 0.18), ry * (0.4 + vr() * 0.16) * (flat || 1), rx * (0.42 + vr() * 0.18), jit(c, 0.07), 0, vr() * 3, 0);
+      }
+      part('ico', cx + (vr() - 0.5) * rx * 0.3, cy + ry * 0.38, cz + (vr() - 0.5) * rx * 0.3, rx * 0.5, ry * 0.42 * (flat || 1), rx * 0.5, jit(c1, 0.06), 0, vr() * 3, 0);
+    }
+    /* Rama: cilindro que parte de (px,py,pz) con rumbo yaw e inclinación tilt */
+    function branch(px, py, pz, yaw, tilt, len, r, c) {
+      var dx = -Math.sin(tilt) * Math.cos(yaw), dy = Math.cos(tilt), dz = Math.sin(tilt) * Math.sin(yaw);
+      part('cyl', px + dx * len / 2, py + dy * len / 2, pz + dz * len / 2, r, len, r, c, 0, 0, 0, [yaw, tilt]);
+    }
+    /* Arbustos y piedras junto al árbol (sotobosque) */
+    function undergrowth(spread, bushCol, forest) {
+      var u = vr(), a = vr() * 6.283, d = spread * (0.8 + vr() * 0.7), qx = Math.cos(a) * d, qz = Math.sin(a) * d;
+      if (u < 0.28) {
+        part('ico0', qx, 0.14, qz, 0.28 + vr() * 0.12, 0.2, 0.26 + vr() * 0.1, jit(bushCol, 0.1), 0, vr() * 3, 0);
+        part('ico0', qx + 0.18, 0.1, qz + 0.08, 0.17, 0.13, 0.16, jit(bushCol, 0.1), 0, vr() * 3, 0);
+      } else if (u < 0.5) {
+        part('ico0', qx, 0.07, qz, 0.2 + vr() * 0.1, 0.12, 0.17, col(0.6, 0.07, 0.34 + vr() * 0.12), 0, vr() * 3, 0);
+        if (vr() < 0.6) part('ico0', qx + 0.2, 0.04, qz - 0.1, 0.1, 0.07, 0.09, col(0.6, 0.06, 0.3 + vr() * 0.1), 0, vr() * 3, 0);
+      } else if (u < 0.8) {
+        part('tuft', qx, 0, qz, 0.7, 0.8, 0.7, forest, 0, vr() * 6, 0);
+      } else if (u < 0.93) {
+        var fc = [col(0.0, 0.75, 0.55), col(0.12, 0.9, 0.55), col(0.15, 0.95, 0.6), col(0.85, 0.6, 0.62), col(0.58, 0.7, 0.65)][Math.floor(vr() * 5)], q;
+        part('tuft', qx, 0, qz, 0.5, 0.5, 0.5, forest, 0, vr() * 6, 0);
+        for (q = 0; q < 3; q++) part('ico0', qx + (vr() - 0.5) * 0.3, 0.26 + vr() * 0.14, qz + (vr() - 0.5) * 0.3, 0.05, 0.04, 0.05, fc);
+      }
+    }
     plants.forEach(function (pl) {
       var sc = 0.75 + vr() * 0.6, yaw = vr() * 6.283, z = pl.zone, c1, c2, c3, trunkC, kk, side, arm, nn, ang, rr;
       /* Los árboles grandes crecen más en el centro de los bosques (variación de tamaño) */
@@ -2383,42 +2534,53 @@ window.startMap = function (RAW, AUTH) {
       vqYaw.setFromAxisAngle(AX_Y, yaw);
       vB.compose(new THREE.Vector3(pl.x, pl.y || 0, pl.z), vqYaw, vOne.set(sc, sc, sc));
       trunkC = col(0.07 + vr() * 0.02, 0.4, 0.2 + vr() * 0.06);
+      var gTuft = z === 'arid' ? col(0.13 + vr() * 0.03, 0.4, 0.4 + vr() * 0.06) : col(0.25 + vr() * 0.06, 0.5, 0.34 + vr() * 0.08), gBush = z === 'arid' ? col(0.14, 0.3, 0.34) : z === 'trop' ? col(0.35, 0.6, 0.27) : col(0.31, 0.45, 0.24);
       if (pl.type === 'pine') {
-        /* Pino/abeto en 3 niveles con tonos azul-verdosos */
+        /* Pino/abeto: 5 pisos con falda irregular, cada uno girado; tono azul-verdoso */
         c1 = col(0.36 + vr() * 0.05, 0.45 + vr() * 0.15, (z === 'arid' ? 0.26 : 0.16) + vr() * 0.08);
         c2 = col(0.38 + vr() * 0.04, 0.5, (z === 'arid' ? 0.3 : 0.21) + vr() * 0.07);
-        part('trunk', 0, 0.3, 0, 1.1, 0.6, 1.1, trunkC);
-        part('cone', 0, 0.8, 0, 0.7, 0.9, 0.7, c1);
-        part('cone', 0, 1.35, 0, 0.54, 0.85, 0.54, c2);
-        part('cone', 0, 1.85, 0, 0.36, 0.75, 0.36, c1);
+        part('trunk', 0, 0.55, 0, 1.15, 1.1, 1.15, trunkC);
+        part('tier', 0, 0.78, 0, 0.78, 0.7, 0.78, c1, 0, vr() * 6, 0);
+        part('tier', 0, 1.2, 0, 0.66, 0.68, 0.66, c2, 0, vr() * 6, 0);
+        part('tier', 0, 1.58, 0, 0.54, 0.64, 0.54, c1, 0, vr() * 6, 0);
+        part('tier', 0, 1.92, 0, 0.42, 0.6, 0.42, c2, 0, vr() * 6, 0);
+        part('tier', 0, 2.22, 0, 0.28, 0.54, 0.28, c1, 0, vr() * 6, 0);
+        if (vr() < 0.5) part('cone', 0, 2.52, 0, 0.05, 0.28, 0.05, col(0.09, 0.4, 0.22));
+        if (vr() < 0.7) undergrowth(0.65, gBush, gTuft);
       } else if (pl.type === 'oak') {
-        /* Encino/ahuehuete: tronco grueso y copa ancha de varios lóbulos */
+        /* Encino/ahuehuete: tronco grueso con raíces y ramas, copa ancha de varios lóbulos */
         c1 = z === 'trop' ? col(0.32 + vr() * 0.04, 0.62, 0.24 + vr() * 0.08) : col(0.27 + vr() * 0.07, 0.5 + vr() * 0.15, 0.22 + vr() * 0.1);
         c2 = col(0.27 + vr() * 0.07, 0.5, 0.3 + vr() * 0.08);
-        part('trunk', 0, 0.45, 0, 1.7, 0.9, 1.7, trunkC);
-        part('ico', 0, 1.2, 0, 0.8, 0.55, 0.8, c1);
-        part('ico', 0.38, 1.05, 0.12, 0.5, 0.4, 0.5, c2);
-        part('ico', -0.3, 1.1, -0.2, 0.52, 0.42, 0.52, c1);
-        part('ico', 0.05, 1.55, 0.05, 0.5, 0.36, 0.5, c2);
+        part('trunk', 0, 0.55, 0, 1.9, 1.1, 1.9, trunkC);
+        branch(0, 1.0, 0, 0.3, 0.75, 0.62, 0.07, trunkC); branch(0, 1.05, 0, 2.5, 0.8, 0.6, 0.065, trunkC); branch(0, 0.98, 0, 4.6, 0.7, 0.55, 0.06, trunkC);
+        crown(0, 1.5, 0, 0.95, 0.62, 5, c1, c2);
+        undergrowth(0.9, gBush, gTuft); if (vr() < 0.5) undergrowth(1.1, gBush, gTuft);
       } else if (pl.type === 'round') {
         if (z === 'arid') c1 = col(0.2 + vr() * 0.05, 0.3, 0.3 + vr() * 0.08);
         else if (z === 'trop') c1 = col(0.33 + vr() * 0.05, 0.6, 0.28 + vr() * 0.1);
         else c1 = vr() < 0.08 ? col(0.08 + vr() * 0.05, 0.6, 0.38) : col(0.3 + vr() * 0.07, 0.45 + vr() * 0.2, 0.26 + vr() * 0.12);
-        part('trunk', 0, 0.35, 0, 1.1, 0.7, 1.1, trunkC);
-        part('ico', 0, 1.05, 0, 0.68, 0.6, 0.68, c1);
-        part('ico', 0.18, 1.3, 0.1, 0.4, 0.34, 0.4, col(0.3 + vr() * 0.06, 0.5, 0.34 + vr() * 0.08));
+        c2 = col(0.3 + vr() * 0.06, 0.5, 0.34 + vr() * 0.08);
+        part('trunk', 0, 0.45, 0, 1.3, 0.9, 1.3, trunkC);
+        branch(0, 0.8, 0, vr() * 6, 0.6, 0.45, 0.055, trunkC); branch(0, 0.85, 0, vr() * 6, 0.65, 0.4, 0.05, trunkC);
+        crown(0, 1.2, 0, 0.72, 0.52, 3, c1, c2);
+        if (vr() < 0.6) undergrowth(0.65, gBush, gTuft);
       } else if (pl.type === 'birch') {
-        /* Abedul/fresno: tronco claro y copa alargada amarillo-verdosa */
-        c1 = col(0.19 + vr() * 0.07, 0.55, 0.36 + vr() * 0.1);
-        part('trunk', 0, 0.7, 0, 0.8, 1.4, 0.8, col(0.12, 0.08, 0.78));
-        part('ico', 0, 1.55, 0, 0.42, 0.78, 0.42, c1);
-        part('ico', 0.12, 1.15, 0.08, 0.3, 0.45, 0.3, c1);
+        /* Abedul/fresno: tronco claro con marcas oscuras, copa alargada amarillo-verdosa */
+        c1 = col(0.19 + vr() * 0.07, 0.55, 0.36 + vr() * 0.1); c2 = col(0.22 + vr() * 0.06, 0.55, 0.42 + vr() * 0.08);
+        part('trunk', 0, 0.7, 0, 0.85, 1.4, 0.85, col(0.12, 0.08, 0.78));
+        for (kk = 0; kk < 4; kk++) part('cyl', 0, 0.35 + kk * 0.28 + vr() * 0.08, 0, 0.074, 0.035, 0.074, col(0.08, 0.15, 0.14 + vr() * 0.06), 0, vr() * 3, 0);
+        branch(0, 1.2, 0, vr() * 6, 0.55, 0.4, 0.035, col(0.12, 0.08, 0.7));
+        crown(0, 1.62, 0, 0.5, 0.85, 3, c1, c2);
+        if (vr() < 0.6) undergrowth(0.5, gBush, gTuft);
       } else if (pl.type === 'jacaranda') {
-        /* Jacaranda: copa morada/lila (muy típica del centro del país) */
+        /* Jacaranda: copa morada/lila (muy típica del centro del país) con manchas más claras */
         c1 = vr() < 0.7 ? col(0.74 + vr() * 0.05, 0.5, 0.58 + vr() * 0.08) : col(0.9 + vr() * 0.04, 0.45, 0.66);
-        part('trunk', 0, 0.45, 0, 1.2, 0.9, 1.2, trunkC);
-        part('ico', 0, 1.2, 0, 0.72, 0.52, 0.72, c1);
-        part('ico', 0.3, 1.05, 0.1, 0.42, 0.34, 0.42, c1);
+        c2 = col(0.76 + vr() * 0.04, 0.45, 0.68 + vr() * 0.06);
+        part('trunk', 0, 0.5, 0, 1.4, 1.0, 1.4, trunkC);
+        branch(0, 0.95, 0, 1.0, 0.8, 0.55, 0.06, trunkC); branch(0, 0.95, 0, 4.0, 0.85, 0.55, 0.06, trunkC);
+        crown(0, 1.35, 0, 0.85, 0.55, 4, c1, c2, 0.9);
+        for (kk = 0; kk < 5; kk++) part('ico0', (vr() - 0.5) * 1.1, 0.05, (vr() - 0.5) * 1.1, 0.07, 0.025, 0.07, c2); /* flores caídas */
+        if (vr() < 0.4) undergrowth(0.9, gBush, gTuft);
       } else if (pl.type === 'golden') {
         /* Árbol dorado: tronco blanco retorcido, dos copas naranja-doradas con bordes escalonados y gotas colgantes */
         var wh = col(0.12, 0.08, 0.88 + vr() * 0.06), g1 = col(0.115 + vr() * 0.015, 0.92, 0.52), g2 = col(0.095, 0.95, 0.45), g3 = col(0.13, 0.9, 0.6), cx, cy, cz, cs;
@@ -2440,62 +2602,75 @@ window.startMap = function (RAW, AUTH) {
           }
         });
       } else if (pl.type === 'palm') {
+        /* Palmera: tronco curvo con anillos, 12 hojas en pluma con foliolos, algunas secas colgando y racimo de cocos */
         c1 = col(0.36 + vr() * 0.04, 0.55, 0.27 + vr() * 0.08);
         c2 = col(0.08, 0.35, 0.35 + vr() * 0.08);
-        part('trunk', 0, 0.85, 0, 0.8, 1.7, 0.8, c2, 0, 0, 0.08);
-        /* Copa centrada en la punta real del tronco inclinado (rz = 0.08 sobre su centro) */
-        var tx = -0.85 * Math.sin(0.08), ty = 0.85 + 0.85 * Math.cos(0.08), fa, ft, fl;
-        for (kk = 0; kk < 10; kk++) {
-          fa = kk * Math.PI * 2 / 10 + vr() * 0.25; ft = 0.7 + vr() * 0.3; fl = 0.9 + vr() * 0.4;
-          c3 = col(0.34 + vr() * 0.05, 0.55, 0.25 + vr() * 0.1);
-          /* Segmento 1: hoja plana y ancha; segmento 2: punta que cae en arco */
-          part('frond', tx, ty, 0, 0.35, fl, 2.6, c3, 0, 0, 0, [fa, ft]);
-          part('frond', tx - 1.1 * fl * Math.sin(ft) * Math.cos(fa), ty + 1.1 * fl * Math.cos(ft), 1.1 * fl * Math.sin(ft) * Math.sin(fa), 0.3, fl * 0.7, 2.1, c1, 0, 0, 0, [fa, ft + 0.8]);
+        var lean = 0.1 + vr() * 0.08, sgn = vr() < 0.5 ? -1 : 1, px0 = 0, py0 = 0, seg = 6, sl2 = 0.3, ta, ft, fa, fl, dead;
+        for (kk = 0; kk < seg; kk++) {
+          ta = lean * (kk + 0.5) / seg * 1.6 * sgn;
+          part('trunk', px0 - Math.sin(ta) * sl2 / 2, py0 + Math.cos(ta) * sl2 / 2, 0, kk % 2 ? 0.8 : 0.9, sl2 * 1.08, kk % 2 ? 0.8 : 0.9, kk % 2 ? c2 : jit(c2, 0.07), 0, 0, ta);
+          px0 -= Math.sin(ta) * sl2; py0 += Math.cos(ta) * sl2;
         }
-        /* Racimo de cocos bajo la copa */
-        for (kk = 0; kk < 3; kk++) part('ico0', tx + Math.cos(kk * 2.1) * 0.08, ty - 0.07, Math.sin(kk * 2.1) * 0.08, 0.075, 0.075, 0.075, col(0.08, 0.5, 0.2));
+        var tx = px0, ty = py0 + 0.05;
+        for (kk = 0; kk < 10; kk++) {
+          fa = kk * Math.PI * 2 / 10 + vr() * 0.3; dead = kk % 5 === 3;
+          ft = dead ? 2.2 + vr() * 0.3 : 0.55 + (kk % 2) * 0.35 + vr() * 0.25; fl = (dead ? 1.2 : 1.7 + vr() * 0.6);
+          c3 = dead ? col(0.1, 0.5, 0.28 + vr() * 0.06) : col(0.33 + vr() * 0.05, 0.58, 0.24 + vr() * 0.1);
+          part('leaf', tx, ty, 0, fl * 0.9, fl, fl * 0.9, c3, 0, 0, 0, [fa, ft]);
+        }
+        for (kk = 0; kk < 3; kk++) part('ico0', tx + Math.cos(kk * 2.1) * 0.09, ty - 0.1, Math.sin(kk * 2.1) * 0.09, 0.085, 0.085, 0.085, col(0.08, 0.55, 0.2 + vr() * 0.05));
+        if (vr() < 0.35) undergrowth(0.7, gBush, gTuft);
       } else if (pl.type === 'cactus') {
         c1 = col(0.4 + vr() * 0.05, 0.38, 0.3 + vr() * 0.08);
-        part('cyl', 0, 0.5, 0, 0.15, 1.0, 0.15, c1);
+        part('rib', 0, 0.5, 0, 0.16, 1.0, 0.16, c1);
+        part('ico0', 0, 1.0, 0, 0.12, 0.09, 0.12, c1);
         for (side = -1; side <= 1; side += 2) {
           if (vr() < 0.6) {
             arm = 0.3 + vr() * 0.25;
-            part('cyl', side * 0.27, 0.5 + vr() * 0.1, 0, 0.09, 0.34, 0.09, c1, 0, 0, Math.PI / 2);
-            part('cyl', side * 0.42, 0.55 + arm / 2, 0, 0.09, arm, 0.09, c1);
+            part('rib', side * 0.27, 0.5 + vr() * 0.1, 0, 0.1, 0.34, 0.1, c1, 0, 0, Math.PI / 2);
+            part('rib', side * 0.42, 0.55 + arm / 2, 0, 0.1, arm, 0.1, c1);
+            part('ico0', side * 0.42, 0.55 + arm, 0, 0.075, 0.06, 0.075, c1);
           }
         }
-        if (vr() < 0.3) part('ico0', 0, 1.04, 0, 0.07, 0.05, 0.07, col(0.95, 0.7, 0.6));
+        if (vr() < 0.5) { part('ico0', 0.02, 1.07, 0.02, 0.07, 0.05, 0.07, col(0.95, 0.7, 0.6)); part('ico0', 0.05, 1.1, 0, 0.04, 0.03, 0.04, col(0.13, 0.9, 0.62)); }
+        if (vr() < 0.5) undergrowth(0.5, gBush, gTuft);
       } else if (pl.type === 'agave') {
-        /* Agave/maguey: roseta de pencas azul-verdosas */
+        /* Agave/maguey: roseta de 14 pencas en canal, azul-verdosas, con punta más clara */
         c1 = col(0.44 + vr() * 0.05, 0.28, 0.34 + vr() * 0.1);
-        nn = 9;
-        for (kk = 0; kk < nn; kk++) part('frond', 0, 0.04, 0, 1.5, 0.75, 1.5, c1, 0, 0, 0, [kk * Math.PI * 2 / nn + vr() * 0.2, 0.7 + vr() * 0.3]);
+        nn = 14;
+        for (kk = 0; kk < nn; kk++) part('penca', 0, 0.05 + (kk % 2) * 0.03, 0, 1.0, 0.6 + (kk % 3) * 0.14, 1.0, jit(c1, 0.07), 0, 0, 0, [kk * Math.PI * 2 / nn + vr() * 0.2, 0.28 + (kk % 3) * 0.28 + vr() * 0.15]);
+        part('cone', 0, 0.28, 0, 0.06, 0.34, 0.06, jit(c1, 0.05));
       } else if (pl.type === 'flower') {
-        /* Mancha de flores silvestres de colores */
-        nn = 3 + Math.floor(vr() * 3);
+        /* Mancha de flores silvestres de colores, con hojas */
+        nn = 4 + Math.floor(vr() * 3);
         c1 = [col(0.0, 0.75, 0.55), col(0.12, 0.9, 0.55), col(0.15, 0.95, 0.6), col(0.85, 0.6, 0.62), col(0.58, 0.7, 0.65), col(0.08, 0.85, 0.55)][Math.floor(vr() * 6)];
+        part('tuft', 0, 0, 0, 0.5, 0.55, 0.5, col(0.29 + vr() * 0.05, 0.5, 0.26), 0, vr() * 6, 0);
         for (kk = 0; kk < nn; kk++) {
-          ang = vr() * 6.283; rr = 0.12 + vr() * 0.3;
-          part('cyl', Math.cos(ang) * rr, 0.07, Math.sin(ang) * rr, 0.012, 0.14, 0.012, col(0.3, 0.5, 0.25));
-          part('ico0', Math.cos(ang) * rr, 0.16, Math.sin(ang) * rr, 0.075, 0.06, 0.075, c1);
+          ang = vr() * 6.283; rr = 0.1 + vr() * 0.3;
+          part('cyl', Math.cos(ang) * rr, 0.09, Math.sin(ang) * rr, 0.012, 0.18, 0.012, col(0.3, 0.5, 0.25));
+          part('ico0', Math.cos(ang) * rr, 0.2, Math.sin(ang) * rr, 0.085, 0.045, 0.085, c1, 0, vr() * 3, 0);
+          part('ico0', Math.cos(ang) * rr, 0.225, Math.sin(ang) * rr, 0.03, 0.025, 0.03, col(0.14, 0.9, 0.6));
         }
-        part('ico0', 0, 0.06, 0, 0.3, 0.1, 0.3, col(0.29 + vr() * 0.05, 0.5, 0.24));
       } else if (pl.type === 'grass') {
         /* Macolla de pasto */
         c1 = z === 'arid' ? col(0.13 + vr() * 0.04, 0.4, 0.4 + vr() * 0.08) : col(0.24 + vr() * 0.07, 0.5, 0.32 + vr() * 0.1);
-        for (kk = 0; kk < 5; kk++) part('frond', 0, 0, 0, 0.9, 0.55 + vr() * 0.3, 0.9, c1, 0, 0, 0, [kk * 1.26 + vr() * 0.4, 0.15 + vr() * 0.3]);
+        part('tuft', 0, 0, 0, 1.0 + vr() * 0.3, 0.8 + vr() * 0.5, 1.0 + vr() * 0.3, c1, 0, vr() * 6, 0);
+        if (vr() < 0.5) part('tuft', 0.28, 0, 0.1, 0.7, 0.6 + vr() * 0.4, 0.7, jit(c1, 0.08), 0, vr() * 6, 0);
       } else if (pl.type === 'bush') {
         if (z === 'arid') c1 = col(0.14 + vr() * 0.05, 0.3, 0.34 + vr() * 0.08);
         else if (z === 'trop') c1 = col(0.35 + vr() * 0.04, 0.6, 0.26 + vr() * 0.08);
         else c1 = col(0.31 + vr() * 0.05, 0.45, 0.22 + vr() * 0.1);
-        part('ico0', 0, 0.25, 0, 0.5, 0.34, 0.5, c1);
-        part('ico0', 0.3, 0.2, 0.1, 0.3, 0.24, 0.3, col(0.3 + vr() * 0.06, 0.45, 0.3));
-        if (vr() < 0.5) part('ico0', -0.26, 0.17, -0.12, 0.26, 0.2, 0.26, c1);
+        part('ico', 0, 0.26, 0, 0.5, 0.34, 0.5, c1, 0, vr() * 3, 0);
+        part('ico', 0.3, 0.2, 0.1, 0.32, 0.25, 0.3, jit(c1, 0.1), 0, vr() * 3, 0);
+        part('ico', -0.28, 0.18, -0.12, 0.28, 0.22, 0.27, jit(c1, 0.1), 0, vr() * 3, 0);
+        if (vr() < 0.4) { var bc = [col(0.0, 0.7, 0.45), col(0.9, 0.5, 0.6), col(0.14, 0.9, 0.6)][Math.floor(vr() * 3)]; for (kk = 0; kk < 4; kk++) part('ico0', (vr() - 0.5) * 0.7, 0.3 + vr() * 0.2, (vr() - 0.5) * 0.7, 0.045, 0.04, 0.045, bc); }
       } else {
-        /* Rocas agrupadas */
+        /* Rocas agrupadas, irregulares */
         c1 = col(0.6, 0.08, 0.36 + vr() * 0.12);
-        part('ico0', 0, 0.12, 0, 0.38, 0.22, 0.3, c1, 0, vr() * 3, 0);
-        part('ico0', 0.3, 0.07, 0.15, 0.2, 0.13, 0.18, col(0.6, 0.06, 0.3 + vr() * 0.1), 0, vr() * 3, 0);
+        part('ico0', 0, 0.13, 0, 0.4, 0.24, 0.31, c1, 0, vr() * 3, 0);
+        part('ico0', 0.3, 0.08, 0.15, 0.22, 0.14, 0.19, col(0.6, 0.06, 0.3 + vr() * 0.1), 0, vr() * 3, 0);
+        part('ico0', -0.28, 0.05, -0.1, 0.15, 0.1, 0.13, col(0.6, 0.06, 0.34 + vr() * 0.1), 0, vr() * 3, 0);
+        if (vr() < 0.5) part('tuft', 0.1, 0, -0.3, 0.5, 0.5, 0.5, gTuft, 0, vr() * 6, 0);
       }
     });
     keys.forEach(function (kk) {
