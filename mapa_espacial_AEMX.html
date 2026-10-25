@@ -5364,20 +5364,20 @@ window.startMap = function (RAW, AUTH) {
       if (u.T >= 3) ufoExplode();
     } else if (u.state === 'wreck') {
       /* Columna de humo larga (~25 de alto) */
-      if (u.sm <= 0) {
+      if (u.sm <= 0 && u.T < 60) {
         u.sm = 0.12;
         fxSpawn(u.x + (r() - 0.5), (u.gy || 0) + 1.0, u.z + (r() - 0.5), (r() - 0.5) * 0.6, 5 + r() * 1.5, (r() - 0.5) * 0.6, 4.5, 0.6, 3.8, 0x2f3036, 0.55, false);
       }
       /* Llamas verdes y resplandor en la base */
       u.fl = (u.fl || 0) - dt;
-      if (u.fl <= 0) {
+      if (u.fl <= 0 && u.T < 60) {
         u.fl = 0.05;
         fxSpawn(u.x + (r() - 0.5) * 1.6, (u.gy || 0) + 0.3 + r() * 0.3, u.z + (r() - 0.5) * 1.6, (r() - 0.5) * 0.8, 2 + r() * 2.5, (r() - 0.5) * 0.8, 0.45 + r() * 0.2, 0.8, 0.1, r() < 0.5 ? 0x39ff6a : 0xb6ff3d, 0.9, true);
         fxSpawn(u.x + (r() - 0.5) * 1.6, (u.gy || 0) + 0.3 + r() * 0.3, u.z + (r() - 0.5) * 1.6, (r() - 0.5) * 0.8, 2 + r() * 2.5, (r() - 0.5) * 0.8, 0.45 + r() * 0.2, 0.8, 0.1, r() < 0.5 ? 0x39ff6a : 0xb6ff3d, 0.9, true);
         if (r() < 0.5) fxSpawn(u.x, (u.gy || 0) + 0.6, u.z, 0, 0, 0, 0.15, 2.4 + r() * 0.4, 2.0, 0x1fff6a, 0.35, true);
       }
       var bw = bot && bot.mode === 'walk' && (bot.gtype === 'wreck' || (bot.scan && bot.scanT < 4));
-      if (u.T >= 8 && !(bw && u.T < 20)) ufoRespawn();
+      if (u.T >= 180 && !(typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && !S.end; })(ALN.state()))) ufoRespawn(); /* descanso de 3 min; no reaparece en plena invasión */
     } else {
       glitchStep(u, dt);
       if (u.T >= 5.0) ufoSpawnEnd();
@@ -6811,7 +6811,8 @@ window.startMap = function (RAW, AUTH) {
   }
   function botPick() {
     var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown() && !ufoOverVolc()) ? ufo.g.position : null, toward = !!Up && Math.hypot(Up.x - b.x, Up.z - b.z) < 500 && Math.random() < 0.7;
-    if (Math.random() < 0.55 && botPickCity()) return;
+    var freeT = ufoDown() && !(typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state()); /* sin OVNI ni invasión: explora ciudades */
+    if (Math.random() < (freeT ? 0.9 : 0.55) && botPickCity()) return;
     if (Math.random() < 0.5 && botPickRoof(60)) return;
     for (i = 0; i < 30; i++) {
       a = toward ? Math.atan2(Up.z - b.z, Up.x - b.x) + (Math.random() - 0.5) * 1.2 : Math.random() * 6.2832; r = 25 + Math.random() * 70; x = b.x + Math.cos(a) * r; z = b.z + Math.sin(a) * r;
@@ -8529,7 +8530,7 @@ window.startMap = function (RAW, AUTH) {
       var mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; noRay(mesh); grp.add(mesh);
       return mesh;
     }
-    var inv = null, nextAt = 60 + Math.random() * 40, lastName = '', cur = null, pickT = 0, tpos = new THREE.Vector3();
+    var inv = null, nextAt = 360, lastName = '', cur = null, pickT = 0, tpos = new THREE.Vector3();
     function free(a, x, z) { return inPoly(inv.rings, x, z) && botFree(x, z); }
     function okSpawn(x, z) { return inPoly(inv.rings, x, z) && inPoly(inv.rings, x + 4, z) && inPoly(inv.rings, x - 4, z) && inPoly(inv.rings, x, z + 4) && inPoly(inv.rings, x, z - 4) && botFree(x, z); }
     function start(name) {
@@ -8570,7 +8571,7 @@ window.startMap = function (RAW, AUTH) {
       inv.al.forEach(function (a) { dispose(a.o); disposeBar(a); if (a.beam) { grp.remove(a.beam); a.beam.material.dispose(); } });
       if (inv.wall) { grp.remove(inv.wall); inv.wall.geometry.dispose(); inv.wall.material.dispose(); }
       metClean(inv.met);
-      inv = null; cur = null; nextAt = clock.elapsedTime + 90 + Math.random() * 90;
+      inv = null; cur = null; nextAt = clock.elapsedTime + 360; /* descanso de 6 min entre invasiones */
     }
     /* Rumbo de huida: el más cercano a "alejarse del robot" que no choca con la frontera, el agua ni los edificios */
     function flee(a, want) {
@@ -8848,24 +8849,35 @@ window.startMap = function (RAW, AUTH) {
       (function () {
         var inA = !!(nm && statePolys[nm] && botInRings(statePolys[nm], bot.x, bot.z)), al = document.getElementById('invAl'), mn = document.getElementById('bMini');
         if (inA !== hud._ia || nm !== hud._nm2) { hud._ia = inA; hud._nm2 = nm; al.classList.toggle('on', !!nm && !inA); } /* el letrero se quita al entrar al área invadida */
-        if (!!nm !== hud._mn) { hud._mn = !!nm; mn.classList.toggle('on', !!nm); }
-        if (!nm) return;
-        var cv = document.getElementById('bMiniC'), g = cv.getContext('2d'), W = cv.width, R = W / 2, SC = R / 70, ys = botYawCam, sy = Math.sin(ys), cy = Math.cos(ys), L = ALN.list(), i, e, dx, dz, f, r, px, py, d, n = 0, rk = ALN.rock();
-        g.clearRect(0, 0, W, W); g.save(); g.beginPath(); g.arc(R, R, R - 2, 0, 6.2832); g.clip();
-        g.strokeStyle = 'rgba(255,120,120,0.28)'; g.lineWidth = 2;
-        for (i = 1; i <= 2; i++) { g.beginPath(); g.arc(R, R, R * i / 3, 0, 6.2832); g.stroke(); }
-        g.beginPath(); g.moveTo(R, 0); g.lineTo(R, W); g.moveTo(0, R); g.lineTo(W, R); g.stroke();
+        if (!hud._mn) { hud._mn = true; mn.classList.add('on'); }
+        if (!hud._mrd) hud._mrd = 0; if (++hud._mrd % 3) return; /* el minimapa se redibuja cada 3 cuadros */
+        var cv = document.getElementById('bMiniC'), g = cv.getContext('2d'), W = cv.width, R = W / 2, RNG = nm ? 70 : 230, SC = R / RNG, ys = botYawCam, sy = Math.sin(ys), cy = Math.cos(ys), i, e, dx, dz, f, r, px, py, d, n = 0, rk = nm ? ALN.rock() : null, L = nm ? ALN.list() : [], q, k, st, pt;
+        function P(x, z) { dx = x - bot.x; dz = z - bot.z; f = dx * sy + dz * cy; r = -dx * cy + dz * sy; px = R + r * SC; py = R - f * SC; return px; }
         function dot(x, z, rad, col, sq) {
-          dx = x - bot.x; dz = z - bot.z; f = dx * sy + dz * cy; r = -dx * cy + dz * sy; px = R + r * SC; py = R - f * SC; d = Math.hypot(px - R, py - R);
+          P(x, z); d = Math.hypot(px - R, py - R);
           if (d > R - 10) { px = R + (px - R) * (R - 10) / d; py = R + (py - R) * (R - 10) / d; rad *= 0.75; g.globalAlpha = 0.65; }
           g.fillStyle = col; g.beginPath(); if (sq) g.rect(px - rad, py - rad, rad * 2, rad * 2); else g.arc(px, py, rad, 0, 6.2832); g.fill(); g.globalAlpha = 1;
         }
+        g.clearRect(0, 0, W, W); g.save(); g.beginPath(); g.arc(R, R, R - 2, 0, 6.2832); g.clip();
+        /* Tierra y mar (rejilla gruesa) */
+        if (landAt) { var NG = 22, cs = W / NG, gx, gz, wx, wz; for (gx = 0; gx < NG; gx++) for (gz = 0; gz < NG; gz++) { r = (gx + 0.5) * cs - R; f = R - (gz + 0.5) * cs; wx = bot.x + (r * (-cy) + f * sy) / SC; wz = bot.z + (r * sy + f * cy) / SC; g.fillStyle = landAt(wx, wz) ? 'rgba(46,110,70,0.55)' : 'rgba(20,70,120,0.45)'; g.fillRect(gx * cs, gz * cs, cs + 1, cs + 1); } }
+        /* Estado invadido */
+        if (nm && statePolys[nm]) { g.strokeStyle = 'rgba(255,70,70,0.9)'; g.lineWidth = 3; statePolys[nm].forEach(function (ring) { g.beginPath(); for (i = 0; i < ring.length; i++) { P(ring[i][0], ring[i][1]); if (i) g.lineTo(px, py); else g.moveTo(px, py); } g.closePath(); g.stroke(); }); }
+        /* Caminos */
+        g.strokeStyle = 'rgba(214,170,110,0.9)'; g.lineWidth = nm ? 4 : 3; g.lineJoin = 'round';
+        for (i = 0; i < trails.length; i++) { q = trails[i].pts; if (!q) continue; g.beginPath(); st = false; for (k = 0; k < q.length; k++) { P(q[k][0], q[k][1]); if (Math.abs(px - R) < R * 1.4 && Math.abs(py - R) < R * 1.4) { if (st) g.lineTo(px, py); else { g.moveTo(px, py); st = true; } } else st = false; } g.stroke(); }
+        /* Ciudades */
+        for (i = 0; i < districts.length; i++) { q = districts[i]; if (!q.list.length) continue; P(q.cx, q.cz); d = Math.hypot(px - R, py - R); if (d > R + q.r * SC) continue; g.fillStyle = q.list.indexOf(pres) >= 0 ? 'rgba(250,204,21,0.8)' : 'rgba(63,208,255,0.75)'; g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, Math.max(6, q.r * 0.8 * SC), 0, 6.2832); g.fill(); g.stroke(); }
+        /* Caminante y OVNI */
+        if (wand) dot(wand.x, wand.z, 6, '#ffb86b', false);
+        if (ufo && ufo.g && ufo.g.visible && !ufoDown()) { dot(ufo.x, ufo.z, 8, '#5dff7a', false); g.strokeStyle = '#d7ffe0'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, 11, 0, 6.2832); g.stroke(); }
         for (i = 0; i < L.length; i++) { e = L[i]; if (e.s === 'live' || e.s === 'spawn') { n++; if (e.s === 'live') dot(e.x, e.z, 5, '#ff4a4a'); } }
         if (rk) dot(rk.x, rk.z, 10, '#ff9a2a', true);
         g.restore();
-        g.fillStyle = '#3fd0ff'; g.beginPath(); g.moveTo(R, R - 12); g.lineTo(R + 8, R + 9); g.lineTo(R, R + 4); g.lineTo(R - 8, R + 9); g.closePath(); g.fill();
-        var tt = n > 0 ? 'Aliens: ' + n : (rk ? 'Meteorito' : '');
+        g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(R, R - 13); g.lineTo(R + 9, R + 10); g.lineTo(R, R + 5); g.lineTo(R - 9, R + 10); g.closePath(); g.fill(); g.strokeStyle = '#0b5a7a'; g.lineWidth = 2; g.stroke();
+        var tt = nm ? (n > 0 ? 'Aliens: ' + n : (rk ? 'Meteorito' : 'Invasión')) : 'Mapa';
         if (tt !== hud._tt) { hud._tt = tt; document.getElementById('bMiniT').textContent = tt; }
+        if (!!nm !== hud._ni) { hud._ni = !!nm; cv.style.borderColor = nm ? 'rgba(255,90,90,0.75)' : 'rgba(63,208,255,0.75)'; cv.style.boxShadow = nm ? '0 0 16px rgba(255,40,40,0.35)' : '0 0 16px rgba(63,208,255,0.3)'; }
       })();
       if (bot.boostT > 0) lvl = bot.boostT / (bot.bMax || 10); else if (bot.boostCD > 0) lvl = 1 - bot.boostCD / BOT_BOOST_CD; else lvl = 1;
       lvl = Math.max(0, Math.min(1, lvl)); tk = document.getElementById('bTank');
