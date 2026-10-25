@@ -2759,8 +2759,8 @@ window.startMap = function (RAW, AUTH) {
   }
   /* ---------- Senderos de tierra entre ciudades ---------- */
   var trails = [], trailGrid = {}, trailsBuilt = false, TRAIL_W = 2.0;
-  function trailAdd(x0, z0, x1, z1) {
-    var seg = [x0, z0, x1, z1], pts = [[x0, z0], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2]], i, k;
+  function trailAdd(x0, z0, x1, z1, ring) {
+    var seg = [x0, z0, x1, z1, ring ? 1 : 0], /* ring: tramo del anillo que rodea la ciudad (no sirve para guiar al robot fuera de la niebla) */ pts = [[x0, z0], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2]], i, k;
     for (i = 0; i < pts.length; i++) {
       k = Math.floor(pts[i][0] / 4) + ',' + Math.floor(pts[i][1] / 4);
       (trailGrid[k] || (trailGrid[k] = [])).push(seg);
@@ -2788,6 +2788,7 @@ window.startMap = function (RAW, AUTH) {
       if (!l) continue;
       for (i = 0; i < l.length; i++) {
         sg = l[i]; if (seen.indexOf(sg) >= 0) continue; seen.push(sg);
+        if (sg[4]) continue; /* el anillo de la ciudad no cuenta como sendero para salir de la niebla */
         dx = sg[2] - sg[0]; dz = sg[3] - sg[1]; l2 = dx * dx + dz * dz; sl = Math.sqrt(l2) || 1;
         if (dir && Math.abs((dx * dir.x + dz * dir.z) / sl) < 0.5) continue;
         t = l2 > 0 ? ((x - sg[0]) * dx + (z - sg[1]) * dz) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
@@ -3073,7 +3074,7 @@ window.startMap = function (RAW, AUTH) {
         var dd = ds[ci], R = dd.r + 2, nn = Math.max(12, Math.ceil(2 * Math.PI * R / 3)), q, a0, a1;
         for (q = 0; q < nn; q++) {
           a0 = q / nn * 6.2832; a1 = (q + 1) / nn * 6.2832;
-          trailAdd(dd.cx + Math.cos(a0) * R, dd.cz + Math.sin(a0) * R, dd.cx + Math.cos(a1) * R, dd.cz + Math.sin(a1) * R);
+          trailAdd(dd.cx + Math.cos(a0) * R, dd.cz + Math.sin(a0) * R, dd.cx + Math.cos(a1) * R, dd.cz + Math.sin(a1) * R, true);
         }
       });
     });
@@ -5259,7 +5260,7 @@ window.startMap = function (RAW, AUTH) {
   }
   function ufoExplode() {
     var u = ufo, i, a, r;
-    u.state = 'wreck'; u.T = 0; u.sm = 0; u.g.visible = false; u.gy = terrainH(u.x, u.z);
+    u.state = 'wreck'; u.T = 0; u.sm = 0; u.g.visible = false; u.gy = terrainH(u.x, u.z); u.done = false; u.gone = false;
     var gy = u.gy;
     AUD.explode({ x: u.x, y: gy + 0.5, z: u.z });
     fxSpawn(u.x, gy + 1.2, u.z, 0, 0, 0, 0.6, 1, 9, 0xff8a1f, 0.95, true);
@@ -5274,6 +5275,7 @@ window.startMap = function (RAW, AUTH) {
     }
     placeCrater(u.x, u.z);
     if (!wreck) wreck = buildWreck();
+    wreck.visible = true;
     wreck.position.set(u.x, Math.max(gy, terrainH(u.x + 1.6, u.z), terrainH(u.x - 1.6, u.z), terrainH(u.x, u.z + 1.6), terrainH(u.x, u.z - 1.6)) + 0.1, u.z); wreck.rotation.y = Math.random() * 6.2832; wreck.visible = true;
   }
   /* Reaparición: esfera con efecto glitch y después el OVNI */
@@ -5363,6 +5365,7 @@ window.startMap = function (RAW, AUTH) {
       if (r() < 0.25) fxSpawn(u.x + (r() - 0.5) * 1.6, u.y + 0.3 + r() * 0.6, u.z + (r() - 0.5) * 1.6, (r() - 0.5) * 4, 1 + r() * 3, (r() - 0.5) * 4, 0.35, 0.12, 0.05, r() < 0.5 ? 0x00f0ff : 0xffd24d, 1, true);
       if (u.T >= 3) ufoExplode();
     } else if (u.state === 'wreck') {
+      if (u.T >= 25 && !u.gone) { u.gone = true; if (wreck) wreck.visible = false; fxSpawn(u.x, (u.gy || 0) + 0.8, u.z, 0, 1.5, 0, 1.2, 1.5, 4, 0x555a66, 0.5, false); } /* las piezas desaparecen a los 25 s (el robot deja de rondarlas) */
       /* Columna de humo larga (~25 de alto) */
       if (u.sm <= 0 && u.T < 60) {
         u.sm = 0.12;
@@ -6999,11 +7002,12 @@ window.startMap = function (RAW, AUTH) {
     else if (b.boostCD > 0 && b.mode === 'walk' && (b.bh || 0) <= 0.05) b.boostCD -= dt; /* el enfriamiento cuenta desde que toca el suelo */
 
     /* Restos del OVNI: va a revisarlos (sobre todo si él lo derribó) y se detiene fuera del cráter */
-    var wOn0 = !!ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck'), wOn, wx, wz, wd, wa, wk2, wr, ck;
+    if (b.circ) { b.circT = (b.circT || 0) + dt; if (b.circT > 22 && ufo) { ufo.done = true; b.circ = false; b.circT = 0; } } else b.circT = 0; /* rondar el cráter dura como máximo ~22 s */
+    var wOn0 = !!ufo && !ufo.done && !ufo.gone && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck'), wOn, wx, wz, wd, wa, wk2, wr, ck;
     if (wOn0 && ufo.state !== 'crash' && !b.wk) b.wk = { x: ufo.x, z: ufo.z };
     /* el cráter sigue ahí un rato aunque los restos ya hayan desaparecido: se queda patrullándolo hasta que se borre */
     if (b.wk && !b.wkC) for (ck = 0; ck < craters.length; ck++) if (craters[ck].on && Math.hypot(craters[ck].x - b.wk.x, craters[ck].z - b.wk.z) < 2) b.wkC = craters[ck];
-    wOn = wOn0 || !!(b.wk && b.wkC && b.wkC.on);
+    wOn = wOn0 || !!(b.wk && b.wkC && b.wkC.on && !(ufo && (ufo.done || ufo.gone)));
     if (!wOn) { if (b.scan || b.circ) { b.scan = false; b.idle = 1; } b.circ = false; b.wk = null; b.wkC = null; if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; } }
     if (thr) { b.circ = false; if (!wOn0) { b.wk = null; b.wkC = null; } }
     if (b.wk && b.mode === 'perch') b.maxPerch = Math.min(b.maxPerch, b.perchT);
