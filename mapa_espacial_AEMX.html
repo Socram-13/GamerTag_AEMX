@@ -514,6 +514,7 @@ window.startMap = function (RAW, AUTH) {
   renderer.setClearColor(0x050a18, 1);
 
   var scene = new THREE.Scene();
+  var CHI_LL = [-88.568, 20.683], CHI_D = null, CHI_G = null; /* Chichén Itzá: posición real; CHI_D se comporta como una ciudad para el robot */
   var invLock = null; /* zona de invasión que retiene al robot: {rings, x0, x1, z0, z1} */
   function invOut(x, z) { /* true si hay bloqueo y el punto queda fuera de la zona */
     var L = invLock, r, m, a, q, ins = false;
@@ -1935,6 +1936,14 @@ window.startMap = function (RAW, AUTH) {
     var vr = mulberry32(48151623), VMAX = 12000, SP = 2.3, RING = 18, CELL = 10, PCELL = 1.5, PMIN = 1.25;
     var hexGrid = {}, placed = {}, plants = [], country = [toWorld(MAIN_LL), toWorld(BAJA_LL)];
     function gk(a, b) { return a + ',' + b; }
+    (function () { /* sin vegetación en la explanada de Chichén Itzá */
+      var g1 = geo(CHI_LL[0], CHI_LL[1]), ax, az, kk;
+      for (ax = -24; ax <= 24; ax += 1.2) for (az = -24; az <= 24; az += 1.2) {
+        if (ax * ax + az * az > 576) continue;
+        kk = gk(Math.floor((g1.x + ax) / PCELL), Math.floor((g1.z + az) / PCELL));
+        (placed[kk] || (placed[kk] = [])).push([g1.x + ax, g1.z + az]);
+      }
+    })();
     var occGrid = {}, invGrid = {}, invList = [], lastCover = 0, A_PAD = HEX_PAD_R * 0.8660254, A_IN = A_PAD - 0.45, A_BAND = HEX_R * 0.8660254 + 0.6;
     function hexInside(dx, dz, a) { var ax = Math.abs(dx), az = Math.abs(dz); return ax <= a && ax * 0.5 + az * 0.8660254 <= a; }
     function hexNorm(dx, dz) { var ax = Math.abs(dx), az = Math.abs(dz); return Math.max(ax, ax * 0.5 + az * 0.8660254); }
@@ -3188,6 +3197,33 @@ window.startMap = function (RAW, AUTH) {
     b = r >= v.rr ? v.H * Math.pow(1 - r / v.R, 1.6) : v.H * Math.pow(1 - v.rr / v.R, 1.6) - v.D * (1 - (r / v.rr) * (r / v.rr));
     return b; /* las ciudades se apartan de la base en fitDistrict, no hace falta aplanar */
   }
+  function buildChichen() {
+    var g0 = geo(CHI_LL[0], CHI_LL[1]), G = new THREE.Group(), y0 = Math.max(0, terrainH(g0.x, g0.z)) + 0.03, i, k, o,
+        mS = new THREE.MeshLambertMaterial({ color: 0xd8cfb4, emissive: 0x1a160e }), mD = new THREE.MeshLambertMaterial({ color: 0xbdb394, emissive: 0x14110b }), mP = new THREE.MeshLambertMaterial({ color: 0xa79e86, emissive: 0x100e09 }),
+        mG = new THREE.MeshLambertMaterial({ color: 0x6f7a5c, emissive: 0x0b0e08 }), uB = new THREE.BoxGeometry(1, 1, 1), uS = new THREE.SphereGeometry(1, 10, 8);
+    function add(geo, mat, x, y, z, sx, sy, sz, rx, ry, rz) { var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); if (rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0); m.castShadow = true; m.receiveShadow = true; m.raycast = function () {}; G.add(m); return m; }
+    var B0 = 10.5, IN = 0.9, TH = 0.52, N = 9, y = 0, sz;
+    y = 0.14;
+    for (i = 0; i < N; i++) { sz = B0 - IN * i; add(uB, i % 2 ? mD : mS, 0, y + TH / 2, 0, sz, TH, sz); y += TH; }
+    var topS = B0 - IN * (N - 1), H = y - 0.14, run = (B0 - topS) / 2, L = Math.hypot(run, H), ang = Math.atan2(run, H);
+    /* templo y techo */
+    add(uB, mS, 0, y + 0.65, 0, 2.2, 1.3, 2.2); add(uB, mD, 0, y + 1.0, 1.12, 0.7, 0.7, 0.06); add(uB, mP, 0, y + 1.42, 0, 2.5, 0.24, 2.5); add(uB, mD, 0, y + 1.64, 0, 2.0, 0.2, 2.0);
+    /* cuatro escalinatas con alfardas y cabezas de serpiente al pie de la norte */
+    for (k = 0; k < 4; k++) {
+      var G2 = new THREE.Group(), st, nSt = 14;
+      for (st = 0; st < nSt; st++) { var fr = (st + 0.5) / nSt; add2(G2, uB, mP, 0, 0.14 + H * fr, (B0 / 2) - run * fr + 0.15, 1.5, H / nSt + 0.02, run / nSt + 0.14); }
+      [-0.95, 0.95].forEach(function (sx) { var m = new THREE.Mesh(uB, mS); m.scale.set(0.34, 0.28, L + 0.3); m.position.set(sx, 0.14 + H / 2 + 0.14, B0 / 2 - run / 2 + 0.15); m.rotation.x = ang; m.castShadow = true; m.raycast = function () {}; G2.add(m); });
+      G2.rotation.y = k * Math.PI / 2; G.add(G2);
+      if (k === 0) [-0.95, 0.95].forEach(function (sx) { var h = new THREE.Mesh(uS, mG); h.scale.set(0.3, 0.26, 0.42); h.position.set(sx, 0.4, B0 / 2 + 0.55); h.raycast = function () {}; h.castShadow = true; G2.add(h); });
+    }
+    function add2(par, geo, mat, x, yy, z, sx, sy, sz2) { var m = new THREE.Mesh(geo, mat); m.position.set(x, yy, z); m.scale.set(sx, sy, sz2); m.castShadow = true; m.receiveShadow = true; m.raycast = function () {}; par.add(m); return m; }
+    G.position.set(g0.x, y0 - 0.14, g0.z); scene.add(G); CHI_G = G;
+    monBlk.push({ x: g0.x, z: g0.z, r: 7.8 });
+    CHI_D = { name: 'Chichén Itzá', cx: g0.x, cz: g0.z, r: 16, list: [{}], chi: true };
+    var e = document.createElement('div'); e.className = 'dist'; e.style.pointerEvents = 'none'; e.appendChild(document.createTextNode('Chichén Itzá'));
+    var sm = document.createElement('small'); sm.textContent = 'Zona arqueológica'; e.appendChild(sm); document.getElementById('labels').appendChild(e);
+    CHI_D.el = e; CHI_D.wpos = new THREE.Vector3(g0.x, y0 + y + 3.4, g0.z);
+  }
   function buildVolcano() {
     var g0 = geo(VOLC_LL[0], VOLC_LL[1]), th0 = terrainH, N = 44, S = 96, nv = (N + 1) * S, pos = new Float32Array(nv * 3), col = new Float32Array(nv * 3), idx = [], c = new THREE.Color(), c2 = new THREE.Color();
     var i, j, a, r, x, z, y, b, fr, o, snowL, t, rock, v;
@@ -3399,6 +3435,7 @@ window.startMap = function (RAW, AUTH) {
     mesh.name = 'relieve';
     statesGroup.add(mesh);
     try { buildVolcano(); } catch (e) { console.warn('No se pudo crear el volcán', e); }
+    try { buildChichen(); } catch (e) { console.warn('No se pudo crear Chichén Itzá', e); }
   }
   fetch('https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json')
     .then(function (r) { return r.json(); })
@@ -6866,8 +6903,9 @@ window.startMap = function (RAW, AUTH) {
   function botPickCity() {
     var b = bot, c = [], i, d, k, a, x, z, dx, dz, L, tries;
     if (!b.vis) b.vis = [];
-    for (i = 0; i < districts.length; i++) {
-      d = districts[i]; if (!d.list.length) continue;
+    var dl = CHI_D ? districts.concat([CHI_D]) : districts;
+    for (i = 0; i < dl.length; i++) {
+      d = dl[i]; if (!d.list.length) continue;
       if (Math.hypot(d.cx - b.x, d.cz - b.z) < d.r + 30 && b.vis.indexOf(d) < 0) b.vis.push(d);
       if (b.vis.indexOf(d) < 0) c.push(d);
     }
@@ -9046,6 +9084,7 @@ window.startMap = function (RAW, AUTH) {
               n1 ? L2.push('En ' + nm2 + ' hay ' + n1 + (n1 > 1 ? ' edificios apagados' : ' edificio apagado') + ' por inactividad… qué abandono.', 'Edificios apagados: ' + n1 + '. Falta que sus dueños regresen.', 'Hay luces apagadas en ' + nm2 + '. ¿Dónde andan sus jugadores?', 'Un edificio apagado se ve muy triste.') : L2.push('Todos los edificios de ' + nm2 + ' están activos. ¡Así me gusta!');
               if (n2) L2.push(n2 + (n2 > 1 ? ' ruinas' : ' ruina') + ' de baneados en ' + nm2 + '. Las trampas se pagan.', 'Esas ruinas humeantes son de baneados. Se lo buscaron.', 'Con trampa no se llega lejos… ahí están las ruinas.', 'Las ruinas de baneados dan un poco de miedo.');
               if (q2.list.length) { k2 = q2.list[(Math.random() * q2.list.length) | 0]; if (k2 && k2.name && !k2.banned) L2.push('Qué buen edificio el de @' + k2.name + '.'); }
+              if (q2.chi) L2 = ['El Castillo marca los equinoccios con la sombra de Kukulkán.', '365 escalones… y no pienso contarlos.', 'Dicen que si aplaudes al pie de la escalera, responde un quetzal.', '¡Qué pirámide tan bien conservada!', 'Los mayas ya sabían mucho de astronomía.', 'Una de las nuevas maravillas del mundo.', 'Cuatro escalinatas, 91 escalones cada una… más el templo.', 'Aquí el tiempo se cuenta distinto.', 'Ni los aliens se atreven con Kukulkán.'];
               if (nm2 === 'Ciudad de México' && !hud._quesa) { hud._quesa = true; L2 = ['¿Aquí venden quesadillas sin queso?']; } /* siempre es lo primero que comenta en la CDMX */
             } else {
               L2 = { ufo: ['Ahí estás…', 'No te me escapas, OVNI.', 'Te tengo en la mira.', 'Una nave menos en el cielo.', 'Siempre te escondes en la niebla, pero te encuentro.', 'Calculando trayectoria…', 'Hoy no aterrizas en paz.', 'OVNI a la vista, cañones listos.', 'Voy tras de ti, no te muevas tanto.', 'Se acabó el paseo, platillo.', 'Corre todo lo que quieras.'],
@@ -9142,6 +9181,7 @@ window.startMap = function (RAW, AUTH) {
       var d1 = districts._order[n];
       placeLabel(d1.el, d1.wpos, camera.position.distanceTo(d1.pinPos) > DIST_NEAR, rects);
     }
+    if (CHI_D && CHI_D.el) { var dch = camera.position.distanceTo(CHI_D.wpos); placeLabel(CHI_D.el, CHI_D.wpos, dch < 520 && dch > 7, rects); }
     var dp = camera.position.distanceTo(presPinPos);
     presPin.scale.setScalar(Math.max(1, dp / 90) * 1.3 / 3);
     presPin.visible = labelsOn && dp > PIN_D;
