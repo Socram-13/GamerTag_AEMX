@@ -7696,7 +7696,7 @@ window.startMap = function (RAW, AUTH) {
         if (fe.age >= fe.dur) { fe.list.forEach(function (q) { group.remove(q.sp); q.sp.material.dispose(); }); ghosts.forEach(function (g) { if (g.fe === fe) g.dead = true; }); fogEvents.splice(k, 1); continue; }
         fade = Math.min(1, fe.age / 10, (fe.dur - fe.age) / 12); fe.fade = fade;
         for (i = 0; i < fe.list.length; i++) {
-          f = fe.list[i]; dd = Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140));
+          f = fe.list[i]; dd = 0.4 + 0.6 * Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140)); /* cerca de la cámara queda al menos el 40 % */
           f.sp.position.x = f.b.x + Math.sin(t * 0.05 + f.ph) * f.amp;
           f.sp.position.z = f.b.z + Math.cos(t * 0.04 + f.ph) * f.amp;
           f.sp.position.y = terrainH(f.b.x, f.b.z) + f.b.y; /* sigue el relieve, a ras del robot */
