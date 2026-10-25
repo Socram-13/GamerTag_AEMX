@@ -6964,10 +6964,10 @@ window.startMap = function (RAW, AUTH) {
       b.fireT -= dt;
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
-      canShoot = b.los && errY < 0.45 && errP < 0.45 && b.hold > 0.5; /* el láser sale directo al objetivo: no espera a terminar de girar el rifle */
+      canShoot = b.los && errY < (b.alienT ? 0.2 : 0.45) && errP < (b.alienT ? 0.2 : 0.45) && b.hold > 0.5; /* el láser sale directo al objetivo: no espera a terminar de girar el rifle */
       if (canShoot && b.fireT <= 0) {
         botShoot(bkMuz, b.alienT ? pred : U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
-        b.fireT = 0.12; /* fuego continuo, sin pausa entre ráfagas */
+        b.fireT = b.alienT ? 0.35 : 0.12; /* fuego continuo (más pausado contra aliens) */
       }
     }
     botBolts(dt);
@@ -7711,28 +7711,29 @@ window.startMap = function (RAW, AUTH) {
     var HEADP = [[0, -0.2], [0.03, -0.195], [0.065, -0.17], [0.105, -0.115], [0.14, -0.04], [0.168, 0.04], [0.18, 0.11], [0.172, 0.18], [0.14, 0.24], [0.085, 0.275], [0, 0.29]].map(function (p) { return new THREE.Vector2(p[0], p[1]); });
     var gHead = new THREE.LatheGeometry(HEADP, 20), gSph = new THREE.SphereGeometry(1, 12, 9), gEye = new THREE.SphereGeometry(0.05, 12, 8);
     function taper(r0, r1, h, n) { return new THREE.CylinderGeometry(r1, r0, h, n || 8); } /* r0 abajo, r1 arriba */
-    var gNeck = taper(0.03, 0.026, 0.12, 8), gTend = taper(0.004, 0.006, 0.1, 4), gClav = taper(0.007, 0.007, 0.1, 5), gRib = new THREE.TorusGeometry(1, 0.045, 5, 12, Math.PI), gUpA = taper(0.017, 0.024, 0.22, 8), gFoA = taper(0.011, 0.017, 0.21, 8), gUpL = taper(0.021, 0.036, 0.22, 8), gShin = taper(0.015, 0.024, 0.22, 8), gPalm = new THREE.BoxGeometry(0.03, 0.04, 0.014), gFing = taper(0.0042, 0.0062, 1, 4), gFoot = new THREE.BoxGeometry(0.045, 0.026, 0.07), gToe = taper(0.007, 0.01, 1, 4), gBeam = new THREE.CylinderGeometry(0.9, 0.9, 70, 16, 1, true);
+    var gNeck = taper(0.03, 0.026, 0.12, 8), gTend = taper(0.004, 0.006, 0.1, 4), gClav = taper(0.007, 0.007, 0.1, 5), gRib = new THREE.TorusGeometry(1, 0.045, 5, 12, Math.PI), gUpA = taper(0.017, 0.024, 0.47, 8), gFoA = taper(0.011, 0.017, 0.45, 8), gUpL = taper(0.021, 0.036, 0.47, 8), gShin = taper(0.015, 0.024, 0.47, 8), gPalm = new THREE.BoxGeometry(0.03, 0.04, 0.014), gFing = taper(0.0042, 0.0062, 1, 4), gFoot = new THREE.BoxGeometry(0.045, 0.026, 0.07), gToe = taper(0.007, 0.01, 1, 4), gBeam = new THREE.CylinderGeometry(0.9, 0.9, 70, 16, 1, true);
     var eyeM = new THREE.MeshPhongMaterial({ color: 0x030405, specular: 0xbbccdd, shininess: 160 }), darkM = new THREE.MeshBasicMaterial({ color: 0x1a1812 });
     function mk() {
       var skin = new THREE.MeshPhongMaterial({ color: 0x77735f, emissive: SKIN0, specular: 0x24231d, shininess: 20 }), joint = new THREE.MeshPhongMaterial({ color: 0x5b5849, emissive: SKIN0, specular: 0x15150f, shininess: 14 });
       var g = new THREE.Group(), o = { mats: [skin, joint], arm: [], leg: [] }, m, i, s, sh, el, hp, kn, wr, an, fi, f, hd;
       g.rotation.order = 'YXZ';
+      var up = new THREE.Group(); up.position.y = 0.5; g.add(up); /* tronco, cabeza y brazos sobre piernas largas */
       function ad(par, geo, mat, x, y, z, sx, sy, sz) { var q = new THREE.Mesh(geo, mat); q.position.set(x, y, z); if (sx !== undefined) q.scale.set(sx, sy, sz); par.add(q); return q; }
       /* tronco: pecho estrecho con costillas, abdomen hundido, pelvis */
-      o.chest = new THREE.Group(); o.chest.position.y = 0.67; g.add(o.chest);
+      o.chest = new THREE.Group(); o.chest.position.y = 0.67; up.add(o.chest);
       ad(o.chest, gSph, skin, 0, 0, 0, 0.088, 0.1, 0.055);
       for (i = 0; i < 4; i++) { m = ad(o.chest, gRib, joint, 0, 0.025 - i * 0.026, 0.004, 0.074 - i * 0.004, 0.074 - i * 0.004, 0.05); m.rotation.x = Math.PI / 2; m.position.z = 0.012; }
-      ad(g, gSph, skin, 0, 0.53, 0, 0.058, 0.11, 0.044);
-      ad(g, gSph, skin, 0, 0.48, 0.008, 0.052, 0.05, 0.042); /* vientre */
-      ad(g, gSph, joint, 0, 0.43, 0, 0.062, 0.05, 0.045);
+      ad(up, gSph, skin, 0, 0.53, 0, 0.058, 0.11, 0.044);
+      ad(up, gSph, skin, 0, 0.48, 0.008, 0.052, 0.05, 0.042); /* vientre */
+      ad(up, gSph, joint, 0, 0.43, 0, 0.062, 0.05, 0.045);
       /* cuello con tendones y clavículas */
-      ad(g, gNeck, skin, 0, 0.79, 0, 1, 1, 1);
+      ad(up, gNeck, skin, 0, 0.79, 0, 1, 1, 1);
       for (s = -1; s <= 1; s += 2) {
-        m = ad(g, gTend, joint, s * 0.014, 0.78, 0.022, 1, 1, 1); m.rotation.z = s * -0.12;
-        m = ad(g, gClav, joint, s * 0.05, 0.742, 0.02, 1, 1, 1); m.rotation.z = Math.PI / 2 - s * 0.2; m.rotation.y = s * 0.25;
+        m = ad(up, gTend, joint, s * 0.014, 0.78, 0.022, 1, 1, 1); m.rotation.z = s * -0.12;
+        m = ad(up, gClav, joint, s * 0.05, 0.742, 0.02, 1, 1, 1); m.rotation.z = Math.PI / 2 - s * 0.2; m.rotation.y = s * 0.25;
       }
       /* cabeza */
-      hd = new THREE.Group(); hd.position.y = 0.9; g.add(hd); o.head = hd;
+      hd = new THREE.Group(); hd.position.y = 0.9; up.add(hd); o.head = hd;
       ad(hd, gHead, skin, 0, 0, 0, 1, 1, 0.92);
       for (s = -1; s <= 1; s += 2) {
         m = ad(hd, gEye, eyeM, s * 0.078, 0.05, 0.125, 1.75, 0.78, 0.5); m.rotation.z = s * 0.5; m.rotation.y = s * 0.45;
@@ -7744,13 +7745,13 @@ window.startMap = function (RAW, AUTH) {
       for (i = 0; i < 2; i++) {
         s = i ? 1 : -1;
         /* brazo: hombro, bíceps, codo, antebrazo, muñeca y mano de 4 dedos con pulgar */
-        sh = new THREE.Group(); sh.position.set(s * 0.1, 0.72, 0); g.add(sh);
+        sh = new THREE.Group(); sh.position.set(s * 0.1, 0.72, 0); up.add(sh);
         ad(sh, gSph, joint, 0, 0, 0, 0.027, 0.027, 0.027);
-        ad(sh, gUpA, skin, 0, -0.12, 0, 1, 1, 1);
-        el = new THREE.Group(); el.position.y = -0.23; sh.add(el);
+        ad(sh, gUpA, skin, 0, -0.235, 0, 1, 1, 1);
+        el = new THREE.Group(); el.position.y = -0.47; sh.add(el);
         ad(el, gSph, joint, 0, 0, 0, 0.02, 0.02, 0.02);
-        ad(el, gFoA, skin, 0, -0.11, 0, 1, 1, 1);
-        wr = new THREE.Group(); wr.position.y = -0.22; el.add(wr);
+        ad(el, gFoA, skin, 0, -0.225, 0, 1, 1, 1);
+        wr = new THREE.Group(); wr.position.y = -0.45; el.add(wr);
         ad(wr, gSph, joint, 0, 0, 0, 0.012, 0.012, 0.012);
         ad(wr, gPalm, skin, 0, -0.025, 0, 1, 1, 1);
         o.arm.push({ sh: sh, el: el, wr: wr, fi: [] });
@@ -7762,14 +7763,14 @@ window.startMap = function (RAW, AUTH) {
         }
         m = ad(wr, gFing, skin, s * 0.02, -0.04, 0.004, 1, 0.045, 1); m.rotation.z = s * 0.7; /* pulgar */
         /* pierna: muslo, rodilla, pantorrilla, tobillo y pie con 3 dedos */
-        hp = new THREE.Group(); hp.position.set(s * 0.045, 0.44, 0); g.add(hp);
-        ad(hp, gUpL, skin, 0, -0.11, 0, 1, 1, 1);
-        kn = new THREE.Group(); kn.position.y = -0.22; hp.add(kn);
+        hp = new THREE.Group(); hp.position.set(s * 0.045, 0.94, 0); g.add(hp);
+        ad(hp, gUpL, skin, 0, -0.235, 0, 1, 1, 1);
+        kn = new THREE.Group(); kn.position.y = -0.47; hp.add(kn);
         ad(kn, gSph, joint, 0, 0, 0.004, 0.026, 0.026, 0.026);
-        ad(kn, gShin, skin, 0, -0.11, 0, 1, 1, 1);
-        ad(kn, gSph, joint, 0, -0.215, 0, 0.016, 0.016, 0.016);
-        ad(kn, gFoot, skin, 0, -0.225, 0.02, 1, 1, 1);
-        for (f = -1; f <= 1; f++) { m = ad(kn, gToe, skin, f * 0.014, -0.229, 0.07, 1, 0.034, 1); m.rotation.x = Math.PI / 2; }
+        ad(kn, gShin, skin, 0, -0.235, 0, 1, 1, 1);
+        ad(kn, gSph, joint, 0, -0.465, 0, 0.016, 0.016, 0.016);
+        ad(kn, gFoot, skin, 0, -0.475, 0.02, 1, 1, 1);
+        for (f = -1; f <= 1; f++) { m = ad(kn, gToe, skin, f * 0.014, -0.479, 0.07, 1, 0.034, 1); m.rotation.x = Math.PI / 2; }
         o.leg.push({ th: hp, kn: kn });
       }
       g.scale.setScalar(0.001); o.g = g; noRay(g);
@@ -7940,7 +7941,7 @@ window.startMap = function (RAW, AUTH) {
       if (hpK < 0.6) { a.o.leg[0].th.rotation.x *= 0.6; a.o.leg[0].kn.rotation.x *= 0.5; g.rotation.z = 0.09 * Math.sin(a.ph) * a.gk; } else g.rotation.z = 0;
       if (!(a.alert > 0) && a.gk < 0.5) for (i = 0; i < 2; i++) a.o.arm[i].sh.rotation.z = (i ? 1 : -1) * (0.06 + 0.05 * Math.sin(t * 1.3 + a.ph + i)); else for (i = 0; i < 2; i++) a.o.arm[i].sh.rotation.z = 0;
       g.rotation.x = 0.22 * a.fk + 0.3 * (1 - hpK) * a.gk * (hpK < 0.4 ? 1 : 0.4);
-      if (a.bar) { a.bar.position.set(a.x, a.y + 1.3, a.z); a.bar.visible = true; } g.rotation.y = a.yaw; g.position.set(a.x, a.y, a.z); g.scale.setScalar(SC);
+      if (a.bar) { a.bar.position.set(a.x, a.y + 1.85, a.z); a.bar.visible = true; } g.rotation.y = a.yaw; g.position.set(a.x, a.y, a.z); g.scale.setScalar(SC);
     }
     function an2(a) { var k, an, rr, x, z; for (k = 0; k < 8; k++) { an = rnd(0, 6.28); rr = rnd(4, 12); x = a.x + Math.sin(an) * rr; z = a.z + Math.cos(an) * rr; if (k < 4 && a.home && Math.hypot(x - a.home[0], z - a.home[1]) > 16) continue; if (free(a, x, z)) { a.tx = x; a.tz = z; return; } } a.tx = a.x; a.tz = a.z; }
     function update(dt, t) {
@@ -7975,7 +7976,7 @@ window.startMap = function (RAW, AUTH) {
         if (!cur || cur.s !== 'live' || bd < cd * 0.7) cur = best;
       }
       if (!cur || cur.s !== 'live') return null;
-      return tpos.set(cur.x, cur.y + 0.58, cur.z);
+      return tpos.set(cur.x, cur.y + 0.8, cur.z);
     }
     /* Impacto de un láser del robot (segmento ox→nx): 2 disparos derriban a un alien */
     function bolt(ox, oy, oz, nx, ny, nz) {
@@ -7983,13 +7984,13 @@ window.startMap = function (RAW, AUTH) {
       if (!inv) return false;
       for (i = 0; i < inv.al.length; i++) {
         a = inv.al[i]; if (a.s !== 'live') continue;
-        t = Math.max(0, Math.min(1, ((a.x - ox) * sx + (a.y + 0.58 - oy) * sy + (a.z - oz) * sz) / l2));
+        t = Math.max(0, Math.min(1, ((a.x - ox) * sx + (a.y + 0.8 - oy) * sy + (a.z - oz) * sz) / l2));
         cx = ox + sx * t; cy = oy + sy * t; cz = oz + sz * t;
-        k = Math.hypot(a.x - cx, a.y + 0.58 - cy, a.z - cz);
+        k = Math.hypot(a.x - cx, a.y + 0.8 - cy, a.z - cz);
         if (k >= 1.0 && k < 5.5 && a.dodCD <= 0 && !(a.react > 0)) dodge(a, false); /* un láser pasa cerca: se tira a un lado */
         if (k < 1.0) {
           a.hp--; a.flash = 0.3; dodge(a, true); drawBar(a); fxSpawn(cx, cy, cz, 0, 0, 0, 0.3, 0.3, 1.1, 0x7dffa0, 0.9, true);
-          if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.58 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
+          if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.8 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
           return true;
         }
       }
