@@ -7014,7 +7014,7 @@ window.startMap = function (RAW, AUTH) {
   function now0() { return clock.elapsedTime; }
   function botDisGoal(Dd) { /* punto de encuentro a 3.4 del alien, del lado del robot (o alrededor si está ocupado) */
     var b = bot, dx = b.x - Dd.x, dz = b.z - Dd.z, a0 = Math.atan2(dx, dz), k, a, mx, mz;
-    for (k = 0; k < 12; k++) { a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5; mx = Dd.x + Math.sin(a) * 3.4; mz = Dd.z + Math.cos(a) * 3.4; if (botFree(mx, mz) && botSetGoal(mx, mz, 'patrol')) return true; }
+    for (k = 0; k < 12; k++) { a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5; mx = Dd.x + Math.sin(a) * 2.4; mz = Dd.z + Math.cos(a) * 2.4; if (botFree(mx, mz) && botSetGoal(mx, mz, 'patrol')) return true; }
     return false;
   }
   function botCallDis() { /* código 'sombrero': fuerza al robot a buscar al alien disfrazado */
@@ -7033,7 +7033,7 @@ window.startMap = function (RAW, AUTH) {
     if (freeT && typeof ALN !== 'undefined' && ALN.dis && now0() >= (b.disCD || 0) && !invLock) { /* curiosidad por el señor del sombrero */
       var Dd = ALN.dis(), mx, mz, mdx, mdz, ml;
       if (Dd && Dd.k > 0.8 && Math.hypot(Dd.x - b.x, Dd.z - b.z) < 60 && Math.random() < 0.8) {
-        mdx = b.x - Dd.x; mdz = b.z - Dd.z; ml = Math.hypot(mdx, mdz) || 1; mx = Dd.x + mdx / ml * 3.4; mz = Dd.z + mdz / ml * 3.4;
+        mdx = b.x - Dd.x; mdz = b.z - Dd.z; ml = Math.hypot(mdx, mdz) || 1; mx = Dd.x + mdx / ml * 2.4; mz = Dd.z + mdz / ml * 2.4;
         if (botFree(mx, mz) && botSetGoal(mx, mz, 'patrol')) { b.disMeet = now0(); b.jog = false; return; }
       }
     }
@@ -7218,8 +7218,8 @@ window.startMap = function (RAW, AUTH) {
         if (ln && tt >= ln[0]) { b.disI = (b.disI || 0) + 1; if (ln[1] === 'R') window.__botSayQ = ln[2]; else if (ln[1] === 'A') ALN.disTalk(); else { b.disTalk = 0; b.disMeet = 0; b.disForce = 0; b.disCD = now + 240; b.idle = 0.5; } }
       } else if (b.disMeet) {
         if (now - b.disMeet > (b.disForce ? 400 : 45)) { b.disMeet = 0; b.disForce = 0; }
-        else if (b.disForce && dist > 5 && now - (b.disRe || 0) > 2.5) { b.disRe = now; botDisGoal(Dd); } /* el alien se mueve: vuelve a apuntar al encuentro */
-        else if (dist < 4.6 && b.mode === 'walk' && b.v < 3.5) {
+        else if (b.disForce && dist > 6.5 && now - (b.disRe || 0) > 2.5) { b.disRe = now; botDisGoal(Dd); } /* el alien se mueve: vuelve a apuntar al encuentro */
+        else if (dist < 6 && b.mode === 'walk' && b.v < 3.5) {
           b.disTalk = now; b.disI = 0;
           b.disScr = [
             [[0.6, 'R', 'Disculpe, ¿es usted de por aquí?'], [3.4, 'A'], [5.8, 'R', 'Qué bigote tan… firme.'], [8.4, 'A'], [10.8, 'R', 'Bueno, circule. Y no haga nada raro.'], [14, 'E']],
