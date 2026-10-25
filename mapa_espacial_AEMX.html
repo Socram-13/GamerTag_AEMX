@@ -6362,7 +6362,7 @@ window.startMap = function (RAW, AUTH) {
   function botLandAhead(x, z, yaw, dist) {
     var d, sx = Math.sin(yaw), cz = Math.cos(yaw);
     if (!landAt) return true;
-    for (d = 8; d <= dist; d += 8) if (!landAt(x + sx * d, z + cz * d)) return false;
+    for (d = 8; d <= dist; d += 8) if (!landAt(x + sx * d, z + cz * d) || (VOLC && Math.hypot(x + sx * d - VOLC.x, z + cz * d - VOLC.z) < VOLC.R + 8)) return false; /* ni mar ni volcán adelante */
     return true;
   }
   /* Montarse en el OVNI: el robot aterriza sobre su cúpula, se arrodilla y le dispara hasta derribarlo, y cae con él */
@@ -6621,7 +6621,9 @@ window.startMap = function (RAW, AUTH) {
             }
           }
           /* Ruta de calles (mapa fino): si el tramo hasta el siguiente punto está libre con el mismo margen con que se planeó, lo sigue directo sin dudar */
-          if (b.path && b.path[b.pi] && dw < 40 && botLineFree(b.x, b.z, tw.x, tw.z, 0.3, true)) { hd = want; b.blockD = 99; }
+          var airFly = (b.bh || 0) > 2 && (b.boostT > 0 || (b.glr || 0) > 0); /* en vuelo (impulso o planeo) sobrevuela montañas, árboles y desniveles */
+          if (airFly) { hd = want; b.blockD = 99; }
+          else if (b.path && b.path[b.pi] && dw < 40 && botLineFree(b.x, b.z, tw.x, tw.z, 0.3, true)) { hd = want; b.blockD = 99; }
           else hd = botSteer(b, want, b.path && b.path[b.pi] && b.path[b.pi][2] ? Math.min(3 + b.v * 0.8, Math.max(1.3, dw + 0.3)) : 3 + b.v * 0.8);
           if (hd === null) { b.v *= Math.max(0, 1 - dt * 6); b.yaw += b.side * dt * 1.2; b.nullT = (b.nullT || 0) + dt; if (b.nullT > 1.0) { b.nullT = 0; b.rec = 0.9; b.recDir = b.yaw + 3.1416 + b.side * 0.9; } }
           else {
@@ -6634,7 +6636,7 @@ window.startMap = function (RAW, AUTH) {
           steps = Math.max(1, Math.ceil(b.v * dt / 0.5));
           for (i = 0; i < steps; i++) {
             nx = b.x + Math.sin(b.yaw) * b.v * dt / steps; nz = b.z + Math.cos(b.yaw) * b.v * dt / steps;
-            if (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz)) { b.x = nx; b.z = nz; } else { b.v *= 0.5; b.bump = (b.bump || 0) + 1; break; }
+            if (airFly ? ((!landAt || landAt(nx, nz)) && !(VOLC && Math.hypot(nx - VOLC.x, nz - VOLC.z) < VOLC.R + 1)) : (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz))) { b.x = nx; b.z = nz; } else { if (airFly) { b.boostT = 0; b.glr = 0; b.glr0 = 0; b.boostCD = BOT_BOOST_CD; } b.v *= 0.5; b.bump = (b.bump || 0) + 1; break; }
           }
           /* Detector rápido: casi sin avanzar en 0.8 s teniendo meta → retrocede, rodea y replanifica; al tercer intento cambia de meta */
           b.st = (b.st || 0) + dt;
