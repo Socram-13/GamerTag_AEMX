@@ -4535,6 +4535,7 @@ window.startMap = function (RAW, AUTH) {
     /* [distancia de referencia, alcance máximo] por sonido */
     var RNG = {
       shot: [25, 350], hit: [30, 500], crash: [40, 900], explode: [60, 1800], moo: [20, 300],
+      mfall: [80, 1500], mimp: [80, 2500], mhit: [30, 400], mburn: [25, 300], alspawn: [14, 160], alcry: [10, 140], alhit: [10, 140], aldie: [10, 140],
       glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55], wail: [10, 75], scare: [14, 90], drone: [10, 120], beep: [10, 90]
     };
     try { on = localStorage.getItem('aemx-sound') !== '0'; } catch (e) {}
@@ -4747,6 +4748,17 @@ window.startMap = function (RAW, AUTH) {
       hit: function (pos) { var b = shotBus(pos, 'hit'); if (!b) return; tone('triangle', 420, 120, 0.2, 0.3, 0, b); noise(0.12, 0.25, 4000, 900, 'bandpass', 0, b); },
       crash: function (pos) { var b = shotBus(pos, 'crash'); if (!b) return; tone('sawtooth', 520, 60, 1.5, 0.14, 0, b); noise(1.5, 0.1, 1500, 200, 'lowpass', 0, b); },
       explode: function (pos) { var b = shotBus(pos, 'explode'); if (!b) return; noise(1.4, 0.9, 2200, 90, 'lowpass', 0, b); tone('sine', 110, 30, 0.9, 0.8, 0, b); noise(0.25, 0.4, 6000, 1000, 'bandpass', 0, b); },
+      /* Meteorito: caída, impacto, ardiendo, golpes y estallido final */
+      mFall: function (pos) { var b = shotBus(pos, 'mfall'); if (!b) return; noise(2.6, 0.5, 250, 3800, 'bandpass', 0, b); tone('sawtooth', 70, 460, 2.5, 0.13, 0, b); noise(2.4, 0.22, 1500, 6000, 'highpass', 0.1, b); },
+      mImpact: function (pos) { var b = shotBus(pos, 'mimp'); if (!b) return; noise(2.2, 1.0, 2600, 50, 'lowpass', 0, b); tone('sine', 95, 24, 1.6, 0.95, 0, b); noise(0.4, 0.5, 7000, 800, 'bandpass', 0, b); tone('sine', 55, 20, 2.4, 0.6, 0.1, b); noise(1.3, 0.3, 900, 120, 'lowpass', 0.5, b); },
+      mHit: function (pos) { var b = shotBus(pos, 'mhit'); if (!b) return; noise(0.08, 0.5, 3200, 600, 'bandpass', 0, b); tone('triangle', 190, 70, 0.12, 0.35, 0, b); noise(0.05, 0.3, 9000, 3000, 'highpass', 0.02, b); },
+      mBurn: function (pos) { var b = shotBus(pos, 'mburn'), i; if (!b) return; noise(0.7, 0.16, 1600, 400, 'bandpass', 0, b); tone('sine', 62, 52, 0.7, 0.1, 0, b); for (i = 0; i < 4; i++) noise(0.03, 0.2 + Math.random() * 0.15, 4000 + Math.random() * 3000, 2000, 'highpass', Math.random() * 0.6, b); },
+      mBreak: function (pos) { var b = shotBus(pos, 'mimp'); if (!b) return; noise(2.6, 1.0, 3000, 60, 'lowpass', 0, b); tone('sine', 120, 20, 1.9, 1.0, 0, b); noise(0.6, 0.6, 8000, 400, 'bandpass', 0, b); tone('sawtooth', 320, 40, 1.2, 0.18, 0, b); noise(1.4, 0.3, 1200, 100, 'lowpass', 0.6, b); },
+      /* Aliens: teletransporte, chillido de alerta (cada uno con otro tono), dolor y muerte */
+      alSpawn: function (pos) { var b = shotBus(pos, 'alspawn'); if (!b) return; tone('sine', 180, 1500, 0.9, 0.16, 0, b); tone('square', 90, 700, 0.9, 0.04, 0, b); noise(0.9, 0.1, 4500, 1200, 'bandpass', 0, b); },
+      alCry: function (pos) { var b = shotBus(pos, 'alcry'), f0 = 800 + Math.random() * 700, i; if (!b) return; for (i = 0; i < 3; i++) tone('square', f0 * (1 + 0.12 * i), f0 * 1.5, 0.07, 0.1, i * 0.09, b); tone('sawtooth', f0 * 1.2, f0 * 0.7, 0.28, 0.1, 0.28, b); },
+      alHit: function (pos) { var b = shotBus(pos, 'alhit'); if (!b) return; tone('sawtooth', 1600 + Math.random() * 400, 500, 0.22, 0.2, 0, b); noise(0.1, 0.2, 5000, 1500, 'bandpass', 0, b); },
+      alDie: function (pos) { var b = shotBus(pos, 'aldie'); if (!b) return; tone('sawtooth', 760, 80, 0.9, 0.2, 0, b); tone('square', 380, 60, 0.9, 0.06, 0, b); noise(0.8, 0.1, 2600, 300, 'lowpass', 0, b); noise(0.04, 0.3, 6000, 2000, 'highpass', 0.85, b); },
       moo: function (pos) {
         var t0, o, fl, g, b = shotBus(pos, 'moo');
         if (!b) return;
@@ -8079,6 +8091,151 @@ window.startMap = function (RAW, AUTH) {
     var grp = new THREE.Group(); scene.add(grp);
     var SC = 0.9, SKIN0 = 0x1c1b14;
     function rnd(a, b) { return a + Math.random() * (b - a); }
+    /* ---------- Meteorito: partículas propias (sprites con brillo suave), roca con vetas, columna de humo ---------- */
+    var T_FALL = 2.6, MET_HP = 60, cryGate = 0, spGate = 0;
+    var glowCv = document.createElement('canvas'); glowCv.width = glowCv.height = 64;
+    (function () { var c = glowCv.getContext('2d'), gr = c.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); })();
+    var glowTex = new THREE.CanvasTexture(glowCv);
+    var PN = 260, pp = [], pI = 0, ppReady = false;
+    function ppInit() {
+      var i, sp;
+      if (ppReady) return; ppReady = true;
+      for (i = 0; i < PN; i++) {
+        sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+        sp.visible = false; sp.renderOrder = 6; noRay(sp); grp.add(sp);
+        pp.push({ s: sp, life: 0, max: 1, vx: 0, vy: 0, vz: 0, s0: 1, s1: 1, op: 1, g: 0 });
+      }
+    }
+    function spawnP(x, y, z, vx, vy, vz, life, s0, s1, color, op, add, g) {
+      var p; ppInit(); p = pp[pI]; pI = (pI + 1) % PN;
+      p.life = 0; p.max = life; p.vx = vx; p.vy = vy; p.vz = vz; p.s0 = s0; p.s1 = s1; p.op = op; p.g = g || 0;
+      p.s.material.color.setHex(color); p.s.material.blending = add ? THREE.AdditiveBlending : THREE.NormalBlending;
+      p.s.position.set(x, y, z); p.s.scale.set(s0, s0, 1); p.s.material.opacity = op; p.s.visible = true;
+    }
+    function updP(dt) {
+      var i, p, k;
+      for (i = 0; i < pp.length; i++) {
+        p = pp[i]; if (!p.s.visible) continue;
+        p.life += dt; k = p.life / p.max;
+        if (k >= 1) { p.s.visible = false; continue; }
+        p.vy -= p.g * dt; p.s.position.x += p.vx * dt; p.s.position.y += p.vy * dt; p.s.position.z += p.vz * dt;
+        p.s.scale.setScalar(Math.max(0.01, p.s0 + (p.s1 - p.s0) * k)); p.s.material.opacity = p.op * (1 - k);
+      }
+    }
+    function hideP() { var i; for (i = 0; i < pp.length; i++) pp[i].s.visible = false; }
+    function mkRockGeo() {
+      var g = new THREE.IcosahedronGeometry(1, 2), ps = g.attributes.position, cs = new Float32Array(ps.count * 3), i, x, y, z, l, r, v, k;
+      for (i = 0; i < ps.count; i++) {
+        x = ps.getX(i); y = ps.getY(i); z = ps.getZ(i); l = Math.hypot(x, y, z) || 1; x /= l; y /= l; z /= l;
+        r = 1 + 0.2 * (Math.sin(x * 4.1 + y * 2.3) * Math.cos(z * 3.7 - y * 1.9) * 0.6 + Math.sin((x + z) * 6.3) * 0.25);
+        ps.setXYZ(i, x * r, y * r * 0.9, z * r);
+        v = Math.abs(Math.sin(x * 7 + y * 5 + z * 3) * Math.cos(z * 6 - y * 4));
+        if (v < 0.11) { cs[i * 3] = 1; cs[i * 3 + 1] = 0.42 + 0.3 * (0.11 - v) / 0.11; cs[i * 3 + 2] = 0.06; }
+        else { k = 0.17 + 0.12 * (y * 0.5 + 0.5) + 0.04 * Math.sin(x * 9 + z * 7); cs[i * 3] = k * 1.1; cs[i * 3 + 1] = k; cs[i * 3 + 2] = k * 0.88; }
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(cs, 3)); g.computeVertexNormals();
+      return g;
+    }
+    function metSite(rings, bb) {
+      var cx = 0, cz = 0, cnt = 0, r, n, k, x, z, an;
+      rings.forEach(function (rg) { rg.forEach(function (q) { cx += q[0]; cz += q[1]; cnt++; }); });
+      cx /= Math.max(1, cnt); cz /= Math.max(1, cnt);
+      for (r = 0; r <= 600; r += 8) {
+        n = r ? Math.max(6, Math.ceil(r / 4)) : 1;
+        for (k = 0; k < n; k++) {
+          an = k / n * 6.2832; x = cx + Math.sin(an) * r; z = cz + Math.cos(an) * r;
+          if (okSpawn(x, z) && okSpawn(x + 7, z) && okSpawn(x - 7, z) && okSpawn(x, z + 7) && okSpawn(x, z - 7) && botCityDist(x, z) > 16 && terrainH(x, z) > -0.5) return [x, z];
+        }
+      }
+      return null;
+    }
+    function makeMeteor(x, z) {
+      var m = { x: x, z: z, y: botGround(x, z), hp: MET_HP, mhp: MET_HP, state: 'fall', flash: 0, burnT: 0, ck: 0, deadT: 0, bar: null, col: [], rings: [], emT: 0, ang: rnd(0, 6.2832) };
+      m.g = new THREE.Group(); m.rock = new THREE.Mesh(mkRockGeo(), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x4a1500 })); noRay(m.rock);
+      m.glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff7a22, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); m.glow.scale.set(14, 14, 1); noRay(m.glow);
+      m.g.add(m.rock); m.g.add(m.glow); m.rock.scale.set(1.9, 1.9, 1.9); grp.add(m.g);
+      m.sx = x + Math.sin(m.ang) * 150; m.sz = z + Math.cos(m.ang) * 150; m.sy = m.y + 190; m.px = m.sx; m.py = m.sy; m.pz = m.sz;
+      m.g.position.set(m.sx, m.sy, m.sz);
+      return m;
+    }
+    function ring(m, maxR, dur, color, delay) {
+      var rm = new THREE.Mesh(new THREE.RingGeometry(0.88, 1, 48), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      rm.rotation.x = -Math.PI / 2; rm.position.set(m.x, m.y + 0.35, m.z); noRay(rm); grp.add(rm); m.rings.push({ m: rm, t: -(delay || 0), dur: dur, R: maxR });
+    }
+    function metImpact(m) {
+      var i, an, sp, cr;
+      m.state = 'rest'; m.g.position.set(m.x, m.y + 0.5, m.z); m.rock.scale.set(2.5, 2.2, 2.5); m.rock.rotation.set(0.3, m.ang, 0.2); m.glow.scale.set(11, 11, 1); m.glow.position.set(0, 1.2, 0);
+      spawnP(m.x, m.y + 2, m.z, 0, 0, 0, 0.7, 30, 90, 0xffd9a0, 1, true);
+      ring(m, 70, 1.3, 0xff8a2a, 0); ring(m, 45, 1.8, 0xffc070, 0.15);
+      for (i = 0; i < 26; i++) { an = i / 26 * 6.2832; sp = rnd(12, 26); spawnP(m.x, m.y + 1, m.z, Math.sin(an) * sp, rnd(0.2, 1.5), Math.cos(an) * sp, rnd(1.6, 2.6), 5, 16, 0x6a5a48, 0.6, false); }
+      for (i = 0; i < 44; i++) { an = rnd(0, 6.2832); sp = rnd(6, 24); spawnP(m.x, m.y + 1.5, m.z, Math.sin(an) * sp, rnd(10, 34), Math.cos(an) * sp, rnd(1.0, 2.2), rnd(0.8, 1.8), 0.2, 0xffa030, 1, true, 24); }
+      for (i = 0; i < 10; i++) spawnP(m.x + rnd(-2, 2), m.y + 1, m.z + rnd(-2, 2), rnd(-3, 3), rnd(3, 9), rnd(-3, 3), rnd(1.5, 2.6), 4, 11, 0xff6a1a, 0.9, true);
+      cr = new THREE.Mesh(new THREE.CircleGeometry(6.5, 28), new THREE.MeshBasicMaterial({ color: 0x120a06, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+      cr.rotation.x = -Math.PI / 2; cr.position.set(m.x, m.y + 0.18, m.z); noRay(cr); grp.add(cr); m.crater = cr;
+      var cg = new THREE.Mesh(new THREE.RingGeometry(3.2, 6.5, 28), new THREE.MeshBasicMaterial({ color: 0xff5a14, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      cg.rotation.x = -Math.PI / 2; cg.position.set(m.x, m.y + 0.2, m.z); noRay(cg); grp.add(cg); m.craterG = cg;
+      for (i = 0; i < 24; i++) { var cs2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x2c2a2a, transparent: true, opacity: 0, depthWrite: false, fog: false })); cs2.renderOrder = 5; noRay(cs2); grp.add(cs2); m.col.push({ s: cs2, ph: i / 24, wob: rnd(0, 6.28) }); }
+      AUD.mImpact({ x: m.x, y: m.y + 1, z: m.z });
+    }
+    function metBreak(m) {
+      var i, an, sp;
+      m.state = 'dead'; m.deadT = 0; m.rock.visible = false; m.glow.visible = false; if (m.bar) disposeBar(m);
+      spawnP(m.x, m.y + 2, m.z, 0, 0, 0, 0.9, 20, 100, 0xffe0a8, 1, true);
+      ring(m, 60, 1.1, 0xff8a2a, 0);
+      for (i = 0; i < 40; i++) { an = rnd(0, 6.2832); sp = rnd(5, 26); spawnP(m.x, m.y + 2, m.z, Math.sin(an) * sp, rnd(6, 30), Math.cos(an) * sp, rnd(1, 2.4), rnd(1, 2.4), 0.2, i % 2 ? 0xffa030 : 0x5a4a3c, 1, i % 2 === 1, 22); }
+      for (i = 0; i < 14; i++) spawnP(m.x + rnd(-2, 2), m.y + 1.5, m.z + rnd(-2, 2), rnd(-4, 4), rnd(2, 9), rnd(-4, 4), rnd(1.5, 3), 5, 15, i % 2 ? 0xff7a22 : 0x3a3636, 0.85, i % 2 === 1);
+      AUD.mBreak({ x: m.x, y: m.y + 1, z: m.z });
+    }
+    function metStep(m, dt, t) {
+      var u, kk, nx, ny, nz, dx, dy, dz, n, i, f, c, pk, a, yy;
+      if (m.state === 'fall') {
+        u = Math.min(1, inv.t / T_FALL); kk = u * (0.5 + 0.5 * u);
+        nx = m.sx + (m.x - m.sx) * kk; ny = m.sy + (m.y + 1.5 - m.sy) * kk; nz = m.sz + (m.z - m.sz) * kk;
+        dx = nx - m.px; dy = ny - m.py; dz = nz - m.pz; n = Math.max(1, Math.min(6, Math.ceil(Math.hypot(dx, dy, dz) / 6)));
+        for (i = 0; i < n; i++) {
+          f = i / n; spawnP(m.px + dx * f + rnd(-0.6, 0.6), m.py + dy * f + rnd(-0.6, 0.6), m.pz + dz * f + rnd(-0.6, 0.6), rnd(-1, 1), rnd(-1, 1), rnd(-1, 1), rnd(0.35, 0.6), rnd(3, 5), 0.6, i % 2 ? 0xff8a20 : 0xffd060, 0.95, true);
+          spawnP(m.px + dx * f, m.py + dy * f, m.pz + dz * f, rnd(-1.2, 1.2), rnd(0.3, 1.4), rnd(-1.2, 1.2), rnd(2.2, 3.4), 3, 10, 0x3c3a3a, 0.5, false);
+        }
+        m.px = nx; m.py = ny; m.pz = nz; m.g.position.set(nx, ny, nz); m.rock.rotation.x += dt * 5; m.rock.rotation.z += dt * 3; m.glow.material.opacity = 0.75 + 0.2 * Math.sin(t * 40);
+        if (!m.snd) { m.snd = 1; AUD.mFall({ x: m.x, y: m.y + 30, z: m.z }); }
+        if (inv.t >= T_FALL) metImpact(m);
+        return;
+      }
+      /* anillos de onda (se usan en reposo y al romperse) */
+      for (i = m.rings.length - 1; i >= 0; i--) {
+        c = m.rings[i]; c.t += dt; if (c.t < 0) { c.m.material.opacity = 0; continue; }
+        f = c.t / c.dur; if (f >= 1) { grp.remove(c.m); c.m.geometry.dispose(); c.m.material.dispose(); m.rings.splice(i, 1); continue; }
+        c.m.scale.setScalar(2 + c.R * (1 - Math.pow(1 - f, 2))); c.m.material.opacity = 0.75 * (1 - f);
+      }
+      /* columna de humo: nace tras el impacto y se apaga al romper el meteorito */
+      m.ck += ((m.state === 'rest' ? 1 : 0) - m.ck) * Math.min(1, dt * 0.55);
+      for (i = 0; i < m.col.length; i++) {
+        c = m.col[i]; pk = (t * 0.17 + c.ph) % 1; yy = 2 + pk * 48; a = 0.62 * Math.pow(1 - pk, 1.1) * Math.min(1, pk * 7) * m.ck;
+        c.s.position.set(m.x + pk * pk * 16 + Math.sin(t * 0.7 + c.wob) * (1 + pk * 4), m.y + yy, m.z + pk * 5 + Math.cos(t * 0.6 + c.wob) * (1 + pk * 3));
+        c.s.scale.setScalar(5 + pk * 17); c.s.material.opacity = a; c.s.material.color.setRGB(0.17 + 0.2 * pk, 0.16 + 0.19 * pk, 0.16 + 0.19 * pk);
+      }
+      if (m.state === 'rest') {
+        m.flash = Math.max(0, m.flash - dt);
+        m.rock.material.emissive.setRGB(0.3 + 0.08 * Math.sin(t * 5) + m.flash * 2.2, 0.08 + m.flash * 1.2, 0.01);
+        m.glow.material.opacity = 0.55 + 0.15 * Math.sin(t * 6) + m.flash * 1.4;
+        m.burnT -= dt; if (m.burnT <= 0) { m.burnT = 0.6 + Math.random() * 0.5; AUD.mBurn({ x: m.x, y: m.y + 1, z: m.z }); }
+        m.emT -= dt; if (m.emT <= 0) { m.emT = 0.22; spawnP(m.x + rnd(-1.5, 1.5), m.y + 2, m.z + rnd(-1.5, 1.5), rnd(-1, 1), rnd(4, 9), rnd(-1, 1), rnd(1.4, 2.4), 0.5, 0.1, 0xff8a2a, 1, true, -1); }
+        if (m.bar) { m.bar.position.set(m.x, m.y + 5, m.z); m.bar.visible = true; }
+      } else {
+        m.deadT += dt;
+        if (m.crater) { m.crater.material.opacity = 0.85 * Math.max(0, 1 - m.deadT / 5); m.craterG.material.opacity = 0.3 * Math.max(0, 1 - m.deadT / 2.5); }
+      }
+    }
+    function metClean(m) {
+      var i;
+      if (!m) return;
+      grp.remove(m.g); m.rock.geometry.dispose(); m.rock.material.dispose(); m.glow.material.dispose();
+      if (m.crater) { grp.remove(m.crater); m.crater.geometry.dispose(); m.crater.material.dispose(); grp.remove(m.craterG); m.craterG.geometry.dispose(); m.craterG.material.dispose(); }
+      m.col.forEach(function (c) { grp.remove(c.s); c.s.material.dispose(); });
+      m.rings.forEach(function (c) { grp.remove(c.m); c.m.geometry.dispose(); c.m.material.dispose(); });
+      if (m.bar) disposeBar(m);
+      hideP();
+    }
     function inPoly(rings, x, z) {
       var ins = false, r, m, a, b;
       for (r = 0; r < rings.length; r++) { m = rings[r]; for (a = 0, b = m.length - 1; a < m.length; b = a++) if ((m[a][1] > z) !== (m[b][1] > z) && x < (m[b][0] - m[a][0]) * (z - m[a][1]) / (m[b][1] - m[a][1]) + m[a][0]) ins = !ins; }
@@ -8195,10 +8352,16 @@ window.startMap = function (RAW, AUTH) {
       var rings = statePolys[name], bb = [1e9, 1e9, -1e9, -1e9], n, nc, c, cl = [], i, tries, x, z, an, rr, al;
       if (inv || !rings || !rings.length || !bot) return false;
       rings.forEach(function (rg) { rg.forEach(function (p) { bb[0] = Math.min(bb[0], p[0]); bb[1] = Math.min(bb[1], p[1]); bb[2] = Math.max(bb[2], p[0]); bb[3] = Math.max(bb[3], p[1]); }); });
-      inv = { name: name, rings: rings, al: [], wall: null, wk: 0, end: false, t: 0 };
-      nc = 2 + ((Math.random() * 2) | 0);
-      for (tries = 0; tries < 300 && cl.length < nc; tries++) { x = rnd(bb[0], bb[2]); z = rnd(bb[1], bb[3]); if (okSpawn(x, z)) cl.push([x, z]); }
-      n = 6 + ((Math.random() * 5) | 0);
+      inv = { name: name, rings: rings, al: [], wall: null, wk: 0, end: false, t: 0, ph: 'alien', met: null };
+      /* el meteorito cae cerca del centro del estado, lejos de las ciudades; los aliens bajan después alrededor del cráter */
+      var site = metSite(rings, bb), a0, ci;
+      if (!site) { stopNow(); return false; }
+      inv.met = makeMeteor(site[0], site[1]);
+      nc = 3 + ((Math.random() * 3) | 0); a0 = rnd(0, 6.2832);
+      for (ci = 0; ci < nc; ci++) {
+        for (tries = 0; tries < 40; tries++) { an = a0 + ci * 6.2832 / nc + rnd(-0.4, 0.4); rr = rnd(20, 52); x = site[0] + Math.sin(an) * rr; z = site[1] + Math.cos(an) * rr; if (okSpawn(x, z)) { cl.push([x, z]); break; } }
+      }
+      n = 12 + ((Math.random() * 7) | 0);
       for (i = 0; i < n && cl.length; i++) {
         c = cl[i % cl.length];
         for (tries = 0; tries < 40; tries++) {
@@ -8206,7 +8369,7 @@ window.startMap = function (RAW, AUTH) {
           if (okSpawn(x, z)) break;
         }
         if (tries >= 40) continue;
-        al = { o: mk(), x: x, z: z, y: botGround(x, z), yaw: rnd(0, 6.28), s: 'spawn', age: -rnd(0, 1.2), hp: 5, mhp: 5, home: [c[0], c[1]], dod: 0, dodOff: 0, dodCD: 0, zig: 0, zs: 1, bar: null, flash: 0, ph: rnd(0, 6.28), wait: rnd(0.5, 3), wsp: rnd(1.0, 1.9), tx: x, tz: z, gk: 0, fk: 0, side: Math.random() < 0.5 ? 1 : -1, hd: 0, pickT: 0, sp: 0, dy: 0, beam: null };
+        al = { o: mk(), x: x, z: z, y: botGround(x, z), yaw: rnd(0, 6.28), s: 'spawn', age: -(T_FALL + 0.8 + rnd(0, 1.6)), hp: 10, mhp: 10, home: [c[0], c[1]], dod: 0, dodOff: 0, dodCD: 0, zig: 0, zs: 1, bar: null, flash: 0, ph: rnd(0, 6.28), wait: rnd(0.5, 3), wsp: rnd(1.6, 2.8), tx: x, tz: z, gk: 0, fk: 0, side: Math.random() < 0.5 ? 1 : -1, hd: 0, pickT: 0, sp: 0, dy: 0, beam: null };
         al.beam = new THREE.Mesh(gBeam, new THREE.MeshBasicMaterial({ color: 0x9dffb8, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
         al.beam.position.set(x, al.y + 35, z); noRay(al.beam); grp.add(al.beam); grp.add(al.o.g); inv.al.push(al);
       }
@@ -8222,6 +8385,7 @@ window.startMap = function (RAW, AUTH) {
       if (!inv) return;
       inv.al.forEach(function (a) { dispose(a.o); disposeBar(a); if (a.beam) { grp.remove(a.beam); a.beam.material.dispose(); } });
       if (inv.wall) { grp.remove(inv.wall); inv.wall.geometry.dispose(); inv.wall.material.dispose(); }
+      metClean(inv.met);
       inv = null; cur = null; nextAt = clock.elapsedTime + 90 + Math.random() * 90;
     }
     /* Rumbo de huida: el más cercano a "alejarse del robot" que no choca con la frontera, el agua ni los edificios */
@@ -8270,6 +8434,7 @@ window.startMap = function (RAW, AUTH) {
       if (a.age < 0) { g.visible = false; return; }
       g.visible = true;
       if (a.s === 'spawn') {
+        if (!a.snd) { a.snd = 1; if (clock.elapsedTime >= spGate) { spGate = clock.elapsedTime + 0.12; AUD.alSpawn({ x: a.x, y: a.y + 1, z: a.z }); } }
         sc = Math.max(0.001, Math.min(1, (a.age - 0.5) / 1.0)); g.scale.setScalar(SC * sc);
         a.beam.material.opacity = 0.55 * Math.sin(Math.min(1, a.age / 2.4) * Math.PI);
         if (a.age > 2.4) { a.s = 'live'; grp.remove(a.beam); a.beam.material.dispose(); a.beam = null; }
@@ -8279,16 +8444,16 @@ window.startMap = function (RAW, AUTH) {
       d = B ? Math.hypot(a.x - B.x, a.z - B.z) : 999;
       var hpK = a.hp / a.mhp, wk = hpK < 0.6 ? 0.6 + 0.4 * hpK / 0.6 : 1, th, rate = 9;
       a.dodCD -= dt;
-      if (d < 60) { if (!(a.alert > 0)) a.react = 0.4; a.alert = 3; } else if (a.alert > 0) a.alert -= dt;
+      if (d < 60) { if (!(a.alert > 0)) { a.react = 0.4; if (clock.elapsedTime >= cryGate) { cryGate = clock.elapsedTime + 0.2 + Math.random() * 0.3; AUD.alCry({ x: a.x, y: a.y + 1.2, z: a.z }); } } a.alert = 3; } else if (a.alert > 0) a.alert -= dt;
       if (a.react > 0) { a.react -= dt; a.yaw += nAngl(Math.atan2(B.x - a.x, B.z - a.z) - a.yaw) * Math.min(1, dt * 8); /* se queda un instante mirando al robot antes de correr */ }
       else if (a.alert > 0) {
         a.pickT -= dt;
         if (a.pickT <= 0) { a.pickT = 0.12; a.hd = flee(a, B ? Math.atan2(a.x - B.x, a.z - B.z) : a.yaw); }
         if (a.hd !== null) {
           th = a.hd;
-          if (a.dod > 0) { a.dod -= dt; th += a.dodOff; rate = 16; sp += 2; }
+          if (a.dod > 0) { a.dod -= dt; th += a.dodOff; rate = 16; sp += 3; }
           else if (a.zig > 0) { a.zig -= dt; th += a.zs * 0.65 * (Math.sin(t * 7 + a.ph) > 0 ? 1 : -1); rate = 12; }
-          sp += ((d < 30 ? 7 : 5) + (a.flash > 0 ? 1.5 : 0)) * wk; a.yaw += nAngl(th - a.yaw) * Math.min(1, dt * rate);
+          sp += ((d < 30 ? 10 : 7.5) + (a.flash > 0 ? 1.5 : 0)) * wk; a.yaw += nAngl(th - a.yaw) * Math.min(1, dt * rate);
         }
       } else if (a.wait > 0) { a.wait -= dt; }
       else {
@@ -8330,15 +8495,18 @@ window.startMap = function (RAW, AUTH) {
         }
         return;
       }
-      inv.t += dt; inv.wk = inv.end ? Math.max(0, inv.wk - dt / 2) : Math.min(1, inv.wk + dt / 1.5);
+      inv.t += dt; inv.wk = inv.end ? Math.max(0, inv.wk - dt / 2) : (inv.t >= T_FALL ? Math.min(1, inv.wk + dt / 1.5) : 0); /* la barrera se forma después del impacto */
       if (inv.wall) { inv.wall.material.opacity = inv.wk * (0.62 + 0.16 * Math.sin(t * 3)); wtex.offset.x = -t * 0.04; }
       for (i = inv.al.length - 1; i >= 0; i--) {
         a = inv.al[i]; step(a, dt, t);
         if (a.gone) { dispose(a.o); disposeBar(a); inv.al.splice(i, 1); continue; }
         if (a.s !== 'dying') live++;
       }
-      if (!live && !inv.end) inv.end = true;
-      if (inv.end && inv.wk <= 0.001 && !inv.al.length) stopNow();
+      if (inv.met) { metStep(inv.met, dt, t); updP(dt); }
+      if (inv.met && !live && inv.met.state === 'rest' && inv.ph === 'alien') inv.ph = 'rock'; /* sin aliens: toca el meteorito */
+      if (inv.met && inv.met.state === 'dead' && !inv.end) inv.end = true; /* el evento termina al destruir el meteorito */
+      if (!inv.met && !live && !inv.end) inv.end = true;
+      if (inv.end && inv.wk <= 0.001 && !inv.al.length && (!inv.met || inv.met.deadT > 5.5)) stopNow();
     }
     /* Objetivo del robot: el alien vivo más cercano (con algo de histéresis para no cambiar a cada rato) */
     function pick(bx, bz, now) {
@@ -8352,13 +8520,25 @@ window.startMap = function (RAW, AUTH) {
         }
         if (!cur || cur.s !== 'live' || bd < cd * 0.7) cur = best;
       }
-      if (!cur || cur.s !== 'live') return null;
+      if (!cur || cur.s !== 'live') { if (inv.ph === 'rock' && inv.met && inv.met.state === 'rest') return tpos.set(inv.met.x, inv.met.y + 1.4, inv.met.z); return null; }
       return tpos.set(cur.x, cur.y + 0.8, cur.z);
     }
     /* Impacto de un láser del robot (segmento ox→nx): 2 disparos derriban a un alien */
     function bolt(ox, oy, oz, nx, ny, nz) {
       var i, a, sx = nx - ox, sy = ny - oy, sz = nz - oz, l2 = sx * sx + sy * sy + sz * sz || 1, t, cx, cy, cz, k;
       if (!inv) return false;
+      if (inv.ph === 'rock' && inv.met && inv.met.state === 'rest') { /* el meteorito solo recibe daño cuando ya no quedan aliens */
+        var mm = inv.met;
+        t = Math.max(0, Math.min(1, ((mm.x - ox) * sx + (mm.y + 1.4 - oy) * sy + (mm.z - oz) * sz) / l2));
+        cx = ox + sx * t; cy = oy + sy * t; cz = oz + sz * t;
+        if (Math.hypot(mm.x - cx, mm.y + 1.4 - cy, mm.z - cz) < 2.6) {
+          mm.hp--; mm.flash = 0.22; drawBar(mm); if (mm.bar) mm.bar.scale.set(3.4, 0.42, 1);
+          for (k = 0; k < 6; k++) spawnP(cx, cy, cz, rnd(-7, 7), rnd(3, 11), rnd(-7, 7), rnd(0.4, 0.9), rnd(0.6, 1.2), 0.1, 0xffa030, 1, true, 16);
+          AUD.mHit({ x: mm.x, y: mm.y + 1.4, z: mm.z });
+          if (mm.hp <= 0) metBreak(mm);
+          return true;
+        }
+      }
       for (i = 0; i < inv.al.length; i++) {
         a = inv.al[i]; if (a.s !== 'live') continue;
         t = Math.max(0, Math.min(1, ((a.x - ox) * sx + (a.y + 0.8 - oy) * sy + (a.z - oz) * sz) / l2));
@@ -8366,8 +8546,8 @@ window.startMap = function (RAW, AUTH) {
         k = Math.hypot(a.x - cx, a.y + 0.8 - cy, a.z - cz);
         if (k >= 1.0 && k < 5.5 && a.dodCD <= 0 && !(a.react > 0)) dodge(a, false); /* un láser pasa cerca: se tira a un lado */
         if (k < 1.0) {
-          a.hp--; a.flash = 0.3; dodge(a, true); drawBar(a); fxSpawn(cx, cy, cz, 0, 0, 0, 0.3, 0.3, 1.1, 0x7dffa0, 0.9, true);
-          if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.8 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
+          a.hp--; a.flash = 0.3; dodge(a, true); drawBar(a); if (a.hp > 0) AUD.alHit({ x: a.x, y: a.y + 1, z: a.z }); fxSpawn(cx, cy, cz, 0, 0, 0, 0.3, 0.3, 1.1, 0x7dffa0, 0.9, true);
+          if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; AUD.alDie({ x: a.x, y: a.y + 1, z: a.z }); for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.8 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
           return true;
         }
       }
