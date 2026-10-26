@@ -8236,6 +8236,19 @@ window.startMap = function (RAW, AUTH) {
   }
   function auraCityNear(x, z) { var i, d, b = null, bd = 1e9, q; for (i = 0; i < districts.length; i++) { d = districts[i]; if (!d.list.length) continue; q = Math.hypot(x - d.cx, z - d.cz); if (q < bd) { bd = q; b = d; } } return b; }
   function auraFreeNear(x, z) { var r, a, px, pz; for (r = 0; r < 60; r += 4) for (a = 0; a < 6.28; a += 0.7) { px = x + Math.cos(a) * r; pz = z + Math.sin(a) * r; if (botFree(px, pz)) return [px, pz]; } return null; }
+  function auraNeighborSpot(name, ex, ez) { /* punto libre en un estado vecino del invadido, el más cercano al meteorito */
+    var own = statePolys[name], op = [], st, i, j, k, d, bd = 1e9, bp = null, nb = {};
+    if (!own) return null;
+    own.forEach(function (r) { st = Math.max(1, Math.floor(r.length / 150)); for (i = 0; i < r.length; i += st) op.push(r[i]); });
+    Object.keys(statePolys).forEach(function (n) {
+      var near = false;
+      if (n === name) return;
+      statePolys[n].forEach(function (r) { if (near) return; var s2 = Math.max(1, Math.floor(r.length / 150)), jj, kk; for (jj = 0; jj < r.length && !near; jj += s2) for (kk = 0; kk < op.length; kk++) { if (Math.abs(r[jj][0] - op[kk][0]) < 8 && Math.abs(r[jj][1] - op[kk][1]) < 8) { near = true; break; } } });
+      if (near) nb[n] = 1;
+    });
+    Object.keys(nb).forEach(function (n) { statePolys[n].forEach(function (r) { var jj; for (jj = 0; jj < r.length; jj++) { d = Math.hypot(r[jj][0] - ex, r[jj][1] - ez); if (d < bd) { bd = d; bp = r[jj]; } } }); });
+    return bp ? auraFreeNear(bp[0], bp[1]) : null;
+  }
   function auraJump(A, x, z, mode) { /* desaparece con destello y reaparece en (x,z) */
     A.jmp = { x: x, z: z, t: 0, mode: mode, done: false };
     A.mode = 'jump'; AUD.glitch(0.4, 0.6, { x: A.x, y: A.y + 0.4, z: A.z });
@@ -8308,11 +8321,16 @@ window.startMap = function (RAW, AUTH) {
       if (A.evCD <= 0 && BN) {
         A.evCD = 2; e = auraEvent();
         if (e && !auraDone[e.key] && e.left >= 30) {
-          auraDone[e.key] = 1; dd = Math.hypot(e.x - A.x, e.z - A.z);
-          if (dd > 5 * (e.left - 15)) { /* no le alcanza corriendo: salto a la ciudad más cercana al sitio y corre el último tramo (solo si le da tiempo) */
-            c = auraCityNear(e.x, e.z); G = c && auraFreeNear(c.cx, c.cz);
-            if (G && Math.hypot(G[0] - e.x, G[1] - e.z) < dd - 60 && Math.hypot(G[0] - e.x, G[1] - e.z) / 5.0 < e.left - 15) { A.ev = e; auraJump(A, G[0], G[1], 'go'); return; }
-          } else auraStart(A, e);
+          dd = Math.hypot(e.x - A.x, e.z - A.z);
+          if (dd > 60) { /* lejos: la invasión, desde un estado vecino; los restos del OVNI, desde la ciudad más cercana */
+            G = null; I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
+            if (e.kind === 'met' && I && I.name) { try { G = auraNeighborSpot(I.name, e.x, e.z); } catch (er) { G = null; } }
+            if (!G) { c = auraCityNear(e.x, e.z); G = c && auraFreeNear(c.cx, c.cz); }
+            if (G && Math.hypot(G[0] - e.x, G[1] - e.z) > dd - 20) G = null; /* si no la acerca, mejor corre directo */
+            if (G) { auraDone[e.key] = 1; A.ev = e; auraJump(A, G[0], G[1], 'go'); return; }
+            if (auraStart(A, e)) auraDone[e.key] = 1;
+            else { G = auraFreeNear(e.x + 12, e.z + 12); if (G) { auraDone[e.key] = 1; A.ev = e; e.fb = 1; auraJump(A, G[0], G[1], 'go'); return; } }
+          } else if (auraStart(A, e)) auraDone[e.key] = 1;
         }
       }
     } else if (A.mode === 'jump') {
@@ -8323,7 +8341,7 @@ window.startMap = function (RAW, AUTH) {
       if (A.jmp.done) A.k = Math.min(1, (A.jmp.t - 0.3) / 0.3);
       A.k *= Math.random() < 0.3 ? 0.25 : 1; /* parpadeo */
       auraGlitchFx(A);
-      if (A.jmp.done) { if (A.jmp.t >= 0.6) { A.k = 1; A.fxg.g.visible = false; if (A.jmp.mode === 'back') auraResume(A, A.bc); else if (A.jmp.mode === 'join') auraFinishJoin(A); else if (!(A.ev && auraStart(A, A.ev))) auraBack(A); } }
+      if (A.jmp.done) { if (A.jmp.t >= 0.6) { A.k = 1; A.fxg.g.visible = false; if (A.jmp.mode === 'back') auraResume(A, A.bc); else if (A.jmp.mode === 'join') auraFinishJoin(A); else if (!(A.ev && auraStart(A, A.ev))) { var G2 = (A.ev && !A.ev.fb) ? auraFreeNear(A.ev.x + 12, A.ev.z + 12) : null; if (G2) { A.ev.fb = 1; auraJump(A, G2[0], G2[1], 'go'); } else auraBack(A); } } }
     } else {
       /* a pie fuera de los senderos: ir, investigar o volver */
       e = auraEvent(); I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
