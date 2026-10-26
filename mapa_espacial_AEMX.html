@@ -7169,7 +7169,7 @@ window.startMap = function (RAW, AUTH) {
     AUD.shot(mz);
   }
   function botBolts(dt) {
-    var i, p, U, ox, oy, oz, nx, ny, nz, sx, sy, sz, l2, t, cx, cy2, cz, bp, live = ufo && !ufoDown() && !ufoOverVolc();
+    var i, p, U, ox, oy, oz, nx, ny, nz, sx, sy, sz, l2, t, cx, cy2, cz, bp, live = ufo && !ufoDown() && !ufoOverVolc() && !(HFW || HF);
     for (i = 0; i < botLas.length; i++) {
       p = botLas[i];
       if (!p.on) continue;
@@ -7202,7 +7202,7 @@ window.startMap = function (RAW, AUTH) {
     b.alienT = !!AT;
     var invIn = !!(typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && statePolys[S.name] && botInRings(statePolys[S.name], b.x, b.z); })(ALN.state())); /* dentro del estado invadido: la niebla no lo limita */
     var MR = (AT && typeof ALN !== 'undefined' && ALN && ALN.rock) ? ALN.rock() : null, orbOn = !!(MR && Math.hypot(MR.x - b.x, MR.z - b.z) < 45); /* MR: meteorito (sin aliens vivos); orbOn: ya cerca, lo rodea disparando */
-    U = AT || ((ufo && !ufoDown() && !(b.wk && (b.circ || b.scan || b.gtype === 'wreck' || b.gtype === 'wreckp'))) ? ufo.g.position : null); /* ignora al OVNI nuevo mientras revisa el cráter (hasta que desaparezca) y durante su 5 s de ventaja */
+    U = AT || ((HFW || HF) ? null : ((ufo && !ufoDown() && !(b.wk && (b.circ || b.scan || b.gtype === 'wreck' || b.gtype === 'wreckp'))) ? ufo.g.position : null)); /* ignora al OVNI nuevo mientras revisa el cráter (hasta que desaparezca) y durante su 5 s de ventaja */
     if (U) {
       if (b.hasUp && dt > 0) { b.uv.set((U.x - b.up.x) / dt, (U.y - b.up.y) / dt, (U.z - b.up.z) / dt); if (b.uv.length() > 60) b.uv.set(0, 0, 0); }
       b.up.copy(U); b.hasUp = true;
@@ -7989,6 +7989,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- AURA: exploradora de armadura blanca y roja (misma complexión que el robot, torso femenino). Camina por los senderos como el caminante
      y va a investigar los restos del OVNI y el meteorito de la invasión (si está lejos, salta con un destello a la ciudad más cercana al sitio) ---------- */
+  var HFW = false; /* tregua: tras destruir el meteorito el robot ignora al OVNI hasta terminar el choque */
   var HF = null; /* choque de manos entre AURA y el robot al destruir el meteorito */
   var aura = null, auraFollow = false, auraOff = new THREE.Vector3(), auraDone = {}, auraT = 0;
   var auSkin = new THREE.MeshLambertMaterial({ color: 0xf0c3b3 }), auPearl = new THREE.MeshLambertMaterial({ color: 0xe9eef3, emissive: 0x15191d });
@@ -8253,31 +8254,43 @@ window.startMap = function (RAW, AUTH) {
     return bp ? auraFreeNear(bp[0], bp[1]) : null;
   }
   function ufoLive() { return !!(ufo && !ufoDown() && ufo.g && ufo.g.visible); } /* hay un OVNI volando a la vista */
-  function auraHFStart(A) { /* tras destruir el meteorito: AURA y el robot se encuentran a medio camino y chocan los cinco */
-    var b = bot, M, d;
-    if (!b || HF || now0() < (A.hfCD || 0) || b.mode !== 'walk' || b.aiming || A.mode !== 'inspect' || !A.ev || A.ev.kind !== 'met') return false;
-    d = Math.hypot(b.x - A.x, b.z - A.z); if (d > 80 || ufoLive()) return false;
-    var a0 = Math.atan2(b.x - A.x, b.z - A.z), offs = [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.6, -2.6, 3.1], k, an, gx, gz; /* punto a 1.3 de AURA, del lado del robot (o alrededor si está ocupado) */
-    M = null;
-    for (k = 0; k < offs.length && !M; k++) { an = a0 + offs[k]; gx = A.x + Math.sin(an) * 1.3; gz = A.z + Math.cos(an) * 1.3; if (botFree(gx, gz) && !botCrater(gx, gz)) M = [gx, gz]; }
-    if (!M) return false;
-    A.hfCD = now0() + 90; A.ev = null; A.mode = 'hf'; A.k = 1; A.wp = null;
-    HF = { x: M[0], z: M[1], t: 0, ph: 'go', ht: 0, rg: 0, tries: 0 };
+  function hfPoint(A) { /* punto a 1.3 de AURA, del lado del robot (o alrededor si está ocupado) */
+    var b = bot, a0 = Math.atan2(b.x - A.x, b.z - A.z), offs = [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.6, -2.6, 3.1], k, an, gx, gz;
+    for (k = 0; k < offs.length; k++) { an = a0 + offs[k]; gx = A.x + Math.sin(an) * 1.3; gz = A.z + Math.cos(an) * 1.3; if (botFree(gx, gz) && !botCrater(gx, gz)) return [gx, gz]; }
+    return null;
+  }
+  function auraHFStart(A) { /* tras destruir el meteorito: AURA y el robot chocan los cinco; si AURA no está cerca, salta junto al robot */
+    var b = bot, M, d, G;
+    if (!b || !A || HF || b.mode !== 'walk' || b.aiming) return false;
+    d = Math.hypot(b.x - A.x, b.z - A.z);
+    if (A.mode === 'inspect' && A.ev && A.ev.kind === 'met' && d <= 80) {
+      M = hfPoint(A); if (!M) return false;
+      A.hfCD = now0() + 90; A.ev = null; A.mode = 'hf'; A.k = 1; A.wp = null;
+      HF = { x: M[0], z: M[1], t: 0, ph: 'go', ht: 0, rg: 0, tries: 0 };
+      return true;
+    }
+    if (A.mode === 'jump') return false;
+    G = auraFreeNear(b.x + 3, b.z + 1); if (!G) return false;
+    A.ev = null; A.wp = null; A.hfCD = now0() + 90;
+    HF = { x: 0, z: 0, t: 0, ph: 'jump', ht: 0, rg: 0, tries: 0 };
+    auraJump(A, G[0], G[1], 'hf');
     return true;
   }
   function hfEnd(A, ok) { var b = bot; HF = null; if (b) { b.hfOn = false; b.idle = Math.min(b.idle || 0, 0.5); } A.wp = null; if (A.mode === 'hf') auraBack(A); }
   function hfStep(A, dt) {
     var b = bot, d, mx, mz, ang, st;
     if (!HF) return;
+    if (HF.ph === 'jump') { HF.t += dt; if (HF.t > 8 || !b) { HF = null; } return; } /* AURA está saltando junto al robot */
     if (!b || !A || A.mode !== 'hf') { if (A && A.mode === 'hf') hfEnd(A); else HF = null; return; }
     HF.t += dt;
     if (HF.t > 20 && HF.ph !== 'hit') { hfEnd(A); return; } /* no llegaron: se cancela */
-    if (ufoLive() || b.mode === 'lift') { hfEnd(A); return; }
+    if (b.mode === 'lift') { hfEnd(A); return; }
     d = Math.hypot(b.x - A.x, b.z - A.z);
     if (HF.ph === 'go') {
-      b.tour = null; b.jog = true;
+      b.tour = null; b.jog = true; b.scan = false; b.circ = false;
       A.yaw += nAng(Math.atan2(b.x - A.x, b.z - A.z) - A.yaw) * Math.min(1, dt * 4); /* AURA espera mirando al robot */
-      if (!b.goal) { if (HF.tries >= 3) { hfEnd(A); return; } HF.tries++; if (!botSetGoal(HF.x, HF.z, 'patrol') && HF.tries >= 3) { hfEnd(A); return; } b.jog = true; }
+      HF.gt = (HF.gt || 0) - dt;
+      if ((!b.goal || b.gtype !== 'patrol') && HF.gt <= 0) { HF.gt = 0.6; if (!botSetGoal(HF.x, HF.z, 'patrol')) { if (++HF.tries >= 5) { hfEnd(A); return; } } b.jog = true; }
       if (d < 2.2 && b.v < 4) { HF.ph = 'hit'; HF.ht = 0; HF.c = 0; A.wp = null; }
       return;
     }
@@ -8390,7 +8403,7 @@ window.startMap = function (RAW, AUTH) {
       if (A.jmp.done) A.k = Math.min(1, (A.jmp.t - 0.3) / 0.3);
       A.k *= Math.random() < 0.3 ? 0.25 : 1; /* parpadeo */
       auraGlitchFx(A);
-      if (A.jmp.done) { if (A.jmp.t >= 0.6) { A.k = 1; A.fxg.g.visible = false; if (A.jmp.mode === 'back') auraResume(A, A.bc); else if (A.jmp.mode === 'join') auraFinishJoin(A); else if (!(A.ev && auraStart(A, A.ev))) { var G2 = (A.ev && !A.ev.fb) ? auraFreeNear(A.ev.x + 12, A.ev.z + 12) : null; if (G2) { A.ev.fb = 1; auraJump(A, G2[0], G2[1], 'go'); } else auraBack(A); } } }
+      if (A.jmp.done) { if (A.jmp.t >= 0.6) { A.k = 1; A.fxg.g.visible = false; if (A.jmp.mode === 'back') auraResume(A, A.bc); else if (A.jmp.mode === 'join') auraFinishJoin(A); else if (A.jmp.mode === 'hf') { A.mode = 'hf'; A.wp = null; if (HF && HF.ph === 'jump' && bot) { var Mh = hfPoint(A); if (Mh) { HF.x = Mh[0]; HF.z = Mh[1]; HF.ph = 'go'; HF.t = 0; } else { HF = null; auraBack(A); } } else auraBack(A); } else if (!(A.ev && auraStart(A, A.ev))) { var G2 = (A.ev && !A.ev.fb) ? auraFreeNear(A.ev.x + 12, A.ev.z + 12) : null; if (G2) { A.ev.fb = 1; auraJump(A, G2[0], G2[1], 'go'); } else auraBack(A); } } }
     } else {
       /* a pie fuera de los senderos: ir, investigar o volver */
       e = auraEvent(); I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
@@ -9437,7 +9450,7 @@ window.startMap = function (RAW, AUTH) {
       if (inv.wall) { grp.remove(inv.wall); inv.wall.geometry.dispose(); inv.wall.material.dispose(); }
       metClean(inv.met);
       var tn = clock.elapsedTime, rest = (inv.entered && !inv.to) ? Math.max(0, 480 - inv.tIn) : 0; /* premio: lo que sobraba de los 8 min */
-      invLock = null; inv = null; cur = null;
+      invLock = null; inv = null; cur = null; HFW = false;
       ufoHold = tn + rest;
       if (rest > 0 && ufo && !(ufo.state === 'wreck' || ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'spawn')) { /* retira el OVNI vivo sin ruido */
         ufo.state = 'wreck'; ufo.gone = true; ufo.T = 180; ufo.g.visible = false; if (wreck) wreck.visible = false;
@@ -9707,10 +9720,11 @@ window.startMap = function (RAW, AUTH) {
         inv.al.forEach(function (q) { if (q.s !== 'dying') { q.s = 'dying'; q.dy = 0; } });
         if (inv.met && inv.met.state === 'rest') metBreak(inv.met);
       }
-      if (inv.met && inv.met.state === 'dead' && !inv.end) { /* al destruir el meteorito: AURA y el robot chocan los cinco con la barrera arriba y luego termina el evento */
-        if (inv.hfT === undefined) inv.hfT = (aura && aura.mode === 'inspect' && aura.ev && aura.ev.kind === 'met' && bot && Math.hypot(bot.x - aura.x, bot.z - aura.z) < 80) ? 0 : 99;
-        if (inv.hfT >= 0 && inv.hfT < 6) { inv.hfT += dt; try { if (auraHFStart(aura)) inv.hfT = -1; } catch (er) { inv.hfT = 99; } }
-        if (inv.hfT >= 6 || (inv.hfT === -1 && !HF)) inv.end = true;
+      if (inv.met && inv.met.state === 'dead' && !inv.end) { /* al destruir el meteorito: tregua, choque de manos entre AURA y el robot con la barrera arriba, y luego termina el evento */
+        if (inv.hfT === undefined) { inv.hfT = 0; HFW = true; }
+        inv.hfT += dt; inv.pS = 0;
+        if (!inv.hfDone) { try { if (!aura || !bot) inv.hfDone = 2; else if (auraHFStart(aura)) inv.hfDone = 1; } catch (er) { inv.hfDone = 2; } }
+        if (inv.hfT >= 40 || inv.hfDone === 2 || (inv.hfDone === 1 && !HF)) { inv.end = true; HFW = false; }
       }
       if (!inv.met && !live && !inv.end) inv.end = true;
       if (inv.end && inv.wk <= 0.001 && !inv.al.length && (!inv.met || inv.met.deadT > 5.5)) stopNow();
