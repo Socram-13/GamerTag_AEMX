@@ -148,6 +148,18 @@
   @media (max-width: 700px) { #dbar { top: 56px; width: min(520px, 94vw); } }
   .stage.duel-on .search, .stage.duel-on .tools { display: none !important; } /* durante el duelo solo queda tu tarjeta de usuario arriba */
   #d-t { font: 800 18px var(--f-display); min-width: 34px; text-align: center; }
+  #dvs { position: absolute; left: 0; right: 0; top: 30%; z-index: 7; display: flex; align-items: center; justify-content: center; gap: clamp(10px, 3vw, 34px); pointer-events: none; }
+  #dvs[hidden] { display: none; }
+  #dvs .vc { min-width: min(260px, 36vw); padding: 16px 20px; border-radius: 6px 20px 6px 20px; background: rgba(16,9,30,0.9); border: 2px solid #4cff8a; box-shadow: 0 0 22px rgba(76,255,138,0.5); text-align: center; color: #fff3d6; }
+  #dvs .vc b { display: block; font: 800 clamp(16px, 3.4vw, 28px) var(--f-display); overflow-wrap: anywhere; letter-spacing: 0.04em; }
+  #dvs .vc small { font: 700 11px var(--f-body); letter-spacing: 0.2em; opacity: 0.8; }
+  #dvs .vfoe { border-color: #ff5a5a; box-shadow: 0 0 22px rgba(255,90,90,0.5); } #dvs .vfoe b { color: #ff9a9a; }
+  #dvs .vvs { font: 900 clamp(26px, 6vw, 52px) var(--f-display); color: #ffe44d; text-shadow: 0 0 16px rgba(255,228,77,0.8), 0 3px 6px #000; animation: vcV 0.5s 0.45s both; }
+  #dvs .vme { animation: vcL 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; } #dvs .vfoe { animation: vcR 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+  @keyframes vcL { from { transform: translateX(-120vw); } to { transform: none; } }
+  @keyframes vcR { from { transform: translateX(120vw); } to { transform: none; } }
+  @keyframes vcV { from { transform: scale(3); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (max-width: 700px) { #dvs { flex-direction: column; top: 22%; } #dvs .vc { min-width: 62vw; padding: 10px 14px; } }
   #dres { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); z-index: 7; font: 900 clamp(34px, 8vw, 72px) var(--f-display); letter-spacing: 0.06em; color: #fff3d6; text-shadow: 0 0 18px rgba(255,228,77,0.8), 0 3px 6px #000; pointer-events: none; text-align: center; }
   #dres.lose { color: #ff9a9a; text-shadow: 0 0 18px rgba(255,60,60,0.8), 0 3px 6px #000; }
   #xbar button[hidden] { display: none; }
@@ -345,6 +357,7 @@
   <div id="xbar" hidden><span id="x-txt"></span><button type="button" id="x-fb" hidden>⚔ Retar 1 vs 1</button><button type="button" id="x-back">Volver</button></div>
   <div id="dbar" hidden><div class="dside dme"><b id="d-mn"></b><div class="dhp"><i id="d-mh"></i><u id="d-ms"></u></div></div><div id="d-t">90</div><div class="dside foe"><b id="d-fn"></b><div class="dhp"><i id="d-fh"></i><u id="d-fs"></u></div></div></div>
   <div id="dres" hidden></div>
+  <div id="dvs" hidden><div class="vc vme"><small>TÚ</small><b id="v-me"></b></div><div class="vvs">VS</div><div class="vc vfoe"><small>RIVAL</small><b id="v-foe"></b></div></div>
   <div id="fail" hidden><p>No se pudo cargar el motor 3D. Revisa tu conexión y vuelve a abrir la página.</p></div>
 </main>
 
@@ -7249,7 +7262,7 @@ window.startMap = function (RAW, AUTH) {
   }
   function botXsBack() { if (bot) { bot.xs = null; bot.idle = 0; window.__botSayQ = 'Vuelvo a mi ronda.'; xsRefresh(); } }
   /* ---------- Duelo 1 vs 1 en Socorro: el robot contra un clon rojo del rival; ambos autónomos, estadísticas por parcelas ---------- */
-  var DUEL = null;
+  var DUEL = null, DEB = [], DUELCAM = null;
   function duelStats(p) {
     function n(c, cap) { return Math.sqrt(Math.min(c || 0, cap) / cap); }
     var hp = 100 + 200 * n(p.common, 5000), sh = 120 * n(p.rare, 3000);
@@ -7265,6 +7278,8 @@ window.startMap = function (RAW, AUTH) {
     var D = DUEL; if (!D) return;
     if (D.fg && D.fg.g.parent) D.fg.g.parent.remove(D.fg.g);
     if (bot) bot.jy = 0;
+    if (D.parts) duelDebrisClear(D);
+    document.getElementById('dvs').hidden = true;
     if (D.bar) { scene.remove(D.bar.m); D.bar.m.geometry.dispose(); D.bar.m.material.dispose(); D.bar.tex.dispose(); }
     DUEL = null; document.getElementById('dbar').hidden = true; duelBanner(''); stage.classList.remove('duel-on');
   }
@@ -7417,6 +7432,57 @@ window.startMap = function (RAW, AUTH) {
     B.m.material.opacity = Math.min(1, B.k * (0.5 + 0.12 * Math.sin(performance.now() / 400) + 0.3 * B.flash));
     if (B.on && D.ph !== 'in') { duelClamp(D, bot); if (D.fg) duelClamp(D, D.fg); }
   }
+  function duelCamTick(dt, now) { /* acerca (o aleja) suavemente la cámara del robot durante el duelo */
+    var C = DUELCAM, v, len, nl;
+    if (!C || fly || !botFollow) { if (C && now > C.until) DUELCAM = null; return; }
+    v = bkTmpA.copy(camera.position).sub(controls.target); len = v.length();
+    if (len > 0.01 && ((C.r < len && C.dir < 0) || (C.r > len && C.dir > 0))) { nl = len + (C.r - len) * Math.min(1, dt * 2.2); camera.position.copy(controls.target).addScaledVector(v, nl / len); }
+    if (now > C.until) DUELCAM = null;
+  }
+  function duelDebrisTick(dt) { /* física sencilla de las piezas del robot que explotó */
+    var i, p, gy;
+    for (i = 0; i < DEB.length; i++) {
+      p = DEB[i];
+      if (!p.rest) {
+        p.v.y -= 22 * dt; p.pos.addScaledVector(p.v, dt); gy = botGround(p.pos.x, p.pos.z) + 0.08;
+        if (p.pos.y < gy) { p.pos.y = gy; if (Math.abs(p.v.y) > 1.4) { p.v.y *= -0.38; p.v.x *= 0.7; p.v.z *= 0.7; p.w.multiplyScalar(0.6); } else { p.v.set(0, 0, 0); p.w.set(0, 0, 0); p.rest = true; } }
+        p.e.x += p.w.x * dt; p.e.y += p.w.y * dt; p.e.z += p.w.z * dt;
+        p.t += dt; if (p.t < 1.6 && Math.random() < 0.35) fxSpawn(p.pos.x, p.pos.y + 0.1, p.pos.z, 0, 0.7, 0, 1.2, 0.2, 0.8, 0x555555, 0.35, false);
+      }
+      p.o.position.copy(p.pos); p.o.rotation.set(p.e.x, p.e.y, p.e.z);
+    }
+  }
+  function duelExplode(D, who) { /* el perdedor se rompe en piezas con una explosión */
+    var G = who === 'me' ? bot : D.fg, parts, i, o, par, c, a, sp, k;
+    if (!G) return;
+    G.g.updateMatrixWorld(true);
+    parts = [G.legs[0].th, G.legs[1].th, G.arms[0].sh, G.arms[1].sh, G.head, G.rifle, G.shell, G.body];
+    D.parts = D.parts || [];
+    c = new THREE.Vector3(); G.g.getWorldPosition(c); c.y += 0.5;
+    for (i = 0; i < parts.length; i++) {
+      o = parts[i]; par = o.parent; if (!par) continue;
+      D.parts.push({ o: o, par: par, p0: o.position.clone(), q0: o.quaternion.clone(), s0: o.scale.clone() });
+      scene.attach(o);
+      a = Math.random() * 6.2832; sp = 2 + Math.random() * 3.5;
+      DEB.push({ o: o, pos: o.position.clone(), e: new THREE.Euler().setFromQuaternion(o.quaternion, 'YXZ').clone(), v: new THREE.Vector3(Math.cos(a) * sp, 5 + Math.random() * 4.5, Math.sin(a) * sp), w: new THREE.Vector3((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16), rest: false, t: 0 });
+    }
+    G.g.visible = false; if (who === 'foe' || who !== 'me') G.dead = true;
+    for (k = 0; k < 8; k++) { a = Math.random() * 6.2832; sp = 1.5 + Math.random() * 3; fxSpawn(c.x, c.y, c.z, Math.cos(a) * sp, 1 + Math.random() * 3, Math.sin(a) * sp, 0.7 + Math.random() * 0.4, 0.6, 2.8, k % 2 ? 0xffa030 : 0xff5a1a, 0.9, true); }
+    for (k = 0; k < 26; k++) { a = Math.random() * 6.2832; sp = 4 + Math.random() * 7; fxSpawn(c.x, c.y, c.z, Math.cos(a) * sp, 2 + Math.random() * 7, Math.sin(a) * sp, 0.5 + Math.random() * 0.4, 0.09, 0.02, 0xffe9a0, 1, true); }
+    for (k = 0; k < 8; k++) { a = Math.random() * 6.2832; sp = 0.8 + Math.random() * 1.6; fxSpawn(c.x, c.y, c.z, Math.cos(a) * sp, 0.8 + Math.random() * 1.6, Math.sin(a) * sp, 2.2, 0.5, 2.6, 0x555555, 0.4, false); }
+    AUD.explode({ x: c.x, y: c.y, z: c.z });
+  }
+  function duelDebrisClear(D) { /* quita las piezas del clon y devuelve las del robot a su sitio */
+    var i, q;
+    DEB.length = 0;
+    if (!D.parts) return;
+    for (i = 0; i < D.parts.length; i++) {
+      q = D.parts[i];
+      if (D.loser === 'me') { q.par.add(q.o); q.o.position.copy(q.p0); q.o.quaternion.copy(q.q0); q.o.scale.copy(q.s0); } else if (q.o.parent) q.o.parent.remove(q.o);
+    }
+    D.parts = null;
+    if (D.loser === 'me' && bot) bot.g.visible = true;
+  }
   function duelBars() {
     var D = DUEL;
     document.getElementById('d-mh').style.width = (100 * D.me.hp / D.me.hpMax) + '%'; document.getElementById('d-ms').style.width = D.me.shMax ? (100 * D.me.sh / D.me.shMax) + '%' : '0';
@@ -7430,13 +7496,24 @@ window.startMap = function (RAW, AUTH) {
     var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
     if (GM.mode !== 'exp') { duelClear(); return; }
     duelBarrierTick(D, dt);
-    if (D.ph === 'in' || D.ph === 'count' || D.ph === 'end') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; if (!b.tpj) b.v = 0; b.boostT = 0; b.hopGoal = null; }
-    if (D.ph === 'in') { if (!b.tpj) { duelSpawnFoe(); D.ph = 'count'; D.tc = now + 3; } return; }
+    if (D.ph === 'in' || D.ph === 'intro' || D.ph === 'count' || D.ph === 'end') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; if (!b.tpj) b.v = 0; b.boostT = 0; b.hopGoal = null; }
+    if (D.ph === 'in') {
+      if (!b.tpj) {
+        duelSpawnFoe(); D.ph = 'intro'; D.ti = now + 3.4; D.tc = 0;
+        document.getElementById('v-me').textContent = '@' + (MYP.name || 'tú'); document.getElementById('v-foe').textContent = '@' + D.p.name; document.getElementById('dvs').hidden = false;
+        DUELCAM = { r: 4, dir: -1, until: now + 3.5 };
+      }
+      return;
+    }
     if (D.ph === 'out') { if (!b.tpj) { b.idle = 0; duelClear(); } return; }
     if (!F) return;
     dx = b.x - F.x; dz = b.z - F.z; d = Math.hypot(dx, dz) || 1; ux = dx / d; uz = dz / d;
     F.yaw += (function (a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; })(Math.atan2(dx, dz) - F.yaw) * Math.min(1, dt * 8);
-    if (D.ph === 'count') {
+    if (D.ph === 'intro') {
+      b.yaw += nAng(Math.atan2(-dx, -dz) - b.yaw) * Math.min(1, dt * 6);
+      if (now >= D.ti) { D.ph = 'count'; D.tc = now + 3; document.getElementById('dvs').hidden = true; }
+      spd = 0;
+    } else if (D.ph === 'count') {
       left = D.tc - now; duelBanner(left > 2 ? '3' : left > 1 ? '2' : left > 0 ? '1' : '¡Pelea!');
       b.yaw += (function (a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; })(Math.atan2(-dx, -dz) - b.yaw) * Math.min(1, dt * 6);
       if (left <= 0) { D.ph = 'fight'; D.tf = now; duelBanner(''); }
@@ -7473,17 +7550,21 @@ window.startMap = function (RAW, AUTH) {
       duelBars();
       if (D.me.hp <= 0 || D.foe.hp <= 0 || left <= 0) {
         win = D.foe.hp <= 0 ? true : D.me.hp <= 0 ? false : (D.me.hp + D.me.sh >= D.foe.hp + D.foe.sh);
-        D.win = win; D.ph = 'end'; D.te = now + 3.4; duelBanner(win ? '¡Ganaste!' : 'Perdiste', !win);
-        window.__botSayQ = win ? '¡Ganamos! Eso fue limpio.' : 'Perdí… me repararé y volveré.';
-        if (win) fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.8, 0, 0.9, 0.6, 3, 0xff5a5a, 0.9, true);
+        D.win = win; D.ph = 'end'; D.tb = now; D.te = now + 5.4; D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
         D.tgt = null;
       }
     } else if (D.ph === 'end') {
-      if (D.win && F.g.visible && now > D.te - 3) { F.g.visible = false; fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.5, 0, 0.9, 0.7, 3, 0xff5a5a, 0.9, true); }
-      if (now >= D.te) { if (D.bar) D.bar.on = false; duelBanner(''); stage.classList.remove('duel-on'); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out'; b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+      var el2 = now - D.tb, LG = D.loser === 'me' ? b : F;
+      if (!D.boomed) { LG.g.visible = el2 < 0.85 ? (Math.floor(el2 * 14) % 2 === 0) : false; if (el2 >= 0.85) { D.boomed = true; duelExplode(D, D.loser); } } /* parpadea y estalla */
+      if (D.boomed && !D.banShown && el2 >= 2.2) { D.banShown = true; duelBanner(D.win ? '¡Ganaste!' : 'Perdiste', !D.win); window.__botSayQ = D.win ? '¡Ganamos! Eso fue limpio.' : 'Perdí… me repararé y volveré.'; }
+      if (now >= D.te) {
+        duelDebrisClear(D); if (D.bar) D.bar.on = false; duelBanner(''); stage.classList.remove('duel-on'); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out';
+        b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
+        DUELCAM = { r: 6, dir: 1, until: now + 2.5 };
+      }
       spd = 0;
     }
-    if (F && D.ph !== 'out') { /* pose del clon: ciclo de correr, se detiene al quedar quieto y la cadera gira hacia donde corre (el torso sigue apuntando al robot) */
+    if (F && D.ph !== 'out' && !F.dead) { /* pose del clon: ciclo de correr, se detiene al quedar quieto y la cadera gira hacia donde corre (el torso sigue apuntando al robot) */
       var mdx = F.x - (F.px === undefined ? F.x : F.px), mdz = F.z - (F.pz === undefined ? F.z : F.pz), mv = Math.hypot(mdx, mdz) / Math.max(dt, 0.001), moving2 = D.ph === 'fight' && (mv > 0.5 || D.dF || D.jF), va = moving2 ? Math.max(8, Math.min(14, mv * 1.8)) : 0, am2, kf2, la2, sg2, hd2, back2 = false;
       F.px = F.x; F.pz = F.z; F.gk = (F.gk || 0) + ((va > 0 ? 1 : 0) - (F.gk || 0)) * Math.min(1, dt * 8);
       hd2 = F.yaw;
@@ -7724,6 +7805,7 @@ window.startMap = function (RAW, AUTH) {
     if (GM.mode && !GM.rel && now >= GM.go) { GM.rel = true; if (GM.mode === 'inv') { ufoHold = 0; deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botCamUser = -99; botStartFollow(b); } } /* tras la espera, en Modo Invasión vuelven los OVNIs y la cámara sigue al robot */
     if (!GM.mode || now < GM.go) { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.v = 0; b.boostT = 0; b.hopGoal = null; b.fogT = 0; } /* de pie frente al edificio hasta que empiece */
     if (DUEL) duelTick(dt, now);
+    if (DUELCAM) duelCamTick(dt, now);
     if (b.xs) { /* Modo Explorador: viaje al edificio de un jugador, espera ahí y se puede retar */
       var XS = b.xs, xd = Math.hypot(XS.x - b.x, XS.z - b.z);
       if (GM.mode !== 'exp' || !GM.rel) b.xs = null;
@@ -11055,7 +11137,7 @@ window.startMap = function (RAW, AUTH) {
     updateUfo(t, dt);
     ufoSpotStep(t, dt);
     updateCar(t, dt);
-    updateBot(t, dt); updateAstJoints();
+    updateBot(t, dt); updateAstJoints(); if (DEB.length) duelDebrisTick(dt);
     updateWanderer(t, dt);
     updateAura(t, dt);
     try { auraTalk(); } catch (eAT) { }
