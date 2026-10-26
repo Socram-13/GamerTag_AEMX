@@ -689,7 +689,7 @@ window.startMap = function (RAW, AUTH) {
   scene.add(new THREE.AmbientLight(0x7a8fc0, 0.55));
   scene.add(new THREE.HemisphereLight(0x9db8ff, 0x1a2540, 0.35));
   var sun = new THREE.DirectionalLight(0xffffff, 0.8);
-  var SUN_OFF = new THREE.Vector3(70, 130, 45);
+  var SUN_OFF = new THREE.Vector3(70, 130, 45), SUN_SN = null;
   sun.castShadow = true;
   sun.shadow.mapSize.set(window.innerWidth < 700 ? 1024 : 2048, window.innerWidth < 700 ? 1024 : 2048);
   sun.shadow.camera.left = -90; sun.shadow.camera.right = 90;
@@ -10542,8 +10542,11 @@ window.startMap = function (RAW, AUTH) {
     scene.fog.density = FW.d0 + (0.092 - FW.d0) * FW.k; /* ~10 unidades de visibilidad */
     if (!FW.cl) FW.cl = new THREE.Color(0x5a4a86); scene.fog.color.copy(FW.c0).lerp(FW.cl, 0.55 * (1 - hK)).lerp(FW.c1, FW.k);
     var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS * 0.4; seaU.uFogK.value = FW.k; seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
-    sun.target.position.copy(controls.target);
-    sun.position.copy(controls.target).add(SUN_OFF);
+    /* el mapa de sombras se ajusta a su cuadrícula: así las sombras no "bailan" cuando la cámara se mueve rápido (dron, OVNI) */
+    if (!SUN_SN) { SUN_SN = { r: new THREE.Vector3(), u: new THREE.Vector3(), d: SUN_OFF.clone().normalize() }; SUN_SN.r.set(0, 1, 0).cross(SUN_SN.d).normalize(); SUN_SN.u.crossVectors(SUN_SN.d, SUN_SN.r).normalize(); }
+    var snT = controls.target, snX = 180 / sun.shadow.mapSize.x, snA = snT.dot(SUN_SN.r), snB = snT.dot(SUN_SN.u);
+    sun.target.position.copy(snT).addScaledVector(SUN_SN.r, Math.round(snA / snX) * snX - snA).addScaledVector(SUN_SN.u, Math.round(snB / snX) * snX - snB);
+    sun.position.copy(sun.target.position).add(SUN_OFF);
 
     for (n = 0; n < spinners.length; n++) spinners[n].obj.rotation.y += spinners[n].speed * dt;
     updateWalkers(dt, t);
