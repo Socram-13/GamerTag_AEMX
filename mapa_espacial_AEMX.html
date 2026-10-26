@@ -6575,6 +6575,20 @@ window.startMap = function (RAW, AUTH) {
   /* Libre = tierra (nunca agua), fuera de edificios */
   var metBlock = null; /* meteorito de la invasión: obstáculo circular {x, z, r} para el robot y los aliens */
   function botCrater(x, z) { var i, c; for (i = 0; i < craters.length; i++) { c = craters[i]; if (c.on && Math.hypot(x - c.x, z - c.z) < c.R * 1.15 + 0.5) return true; } return false; }
+  function craterPush(o, dt, spd) { /* si algo queda dentro de la zona vedada de un cráter, lo saca radialmente */
+    var i, c, d, L, nx, nz;
+    for (i = 0; i < craters.length; i++) {
+      c = craters[i];
+      if (!c.on) continue;
+      d = Math.hypot(o.x - c.x, o.z - c.z);
+      if (d < c.R * 1.15 + 0.5) {
+        L = d || 1; nx = o.x + (d ? (o.x - c.x) / L : 1) * spd * dt; nz = o.z + (d ? (o.z - c.z) / L : 0) * spd * dt;
+        if (botFreeS(nx, nz)) { o.x = nx; o.z = nz; }
+        return true;
+      }
+    }
+    return false;
+  }
   var bfC = new Map();
   function botFree(x, z) {
     var k, v;
@@ -7308,6 +7322,7 @@ window.startMap = function (RAW, AUTH) {
     var wOn0 = !HFL && !!ufo && !ufo.done && !ufo.gone && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck'), wOn, wx, wz, wd, wa, wk2, wr, ck;
     if (wOn0 && ufo.state !== 'crash' && !b.wk) b.wk = { x: ufo.x, z: ufo.z };
     /* el cráter sigue ahí un rato aunque los restos ya hayan desaparecido: se queda patrullándolo hasta que se borre */
+    if (b.mode === 'walk' && !b.ride && !b.ball && b.boostT <= 0 && craterPush(b, dt, 3)) { b.v = 3; b.stuck = 0; b.rec = 0; } /* salida de un cráter en el que quedó dentro */
     if (b.wk && !b.wkC) for (ck = 0; ck < craters.length; ck++) if (craters[ck].on && Math.hypot(craters[ck].x - b.wk.x, craters[ck].z - b.wk.z) < 2) b.wkC = craters[ck];
     wOn = wOn0 || !HFL && !!(b.wk && b.wkC && b.wkC.on && !(ufo && (ufo.done || ufo.gone)));
     if (!wOn) { if (b.scan || b.circ) { b.scan = false; b.idle = 1; } b.circ = false; b.wk = null; b.wkC = null; if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; } }
@@ -7318,11 +7333,11 @@ window.startMap = function (RAW, AUTH) {
       var ci3, ca, cdone = false;
       b.circNT = now + 0.15;
       if (b.stuck >= 1) { b.circDir = -b.circDir; b.stuck = 0; }
-      ca = Math.atan2(b.x - b.wk.x, b.z - b.wk.z) + 1.2 * b.circDir; wx = b.wk.x + Math.sin(ca) * 5.4; wz = b.wk.z + Math.cos(ca) * 5.4; /* curva continua: punto bien adelantado, sin recalcular ruta ni frenar */
+      ca = Math.atan2(b.x - b.wk.x, b.z - b.wk.z) + 1.2 * b.circDir; wx = b.wk.x + Math.sin(ca) * 6.2; wz = b.wk.z + Math.cos(ca) * 6.2; /* curva continua: punto bien adelantado, sin recalcular ruta ni frenar */
       if (botFree(wx, wz) && botFree((wx + b.x) / 2, (wz + b.z) / 2)) { b.goal = { x: wx, z: wz }; b.gtype = 'wreckp'; b.path = null; cdone = true; }
       if (!cdone && !b.goal)
       for (ci3 = 0; ci3 < 8; ci3++) {
-        b.circA += 0.6 * b.circDir; ca = b.circA; wx = b.wk.x + Math.sin(ca) * 5.4; wz = b.wk.z + Math.cos(ca) * 5.4;
+        b.circA += 0.6 * b.circDir; ca = b.circA; wx = b.wk.x + Math.sin(ca) * 6.2; wz = b.wk.z + Math.cos(ca) * 6.2;
         if (botFree(wx, wz) && botSetGoal(wx, wz, 'wreckp')) break;
         if (ci3 === 3) b.circDir = -b.circDir;
       }
@@ -8428,6 +8443,7 @@ window.startMap = function (RAW, AUTH) {
       A = aura = makeAura(); A.holo = auraHoloBuild(); A.ph = 0; A.gk = 0; A.sk = 0; A.k = 1; A.mode = 'trail'; A.yaw = 0; A.evCD = 3; A.x = 0; A.z = 0; A.y = 0; A.hop = 0; A.dodge = false; A.off = 0; A.side = 1;
       i = (Math.random() * trails.length) | 0; A.path = edgePath(i, trails[i].b); A.last = i; A.s = Math.random() * A.path.len * 0.5; A.next = null;
     }
+    if (A.mode !== 'trail' && A.mode !== 'jump' && A.mode !== 'hf' && !(A.jmp && !A.jmp.done)) craterPush(A, dt, 2.2); /* salida de un cráter */
     A.hfMv = false; hfStep(A, dt); if (A.hfMv) moving = true; /* caminando hacia el robot: anima las piernas */
     /* vigilante de atoros: tope de tiempo por modo y detector de progreso; si se pasa, salta con glitch (a la ciudad más cercana o junto al sitio) */
     if (A.mode === 'back' || A.mode === 'join' || A.mode === 'go') {
@@ -9851,7 +9867,7 @@ window.startMap = function (RAW, AUTH) {
         noRay(hg); root.add(hg); monBlk.push({ x: p.x, z: p.z, r: 1.8 });
       });
       m = new THREE.Mesh(new THREE.CircleGeometry(4.6, 28), new THREE.MeshBasicMaterial({ color: 0x0f0d0c, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); /* tierra quemada bajo el OVNI */
-      m.rotation.x = -Math.PI / 2; m.position.set(cx, y0 + 0.05, cz); noRay(m); root.add(m);
+      m.rotation.x = -Math.PI / 2; m.position.set(cx, y0 + 0.02, cz); noRay(m); root.add(m);
       scene.add(root);
       w = buildWreck(); w.visible = true; w.scale.setScalar(2.1); w.position.set(cx, y0 - 0.05, cz); w.rotation.y = 0.7; monBlk.push({ x: cx, z: cz, r: 4.4 });
       bfC.clear();
@@ -9888,7 +9904,7 @@ window.startMap = function (RAW, AUTH) {
           var res = [pts[0]], k3, a3, b3, seg, mm, j3, pa, pb, dx3, dz3, l3, nx3, nz3, y3;
           for (k3 = 1; k3 < pts.length; k3++) { a3 = pts[k3 - 1]; b3 = pts[k3]; seg = Math.hypot(b3[0] - a3[0], b3[1] - a3[1]); mm = Math.max(1, Math.ceil(seg / 1.2)); for (j3 = 1; j3 <= mm; j3++) res.push([a3[0] + (b3[0] - a3[0]) * j3 / mm, a3[1] + (b3[1] - a3[1]) * j3 / mm]); }
           for (k3 = 0; k3 < res.length; k3++) {
-            pa = res[Math.max(0, k3 - 1)]; pb = res[Math.min(res.length - 1, k3 + 1)]; dx3 = pb[0] - pa[0]; dz3 = pb[1] - pa[1]; l3 = Math.hypot(dx3, dz3) || 1; nx3 = -dz3 / l3 * wd / 2; nz3 = dx3 / l3 * wd / 2; y3 = botGround(res[k3][0], res[k3][1]) + 0.05;
+            pa = res[Math.max(0, k3 - 1)]; pb = res[Math.min(res.length - 1, k3 + 1)]; dx3 = pb[0] - pa[0]; dz3 = pb[1] - pa[1]; l3 = Math.hypot(dx3, dz3) || 1; nx3 = -dz3 / l3 * wd / 2; nz3 = dx3 / l3 * wd / 2; y3 = botGround(res[k3][0], res[k3][1]) + 0.012;
             pos.push(res[k3][0] + nx3, y3, res[k3][1] + nz3, res[k3][0] - nx3, y3, res[k3][1] - nz3);
             if (k3 > 0) { var b0 = base + (k3 - 1) * 2; idx2.push(b0, b0 + 1, b0 + 2, b0 + 1, b0 + 3, b0 + 2); }
           }
