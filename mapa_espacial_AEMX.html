@@ -270,7 +270,8 @@ window.startMap = function (RAW, AUTH) {
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
   /* ---------- Geografía: 1 unidad = 1 km ---------- */
-  var LON0 = -102.0, LAT0 = 23.5, KX = 102.1, KZ = 110.57;
+  var GK = 2; /* factor de escala del país: ciudades más separadas, el resto de las cosas mantiene su tamaño */
+  var LON0 = -102.0, LAT0 = 23.5, KX = 102.1 * GK, KZ = 110.57 * GK;
   function geo(lon, lat) { return { x: (lon - LON0) * KX, z: -(lat - LAT0) * KZ }; }
 
   var MAIN_LL = [
@@ -575,7 +576,7 @@ window.startMap = function (RAW, AUTH) {
   controls.dampingFactor = 0.08;
   controls.zoomSpeed = 1.6;
   controls.minDistance = 14;
-  controls.maxDistance = 7500;
+  controls.maxDistance = 7500 * GK;
   controls.maxPolarAngle = 1.45;
   controls.minPolarAngle = 0.1;
   controls.screenSpacePanning = false;
@@ -1548,7 +1549,7 @@ window.startMap = function (RAW, AUTH) {
   scene.add(plate);
 
   /* ---------- Mar: olas, espuma en la costa y color según profundidad ---------- */
-  var SEA_Y = -0.45, SEA_X0 = -2800, SEA_Z0 = -3400, SEA_W = 6800, SEA_H = 5200, SEA_TW = 480, SEA_TH = 360, SEA_MAXD = 480;
+  var SEA_Y = -0.45, SEA_X0 = -2800 * GK, SEA_Z0 = -3400 * GK, SEA_W = 6800 * GK, SEA_H = 5200 * GK, SEA_TW = 480 * GK, SEA_TH = 360 * GK, SEA_MAXD = 480;
   var foreignRings = [], seaStatesOn = false;
   var SEA_COMMON_V = ['#include <common>', '#include <logdepthbuf_pars_vertex>'].join('\n');
   /* Textura de distancia a la costa: alimenta el degradado de profundidad (se recalcula con los estados) */
@@ -2865,7 +2866,7 @@ window.startMap = function (RAW, AUTH) {
         c = vcl[i]; lv = -2;
         if (vFr.intersectsSphere(c.sp)) {
           d = Math.max(0, camera.position.distanceTo(c.sp.center) - c.sp.radius); lv = 5;
-          for (j = 0; j < VLV.length; j++) if (d < VLV[j][0]) { lv = j; break; }
+          if (d < (window.__vegLim || 3500)) for (j = 0; j < VLV.length; j++) if (d < VLV[j][0]) { lv = j; break; }
         }
         if (lv !== c.lv) {
           c.lv = lv; f = lv < 0 || lv > 4 ? 0 : VLV[lv][1];
@@ -3377,7 +3378,7 @@ window.startMap = function (RAW, AUTH) {
       return best * VS;
     }
     /* Malla y máscara de tierra (unión de los estados) */
-    var names = Object.keys(statePolys), boxes = {}, X0 = -1650, Z0 = -1060, NX = Math.ceil(3250 / STEP) + 1, NZ = Math.ceil(2100 / STEP) + 1, i, j, k, n;
+    var names = Object.keys(statePolys), boxes = {}, X0 = -1650 * GK, Z0 = -1060 * GK, NX = Math.ceil(3250 * GK / STEP) + 1, NZ = Math.ceil(2100 * GK / STEP) + 1, i, j, k, n;
     names.forEach(function (nm) {
       var b = [1e9, 1e9, -1e9, -1e9];
       statePolys[nm].forEach(function (r) { r.forEach(function (c) { b[0] = Math.min(b[0], c[0]); b[1] = Math.min(b[1], c[1]); b[2] = Math.max(b[2], c[0]); b[3] = Math.max(b[3], c[1]); }); });
@@ -4513,7 +4514,7 @@ window.startMap = function (RAW, AUTH) {
 
   function overviewDist() {
     var aspect = SW / SH;
-    return 3700 * Math.max(1, 1.15 / aspect);
+    return 3700 * GK * Math.max(1, 1.15 / aspect);
   }
   function flyTo(tx, ty, tz, dist, phi) {
     var to = new THREE.Vector3(tx, ty, tz);
@@ -4661,7 +4662,7 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('input', function () {
     var v = q.value.trim().replace(/^@/, '').toLowerCase();
     resEl.textContent = '';
-    if (!v || v === 'sombrero' || v === 'invasion' || v === 'aldea') { resEl.hidden = true; matches = []; return; } /* 'sombrero' es un código oculto: sin sugerencias */
+    if (!v || v === 'sombrero' || v === 'invasion' || v === 'aldea' || v === 'fps') { resEl.hidden = true; matches = []; return; } /* 'sombrero' es un código oculto: sin sugerencias */
     matches = [];
     if (ufo && v.length >= 2 && ('ovni'.indexOf(v) === 0 || 'ufo'.indexOf(v) === 0)) matches.push({ kind: 'u', label: '🛸 OVNI', sub: 'seguir' });
     if (car && v.length >= 2) {
@@ -4702,6 +4703,7 @@ window.startMap = function (RAW, AUTH) {
   });
   q.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'sombrero') { q.value = ''; resEl.hidden = true; matches = []; botCallDis(); return; }
+    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'fps') { q.value = ''; resEl.hidden = true; matches = []; window.__fpsOn = !window.__fpsOn; var fe = document.getElementById('fpsBox'); if (fe) fe.style.display = window.__fpsOn ? 'block' : 'none'; return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'aldea') { q.value = ''; resEl.hidden = true; matches = []; botCallVillage(); auraVilCall(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (typeof ALN !== 'undefined') ALN.startHere(); return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
@@ -6655,7 +6657,7 @@ window.startMap = function (RAW, AUTH) {
   /* Navegación terrestre: rejilla gruesa de tierra transitable (sin agua ni pendientes fuertes), islas separadas y búsqueda de ruta A* */
   var BN = null, botHN = [], botHF = [];
   function botBuildNav() {
-    var C = 6, X0 = -1650, Z0 = -1100, NX = 567, NZ = 367, N = NX * NZ, pass = new Uint8Array(N), H = new Float32Array(N), comp = new Int32Array(N), queue = new Int32Array(N);
+    var C = 6, X0 = -1650 * GK, Z0 = -1100 * GK, NX = 567 * GK, NZ = 367 * GK, N = NX * NZ, pass = new Uint8Array(N), H = new Float32Array(N), comp = new Int32Array(N), queue = new Int32Array(N);
     var i, j, k, x, z, id = 0, best = 0, sizes = [0], qs, qe, q, n, ci, cj, di, dj, ni, nj, m;
     for (j = 0; j < NZ; j++) for (i = 0; i < NX; i++) {
       k = j * NX + i; x = X0 + (i + 0.5) * C; z = Z0 + (j + 0.5) * C;
@@ -10320,6 +10322,11 @@ window.startMap = function (RAW, AUTH) {
     /* inmersión: cuando la cámara está dentro de una zona de niebla sube la niebla del mundo (gris, densa) y el cielo se vuelve gris; al salir vuelve a la normal */
     if (!window.__fogW) window.__fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x626c88) };
     var FW = window.__fogW, inF = !!(WX && WX.fogAt && WX.fogAt(camera.position.x, camera.position.z));
+    /* horizonte limitado con la cámara baja: niebla más densa (color del horizonte) y menos vegetación lejana; arriba se ve el país completo */
+    var hK = clamp((camera.position.y - 150) / 750, 0, 1); hK = hK * hK * (3 - 2 * hK);
+    FW.d0 = 0.0006 + (0.00005 - 0.0006) * hK; window.__vegLim = 2300 + 1200 * hK; window.__lowCam = hK < 0.5;
+    if (!FW.cL) { FW.cH = new THREE.Color(0x2a1a4a); FW.cL = new THREE.Color(0x5c2b73); }
+    FW.c0.copy(FW.cL).lerp(FW.cH, hK);
     FW.k += ((inF ? 1 : 0) - FW.k) * Math.min(1, dt * 1.2);
     scene.fog.density = FW.d0 + (0.069 - FW.d0) * FW.k; /* ~13 unidades de visibilidad */
     scene.fog.color.copy(FW.c0).lerp(FW.c1, FW.k);
@@ -10532,6 +10539,7 @@ window.startMap = function (RAW, AUTH) {
       var s = Math.max(1, d0 / 90) / 3;
       dd.pin.scale.setScalar(s);
       dd.pin.visible = labelsOn && d0 > PIN_D;
+      if (dd.group) dd.group.visible = !window.__lowCam || d0 < 2600; /* con la cámara baja, las ciudades lejanas (ya en la niebla) no se dibujan */
       dd.wpos.y = 0.35 + 6.6 * (d0 > PIN_D ? s : 1);
     }
     if (labelsOn) for (n = 0; n < districts._order.length; n++) {
@@ -10552,6 +10560,13 @@ window.startMap = function (RAW, AUTH) {
     try { WX.update(dt, t); } catch (e) { WX.update = function () {}; console.warn("Clima desactivado:", e); }
     if (vegCull) { camera.updateMatrixWorld(); vegCull(); }
     renderer.render(scene, camera);
+    if (window.__fpsOn) { /* código oculto "fps": fotogramas, llamadas de dibujo, triángulos y vegetación visible */
+      var fb = document.getElementById('fpsBox'), nw = performance.now();
+      if (!fb) { fb = document.createElement('div'); fb.id = 'fpsBox'; fb.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:50;background:rgba(0,0,0,.65);color:#9ff;font:12px monospace;padding:6px 8px;border-radius:6px;pointer-events:none;white-space:pre'; document.body.appendChild(fb); }
+      fb.style.display = 'block'; window.__fpsN = (window.__fpsN || 0) + 1;
+      if (!window.__fpsT) window.__fpsT = nw;
+      if (nw - window.__fpsT > 500) { window.__fpsV = Math.round(window.__fpsN * 1000 / (nw - window.__fpsT)); window.__fpsN = 0; window.__fpsT = nw; fb.textContent = window.__fpsV + ' fps\nllamadas ' + renderer.info.render.calls + '\ntriángulos ' + renderer.info.render.triangles + '\nveg ' + (window.__vegStats ? window.__vegStats.shown + ' bloques / ' + window.__vegStats.inst + ' inst' : '-') + '\naltura ' + Math.round(camera.position.y) + (window.__lowCam ? ' (baja)' : ''); }
+    }
   }
   frame();
 };
