@@ -7628,6 +7628,7 @@ window.startMap = function (RAW, AUTH) {
     var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
     if (GM.mode !== 'exp') { duelClear(); return; }
     duelBarrierTick(D, dt);
+    b.liftCD = Math.max(b.liftCD || 0, now + 60); /* sin dron en Socorro ni en el minuto siguiente al duelo */
     if (D.ph === 'in' || D.ph === 'intro' || D.ph === 'count' || D.ph === 'end') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; if (!b.tpj) b.v = 0; b.boostT = 0; b.hopGoal = null; }
     if (D.ph === 'in') {
       if (!b.tpj) {
@@ -7637,7 +7638,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return;
     }
-    if (D.ph === 'out') { if (!b.tpj) { b.idle = 0; duelClear(); } return; }
+    if (D.ph === 'out') { if (!b.tpj) { b.idle = 15; duelClear(); } return; }
     if (!F) return;
     dx = b.x - F.x; dz = b.z - F.z; d = Math.hypot(dx, dz) || 1; ux = dx / d; uz = dz / d;
     F.yaw += (function (a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; })(Math.atan2(dx, dz) - F.yaw) * Math.min(1, dt * 8);
@@ -8655,7 +8656,7 @@ window.startMap = function (RAW, AUTH) {
       if (canShoot && b.fireT <= 0) {
         botShoot(bkMuz, b.alienT ? pred : U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
         b.fireT = b.alienT ? 0.35 : 0.12; /* fuego continuo (más pausado contra aliens) */
-        if (DUEL) { duelRobotShot(); b.burstN = (b.burstN || 0) + 1; if (b.burstN >= 3) { b.burstN = 0; b.fireT = 0.8; } else b.fireT = 0.13; } /* duelo: ráfagas de 3 con descanso */
+        if (DUEL) { duelRobotShot(); b.burstN = (b.burstN || 0) + 1; if (b.burstN >= 3) { b.burstN = 0; b.fireT = 0.8; } else b.fireT = 0.13; if (b.burstN === 1 && DUEL.fg && !DUEL.fg.burstN) DUEL.fg.fireT = 0.3; } /* duelo: ráfagas de 3 con descanso; el clon responde 0.30 s después para que se crucen los disparos */
       }
     }
     botBolts(dt);
