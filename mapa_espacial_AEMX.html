@@ -7264,6 +7264,7 @@ window.startMap = function (RAW, AUTH) {
   function duelClear() {
     var D = DUEL; if (!D) return;
     if (D.fg && D.fg.g.parent) D.fg.g.parent.remove(D.fg.g);
+    if (D.bar) { scene.remove(D.bar.m); D.bar.m.geometry.dispose(); D.bar.m.material.dispose(); D.bar.tex.dispose(); }
     DUEL = null; document.getElementById('dbar').hidden = true; duelBanner(''); stage.classList.remove('duel-on');
   }
   function duelStart(p) {
@@ -7273,7 +7274,7 @@ window.startMap = function (RAW, AUTH) {
     sp = botFreeSpot(g.x - 7, g.z); an = Math.random() * 6.283; sp2 = sp ? botFreeSpot(sp[0] + 14, sp[1] + (Math.random() - 0.5) * 4) : null;
     rs = botFreeSpot(MYP.x, MYP.z + 9);
     if (!sp || !sp2 || !rs) { window.__botSayQ = 'No encuentro un lugar para el duelo.'; return false; }
-    DUEL = { cx: g.x, cz: g.z, rt: 0, dR: null, dF: null, dodgeR: 0, dodgeF: 0, mvR: 0, rfl: 0, p: p, me: duelStats(MYP), foe: duelStats(p), ph: 'in', sp: sp, sp2: sp2, rs: rs, fg: null, tgt: null, tc: 0, tf: 0, te: 0 };
+    DUEL = { cx: (sp[0] + sp2[0]) / 2, cz: (sp[1] + sp2[1]) / 2, rt: 0, dR: null, dF: null, dodgeR: 0, dodgeF: 0, mvR: 0, rfl: 0, p: p, me: duelStats(MYP), foe: duelStats(p), ph: 'in', sp: sp, sp2: sp2, rs: rs, fg: null, tgt: null, tc: 0, tf: 0, te: 0 };
     b.xs = null; xsRefresh(); b.tour = null;
     b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
     document.getElementById('d-mn').textContent = '@' + (MYP.name || 'tú'); document.getElementById('d-fn').textContent = '@' + p.name;
@@ -7289,6 +7290,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < 2; i++) { F.arms[i].sh.quaternion.copy(F.arms[i].hs); F.arms[i].el.quaternion.copy(F.arms[i].he); }
     F.x = D.sp2[0]; F.z = D.sp2[1]; F.y = botGround(F.x, F.z); F.yaw = Math.atan2(bot.x - F.x, bot.z - F.z); F.v = 0; F.ph = 0; F.side = 1; F.sideT = 0; F.fireT = 1;
     F.g.position.set(F.x, F.y, F.z); F.g.rotation.y = F.yaw; D.fg = F; D.tgt = { x: F.x, y: F.y + 0.45, z: F.z };
+    if (!D.bar) duelBarrierMake(D);
     fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.5, 0, 0.8, 0.5, 2.2, 0xff4a4a, 0.8, true); AUD.glitch(0.4, 0.6, { x: F.x, y: F.y + 0.4, z: F.z });
   }
   function duelEdge(x, z) { /* hay mar o un obstáculo a menos de 6 en alguna dirección */
@@ -7347,6 +7349,48 @@ window.startMap = function (RAW, AUTH) {
       }
     }
   }
+  /* Barrera holográfica verde que sigue la costa de Socorro (solo durante el duelo) */
+  function duelBarrierMake(D) {
+    var N = 72, rr = [], i, a, r, ok, cv, cx2, W = 128, H = 128, tex, geo2, pos, uv, idx, mat, mesh, x, z, y0, k, R;
+    function land(x, z) { return landAt ? !!landAt(x, z) : botFree(x, z); }
+    for (i = 0; i < N; i++) {
+      a = i / N * 6.2832; R = 6;
+      for (r = 3; r <= 90; r += 1.5) { if (!land(D.cx + Math.cos(a) * r, D.cz + Math.sin(a) * r)) break; R = r; }
+      rr.push(Math.max(8, R - 3));
+    }
+    for (k = 0; k < 2; k++) rr = rr.map(function (v, j) { return Math.min(v, (rr[(j + N - 1) % N] + v + rr[(j + 1) % N]) / 3 + 0.5); }); /* suaviza sin salirse de la tierra */
+    cv = document.createElement('canvas'); cv.width = W; cv.height = H; cx2 = cv.getContext('2d');
+    cx2.strokeStyle = 'rgba(80,255,140,0.9)'; cx2.lineWidth = 2;
+    for (var hy = 0; hy < 3; hy++) for (var hx = 0; hx < 3; hx++) {
+      var ox = hx * 44 + (hy % 2 ? 22 : 0), oy = hy * 38 + 10; cx2.beginPath();
+      for (var q = 0; q < 6; q++) { var an = q * 1.0472 + 0.5236; cx2[q ? 'lineTo' : 'moveTo'](ox + Math.cos(an) * 22, oy + Math.sin(an) * 22); }
+      cx2.closePath(); cx2.stroke();
+    }
+    tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(N / 3, 3);
+    pos = []; uv = []; idx = [];
+    for (i = 0; i <= N; i++) {
+      a = (i % N) / N * 6.2832; x = D.cx + Math.cos(a) * rr[i % N]; z = D.cz + Math.sin(a) * rr[i % N]; y0 = Math.max(0, botGround(x, z)) - 1;
+      pos.push(x, y0, z, x, y0 + 16, z); uv.push(i / N, 0, i / N, 1);
+      if (i < N) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+    }
+    geo2 = new THREE.BufferGeometry(); geo2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo2.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo2.setIndex(idx);
+    mat = new THREE.MeshBasicMaterial({ map: tex, color: 0x66ff9a, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    mesh = new THREE.Mesh(geo2, mat); mesh.frustumCulled = false; noRay(mesh); scene.add(mesh);
+    D.bar = { m: mesh, rr: rr, tex: tex, k: 0, flash: 0, on: true };
+  }
+  function duelBarR(D, th) { var N = D.bar.rr.length, f = ((th / 6.2832) % 1 + 1) % 1 * N, i = Math.floor(f) % N, t = f - Math.floor(f); return D.bar.rr[i] * (1 - t) + D.bar.rr[(i + 1) % N] * t; }
+  function duelClamp(D, E) { /* no se puede cruzar la barrera */
+    var dx = E.x - D.cx, dz = E.z - D.cz, r = Math.hypot(dx, dz), R = duelBarR(D, Math.atan2(dz, dx)) - 0.6;
+    if (r > R) { E.x = D.cx + dx / r * R; E.z = D.cz + dz / r * R; E.y = botGround(E.x, E.z); D.bar.flash = 1; return true; }
+    return false;
+  }
+  function duelBarrierTick(D, dt) {
+    var B = D.bar; if (!B) return;
+    B.k += ((B.on ? 1 : 0) - B.k) * Math.min(1, dt * 2.5); B.flash = Math.max(0, B.flash - dt * 2.5);
+    B.tex.offset.y -= dt * 0.18; B.tex.offset.x += dt * 0.02;
+    B.m.material.opacity = B.k * (0.28 + 0.1 * Math.sin(performance.now() / 400) + 0.45 * B.flash);
+    if (B.on && D.ph !== 'in') { duelClamp(D, bot); if (D.fg) duelClamp(D, D.fg); }
+  }
   function duelBars() {
     var D = DUEL;
     document.getElementById('d-mh').style.width = (100 * D.me.hp / D.me.hpMax) + '%'; document.getElementById('d-ms').style.width = D.me.shMax ? (100 * D.me.sh / D.me.shMax) + '%' : '0';
@@ -7359,6 +7403,7 @@ window.startMap = function (RAW, AUTH) {
   function duelTick(dt, now) {
     var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
     if (GM.mode !== 'exp') { duelClear(); return; }
+    duelBarrierTick(D, dt);
     if (D.ph === 'in' || D.ph === 'count' || D.ph === 'end') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; if (!b.tpj) b.v = 0; b.boostT = 0; b.hopGoal = null; }
     if (D.ph === 'in') { if (!b.tpj) { duelSpawnFoe(); D.ph = 'count'; D.tc = now + 3; } return; }
     if (D.ph === 'out') { if (!b.tpj) { b.idle = 0; duelClear(); } return; }
@@ -7404,7 +7449,7 @@ window.startMap = function (RAW, AUTH) {
       }
     } else if (D.ph === 'end') {
       if (D.win && F.g.visible && now > D.te - 3) { F.g.visible = false; fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.5, 0, 0.9, 0.7, 3, 0xff5a5a, 0.9, true); }
-      if (now >= D.te) { duelBanner(''); stage.classList.remove('duel-on'); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out'; b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+      if (now >= D.te) { if (D.bar) D.bar.on = false; duelBanner(''); stage.classList.remove('duel-on'); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out'; b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
       spd = 0;
     }
     if (F && D.ph !== 'out') { /* pose del clon: piernas caminando */
