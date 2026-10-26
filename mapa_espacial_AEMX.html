@@ -7385,7 +7385,7 @@ window.startMap = function (RAW, AUTH) {
       F.y = botGround(F.x, F.z);
       F.fireT -= dt;
       if (F.fireT <= 0 && d < 24) {
-        F.fireT = 0.38; mz = bkTmpA.set(F.x + Math.sin(F.yaw) * 0.7, F.y + 0.5, F.z + Math.cos(F.yaw) * 0.7);
+        F.burstN = (F.burstN || 0) + 1; if (F.burstN >= 3) { F.burstN = 0; F.fireT = 0.8; } else F.fireT = 0.13; mz = bkTmpA.set(F.x + Math.sin(F.yaw) * 0.7, F.y + 0.5, F.z + Math.cos(F.yaw) * 0.7);
         tg = bkTmpB.set(b.x, b.y + 0.45, b.z);
         if (duelRoll(D.foe, D.me, !!D.dR)) fxSpawn(b.x, b.y + 0.45, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
         else { tg.x += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.8); tg.y += 0.2 + Math.random() * 0.5; }
@@ -8350,7 +8350,7 @@ window.startMap = function (RAW, AUTH) {
       if (canShoot && b.fireT <= 0) {
         botShoot(bkMuz, b.alienT ? pred : U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
         b.fireT = b.alienT ? 0.35 : 0.12; /* fuego continuo (más pausado contra aliens) */
-        if (DUEL) duelRobotShot();
+        if (DUEL) { duelRobotShot(); b.burstN = (b.burstN || 0) + 1; if (b.burstN >= 3) { b.burstN = 0; b.fireT = 0.8; } else b.fireT = 0.13; } /* duelo: ráfagas de 3 con descanso */
       }
     }
     botBolts(dt);
