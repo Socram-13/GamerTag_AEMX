@@ -2433,7 +2433,7 @@ window.startMap = function (RAW, AUTH) {
         }
         if (bi < 0 || !districts[bi].list.length || bd > districts[bi].r + RING + 12) continue;
         if (!inState(stateOf(districts[bi].name), sp.x, sp.z) || !deepSea(sp.x, sp.z, sp.ang)) continue;
-        if (nearestHex(sp.x, sp.z, occGrid) < HEX_R + 1.5 || trailNear(sp.x, sp.z, 2.5)) continue;
+        if (nearestHex(sp.x, sp.z, hexGrid) < HEX_R + 2.0 || trailNear(sp.x, sp.z, 2.5)) continue; /* hexGrid: todos los hexágonos, también los vacíos */
         ix = Math.floor(sp.x / PCELL); iz = Math.floor(sp.z / PCELL); ok = true;
         for (aa = -2; aa <= 2 && ok; aa++) for (bb = -2; bb <= 2 && ok; bb++) {
           ll = placed[gk(ix + aa, iz + bb)];
@@ -2476,7 +2476,7 @@ window.startMap = function (RAW, AUTH) {
             x = x0 + (x1 - x0) * q2 / n; z = z0 + (z1 - z0) * q2 / n;
             if (!onLand(x, z, 0)) return false;
             e = lastEdge;
-            if (e < 1.95 || e > 6.3 || !coastal(x, z, e) || nearestHex(x, z, occGrid) < HEX_R + 0.8) return false;
+            if (e < 1.95 || e > 6.3 || !coastal(x, z, e) || nearestHex(x, z, hexGrid) < HEX_R + 1.2) return false;
           }
           return true;
         }
