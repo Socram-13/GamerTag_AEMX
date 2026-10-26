@@ -96,6 +96,8 @@
   @keyframes invPulse { 50% { transform: translateX(-50%) scale(1.18); box-shadow: 0 0 14px rgba(255,40,40,0.9); } }
   #bMini .ct { font: 700 12px var(--f-body); letter-spacing: 0.14em; color: #ffd0d0; text-shadow: 0 0 6px rgba(0,0,0,0.8); text-transform: uppercase; }
   .stage.ui-off #botHud { display: none !important; }
+  .stage.gm-inv .search, .stage.gm-inv #b-over, .stage.gm-inv #b-pal, .stage.gm-inv .me { display: none !important; } /* Modo Invasión: solo la cámara del robot (la búsqueda aparece con la tecla / para los códigos) */
+  .stage.gm-inv.q-on .search { display: block !important; }
   .stage.ui-off .me, .stage.ui-off .search, .stage.ui-off #card, .stage.ui-off .tools button:not(#b-ui) { display: none !important; }
   .tools button {
     height: 42px; padding: 0 14px; border-radius: 4px 14px 4px 14px; border: 1px solid var(--line); background: var(--panel);
@@ -281,6 +283,7 @@
         <ul id="res" hidden></ul>
       </div>
       <div class="tools">
+        <button type="button" id="b-align" hidden title="Volver a la vista por defecto del robot">Alinear</button>
         <button type="button" id="b-over">México</button>
         <button type="button" id="b-pal">Palacio</button>
         <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
@@ -4653,6 +4656,7 @@ window.startMap = function (RAW, AUTH) {
   var RAR = [['Común', 'common', 'var(--common)'], ['Rara', 'rare', 'var(--rare)'], ['Épica', 'epic', 'var(--epic)'], ['Legendaria', 'legendary', 'var(--legend)']];
 
   function select(p) {
+    if (GM.mode === 'inv') return; /* Modo Invasión: sin tarjetas de jugadores */
     if (selected && selected.pill) selected.pill.classList.remove('sel');
     selected = p;
     p.pill.classList.add('sel');
@@ -4814,6 +4818,10 @@ window.startMap = function (RAW, AUTH) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'inv') { window.__botSayQ = 'La invasión solo existe en el Modo Invasión.'; return; } if (typeof ALN !== 'undefined') ALN.startHere(); return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
   });
+  q.addEventListener('keydown', function (e) { if (GM.mode === 'inv' && (e.key === 'Enter' || e.key === 'Escape')) setTimeout(function () { q.blur(); }, 0); });
+  q.addEventListener('blur', function () { stage.classList.remove('q-on'); });
+  document.addEventListener('keydown', function (e) { if (GM.mode === 'inv' && e.key === '/' && document.activeElement !== q) { e.preventDefault(); stage.classList.add('q-on'); q.focus(); } }); /* Modo Invasión: la búsqueda (y sus códigos) aparece con / */
+  document.getElementById('b-align').addEventListener('click', function () { if (bot && GM.mode === 'inv') { botCamUser = -99; botStartFollow(bot); } }); /* vuelve a la vista por defecto detrás del robot */
 
   /* Tocar o arrastrar el mapa desactiva el seguimiento del OVNI para ajustar la cámara */
   var botCamUser = -99, botDrag = false; /* última vez que el jugador movió la cámara del robot */
@@ -7376,7 +7384,7 @@ window.startMap = function (RAW, AUTH) {
       if (!trails.length || !roots.length || (!landAt && now < 30)) return;
       botInit(); b = bot;
     }
-    if (GM.mode && !GM.rel && now >= GM.go) { GM.rel = true; if (GM.mode === 'inv') ufoHold = 0; } /* tras la espera, en Modo Invasión vuelven los OVNIs */
+    if (GM.mode && !GM.rel && now >= GM.go) { GM.rel = true; if (GM.mode === 'inv') { ufoHold = 0; deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botCamUser = -99; botStartFollow(b); } } /* tras la espera, en Modo Invasión vuelven los OVNIs y la cámara sigue al robot */
     if (!GM.mode || now < GM.go) { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.v = 0; b.boostT = 0; b.hopGoal = null; b.fogT = 0; } /* de pie frente al edificio hasta que empiece */
     if (b.tpj) { /* teletransporte: desaparece con destello y reaparece en el destino */
       var Tp = b.tpj, tk, tdx, tdz;
@@ -10850,7 +10858,7 @@ window.startMap = function (RAW, AUTH) {
     }
   }
   if (typeof ALN !== 'undefined' && ALN.hold) ALN.hold(); /* ninguna invasión empieza hasta que haya OVNI (solo en Modo Invasión) */
-  window.__aemxMode = function (m) { if (GM.mode || (m !== 'inv' && m !== 'exp')) return; GM.mode = m; GM.go = clock.elapsedTime + 6; window.__gmode = m; }; /* lo llama la pantalla de carga: el robot espera ~6 s (incluye el desvanecido) */
+  window.__aemxMode = function (m) { if (GM.mode || (m !== 'inv' && m !== 'exp')) return; GM.mode = m; GM.go = clock.elapsedTime + 6; window.__gmode = m; if (m === 'inv') { stage.classList.add('gm-inv'); document.getElementById('b-align').hidden = false; deselect(); } }; /* lo llama la pantalla de carga: el robot espera ~6 s (incluye el desvanecido) */
   if (window.__aemxPendingMode) window.__aemxMode(window.__aemxPendingMode);
   frame();
 };
