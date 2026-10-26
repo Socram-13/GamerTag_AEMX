@@ -136,7 +136,7 @@
   #x-fight, #x-fb { border-color: rgba(255,110,110,0.7) !important; color: #ffd0d0 !important; }
   #xbar { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; max-width: 92vw; padding: 7px 10px; border-radius: 14px; background: rgba(16,9,30,0.82); border: 1px solid rgba(255,228,77,0.45); backdrop-filter: blur(6px); color: #fff3d6; font: 600 12.5px var(--f-body); }
   #xbar[hidden] { display: none; }
-  #dbar { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(520px, 94vw); z-index: 6; display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 14px; background: rgba(16,9,30,0.82); border: 1px solid rgba(255,228,77,0.45); backdrop-filter: blur(6px); color: #fff3d6; font: 700 12px var(--f-body); pointer-events: none; }
+  #dbar { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: clamp(260px, calc(100vw - 620px), 460px); z-index: 6; display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 14px; background: rgba(16,9,30,0.82); border: 1px solid rgba(255,228,77,0.45); backdrop-filter: blur(6px); color: #fff3d6; font: 700 12px var(--f-body); pointer-events: none; }
   #dbar[hidden], #dres[hidden] { display: none; }
   #dbar .dside b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
   #dbar .dside.foe { text-align: right; } #dbar .dside.foe b { color: #ff9a9a; }
@@ -145,7 +145,8 @@
   #dbar .foe .dhp i { background: #ff5a5a; left: auto; right: 0; }
   #dbar .dhp u { position: absolute; left: 0; top: 0; height: 3px; width: 100%; background: #5ad8ff; text-decoration: none; }
   #dbar .foe .dhp u { left: auto; right: 0; }
-  @media (max-width: 700px) { #dbar { top: 56px; bottom: auto; } }
+  @media (max-width: 700px) { #dbar { top: 56px; width: min(520px, 94vw); } }
+  .stage.duel-on .search, .stage.duel-on .tools { display: none !important; } /* durante el duelo solo queda tu tarjeta de usuario arriba */
   #d-t { font: 800 18px var(--f-display); min-width: 34px; text-align: center; }
   #dres { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); z-index: 7; font: 900 clamp(34px, 8vw, 72px) var(--f-display); letter-spacing: 0.06em; color: #fff3d6; text-shadow: 0 0 18px rgba(255,228,77,0.8), 0 3px 6px #000; pointer-events: none; text-align: center; }
   #dres.lose { color: #ff9a9a; text-shadow: 0 0 18px rgba(255,60,60,0.8), 0 3px 6px #000; }
@@ -7230,7 +7231,9 @@ window.startMap = function (RAW, AUTH) {
     sp = botFreeSpot(p.x + dx / L * 6, p.z + dz / L * 6); if (!sp) return false;
     b.tour = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.disTalk = 0; b.disMeet = 0; b.disForce = 0;
     b.xs = { p: p, x: sp[0], z: sp[1], t0: now0(), rg: 0, arr: 0, tp: 0 };
-    if (!botSetGoal(sp[0], sp[1], 'patrol')) { b.xs.tp = 1; b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+    L = Math.hypot(sp[0] - b.x, sp[1] - b.z);
+    if (L > 120 && now0() >= (b.liftCD || 0)) botStartLift(sp[0], sp[1], 'sea', null); /* lejos: lo lleva el dron */
+    else if (L > 120 || !botSetGoal(sp[0], sp[1], 'patrol')) { b.xs.tp = 1; b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); } /* sin dron o sin camino: glitch */
     window.__botSayQ = 'Voy al edificio de @' + p.name + '.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     xsRefresh(); return true;
@@ -7261,7 +7264,7 @@ window.startMap = function (RAW, AUTH) {
   function duelClear() {
     var D = DUEL; if (!D) return;
     if (D.fg && D.fg.g.parent) D.fg.g.parent.remove(D.fg.g);
-    DUEL = null; document.getElementById('dbar').hidden = true; duelBanner('');
+    DUEL = null; document.getElementById('dbar').hidden = true; duelBanner(''); stage.classList.remove('duel-on');
   }
   function duelStart(p) {
     var b = bot, g = geo(-110.97, 18.78), sp, sp2, an, rs;
@@ -7274,7 +7277,7 @@ window.startMap = function (RAW, AUTH) {
     b.xs = null; xsRefresh(); b.tour = null;
     b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
     document.getElementById('d-mn').textContent = '@' + (MYP.name || 'tú'); document.getElementById('d-fn').textContent = '@' + p.name;
-    document.getElementById('dbar').hidden = false; document.getElementById('d-t').textContent = '90';
+    document.getElementById('dbar').hidden = false; document.getElementById('d-t').textContent = '90'; stage.classList.add('duel-on'); resEl.hidden = true;
     window.__botSayQ = 'Reto aceptado. Vamos a Socorro.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     return true;
@@ -7401,7 +7404,7 @@ window.startMap = function (RAW, AUTH) {
       }
     } else if (D.ph === 'end') {
       if (D.win && F.g.visible && now > D.te - 3) { F.g.visible = false; fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.5, 0, 0.9, 0.7, 3, 0xff5a5a, 0.9, true); }
-      if (now >= D.te) { duelBanner(''); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out'; b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+      if (now >= D.te) { duelBanner(''); stage.classList.remove('duel-on'); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out'; b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
       spd = 0;
     }
     if (F && D.ph !== 'out') { /* pose del clon: piernas caminando */
@@ -7640,7 +7643,7 @@ window.startMap = function (RAW, AUTH) {
       else if (!XS.arr) {
         if (!b.tpj && b.mode !== 'lift' && !b.isl) {
           if (xd < 5 || (now - XS.t0 > 4 && !b.goal && !b.path && b.mode === 'walk' && XS.rg > 0 && xd < 14)) { XS.arr = now; xsRefresh(); }
-          else if (now - XS.t0 > 170 && !XS.tp) { XS.tp = 1; b.tpj = { x: XS.x, z: XS.z, gx: XS.x, gz: XS.z, t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+          else if (now - XS.t0 > 90 && !XS.tp) { XS.tp = 1; b.tpj = { x: XS.x, z: XS.z, gx: XS.x, gz: XS.z, t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
           else if (b.mode === 'walk' && now >= XS.rg && (!b.goal || Math.hypot(b.goal.x - XS.x, b.goal.z - XS.z) > 3)) { XS.rg = now + 2.5; if (!botSetGoal(XS.x, XS.z, 'patrol') && !XS.tp) { XS.tp = 1; b.tpj = { x: XS.x, z: XS.z, gx: XS.x, gz: XS.z, t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); } }
         }
       } else if (!b.tpj) {
