@@ -4679,7 +4679,7 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('input', function () {
     var v = q.value.trim().replace(/^@/, '').toLowerCase();
     resEl.textContent = '';
-    if (!v || v === 'sombrero') { resEl.hidden = true; matches = []; return; } /* 'sombrero' es un código oculto: sin sugerencias */
+    if (!v || v === 'sombrero' || v === 'invasion') { resEl.hidden = true; matches = []; return; } /* 'sombrero' es un código oculto: sin sugerencias */
     matches = [];
     if (ufo && v.length >= 2 && ('ovni'.indexOf(v) === 0 || 'ufo'.indexOf(v) === 0)) matches.push({ kind: 'u', label: '🛸 OVNI', sub: 'seguir' });
     if (car && v.length >= 2) {
@@ -4720,6 +4720,7 @@ window.startMap = function (RAW, AUTH) {
   });
   q.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'sombrero') { q.value = ''; resEl.hidden = true; matches = []; botCallDis(); return; }
+    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (typeof ALN !== 'undefined') ALN.startHere(); return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
   });
 
@@ -9790,7 +9791,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { startHere: function () { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
 
