@@ -4653,7 +4653,7 @@ window.startMap = function (RAW, AUTH) {
     } else if (m.kind === 't') {
       if (car) { deselect(); fly = null; turretCam = true; turretMode = 'car'; }
     } else if (m.kind === 's') {
-      if (bot) { deselect(); botFollow = true; botCamFree = false; botYawCam = bot.yaw; flyTo(bot.x, bot.y + 0.5, bot.z, 8, 1.2); }
+      if (bot) { deselect(); botStartFollow(bot); }
     } else if (m.kind === 'g') {
       if (bot) { deselect(); fly = null; turretCam = true; turretMode = 'bot'; }
     } else if (m.kind === 'd') flyToDistrict(m.d); else select(m.p);
@@ -4711,7 +4711,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* Tocar o arrastrar el mapa desactiva el seguimiento del OVNI para ajustar la cámara */
   function stopUfoFollow() {
-    if (botFollow && !turretCam && !ufoFollow && !carFollow && !wandFollow) { if (!botCamFree && bot) { controls.target.set(bot.x, bot.y + 0.5, bot.z); bot._lx = undefined; } botCamFree = true; fly = null; return; } /* al pasar a cámara libre el punto de mira se pone EN el robot (en persecución miraba 20 delante): así el zoom parte de la distancia real */ /* con el robot: sigue siguiéndolo, pero la cámara queda libre para orbitar y acercarse */
+    if (botFollow && !turretCam && !ufoFollow && !carFollow && !wandFollow) return; /* al pasar a cámara libre el punto de mira se pone EN el robot (en persecución miraba 20 delante): así el zoom parte de la distancia real */ /* con el robot: sigue siguiéndolo, pero la cámara queda libre para orbitar y acercarse */
     if (turretCam) {
       var dv = camera.getWorldDirection(new THREE.Vector3());
       controls.target.set(camera.position.x + dv.x * 30, Math.max(0, camera.position.y + dv.y * 30), camera.position.z + dv.z * 30);
@@ -7050,7 +7050,7 @@ window.startMap = function (RAW, AUTH) {
     b.disTalk = 0; b.disCD = 0;
     if (!botDisGoal(Dd)) return false;
     b.disMeet = now0(); b.disForce = 1; b.jog = false; b.tour = null; b.disRe = 0;
-    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botFollow = true; botCamFree = false; botYawCam = b.yaw; flyTo(b.x, b.y + 0.5, b.z, 8, 1.2); }
+    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     return true;
   }
   function botCallVillage() { /* código 'aldea': el robot va a visitar la aldea alien (si no hay invasión ni OVNI) */
@@ -7061,7 +7061,7 @@ window.startMap = function (RAW, AUTH) {
     if (Math.hypot(VILD.cx - b.x, VILD.cz - b.z) < VILD.r + 30) { b.tour = { d: VILD, n: 5 }; b.dest = VILD; b.jog = false; }
     else if (!botPickCity(VILD)) return false;
     window.__botSayQ = 'Voy a visitar la aldea alien.';
-    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botFollow = true; botCamFree = false; botYawCam = b.yaw; flyTo(b.x, b.y + 0.5, b.z, 8, 1.2); }
+    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     return true;
   }
   function botPick() {
@@ -7887,6 +7887,13 @@ window.startMap = function (RAW, AUTH) {
     return out;
   }
   /* Mira al horizonte, hacia donde mira el robot, para ver lo que ve y no el mapa desde arriba */
+  /* Seguimiento del robot igual que el de AURA: la cámara conserva un desplazamiento (distancia y ángulo) respecto al robot y el zoom es libre */
+  var botOff = new THREE.Vector3();
+  function botStartFollow(b) {
+    var sp = new THREE.Spherical(8, 1.2, b.yaw + Math.PI);
+    botOff.setFromSpherical(sp); botYawCam = b.yaw; botFollow = true; botCamFree = true; b._lx = undefined;
+    flyTo(b.x, b.y + 0.5, b.z, 8, 1.2);
+  }
   function botChaseTarget(out) { return out.set(bot.x + Math.sin(botYawCam) * 20, bot.y + 1.0, bot.z + Math.cos(botYawCam) * 20); }
 
   /* ---------- Caminante: túnica café, bastón largo y casco de Pac-Man; recorre los senderos entre ciudades y salta a un lado si pasa el coche ---------- */
@@ -10303,8 +10310,8 @@ window.startMap = function (RAW, AUTH) {
     }
     if (botFollow && bot) {
       botYawCam += nAng((bot.aiming ? bot.aimYaw : bot.yaw) - botYawCam) * Math.min(1, dt * 2.5);
-      if (fly && !botCamFree) { botChaseTarget(fly.fb); botChasePos(fly.pb); }
-      else if (botCamFree && !fly) { /* cámara libre: el punto de mira sigue al robot y conserva la distancia y el ángulo */
+      if (fly) { fly.fb.set(bot.x, bot.y + 0.5, bot.z); fly.pb.set(bot.x, bot.y + 0.5, bot.z).add(botOff); bot._lx = undefined; }
+      else if (!fly) { /* cámara libre: el punto de mira sigue al robot y conserva la distancia y el ángulo */
         /* acompaña el desplazamiento exacto del robot (sin retraso aunque corra o vuele) y luego corrige el resto suavemente */
         var bmx = 0, bmy = 0, bmz = 0, by0 = bot.y + 0.5;
         if (bot._lx !== undefined) { bmx = bot.x - bot._lx; bmy = by0 - bot._ly; bmz = bot.z - bot._lz; if (Math.abs(bmx) + Math.abs(bmy) + Math.abs(bmz) > 60) { bmx = bmy = bmz = 0; } }
