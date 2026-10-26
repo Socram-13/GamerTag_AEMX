@@ -586,7 +586,7 @@ window.startMap = function (RAW, AUTH) {
   scene.fog = new THREE.FogExp2(0x2a1a4a, 0.00005);
   var sky = new THREE.Mesh(new THREE.SphereGeometry(30000, 32, 20), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false,
-    uniforms: { uFogK: { value: 0 }, uFogC: { value: new THREE.Color(0x626c88) } },
+    uniforms: { uFogK: { value: 0 }, uFogC: { value: new THREE.Color(0x3a2f5c) } },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: 'uniform float uFogK; uniform vec3 uFogC; varying vec3 vP; void main(){' +
       ' vec3 top = vec3(0.02, 0.04, 0.12); vec3 mid = vec3(0.10, 0.08, 0.30); vec3 hor = vec3(0.36, 0.17, 0.45); vec3 glow = vec3(1.0, 0.43, 0.66);' +
@@ -1601,7 +1601,7 @@ window.startMap = function (RAW, AUTH) {
   var seaU = {
     uTime: { value: 0 }, uDist: { value: seaTex }, uMin: { value: new THREE.Vector2(SEA_X0, SEA_Z0) },
     uSize: { value: new THREE.Vector2(SEA_W, SEA_H) }, uMaxD: { value: SEA_MAXD }, uSunDir: { value: SUN_OFF.clone().normalize() },
-    uFogK: { value: 0 }, uFogD: { value: 0 }, uFogC: { value: new THREE.Color(0x626c88) }
+    uFogK: { value: 0 }, uFogD: { value: 0 }, uFogC: { value: new THREE.Color(0x3a2f5c) }
   };
   var seaMat = new THREE.ShaderMaterial({
     uniforms: seaU,
@@ -10305,32 +10305,37 @@ window.startMap = function (RAW, AUTH) {
       botYawCam += nAng((bot.aiming ? bot.aimYaw : bot.yaw) - botYawCam) * Math.min(1, dt * 2.5);
       if (fly && !botCamFree) { botChaseTarget(fly.fb); botChasePos(fly.pb); }
       else if (botCamFree && !fly) { /* cámara libre: el punto de mira sigue al robot y conserva la distancia y el ángulo */
-        var bk2 = Math.min(1, dt * 8), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
+        /* acompaña el desplazamiento exacto del robot (sin retraso aunque corra o vuele) y luego corrige el resto suavemente */
+        var bmx = 0, bmy = 0, bmz = 0, by0 = bot.y + 0.5;
+        if (bot._lx !== undefined) { bmx = bot.x - bot._lx; bmy = by0 - bot._ly; bmz = bot.z - bot._lz; if (Math.abs(bmx) + Math.abs(bmy) + Math.abs(bmz) > 60) { bmx = bmy = bmz = 0; } }
+        bot._lx = bot.x; bot._ly = by0; bot._lz = bot.z;
+        controls.target.x += bmx; controls.target.y += bmy; controls.target.z += bmz; camera.position.x += bmx; camera.position.y += bmy; camera.position.z += bmz;
+        var bk2 = Math.min(1, dt * 8), bdx = (bot.x - controls.target.x) * bk2, bdy = (by0 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
         controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
-      }
+      } else bot._lx = undefined;
     }
     controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !auraFollow && !botFollow && !turretCam;
     controls.update();
     controls.target.x = clamp(controls.target.x, -1750 * GK, 1750 * GK); /* los límites siguen la escala del país */
     controls.target.z = clamp(controls.target.z, -1300 * GK, 1300 * GK);
-    controls.target.y = clamp(controls.target.y, 0, 60);
+    controls.target.y = clamp(controls.target.y, 0, 200);
 
     sky.position.copy(camera.position);
     starsA.position.copy(camera.position); starsB.position.copy(camera.position);
     starsA.material.opacity = 0.65 + 0.3 * Math.sin(t * 1.3);
     starsB.material.opacity = 0.65 + 0.3 * Math.sin(t * 1.7 + 2.0);
     /* inmersión: cuando la cámara está dentro de una zona de niebla sube la niebla del mundo (gris, densa) y el cielo se vuelve gris; al salir vuelve a la normal */
-    if (!window.__fogW) window.__fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x626c88) };
+    if (!window.__fogW) window.__fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x3a2f5c) };
     var FW = window.__fogW, inF = !!(WX && WX.fogAt && WX.fogAt(camera.position.x, camera.position.z));
     /* horizonte limitado con la cámara baja: niebla más densa (color del horizonte) y menos vegetación lejana; arriba se ve el país completo */
     var hK = clamp((camera.position.y - 150) / 750, 0, 1); hK = hK * hK * (3 - 2 * hK);
-    FW.d0 = 0.0006 + (0.00005 - 0.0006) * hK; window.__vegLim = 2300 + 1200 * hK; window.__lowCam = hK < 0.5;
+    FW.d0 = 0.0004 + (0.00005 - 0.0004) * hK; window.__vegLim = 3300 + 200 * hK; window.__lowCam = hK < 0.5;
     if (!FW.cL) { FW.cH = new THREE.Color(0x2a1a4a); FW.cL = new THREE.Color(0x5c2b73); }
     FW.c0.copy(FW.cL).lerp(FW.cH, hK);
     FW.k += ((inF ? 1 : 0) - FW.k) * Math.min(1, dt * 1.2);
-    scene.fog.density = FW.d0 + (0.069 - FW.d0) * FW.k; /* ~13 unidades de visibilidad */
+    scene.fog.density = FW.d0 + (0.036 - FW.d0) * FW.k; /* ~25 unidades de visibilidad */
     scene.fog.color.copy(FW.c0).lerp(FW.c1, FW.k);
-    var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS * 0.6; seaU.uFogK.value = FW.k; seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
+    var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS * 0.25; seaU.uFogK.value = FW.k; seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
     sun.target.position.copy(controls.target);
     sun.position.copy(controls.target).add(SUN_OFF);
 
@@ -10539,7 +10544,7 @@ window.startMap = function (RAW, AUTH) {
       var s = Math.max(1, d0 / 90) / 3;
       dd.pin.scale.setScalar(s);
       dd.pin.visible = labelsOn && d0 > PIN_D;
-      if (dd.group) dd.group.visible = !window.__lowCam || d0 < 2600; /* con la cámara baja, las ciudades lejanas (ya en la niebla) no se dibujan */
+      if (dd.group) dd.group.visible = !window.__lowCam || d0 < 4000; /* con la cámara baja, las ciudades lejanas (ya en la niebla) no se dibujan */
       dd.wpos.y = 0.35 + 6.6 * (d0 > PIN_D ? s : 1);
     }
     if (labelsOn) for (n = 0; n < districts._order.length; n++) {
@@ -10553,7 +10558,7 @@ window.startMap = function (RAW, AUTH) {
     presPin.visible = labelsOn && dp > PIN_D;
 
     var botFps = !!(turretCam && turretMode === 'bot' && bot), wantNear = botFps ? 0.08 : ((auraFollow || (botFollow && botCamFree)) ? 0.1 : 0.5);
-    controls.minDistance = auraFollow ? 0.4 : ((botFollow && botCamFree) ? 0.6 : 14); /* con AURA se puede acercar hasta verle la cara */
+    controls.minDistance = auraFollow ? 0.4 : ((botFollow && botCamFree) ? 0.4 : 14); /* con AURA se puede acercar hasta verle la cara */
     if (bot) bot.shell.visible = !botFps;
     if (camera.near !== wantNear) { camera.near = wantNear; camera.updateProjectionMatrix(); }
     try { ALN.update(dt, t); } catch (e) { ALN.update = function () {}; console.warn('Invasión desactivada:', e); }
