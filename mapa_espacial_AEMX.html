@@ -7265,7 +7265,17 @@ window.startMap = function (RAW, AUTH) {
       botInit(); b = bot;
     }
     var HFL = !!(HFW || HF); /* secuencia del choque: bloquea el resto de sus tareas hasta terminar */
-    var AT = (typeof ALN !== 'undefined' && ALN && !HFL) ? ALN.pick(b.x, b.z, now) : null; /* invasión alienígena: tiene prioridad sobre el OVNI */
+    if (typeof ALN !== 'undefined' && ALN && ALN.entered && !HFL) { /* al entrar a la invasión: primero revisa la vaca medio comida (~5.5 s de escaneo) sin disparar */
+      var iE = ALN.entered(), iCw;
+      if (iE && b.iscInv !== iE && b.mode === 'walk' && !b.ball && b.boostT <= 0) { b.iscInv = iE; iCw = ALN.cowAt(b.x, b.z); if (iCw) { b.isc = true; b.iscT0 = now; b.wk = { x: iCw.x, z: iCw.z }; b.wkC = null; b.wkT = 0; b.circ = false; } }
+      if (b.isc && iE && b.wk && !b.scan && b.mode === 'walk' && b.gtype !== 'wreck' && now >= (b.iscG || 0)) { /* camina hasta unos 8 de la vaca (aunque esté lejos) */
+        b.iscG = now + 1.5; var iA = Math.atan2(b.x - b.wk.x, b.z - b.wk.z), iK, iR, iX, iZ;
+        if (Math.hypot(b.wk.x - b.x, b.wk.z - b.z) < 9.5) { b.scan = true; b.scanT = 0; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; }
+        else for (iK = 0; iK < 12; iK++) { iR = iA + (iK % 2 ? 1 : -1) * Math.ceil(iK / 2) * 0.5; iX = b.wk.x + Math.sin(iR) * 8; iZ = b.wk.z + Math.cos(iR) * 8; if (botFree(iX, iZ) && botSetGoal(iX, iZ, 'wreck')) break; }
+      }
+      if (b.isc && (!iE || now - b.iscT0 > 100)) { b.isc = false; b.scan = false; b.wk = null; if (b.gtype === 'wreck') { b.goal = null; b.gtype = ''; b.path = null; } }
+    } else if (b.isc) { b.isc = false; }
+    var AT = (typeof ALN !== 'undefined' && ALN && !HFL && !b.isc) ? ALN.pick(b.x, b.z, now) : null; /* invasión alienígena: tiene prioridad sobre el OVNI */
     b.alienT = !!AT;
     var invIn = !!(typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && statePolys[S.name] && botInRings(statePolys[S.name], b.x, b.z); })(ALN.state())); /* dentro del estado invadido: la niebla no lo limita */
     var MR = (AT && typeof ALN !== 'undefined' && ALN && ALN.rock) ? ALN.rock() : null, orbOn = !!(MR && Math.hypot(MR.x - b.x, MR.z - b.z) < 45); /* MR: meteorito (sin aliens vivos); orbOn: ya cerca, lo rodea disparando */
@@ -7343,9 +7353,9 @@ window.startMap = function (RAW, AUTH) {
     } else { b.nfT = 0; b.pgT = undefined; }
     if (b.mode === 'walk' && !b.ride && !b.ball && b.boostT <= 0 && craterPush(b, dt, 3)) { b.v = 3; b.stuck = 0; b.rec = 0; } /* salida de un cráter en el que quedó dentro */
     if (b.wk && !b.wkC) for (ck = 0; ck < craters.length; ck++) if (craters[ck].on && Math.hypot(craters[ck].x - b.wk.x, craters[ck].z - b.wk.z) < 2) b.wkC = craters[ck];
-    wOn = wOn0 || !HFL && !!(b.wk && b.wkC && b.wkC.on && !(ufo && (ufo.done || ufo.gone)));
+    wOn = wOn0 || !!b.isc || !HFL && !!(b.wk && b.wkC && b.wkC.on && !(ufo && (ufo.done || ufo.gone)));
     if (!wOn) { if (b.scan || b.circ) { b.scan = false; b.idle = 1; } b.circ = false; b.wk = null; b.wkC = null; if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; } }
-    if (thr) { b.circ = false; if (!wOn0) { b.wk = null; b.wkC = null; } }
+    if (thr) { b.circ = false; if (!wOn0 && !b.isc) { b.wk = null; b.wkC = null; } }
     if (b.wk && b.mode === 'perch') b.maxPerch = Math.min(b.maxPerch, b.perchT);
     /* Terminó el escaneo: se acerca y patrulla alrededor del cráter hasta que desaparezca */
     if (b.circ && b.wk && b.mode === 'walk' && (!b.goal || b.gtype === 'wreckp') && !thr && now >= (b.circNT || 0)) {
@@ -7713,7 +7723,8 @@ window.startMap = function (RAW, AUTH) {
     } else if (b.scan && b.wk && b.mode === 'walk') {
       wd = Math.hypot(b.wk.x - b.x, b.wk.z - b.z); wa = Math.atan2(b.wk.x - b.x, b.wk.z - b.z);
       b.scanT += dt;
-      if (b.scanT > 6.5) { b.scan = false; b.circ = true; b.circA = Math.atan2(b.x - b.wk.x, b.z - b.wk.z); b.circDir = Math.random() < 0.5 ? 1 : -1; b.goal = null; b.gtype = ''; } /* termina el escaneo y pasa a rondar el cráter */
+      if (b.isc && b.scanT > 5.5) { b.scan = false; b.isc = false; b.wk = null; b.wkC = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.3; }
+      else if (b.scanT > 6.5) { b.scan = false; b.circ = true; b.circA = Math.atan2(b.x - b.wk.x, b.z - b.wk.z); b.circDir = Math.random() < 0.5 ? 1 : -1; b.goal = null; b.gtype = ''; } /* termina el escaneo y pasa a rondar el cráter */
       yT = wa;
       pT = Math.max(-0.6, Math.min(0.3, Math.atan2(terrainH(b.wk.x, b.wk.z) + 0.3 - (b.y + 0.52), wd)));
       b.yaw += nAng(wa - b.yaw) * Math.min(1, dt * 3);
@@ -10318,7 +10329,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { peace: function () { return (peaceOn && !inv) ? Math.max(0, nextAt - clock.elapsedTime) : 0; }, startHere: function () { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { entered: function () { return inv && inv.entered && !inv.end ? inv : null; }, cowAt: function (x, z) { var i, c, d, bd = 1e9, r = null; if (!inv || !inv.cows) return null; for (i = 0; i < inv.cows.length; i++) { c = inv.cows[i].g.position; d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; r = { x: c.x, z: c.z }; } } return r; }, peace: function () { return (peaceOn && !inv) ? Math.max(0, nextAt - clock.elapsedTime) : 0; }, startHere: function () { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
 
