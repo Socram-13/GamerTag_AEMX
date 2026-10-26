@@ -7454,9 +7454,15 @@ window.startMap = function (RAW, AUTH) {
       if (now >= D.te) { if (D.bar) D.bar.on = false; duelBanner(''); stage.classList.remove('duel-on'); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out'; b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
       spd = 0;
     }
-    if (F && D.ph !== 'out') { /* pose del clon: piernas caminando */
-      F.v = D.ph === 'fight' ? Math.abs(spd) + 1.6 : 0; F.ph += dt * F.v * 1.9; hs = Math.min(1, F.v / 3);
-      for (i = 0; i < 2; i++) { k = Math.sin(F.ph + i * Math.PI) * 0.6 * hs; F.legs[i].th.rotation.x = k; F.legs[i].kn.rotation.x = Math.max(0, -k) * 1.1 * hs; F.legs[i].ft.rotation.x = 0; }
+    if (F && D.ph !== 'out') { /* pose del clon: mismo ciclo de piernas que usa el robot al correr */
+      var mv = F.px === undefined ? 0 : Math.hypot(F.x - F.px, F.z - F.pz) / Math.max(dt, 0.001), va = (D.ph === 'fight' && (mv > 0.4 || D.dF)) ? Math.max(8, Math.min(14, mv * 1.8)) : 0, am2, kf2, la2, sg2;
+      F.px = F.x; F.pz = F.z; F.gk = (F.gk || 0) + ((va > 0 ? 1 : 0) - (F.gk || 0)) * Math.min(1, dt * 8);
+      am2 = Math.min(0.9, 0.45 + va * 0.15); kf2 = Math.min(1.6, 0.25 + va * 0.14);
+      if (va > 0) F.ph += dt * Math.max(3.0, Math.min(12, 3.1416 * va / (1.44 * am2)));
+      for (i = 0; i < 2; i++) {
+        la2 = -am2 * Math.sin(F.ph + i * Math.PI) * F.gk; sg2 = kf2 * Math.max(0, Math.cos(F.ph + i * Math.PI)) * F.gk;
+        F.legs[i].th.rotation.x = la2; F.legs[i].kn.rotation.x = sg2; F.legs[i].ft.rotation.x = -(la2 + sg2) * 0.85 + sg2 * 0.55;
+      }
       F.g.position.set(F.x, F.y, F.z); F.g.rotation.y = F.yaw;
       if (D.tgt) { D.tgt.x = F.x; D.tgt.y = F.y + 0.45; D.tgt.z = F.z; }
     }
