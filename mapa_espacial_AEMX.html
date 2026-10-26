@@ -10312,7 +10312,7 @@ window.startMap = function (RAW, AUTH) {
       botYawCam += nAng((bot.aiming ? bot.aimYaw : bot.yaw) - botYawCam) * Math.min(1, dt * 2.5);
       if (fly) { fly.fb.set(bot.x, bot.y + 0.5, bot.z); fly.pb.set(bot.x, bot.y + 0.5, bot.z).add(botOff); bot._lx = undefined; }
       else {
-        var bk2 = Math.min(1, dt * clamp(4 + 0.25 * (bot.v || 0), 4, 11)), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
+        var bk2 = Math.min(1, dt * clamp(4 + 0.5 * (bot.v || 0), 4, 18)), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
         controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
       }
     }
@@ -10335,9 +10335,9 @@ window.startMap = function (RAW, AUTH) {
     if (!FW.cL) { FW.cH = new THREE.Color(0x2a1a4a); FW.cL = new THREE.Color(0x5c2b73); }
     FW.c0.copy(FW.cL).lerp(FW.cH, hK);
     FW.k += ((inF ? 1 : 0) - FW.k) * Math.min(1, dt * 1.2);
-    scene.fog.density = FW.d0 + (0.036 - FW.d0) * FW.k; /* ~25 unidades de visibilidad */
+    scene.fog.density = FW.d0 + (0.052 - FW.d0) * FW.k; /* ~18 unidades de visibilidad */
     scene.fog.color.copy(FW.c0).lerp(FW.c1, FW.k);
-    var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS * 0.25; seaU.uFogK.value = FW.k; seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
+    var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS * 0.4; seaU.uFogK.value = FW.k; seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
     sun.target.position.copy(controls.target);
     sun.position.copy(controls.target).add(SUN_OFF);
 
