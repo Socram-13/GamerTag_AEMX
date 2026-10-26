@@ -8257,10 +8257,12 @@ window.startMap = function (RAW, AUTH) {
     var b = bot, M, d;
     if (!b || HF || now0() < (A.hfCD || 0) || b.mode !== 'walk' || b.aiming || A.mode !== 'inspect' || !A.ev || A.ev.kind !== 'met') return false;
     d = Math.hypot(b.x - A.x, b.z - A.z); if (d > 80 || ufoLive()) return false;
-    M = auraFreeNear((A.x + b.x) / 2, (A.z + b.z) / 2); if (!M) return false;
-    if (!auraGoPath(A, M[0], M[1])) return false;
-    A.hfCD = now0() + 90; A.ev = null; A.mode = 'hf'; A.k = 1;
-    HF = { x: M[0], z: M[1], t: 0, ph: 'go', ht: 0, rg: 0 };
+    var a0 = Math.atan2(b.x - A.x, b.z - A.z), offs = [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.6, -2.6, 3.1], k, an, gx, gz; /* punto a 1.3 de AURA, del lado del robot (o alrededor si está ocupado) */
+    M = null;
+    for (k = 0; k < offs.length && !M; k++) { an = a0 + offs[k]; gx = A.x + Math.sin(an) * 1.3; gz = A.z + Math.cos(an) * 1.3; if (botFree(gx, gz) && !botCrater(gx, gz)) M = [gx, gz]; }
+    if (!M) return false;
+    A.hfCD = now0() + 90; A.ev = null; A.mode = 'hf'; A.k = 1; A.wp = null;
+    HF = { x: M[0], z: M[1], t: 0, ph: 'go', ht: 0, rg: 0, tries: 0 };
     return true;
   }
   function hfEnd(A, ok) { var b = bot; HF = null; if (b) { b.hfOn = false; b.idle = Math.min(b.idle || 0, 0.5); } A.wp = null; if (A.mode === 'hf') auraBack(A); }
@@ -8269,13 +8271,14 @@ window.startMap = function (RAW, AUTH) {
     if (!HF) return;
     if (!b || !A || A.mode !== 'hf') { if (A && A.mode === 'hf') hfEnd(A); else HF = null; return; }
     HF.t += dt;
-    if (HF.t > 28 && HF.ph !== 'hit') { hfEnd(A); return; } /* no llegaron: se cancela */
+    if (HF.t > 20 && HF.ph !== 'hit') { hfEnd(A); return; } /* no llegaron: se cancela */
     if (ufoLive() || b.mode === 'lift') { hfEnd(A); return; }
     d = Math.hypot(b.x - A.x, b.z - A.z);
     if (HF.ph === 'go') {
       b.tour = null; b.jog = true;
-      if (!b.goal || now0() >= (HF.rg || 0)) { HF.rg = now0() + 2; if (!botSetGoal(HF.x, HF.z, 'patrol')) { if (!b.goal) { hfEnd(A); return; } } b.jog = true; }
-      if (d < 1.6 && b.v < 4) { HF.ph = 'hit'; HF.ht = 0; HF.c = 0; A.wp = null; }
+      A.yaw += nAng(Math.atan2(b.x - A.x, b.z - A.z) - A.yaw) * Math.min(1, dt * 4); /* AURA espera mirando al robot */
+      if (!b.goal) { if (HF.tries >= 3) { hfEnd(A); return; } HF.tries++; if (!botSetGoal(HF.x, HF.z, 'patrol') && HF.tries >= 3) { hfEnd(A); return; } b.jog = true; }
+      if (d < 2.2 && b.v < 4) { HF.ph = 'hit'; HF.ht = 0; HF.c = 0; A.wp = null; }
       return;
     }
     /* hit: se detienen de frente, levantan la mano y chocan */
@@ -8351,7 +8354,15 @@ window.startMap = function (RAW, AUTH) {
       bx = x + tx * f; bz = z + tz * f; l = Math.hypot(tx, tz);
       if (l > 1e-6) { u = Math.atan2(tx, tz); A.yaw += nAng(u - A.yaw) * Math.min(1, dt * 6); nx = tz / l; nz = -tx / l; } else { nx = 0; nz = 0; }
       if (car) { dd = Math.hypot(car.x - bx, car.z - bz); if (!A.dodge && dd < 14 && (car.v > 2 || dd < 6)) { A.dodge = true; A.side = Math.random() < 0.5 ? 1 : -1; A.hop = 0.55; } else if (A.dodge && dd > 17) A.dodge = false; } else A.dodge = false;
-      A.off += ((A.dodge ? A.side * 2.6 : 0) - A.off) * Math.min(1, dt * 8);
+      A.obT = (A.obT || 0) - dt;
+      if (A.obT <= 0 && l > 1e-6) { /* obstáculos adelante (edificios y árboles): se desplaza al lado libre más cercano, hasta 3 */
+        A.obT = 0.12; var oo = [0, 1, -1, 2, -2, 3, -3], oi, ov, ax2 = bx + tx / l * 1.5, az2 = bz + tz / l * 1.5, mx2 = bx + tx / l * 0.7, mz2 = bz + tz / l * 0.7, ob = 0;
+        if (A.obS) { oo[1] = A.obS; oo[2] = -A.obS; }
+        for (oi = 0; oi < oo.length; oi++) { ov = oo[oi]; if (botFree(bx + nx * ov, bz + nz * ov) && botFree(mx2 + nx * ov, mz2 + nz * ov) && botFree(ax2 + nx * ov, az2 + nz * ov)) { ob = ov; break; } }
+        if (oi < oo.length && ob !== 0) A.obS = ob > 0 ? 1 : -1;
+        A.offT = oi < oo.length ? ob : 0; /* si todo el tramo está bloqueado, sigue el sendero */
+      }
+      A.off += ((A.dodge ? A.side * 2.6 : (A.offT || 0)) - A.off) * Math.min(1, dt * 6);
       A.x = bx + nx * A.off; A.z = bz + nz * A.off;
       u = terrainH(A.x, A.z); gy = Math.max(0, u) + 0.06; u = 0.012 + u + Math.min(0.08, u * 0.8) + 0.04; if (u > gy) gy = u; A.y = gy;
       /* ¿hay algo que investigar? */
@@ -8480,7 +8491,14 @@ window.startMap = function (RAW, AUTH) {
     if (dd < 3 && A.pi + 1 < wp.length) { tx = tx * 0.5 + (wp[A.pi + 1][0] - A.x) * 0.5; tz = tz * 0.5 + (wp[A.pi + 1][1] - A.z) * 0.5; } /* toma las esquinas sin dar vueltas */
     want = Math.atan2(tx, tz); A.yaw += nAng(want - A.yaw) * Math.min(1, dt * 8);
     if (Math.abs(nAng(want - A.yaw)) < 1.2) {
-      for (k = 0; k < offs.length; k++) { ang = A.yaw + offs[k]; nx = A.x + Math.sin(ang) * sp * dt; nz = A.z + Math.cos(ang) * sp * dt; if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; moved = true; if (k > 0) A.yaw += nAng(ang - A.yaw) * 0.25; break; } }
+      for (var pass = 0; pass < 2 && !moved; pass++) { /* 1.ª pasada: con sondeo adelante y a los lados; 2.ª: solo el punto (para no quedarse quieta) */
+        for (k = 0; k < offs.length; k++) {
+          ang = A.yaw + offs[k]; nx = A.x + Math.sin(ang) * sp * dt; nz = A.z + Math.cos(ang) * sp * dt;
+          if (!botFree(nx, nz) || botCrater(nx, nz)) continue;
+          if (pass === 0) { var sa = Math.sin(ang), ca = Math.cos(ang); if (!(botFree(A.x + sa * 0.6, A.z + ca * 0.6) && botFree(A.x + sa * 1.2, A.z + ca * 1.2) && botFree(A.x + sa * 0.4 + ca * 0.35, A.z + ca * 0.4 - sa * 0.35) && botFree(A.x + sa * 0.4 - ca * 0.35, A.z + ca * 0.4 + sa * 0.35))) continue; }
+          A.x = nx; A.z = nz; moved = true; if (k > 0) A.yaw += nAng(ang - A.yaw) * 0.25; break;
+        }
+      }
     }
     A.stT = (A.stT || 0) + dt;
     if (A.stT >= 1.5) {
