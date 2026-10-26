@@ -557,7 +557,7 @@ window.startMap = function (RAW, AUTH) {
   renderer.setClearColor(0x050a18, 1);
 
   var scene = new THREE.Scene();
-  var VILD = null, vilReq = null, vilNext = 240, vilN = 0; /* aldea alien de Tampico: VILD se comporta como una ciudad para el robot; vilReq: AURA va a visitarla */
+  var VILD = null, VILT = null, vilReq = null, vilNext = 240, vilN = 0; /* VILT: sendero oculto de la ciudad más cercana a la aldea, solo para el caminante */ /* aldea alien de Tampico: VILD se comporta como una ciudad para el robot; vilReq: AURA va a visitarla */
   var CHI_LL = [-88.568, 20.683], CHI_D = null, CHI_G = null; /* Chichén Itzá: posición real; CHI_D se comporta como una ciudad para el robot */
   var invLock = null; /* zona de invasión que retiene al robot: {rings, x0, x1, z0, z1} */
   function invOut(x, z) { /* true si hay bloqueo y el punto queda fuera de la zona */
@@ -7920,6 +7920,11 @@ window.startMap = function (RAW, AUTH) {
     }
     return { gh: gh, hist: [], trav: 0, px: null, pz: null, a: a, cape: cape, flaps: flaps, hand: hand, path: null, next: null, s: 0, x: 0, z: 0, yaw: null, last: -1, off: 0, side: 1, dodge: false, hop: 0 };
   }
+  function vilLoop() { /* vuelta completa por el sendero interior de la aldea, desde y hasta la entrada */
+    var R = VILD.ring, a0 = VILD.ga, pts = [[VILD.cx + Math.cos(a0) * R, VILD.cz + Math.sin(a0) * R]], k, n = 40;
+    for (k = 1; k <= n; k++) pts.push([VILD.cx + Math.cos(a0 + k / n * 6.2832) * R, VILD.cz + Math.sin(a0 + k / n * 6.2832) * R]);
+    return mkPath(pts, 'vil', 'vil', 'arc');
+  }
   function updateWanderer(t, dt) {
     var W = wand, path, seg, f, x, z, tx, tz, l, nx, nz, i, c, cand, ti, nxt, lp, dc, bx, bz, hopY = 0, u, sw, gy, a, vis;
     if (!trails.length) return;
@@ -7933,12 +7938,20 @@ window.startMap = function (RAW, AUTH) {
       W.s -= path.len;
       if (path.kind === 'arc') { W.path = W.next; W.next = null; path = W.path; W.s = 0; }
       else {
-        c = path.end; cand = [];
-        for (ti = 0; ti < trails.length; ti++) if (trails[ti].a === c || trails[ti].b === c) cand.push(ti);
-        if (cand.length > 1) cand = cand.filter(function (q) { return q !== W.last; });
-        ti = cand[(Math.random() * cand.length) | 0]; W.last = ti;
-        nxt = edgePath(ti, c); lp = path.pts[path.pts.length - 1];
-        W.next = nxt; W.path = arcPath(c, lp, nxt.pts[0]); path = W.path; W.s = 0;
+        c = path.end; cand = []; lp = path.pts[path.pts.length - 1];
+        if (c === 'vil' && VILT) { /* llegó a la aldea: da la vuelta por su sendero interior y regresa a la ciudad */
+          nxt = mkPath(VILT.pts.slice().reverse(), 'vil', VILT.a, 'edge'); nxt.ti = -1; W.last = -1;
+          W.next = nxt; W.path = vilLoop(); path = W.path; W.s = 0;
+        } else if (VILT && c === VILT.a && W.last !== -1 && Math.random() < 0.15) { /* de vez en cuando se desvía a visitar la aldea alien */
+          nxt = mkPath(VILT.pts.slice(), c, 'vil', 'edge'); nxt.ti = -1; W.last = -1;
+          W.next = nxt; W.path = arcPath(c, lp, nxt.pts[0]); path = W.path; W.s = 0;
+        } else {
+          for (ti = 0; ti < trails.length; ti++) if (trails[ti].a === c || trails[ti].b === c) cand.push(ti);
+          if (cand.length > 1) cand = cand.filter(function (q) { return q !== W.last; });
+          ti = cand[(Math.random() * cand.length) | 0]; W.last = ti;
+          nxt = edgePath(ti, c);
+          W.next = nxt; W.path = arcPath(c, lp, nxt.pts[0]); path = W.path; W.s = 0;
+        }
       }
     }
     if (!path) return;
@@ -9513,8 +9526,8 @@ window.startMap = function (RAW, AUTH) {
       var tn = clock.elapsedTime, rest = (inv.entered && !inv.to) ? Math.max(0, 480 - inv.tIn) : 0; /* premio: lo que sobraba de los 8 min */
       var wasReal = inv.t > 0.5;
       invLock = null; inv = null; cur = null; HFW = false;
-      ufoHold = tn + rest;
-      if (rest > 0 && ufo && !(ufo.state === 'wreck' || ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'spawn')) { /* retira el OVNI vivo sin ruido */
+      ufoHold = tn + Math.max(rest, wasReal ? 600 : 0); /* durante los 10 min de paz no reaparece el OVNI */
+      if ((rest > 0 || wasReal) && ufo && !(ufo.state === 'wreck' || ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'spawn')) { /* retira el OVNI vivo sin ruido */
         ufo.state = 'wreck'; ufo.gone = true; ufo.T = 180; ufo.g.visible = false; if (wreck) wreck.visible = false;
       }
       if (wasReal) { nextAt = tn + 600; peaceOn = true; } /* 10 min de paz hasta la siguiente invasión */
@@ -9777,15 +9790,30 @@ window.startMap = function (RAW, AUTH) {
       var S = vilSite(), root = new THREE.Group(), eggG = new THREE.SphereGeometry(1, 18, 14), cols = [0xf7c6d9, 0xc6e8f7, 0xd6f7c6, 0xfff0b3, 0xe4cdf7, 0xffd6b0], dark = new THREE.MeshLambertMaterial({ color: 0x2a2433 }), glow = new THREE.MeshBasicMaterial({ color: 0xfff2a0 }), tipM = new THREE.MeshBasicMaterial({ color: 0x7dffa0 }), antM = new THREE.MeshLambertMaterial({ color: 0x6a6a74 }), baseM = new THREE.MeshLambertMaterial({ color: 0xcdbd96 }), i, m, w, y0, cx, cz, al = [], t2, x, z, an, rr, sw0;
       if (!S) { vilFail = 1; console.warn('Aldea alien: sin sitio libre cerca de Tampico'); return; }
       cx = S.x; cz = S.z; y0 = botGround(cx, cz);
-      S.hs.forEach(function (p, idx) { /* casas con forma de huevo: puerta oscura hacia el centro, ventana encendida y antena */
-        var hg = new THREE.Group(), yy = botGround(p.x, p.z), e;
+      var torG = new THREE.TorusGeometry(1, 0.05, 6, 28), whiteC = new THREE.Color(0xffffff), dishG = new THREE.SphereGeometry(0.42, 12, 8, 0, 6.2832, 0, 1.5708);
+      function ring(par, R, yy, mat) { var q = new THREE.Mesh(torG, mat); q.scale.set(R, R, 1.2); q.rotation.x = Math.PI / 2; q.position.y = yy; par.add(q); return q; }
+      S.hs.forEach(function (p, idx) { /* casas con forma de huevo: anillos de color, puerta enmarcada con escalón, ventana redonda y detalles distintos */
+        var hg = new THREE.Group(), yy = botGround(p.x, p.z), col = cols[idx % cols.length], mA = new THREE.MeshLambertMaterial({ color: new THREE.Color(col).multiplyScalar(0.68) }), e, v = idx % 3;
         hg.position.set(p.x, yy, p.z); hg.rotation.y = Math.atan2(cx - p.x, cz - p.z); hg.scale.setScalar(0.78);
-        e = new THREE.Mesh(eggG, new THREE.MeshLambertMaterial({ color: cols[idx % cols.length] })); e.scale.set(1.5, 2.0, 1.5); e.position.y = 1.9; e.castShadow = true; hg.add(e);
-        m = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.65, 0.18, 16), baseM); m.position.y = 0.05; hg.add(m);
+        e = new THREE.Mesh(eggG, new THREE.MeshLambertMaterial({ color: col })); e.scale.set(1.5, 2.0, 1.5); e.position.y = 1.9; e.castShadow = true; hg.add(e);
+        ring(hg, 1.39, 1.1, mA); ring(hg, 1.45, 2.45, mA); if (v === 2) ring(hg, 1.11, 3.25, mA);
+        m = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.72, 0.2, 18), baseM); m.position.y = 0.06; hg.add(m);
+        m = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.74, 0.12, 12), baseM); m.position.set(0, 0.05, 1.78); hg.add(m); /* escalón */
+        m = new THREE.Mesh(eggG, mA); m.scale.set(0.6, 0.92, 0.1); m.position.set(0, 0.92, 1.25); hg.add(m); /* marco */
         m = new THREE.Mesh(eggG, dark); m.scale.set(0.5, 0.82, 0.14); m.position.set(0, 0.88, 1.28); hg.add(m);
-        m = new THREE.Mesh(eggG, glow); m.scale.set(0.26, 0.3, 0.07); m.position.set(0, 2.5, 1.4); hg.add(m);
-        m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.75, 6), antM); m.position.y = 4.25; hg.add(m);
-        m = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), tipM); m.position.y = 4.65; hg.add(m);
+        m = new THREE.Mesh(eggG, glow); m.scale.set(0.29, 0.29, 0.08); m.position.set(0, 2.55, 1.4); hg.add(m); /* ventana redonda con aro */
+        m = new THREE.Mesh(torG, mA); m.scale.set(0.35, 0.35, 1.4); m.position.set(0, 2.55, 1.4); hg.add(m);
+        m = new THREE.Mesh(eggG, mA); m.scale.set(0.55, 0.3, 0.55); m.position.y = 3.78; hg.add(m); /* tapa */
+        if (v === 0) { m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.75, 6), antM); m.position.y = 4.3; hg.add(m); m = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), tipM); m.position.y = 4.7; hg.add(m); }
+        else if (v === 1) { /* anexo: un huevo pequeño pegado al lado */
+          m = new THREE.Mesh(eggG, new THREE.MeshLambertMaterial({ color: new THREE.Color(col).lerp(whiteC, 0.45) })); m.scale.set(0.7, 0.95, 0.7); m.position.set(1.5, 0.95, -0.2); m.castShadow = true; hg.add(m);
+          m = new THREE.Mesh(eggG, glow); m.scale.set(0.15, 0.18, 0.05); m.position.set(1.5, 1.25, 0.46); hg.add(m);
+          m = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), tipM); m.position.set(1.5, 1.95, -0.2); hg.add(m);
+        } else { /* antena parabólica y farol en la entrada */
+          m = new THREE.Mesh(dishG, antM); m.position.y = 4.0; m.rotation.x = -0.9; hg.add(m);
+          m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), antM); m.position.set(1.15, 0.45, 1.95); hg.add(m);
+          m = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), glow); m.position.set(1.15, 1.0, 1.95); hg.add(m);
+        }
         noRay(hg); root.add(hg); monBlk.push({ x: p.x, z: p.z, r: 1.8 });
       });
       m = new THREE.Mesh(new THREE.CircleGeometry(4.6, 28), new THREE.MeshBasicMaterial({ color: 0x0f0d0c, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); /* tierra quemada bajo el OVNI */
@@ -9793,6 +9821,49 @@ window.startMap = function (RAW, AUTH) {
       scene.add(root);
       w = buildWreck(); w.visible = true; w.scale.setScalar(2.1); w.position.set(cx, y0 - 0.05, cz); w.rotation.y = 0.7; monBlk.push({ x: cx, z: cz, r: 4.4 });
       bfC.clear();
+      /* senderos de tierra: anillo interior, uno por casa hasta su puerta y la entrada hacia la ciudad más cercana */
+      var RR = 5.8, lines = [], ringPts = [], dc = null, bd = 1e9, dd2, ga = 0, oi, ok2, rq, off2, ang2, gx, gz;
+      for (i = 0; i <= 40; i++) ringPts.push([cx + Math.cos(i / 40 * 6.2832) * RR, cz + Math.sin(i / 40 * 6.2832) * RR]);
+      lines.push(ringPts);
+      S.hs.forEach(function (p) { var dx = cx - p.x, dz = cz - p.z, L = Math.hypot(dx, dz) || 1; lines.push([[p.x + dx / L * 2.1, p.z + dz / L * 2.1], [cx - dx / L * 0 + (p.x - cx) / L * RR, cz + (p.z - cz) / L * RR]]); });
+      districts.forEach(function (d) { if (!d.list.length) return; dd2 = Math.hypot(d.cx - cx, d.cz - cz) - d.r; if (dd2 < bd) { bd = dd2; dc = d; } });
+      if (dc) {
+        var toC = Math.atan2(dc.cz - cz, dc.cx - cx);
+        for (oi = 0; oi < 14; oi++) { /* entrada: pasillo libre entre casas, lo más cerca posible de la dirección a la ciudad */
+          off2 = (oi % 2 ? 1 : -1) * Math.ceil(oi / 2) * 0.3; ang2 = toC + off2; ok2 = true;
+          for (rq = RR; rq <= 17 && ok2; rq += 1) { gx = cx + Math.cos(ang2) * rq; gz = cz + Math.sin(ang2) * rq; if (!botFree(gx, gz) || !botFree(gx - Math.sin(ang2) * 1.0, gz + Math.cos(ang2) * 1.0) || !botFree(gx + Math.sin(ang2) * 1.0, gz - Math.cos(ang2) * 1.0)) ok2 = false; }
+          if (ok2) { ga = ang2; break; }
+        }
+        if (ok2) {
+          var gate = [[cx + Math.cos(ga) * RR, cz + Math.sin(ga) * RR], [cx + Math.cos(ga) * 17, cz + Math.sin(ga) * 17]];
+          lines.push(gate);
+          var da = Math.atan2(cz - dc.cz, cx - dc.cx), st0 = null, ap = null, k2;
+          for (k2 = 0; k2 < 8 && !st0; k2++) { gx = dc.cx + Math.cos(da + (k2 % 2 ? 1 : -1) * Math.ceil(k2 / 2) * 0.2) * (dc.r + 2 + k2); gz = dc.cz + Math.sin(da + (k2 % 2 ? 1 : -1) * Math.ceil(k2 / 2) * 0.2) * (dc.r + 2 + k2); if (botFree(gx, gz)) st0 = [gx, gz]; }
+          if (st0) { try { ap = botAStar(st0[0], st0[1], gate[1][0], gate[1][1]); if (ap) ap = botRefine(ap); } catch (e2) { ap = null; } }
+          if (ap && ap.length > 1) {
+            var tp = ap.map(function (q3) { return [q3[0], q3[1]]; });
+            tp.push([cx + Math.cos(ga) * RR, cz + Math.sin(ga) * RR]);
+            VILT = { a: districts.indexOf(dc), pts: tp };
+          } else console.warn('Aldea alien: sin ruta al sendero de la ciudad');
+        }
+      }
+      /* cinta de tierra para los senderos visibles de la aldea */
+      (function () {
+        var pos = [], idx2 = [], base = 0, wd = 1.3, geo2 = new THREE.BufferGeometry();
+        lines.forEach(function (pts) {
+          var res = [pts[0]], k3, a3, b3, seg, mm, j3, pa, pb, dx3, dz3, l3, nx3, nz3, y3;
+          for (k3 = 1; k3 < pts.length; k3++) { a3 = pts[k3 - 1]; b3 = pts[k3]; seg = Math.hypot(b3[0] - a3[0], b3[1] - a3[1]); mm = Math.max(1, Math.ceil(seg / 1.2)); for (j3 = 1; j3 <= mm; j3++) res.push([a3[0] + (b3[0] - a3[0]) * j3 / mm, a3[1] + (b3[1] - a3[1]) * j3 / mm]); }
+          for (k3 = 0; k3 < res.length; k3++) {
+            pa = res[Math.max(0, k3 - 1)]; pb = res[Math.min(res.length - 1, k3 + 1)]; dx3 = pb[0] - pa[0]; dz3 = pb[1] - pa[1]; l3 = Math.hypot(dx3, dz3) || 1; nx3 = -dz3 / l3 * wd / 2; nz3 = dx3 / l3 * wd / 2; y3 = botGround(res[k3][0], res[k3][1]) + 0.05;
+            pos.push(res[k3][0] + nx3, y3, res[k3][1] + nz3, res[k3][0] - nx3, y3, res[k3][1] - nz3);
+            if (k3 > 0) { var b0 = base + (k3 - 1) * 2; idx2.push(b0, b0 + 1, b0 + 2, b0 + 1, b0 + 3, b0 + 2); }
+          }
+          base += res.length * 2;
+        });
+        geo2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo2.setIndex(idx2); geo2.computeVertexNormals();
+        var pm = new THREE.Mesh(geo2, new THREE.MeshLambertMaterial({ color: 0x9c7f5a, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1.2, polygonOffsetUnits: -1.2 }));
+        pm.frustumCulled = false; noRay(pm); root.add(pm);
+      })();
       for (i = 0; i < 4; i++) { /* aliens paseando entre las casas */
         for (t2 = 0; t2 < 30; t2++) { an = rnd(0, 6.2832); rr = 5 + rnd(0, 8); x = cx + Math.cos(an) * rr; z = cz + Math.sin(an) * rr; if (botFree(x, z)) break; }
         al.push(vilAl(x, z, false));
@@ -9803,13 +9874,13 @@ window.startMap = function (RAW, AUTH) {
         al.push(vilAl(x, z, true));
       }
       VIL = { x: cx, z: cz, root: root, wreck: w, al: al, sw0: sw0, smk: 0, on: true, y0: y0 };
-      VILD = { name: 'Aldea alien', cx: cx, cz: cz, r: 16, list: [{}], vil: true, ux: cx, uz: cz };
+      VILD = { name: 'Aldea alien', cx: cx, cz: cz, r: 16, list: [{}], vil: true, ux: cx, uz: cz, ring: RR, ga: ga };
       var el = document.createElement('div'); el.className = 'dist'; el.style.pointerEvents = 'none'; el.appendChild(document.createTextNode('Aldea alien'));
       var sm = document.createElement('small'); sm.textContent = 'Tampico'; el.appendChild(sm); document.getElementById('labels').appendChild(el);
       VILD.el = el; VILD.wpos = new THREE.Vector3(cx, y0 + 6.5, cz);
     }
     function vilStep(dt, t) {
-      var B = bot, A = aura, i, a, k, o, sp, am, ph, dd, dB, dA, tg, nx, nz, ux, uz, vis, L, ok, q;
+      var B = bot, A = aura, i, a, k, o, sp, am, ph, dd, dB, dA, tg, nx, nz, ux, uz, vis, L, ok, q, an, rr;
       if (!VIL) { if (vilFail || !landAt || !BN || !districts.length || t < 4) return; try { vilBuild(); } catch (e) { vilFail = 1; console.warn('Aldea alien desactivada:', e); } return; }
       vis = Math.hypot(camera.position.x - VIL.x, camera.position.z - VIL.z) < 900 || (B && Math.hypot(B.x - VIL.x, B.z - VIL.z) < 300);
       if (vis !== VIL.on) { VIL.on = vis; VIL.root.visible = vis; VIL.wreck.visible = vis; VIL.al.forEach(function (c) { c.o.g.visible = vis; }); }
