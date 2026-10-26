@@ -4856,7 +4856,7 @@ window.startMap = function (RAW, AUTH) {
       a = i * Math.PI / 4;
       m = new THREE.Mesh(uLamp, ufoLampMats[i % 3]); m.position.set(Math.cos(a) * 1.7, 0.02, Math.sin(a) * 1.7); body.add(m); lamps.push(m);
     }
-    body.scale.setScalar(2.4);
+    body.scale.setScalar(1.2); /* OVNI a la mitad de su tamaño anterior (2.4) */
     g.add(body);
     var beam = new THREE.Mesh(ufoBeamGeo, ufoBeamMat); beam.position.y = -0.2; beam.visible = false; g.add(beam);
     var ring = new THREE.Mesh(ufoRingGeo, ufoRingMat); ring.visible = false;
@@ -5197,7 +5197,7 @@ window.startMap = function (RAW, AUTH) {
     var i, gl = ufo.gl, p = ufo.g.position;
     ufo.glt = 0;
     if (!gl) return;
-    ufo.body.position.set(0, 0, 0); ufo.body.scale.setScalar(2.4); ufo.body.visible = true;
+    ufo.body.position.set(0, 0, 0); ufo.body.scale.setScalar(1.2); ufo.body.visible = true;
     gl.ghosts.forEach(function (g) { g.visible = false; });
     gl.scan.visible = false; glScanMat.opacity = 0;
     for (i = 0; i < ufo.lamps.length; i++) ufo.lamps[i].visible = true;
@@ -5620,7 +5620,7 @@ window.startMap = function (RAW, AUTH) {
       sx = nx - ox; sy = ny - oy; sz = nz - oz; l2 = sx * sx + sy * sy + sz * sz || 1;
       t = Math.max(0, Math.min(1, ((U.x - ox) * sx + (U.y - oy) * sy + (U.z - oz) * sz) / l2));
       cx = ox + sx * t; cy = oy + sy * t; cz = oz + sz * t;
-      if (Math.hypot(U.x - cx, U.y - cy, U.z - cz) < 1.8) { ufoHit(cx, cy, cz, 0.45); p.on = false; p.m.visible = false; continue; }
+      if (Math.hypot(U.x - cx, U.y - cy, U.z - cz) < 1.1) { ufoHit(cx, cy, cz, 0.45); p.on = false; p.m.visible = false; continue; }
       p.dist += BUL_SPEED * dt; p.life -= dt;
       /* Falla: llega al alcance máximo o toca el suelo */
       if (ny <= 0.1 || p.dist >= 90 || p.life <= 0) {
@@ -5932,8 +5932,8 @@ window.startMap = function (RAW, AUTH) {
     if (ufo.beam.visible) {
       ufoBeamMat.opacity = 0.42 * bk * (0.85 + 0.15 * Math.sin(t * 14));
       ufoRingMat.opacity = 0.55 * bk;
-      ufo.beam.scale.set(1.6, Math.max(0.1, ufo.y - 0.2), 1.6);
-      ufo.ring.scale.setScalar(1.6 * (0.9 + 0.1 * Math.sin(t * 10)));
+      ufo.beam.scale.set(0.8, Math.max(0.1, ufo.y - 0.2), 0.8);
+      ufo.ring.scale.setScalar(0.8 * (0.9 + 0.1 * Math.sin(t * 10)));
     }
   }
 
@@ -7159,7 +7159,7 @@ window.startMap = function (RAW, AUTH) {
     return true;
   }
   /* Montarse en el OVNI: el robot aterriza sobre su cúpula, se arrodilla y le dispara hasta derribarlo, y cae con él */
-  var UFO_TOP = 2.45;
+  var UFO_TOP = 1.25;
   function botStartRide() {
     var b = bot;
     b.mode = 'ride'; b.ride = { ph: 0, t: 0, x0: b.x, y0: b.y, z0: b.z, noU: 0, lx: b.x, lz: b.z };
@@ -7235,7 +7235,7 @@ window.startMap = function (RAW, AUTH) {
         U = ufo.g.position; sx = nx - ox; sy = ny - oy; sz = nz - oz; l2 = sx * sx + sy * sy + sz * sz || 1;
         t = Math.max(0, Math.min(1, ((U.x - ox) * sx + (U.y - oy) * sy + (U.z - oz) * sz) / l2));
         cx = ox + sx * t; cy2 = oy + sy * t; cz = oz + sz * t;
-        if (Math.hypot(U.x - cx, U.y - cy2, U.z - cz) < 1.8) { ufoHit(cx, cy2, cz, 0.3); bot.hitT = clock.elapsedTime; fxSpawn(cx, cy2, cz, 0, 0, 0, 0.3, 0.3, 1.3, 0x7dffa0, 0.9, true); p.on = false; p.m.visible = false; continue; }
+        if (Math.hypot(U.x - cx, U.y - cy2, U.z - cz) < 1.1) { ufoHit(cx, cy2, cz, 0.3); bot.hitT = clock.elapsedTime; fxSpawn(cx, cy2, cz, 0, 0, 0, 0.3, 0.3, 1.3, 0x7dffa0, 0.9, true); p.on = false; p.m.visible = false; continue; }
       }
       if (ALN && ALN.bolt(ox, oy, oz, nx, ny, nz)) { p.on = false; p.m.visible = false; continue; }
       p.dist += BOT_LASER_V * dt;
@@ -7907,9 +7907,9 @@ window.startMap = function (RAW, AUTH) {
   /* Seguimiento del robot igual que el de AURA: la cámara conserva un desplazamiento (distancia y ángulo) respecto al robot y el zoom es libre */
   var botOff = new THREE.Vector3(), bcV1 = new THREE.Vector3(), bcV2 = new THREE.Vector3(), bcTilt = 0;
   function botStartFollow(b) {
-    var sp = new THREE.Spherical(12, 1.2, b.yaw + Math.PI);
+    var sp = new THREE.Spherical(6, 1.2, b.yaw + Math.PI);
     botOff.setFromSpherical(sp); botYawCam = b.yaw; botFollow = true; botCamFree = true; b._lx = undefined;
-    flyTo(b.x, b.y + 0.5, b.z, 12, 1.2);
+    flyTo(b.x, b.y + 0.5, b.z, 6, 1.2);
   }
   function botChaseTarget(out) { return out.set(bot.x + Math.sin(botYawCam) * 20, bot.y + 1.0, bot.z + Math.cos(botYawCam) * 20); }
 
