@@ -3286,7 +3286,7 @@ window.startMap = function (RAW, AUTH) {
     G.position.set(g0.x, y0 - 0.14, g0.z); scene.add(G); CHI_G = G;
     monBlk.push({ x: g0.x, z: g0.z, r: 7.8 });
     CHI_D = { name: 'Chichén Itzá', cx: g0.x, cz: g0.z, r: 16, list: [{}], chi: true };
-    var e = document.createElement('div'); e.className = 'dist'; e.style.pointerEvents = 'none'; e.appendChild(document.createTextNode('Chichén Itzá'));
+    var e = document.createElement('div'); e.className = 'dist'; e.setAttribute('role', 'button'); e.tabIndex = 0; e.addEventListener('click', function () { flyToDistrict(CHI_D); }); e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') flyToDistrict(CHI_D); }); e.appendChild(document.createTextNode('Chichén Itzá'));
     var sm = document.createElement('small'); sm.textContent = 'Zona arqueológica'; e.appendChild(sm); document.getElementById('labels').appendChild(e);
     CHI_D.el = e; CHI_D.wpos = new THREE.Vector3(g0.x, y0 + y + 3.4, g0.z);
   }
@@ -9930,7 +9930,7 @@ window.startMap = function (RAW, AUTH) {
       for (rb = S.dsea - 1; rb >= 12 && !bch; rb--) { gx = cx + Math.cos(S.sd) * rb; gz = cz + Math.sin(S.sd) * rb; if (botFree(gx, gz) && botFree(gx + 1, gz) && botFree(gx - 1, gz) && botFree(gx, gz + 1) && botFree(gx, gz - 1)) bch = [gx, gz]; }
       if (bch) route.push(bch);
       VILD = { name: 'Aldea alien', cx: cx, cz: cz, r: 16, list: [{}], vil: true, ux: cx, uz: cz, ring: RR, ga: ga, route: route, sx: sw0.x, sz: sw0.z };
-      var el = document.createElement('div'); el.className = 'dist'; el.style.pointerEvents = 'none'; el.appendChild(document.createTextNode('Aldea alien'));
+      var el = document.createElement('div'); el.className = 'dist'; el.setAttribute('role', 'button'); el.tabIndex = 0; el.addEventListener('click', function () { flyToDistrict(VILD); }); el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') flyToDistrict(VILD); }); el.appendChild(document.createTextNode('Aldea alien'));
       var sm = document.createElement('small'); sm.textContent = 'Tampico'; el.appendChild(sm); document.getElementById('labels').appendChild(el);
       VILD.el = el; VILD.wpos = new THREE.Vector3(cx, y0 + 6.5, cz);
     }
