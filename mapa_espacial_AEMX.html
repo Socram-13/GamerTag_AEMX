@@ -7264,6 +7264,7 @@ window.startMap = function (RAW, AUTH) {
   function duelClear() {
     var D = DUEL; if (!D) return;
     if (D.fg && D.fg.g.parent) D.fg.g.parent.remove(D.fg.g);
+    if (bot) bot.jy = 0;
     if (D.bar) { scene.remove(D.bar.m); D.bar.m.geometry.dispose(); D.bar.m.material.dispose(); D.bar.tex.dispose(); }
     DUEL = null; document.getElementById('dbar').hidden = true; duelBanner(''); stage.classList.remove('duel-on');
   }
@@ -7293,8 +7294,9 @@ window.startMap = function (RAW, AUTH) {
     if (!D.bar) duelBarrierMake(D);
     fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.5, 0, 0.8, 0.5, 2.2, 0xff4a4a, 0.8, true); AUD.glitch(0.4, 0.6, { x: F.x, y: F.y + 0.4, z: F.z });
   }
-  function duelEdge(x, z) { /* hay mar o un obstáculo a menos de 6 en alguna dirección */
-    var i, a;
+  function duelEdge(x, z) { /* cerca de la barrera (o, sin barrera, mar u obstáculo a menos de 6) */
+    var i, a, D = DUEL, dx, dz;
+    if (D && D.bar) { dx = x - D.cx; dz = z - D.cz; return Math.hypot(dx, dz) > duelBarR(D, Math.atan2(dz, dx)) - 2.5; }
     for (i = 0; i < 8; i++) { a = i * 0.785; if (!botFree(x + Math.cos(a) * 6, z + Math.sin(a) * 6)) return true; }
     return false;
   }
@@ -7311,13 +7313,37 @@ window.startMap = function (RAW, AUTH) {
     fxSpawn(E.x, E.y + 0.1, E.z, 0, 0.2, 0, 0.5, 0.07, 0.25, 0xc8b48a, 0.3, false);
     return Dh.t > 0;
   }
+  function duelJumpGo(E, O) { /* salto con hiperimpulso por encima del rival: cae del otro lado */
+    var dx = O.x - E.x, dz = O.z - E.z, L = Math.hypot(dx, dz) || 1, ex = O.x + dx / L * 5.5, ez = O.z + dz / L * 5.5;
+    if (!botFree(ex, ez)) return null;
+    return { sx: E.x, sz: E.z, ex: ex, ez: ez, t: 0, T: 0.9 };
+  }
+  function duelJumpStep(E, J, dt) {
+    var u, nx, nz;
+    J.t += dt; u = Math.min(1, J.t / J.T); nx = J.sx + (J.ex - J.sx) * u; nz = J.sz + (J.ez - J.sz) * u;
+    E.x = nx; E.z = nz; E.y = botGround(nx, nz); E.jy = 2.6 * Math.sin(Math.PI * u);
+    fxSpawn(E.x, E.y + E.jy + 0.1, E.z, 0, -0.8, 0, 0.25, 0.1, 0.02, 0x5ad8ff, 0.9, true);
+    fxSpawn(E.x, E.y + E.jy + 0.35, E.z, 0, 0, 0, 0.3, 0.08, 0.02, 0x6dffc2, 0.7, true);
+    if (u >= 1) { E.jy = 0; return false; }
+    return true;
+  }
   function duelMoves(D, b, F, d, ux, uz, now, dt) { /* ambos se reposicionan, esquivan con hiperimpulso y huyen con poca vida */
     var lowR = (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax) < 0.35, lowF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax) < 0.2, sg, dx, dz, tries, ok, ang, px, pz, cdx = D.cx - b.x, cdz = D.cz - b.z;
     /* tirones en curso */
     if (D.dR && !duelDashStep(b, D.dR, dt)) D.dR = null; else if (D.dR) { b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z); if (botFollow) { /* la cámara acompaña */ } }
     if (D.dF && (d < 2.8 || !duelDashStep(F, D.dF, dt))) D.dF = null; /* no atraviesa al robot */
+    if (D.jR) { b.goal = null; b.gtype = ''; b.path = null; if (!duelJumpStep(b, D.jR, dt)) { D.jR = null; b.jy = 0; } }
+    if (D.jF && !duelJumpStep(F, D.jF, dt)) { D.jF = null; F.jy = 0; }
+    if (!D.jR && !D.dR && !lowR && d < 8 && b.mode === 'walk' && !b.tpj && b.boostCD <= 0 && now >= D.dodgeR && Math.random() < 0.4) { /* salta por encima del clon */
+      D.jR = duelJumpGo(b, F); D.dodgeR = now + 7 + Math.random() * 3;
+      if (D.jR) { b.boostCD = BOT_BOOST_CD; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+    }
+    if (!D.jF && !D.dF && !lowF && d < 8 && now >= (F.bcd || 0) && now >= D.dodgeF && Math.random() < 0.4) {
+      D.jF = duelJumpGo(F, b); D.dodgeF = now + 6 + Math.random() * 3;
+      if (D.jF) { F.bcd = now + 6; AUD.shot(bkMuz.set(F.x, F.y + 1, F.z)); }
+    }
     /* robot: esquiva (o huye) con hiperimpulso cuando ya cargó */
-    if (!D.dR && b.mode === 'walk' && !b.tpj && b.boostCD <= 0 && (lowR || now >= D.dodgeR)) {
+    if (!D.dR && !D.jR && b.mode === 'walk' && !b.tpj && b.boostCD <= 0 && (lowR || now >= D.dodgeR)) {
       sg = Math.random() < 0.5 ? 1 : -1;
       for (tries = 0, ok = false; tries < 4 && !ok; tries++) {
         if (lowR && tries < 2) { dx = -ux * 0.5 - uz * sg * 0.5; dz = -uz * 0.5 + ux * sg * 0.5; } else { dx = -uz * sg; dz = ux * sg; }
@@ -7329,7 +7355,7 @@ window.startMap = function (RAW, AUTH) {
       D.dodgeR = now + 7 + Math.random() * 3;
     }
     /* clon: lo mismo con su propio enfriamiento */
-    if (!D.dF && now >= (F.bcd || 0) && (lowF || now >= D.dodgeF)) {
+    if (!D.dF && !D.jF && now >= (F.bcd || 0) && (lowF || now >= D.dodgeF)) {
       sg = Math.random() < 0.5 ? 1 : -1; ok = false;
       for (tries = 0; tries < 4 && !ok; tries++) {
         if (lowF && tries < 2) { dx = ux * 0.5 + uz * sg * 0.5; dz = uz * 0.5 - ux * sg * 0.5; } else if (!lowF && d > 6 && tries < 2 && Math.random() < 0.7) { dx = ux; dz = uz; } else { dx = uz * sg; dz = -ux * sg; } /* normalmente embiste hacia el robot */
@@ -7398,7 +7424,7 @@ window.startMap = function (RAW, AUTH) {
   }
   function duelRobotShot() { /* el robot disparó al clon: se tira la puntería */
     var D = DUEL, F = D.fg; if (D.ph !== 'fight' || !F) return;
-    if (duelRoll(D.me, D.foe, !!D.dF)) fxSpawn(F.x, F.y + 0.45, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+    if (duelRoll(D.me, D.foe, !!(D.dF || D.jF))) fxSpawn(F.x, F.y + 0.45, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
   }
   function duelTick(dt, now) {
     var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
@@ -7423,10 +7449,13 @@ window.startMap = function (RAW, AUTH) {
       if (now >= (F.rkT || 0)) { F.rkT = now + 3 + Math.random() * 2; F.rk = Math.random() < 0.4 ? now + 2.5 : 0; } /* a veces se lanza de frente sin pensarlo */
       spd = lowF ? (d < 19 ? -3.6 : 0) : (now < (F.rk || 0) ? (d > 3 ? 5.4 : 0) : (d > F.dd + 1.5 ? 5.2 : d < F.dd - 2.5 ? -2 : 0));
       var edge = duelEdge(F.x, F.z), cdx = D.cx - F.x, cdz = D.cz - F.z, cdd = Math.hypot(cdx, cdz) || 1, mx, mz2, cands, ci, moved = false;
-      mx = ux * spd + -uz * F.side * 2.2; mz2 = uz * spd + ux * F.side * 2.2;
+      if (now >= (F.nextP || 0)) { F.pauseU = now + 0.35 + Math.random() * 0.7; F.nextP = F.pauseU + 1.2 + Math.random() * 1.6; } /* se mueve a ratos y se detiene a ratos */
+      var paused = now < (F.pauseU || 0) && !lowF && now >= (F.rk || 0);
+      if (paused) spd = 0;
+      mx = ux * spd + (paused ? 0 : -uz * F.side * 2.2); mz2 = uz * spd + (paused ? 0 : ux * F.side * 2.2);
       if (edge) { mx += cdx / cdd * 2.6; mz2 += cdz / cdd * 2.6; if (spd < 0 && !lowF) { mx -= ux * spd; mz2 -= uz * spd; } } /* cerca de la orilla: no retrocede y se desliza hacia el centro */
       cands = [[mx, mz2], [-uz * F.side * 2.4, ux * F.side * 2.4], [ux * 3, uz * 3], [cdx / cdd * 3, cdz / cdd * 3], [uz * F.side * 2.4, -ux * F.side * 2.4]];
-      for (ci = 0; ci < cands.length && !moved; ci++) { nx = F.x + cands[ci][0] * dt; nz = F.z + cands[ci][1] * dt; if (botFree(nx, nz)) { F.x = nx; F.z = nz; moved = true; if (ci > 0) { spd = 2.4; if (ci === 1) F.side = -F.side * -1; } } }
+      for (ci = 0; ci < cands.length && !moved && !(paused && !edge); ci++) { nx = F.x + cands[ci][0] * dt; nz = F.z + cands[ci][1] * dt; if (botFree(nx, nz)) { F.x = nx; F.z = nz; moved = true; if (ci > 0) { spd = 2.4; if (ci === 1) F.side = -F.side * -1; } } }
       if (!moved) F.side = -F.side;
       if (d < 2.2 && botFree(F.x - ux * (2.2 - d), F.z - uz * (2.2 - d))) { F.x -= ux * (2.2 - d); F.z -= uz * (2.2 - d); } /* separación mínima */
       /* el robot: si lleva más de 2 s casi quieto junto a la orilla, vuelve hacia el centro */
@@ -7437,7 +7466,7 @@ window.startMap = function (RAW, AUTH) {
       if (F.fireT <= 0 && d < 24) {
         F.burstN = (F.burstN || 0) + 1; if (F.burstN >= 3) { F.burstN = 0; F.fireT = 0.8; } else F.fireT = 0.13; mz = bkTmpA.set(F.x + Math.sin(F.yaw) * 0.7, F.y + 0.5, F.z + Math.cos(F.yaw) * 0.7);
         tg = bkTmpB.set(b.x, b.y + 0.45, b.z);
-        if (duelRoll(D.foe, D.me, !!D.dR)) fxSpawn(b.x, b.y + 0.45, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+        if (duelRoll(D.foe, D.me, !!(D.dR || D.jR))) fxSpawn(b.x, b.y + 0.45, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
         else { tg.x += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.8); tg.y += 0.2 + Math.random() * 0.5; }
         botShoot(mz, tg, true);
       }
@@ -7454,17 +7483,22 @@ window.startMap = function (RAW, AUTH) {
       if (now >= D.te) { if (D.bar) D.bar.on = false; duelBanner(''); stage.classList.remove('duel-on'); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out'; b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
       spd = 0;
     }
-    if (F && D.ph !== 'out') { /* pose del clon: mismo ciclo de piernas que usa el robot al correr */
-      var mv = F.px === undefined ? 0 : Math.hypot(F.x - F.px, F.z - F.pz) / Math.max(dt, 0.001), va = (D.ph === 'fight' && (mv > 0.4 || D.dF)) ? Math.max(8, Math.min(14, mv * 1.8)) : 0, am2, kf2, la2, sg2;
+    if (F && D.ph !== 'out') { /* pose del clon: ciclo de correr, se detiene al quedar quieto y la cadera gira hacia donde corre (el torso sigue apuntando al robot) */
+      var mdx = F.x - (F.px === undefined ? F.x : F.px), mdz = F.z - (F.pz === undefined ? F.z : F.pz), mv = Math.hypot(mdx, mdz) / Math.max(dt, 0.001), moving2 = D.ph === 'fight' && (mv > 0.5 || D.dF || D.jF), va = moving2 ? Math.max(8, Math.min(14, mv * 1.8)) : 0, am2, kf2, la2, sg2, hd2, back2 = false;
       F.px = F.x; F.pz = F.z; F.gk = (F.gk || 0) + ((va > 0 ? 1 : 0) - (F.gk || 0)) * Math.min(1, dt * 8);
+      hd2 = F.yaw;
+      if (moving2 && mv > 0.5) { var mh = Math.atan2(mdx, mdz); if (Math.cos(mh - F.yaw) < -0.3) back2 = true; else hd2 = mh; } /* si retrocede, mira al frente y pedalea hacia atrás */
+      if (F.hy === undefined) F.hy = F.yaw;
+      F.hy += nAng(hd2 - F.hy) * Math.min(1, dt * 10);
       am2 = Math.min(0.9, 0.45 + va * 0.15); kf2 = Math.min(1.6, 0.25 + va * 0.14);
-      if (va > 0) F.ph += dt * Math.max(3.0, Math.min(12, 3.1416 * va / (1.44 * am2)));
+      if (va > 0) F.ph += (back2 ? -1 : 1) * dt * Math.max(3.0, Math.min(12, 3.1416 * va / (1.44 * am2)));
       for (i = 0; i < 2; i++) {
         la2 = -am2 * Math.sin(F.ph + i * Math.PI) * F.gk; sg2 = kf2 * Math.max(0, Math.cos(F.ph + i * Math.PI)) * F.gk;
         F.legs[i].th.rotation.x = la2; F.legs[i].kn.rotation.x = sg2; F.legs[i].ft.rotation.x = -(la2 + sg2) * 0.85 + sg2 * 0.55;
       }
-      F.g.position.set(F.x, F.y, F.z); F.g.rotation.y = F.yaw;
-      if (D.tgt) { D.tgt.x = F.x; D.tgt.y = F.y + 0.45; D.tgt.z = F.z; }
+      F.upper.rotation.y = Math.max(-1.3, Math.min(1.3, nAng(F.yaw - F.hy))); F.body.rotation.x = 0.12 * F.gk * (back2 ? -0.5 : 1);
+      F.g.position.set(F.x, F.y + (F.jy || 0), F.z); F.g.rotation.y = F.hy;
+      if (D.tgt) { D.tgt.x = F.x; D.tgt.y = F.y + (F.jy || 0) + 0.45; D.tgt.z = F.z; }
     }
   }
   function botXsFight() { /* botón "Retar 1 vs 1" */
@@ -8185,7 +8219,7 @@ window.startMap = function (RAW, AUTH) {
     if (swz) { /* colgado: el balanceo gira alrededor de la mano que sujeta el dron, no de los pies */
       var pvx = 0.115, pvy = 0.70, sdx = pvx - (pvx * Math.cos(swz) - pvy * Math.sin(swz)); swy = pvy - (pvx * Math.sin(swz) + pvy * Math.cos(swz));
       swx = sdx * Math.cos(b.yaw); var swzz = -sdx * Math.sin(b.yaw); b.g.position.set(b.x + swx, b.y + swy, b.z + swzz);
-    } else b.g.position.set(b.x, b.y, b.z);
+    } else b.g.position.set(b.x, b.y + (b.jy || 0), b.z); /* b.jy: altura de un salto del duelo */
     b.g.rotation.y = b.yaw; b.g.rotation.z = swz;
     if (thr && (d3 <= botRng() + 5 || (b.mode === 'walk' && b.gtype === 'hunt' && d3 < 260)) && b.boostT <= 0 && !b.ball && !((b.glr || 0) > 0) && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch' || b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop' || (b.mode === 'ride' && b.ride && b.ride.ph === 1))) {
       pd = d3 / BOT_LASER_V * 0.85;
