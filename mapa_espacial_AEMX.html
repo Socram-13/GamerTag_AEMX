@@ -89,6 +89,9 @@
   #bDir.red { color: #ffd0d0; border-color: rgba(255,110,110,0.8); }
   #invCd { position: absolute; z-index: 5; top: 8px; left: 50%; transform: translateX(-50%); padding: 1px 9px; font: 700 15px var(--f-body); letter-spacing: 0.08em; color: #fff; background: rgba(150,20,20,0.72); border: 1px solid rgba(255,120,120,0.8); border-radius: 10px; display: none; text-shadow: 0 0 5px rgba(0,0,0,0.8); pointer-events: none; }
   #invCd.on { display: block; }
+  #peaceCd { position: absolute; z-index: 5; top: 8px; left: 50%; transform: translateX(-50%); padding: 1px 9px; font: 700 15px var(--f-body); letter-spacing: 0.08em; color: #eafff0; background: rgba(18,110,58,0.75); border: 1px solid rgba(120,255,170,0.8); border-radius: 10px; display: none; text-shadow: 0 0 5px rgba(0,0,0,0.8); pointer-events: none; white-space: nowrap; }
+  #peaceCd.on { display: block; }
+  #peaceCd.soon { background: rgba(150,110,10,0.82); border-color: rgba(255,220,120,0.9); }
   #invCd.hot { background: rgba(230,20,20,0.9); animation: invPulse 0.7s ease-in-out infinite; }
   @keyframes invPulse { 50% { transform: translateX(-50%) scale(1.18); box-shadow: 0 0 14px rgba(255,40,40,0.9); } }
   #bMini .ct { font: 700 12px var(--f-body); letter-spacing: 0.14em; color: #ffd0d0; text-shadow: 0 0 6px rgba(0,0,0,0.8); text-transform: uppercase; }
@@ -179,7 +182,7 @@
     #bAct { font-size: 9.5px; padding: 1px 8px; }
     #bSay { font-size: 12px; }
     #invAl { top: max(96px, 14vh); padding: 6px 14px; gap: 8px; }
-    #invCd { font-size: 13px; }
+    #invCd, #peaceCd { font-size: 13px; }
   }
 
   #gate { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(5,10,24,0.92); }
@@ -197,7 +200,7 @@
   <div id="botHud" aria-hidden="true">
     <div id="invAl"><span>⚠</span><span><small>ALERTA</small>INVASIÓN EN <b id="invNm"></b></span><span>⚠</span></div>
     <div id="bInfo"><div id="bDir"></div><div id="bAct"></div><div id="bSay"></div></div>
-    <div id="bMini"><div id="invCd"></div><canvas id="bMiniC" width="336" height="336"></canvas><span class="ct" id="bMiniT"></span></div>
+    <div id="bMini"><div id="invCd"></div><div id="peaceCd"></div><canvas id="bMiniC" width="336" height="336"></canvas><span class="ct" id="bMiniT"></span></div>
     <div id="bTank"><div class="tk"><div class="fl" id="bFill"></div><i class="tick" style="bottom:25%"></i><i class="tick" style="bottom:50%"></i><i class="tick" style="bottom:75%"></i></div><span class="lb">HIPERIMPULSO</span></div>
   </div>
   <div class="hud">
@@ -554,6 +557,7 @@ window.startMap = function (RAW, AUTH) {
   renderer.setClearColor(0x050a18, 1);
 
   var scene = new THREE.Scene();
+  var VILD = null, vilReq = null, vilNext = 240, vilN = 0; /* aldea alien de Tampico: VILD se comporta como una ciudad para el robot; vilReq: AURA va a visitarla */
   var CHI_LL = [-88.568, 20.683], CHI_D = null, CHI_G = null; /* Chichén Itzá: posición real; CHI_D se comporta como una ciudad para el robot */
   var invLock = null; /* zona de invasión que retiene al robot: {rings, x0, x1, z0, z1} */
   function invOut(x, z) { /* true si hay bloqueo y el punto queda fuera de la zona */
@@ -4679,7 +4683,7 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('input', function () {
     var v = q.value.trim().replace(/^@/, '').toLowerCase();
     resEl.textContent = '';
-    if (!v || v === 'sombrero' || v === 'invasion') { resEl.hidden = true; matches = []; return; } /* 'sombrero' es un código oculto: sin sugerencias */
+    if (!v || v === 'sombrero' || v === 'invasion' || v === 'aldea') { resEl.hidden = true; matches = []; return; } /* 'sombrero' es un código oculto: sin sugerencias */
     matches = [];
     if (ufo && v.length >= 2 && ('ovni'.indexOf(v) === 0 || 'ufo'.indexOf(v) === 0)) matches.push({ kind: 'u', label: '🛸 OVNI', sub: 'seguir' });
     if (car && v.length >= 2) {
@@ -4720,6 +4724,7 @@ window.startMap = function (RAW, AUTH) {
   });
   q.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'sombrero') { q.value = ''; resEl.hidden = true; matches = []; botCallDis(); return; }
+    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'aldea') { q.value = ''; resEl.hidden = true; matches = []; botCallVillage(); auraVilCall(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (typeof ALN !== 'undefined') ALN.startHere(); return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
   });
@@ -6988,12 +6993,14 @@ window.startMap = function (RAW, AUTH) {
     if (ret && botSetGoal(ret.x, ret.z, ret.t)) { /* retoma su camino */ } else { b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.8; }
   }
   /* Recorre las ciudades con jugadores una por una: va a la más cercana que aún no ha revisado */
-  function botPickCity() {
+  function botPickCity(only) {
     var b = bot, c = [], i, d, k, a, x, z, dx, dz, L, tries;
     if (!b.vis) b.vis = [];
-    var dl = CHI_D ? districts.concat([CHI_D]) : districts;
+    var dl = only ? [only] : (CHI_D ? districts.concat([CHI_D]) : districts.slice());
+    if (!only && VILD) dl = dl.concat([VILD]);
     for (i = 0; i < dl.length; i++) {
       d = dl[i]; if (!d.list.length) continue;
+      if (only) { c.push(d); continue; }
       if (Math.hypot(d.cx - b.x, d.cz - b.z) < d.r + 30 && b.vis.indexOf(d) < 0) b.vis.push(d);
       if (b.vis.indexOf(d) < 0) c.push(d);
     }
@@ -7025,6 +7032,17 @@ window.startMap = function (RAW, AUTH) {
     b.disTalk = 0; b.disCD = 0;
     if (!botDisGoal(Dd)) return false;
     b.disMeet = now0(); b.disForce = 1; b.jog = false; b.tour = null; b.disRe = 0;
+    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botFollow = true; botCamFree = false; botYawCam = b.yaw; flyTo(b.x, b.y + 0.5, b.z, 8, 1.2); }
+    return true;
+  }
+  function botCallVillage() { /* código 'aldea': el robot va a visitar la aldea alien (si no hay invasión ni OVNI) */
+    var b = bot;
+    if (!b || !VILD) return false;
+    if (!ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI o una invasión.'; return false; }
+    b.disTalk = 0; b.disMeet = 0; b.disForce = 0; b.tour = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0;
+    if (Math.hypot(VILD.cx - b.x, VILD.cz - b.z) < VILD.r + 30) { b.tour = { d: VILD, n: 5 }; b.dest = VILD; b.jog = false; }
+    else if (!botPickCity(VILD)) return false;
+    window.__botSayQ = 'Voy a visitar la aldea alien.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botFollow = true; botCamFree = false; botYawCam = b.yaw; flyTo(b.x, b.y + 0.5, b.z, 8, 1.2); }
     return true;
   }
@@ -8240,9 +8258,16 @@ window.startMap = function (RAW, AUTH) {
     len = hv.distanceTo(hv2); H.beam.visible = true; H.beam.position.copy(hv).add(hv2).multiplyScalar(0.5); H.beam.scale.set(0.4, len, 0.4);
     H.beam.quaternion.setFromUnitVectors(auHoloUp, hv2.clone().sub(hv).normalize()); H.beamMt.opacity = 0.3 * k;
   }
-  function auraEvent() { /* sitio a investigar: restos del OVNI o el meteorito de la invasión */
-    var u = ufo, I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
+  function auraVilCall() { /* visita a la aldea alien: la pide el código 'aldea' o la curiosidad (rara) en tiempos de paz */
+    var A = aura;
+    if (!A || !VILD || vilReq || (typeof ALN !== 'undefined' && ALN.state && ALN.state())) return false;
+    vilReq = { until: now0() + 240, id: ++vilN }; vilNext = now0() + 600; A.evCD = 0; return true;
+  }
+  function auraVilMaybe() { if (vilReq || !VILD || now0() < vilNext || Math.random() > 0.012 || !ufoDown()) return; auraVilCall(); }
+  function auraEvent() { /* sitio a investigar: restos del OVNI, el meteorito de la invasión o la aldea alien */
+    var u = ufo, I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null, vl;
     if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 9.5, left: I.left, kind: 'met', al: I.al };
+    if (vilReq && VILD) { vl = vilReq.until - now0(); if (vl > 0) return { key: 'v' + vilReq.id, x: VILD.ux, z: VILD.uz, R: 6.5, left: vl, kind: 'vil', al: [] }; vilReq = null; }
     var ci, cr, best = null, bl = 0; /* OVNI caído: el evento dura lo que dure su cráter, aunque los restos ya hayan desaparecido */
     for (ci = 0; ci < craters.length; ci++) { cr = craters[ci]; if (cr.on && CRATER_LIFE - cr.age > bl) { bl = CRATER_LIFE - cr.age; best = cr; } }
     if (best) return { key: 'w' + Math.round(best.x) + ',' + Math.round(best.z), x: best.x, z: best.z, R: 5.3, left: bl, kind: 'wreck', al: [] };
@@ -8416,6 +8441,7 @@ window.startMap = function (RAW, AUTH) {
       A.evCD -= dt;
       if (A.evCD <= 0 && BN && !HF && !HFW) {
         A.evCD = 2; e = auraEvent();
+        if (!e && VILD) { auraVilMaybe(); e = auraEvent(); }
         if (e && (e.kind === 'met' ? now0() >= (auraDone[e.key] || 0) : !auraDone[e.key]) && e.left >= 30) { /* invasión: se atiende mientras dure (enfriamiento 20 s); restos: una vez */
           dd = Math.hypot(e.x - A.x, e.z - A.z);
           if (dd > 60) { /* lejos: la invasión, desde un estado vecino; los restos del OVNI, desde la ciudad más cercana */
@@ -8449,7 +8475,7 @@ window.startMap = function (RAW, AUTH) {
         var wr = A.wp ? auraWalk(A, dt, sp) : null;
         if (wr === true) moving = true;
         else if (wr === null) {
-          if (A.mode === 'go') { A.mode = 'inspect'; A.cyc = 0; A.f1 = A.f2 = A.h1 = 0; A.vt = 0; A.oR = A.ev.R; A.odir = Math.random() < 0.5 ? 1 : -1; }
+          if (A.mode === 'go') { if (A.ev && A.ev.kind === 'vil' && vilReq && !vilReq.arr) { vilReq.arr = 1; vilReq.until = now0() + 60; } A.mode = 'inspect'; A.cyc = 0; A.f1 = A.f2 = A.h1 = 0; A.vt = 0; A.oR = A.ev.R; A.odir = Math.random() < 0.5 ? 1 : -1; }
           else if (A.mode === 'join') auraFinishJoin(A);
           else if (A.mode === 'hf') { /* espera al robot en el punto de encuentro */ }
           else { c = A.bc; auraResume(A, c); }
@@ -9442,7 +9468,7 @@ window.startMap = function (RAW, AUTH) {
       var mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; noRay(mesh); grp.add(mesh);
       return mesh;
     }
-    var inv = null, nextAt = 360, lastName = '', cur = null, pickT = 0, tpos = new THREE.Vector3();
+    var inv = null, nextAt = 360, lastName = '', cur = null, pickT = 0, tpos = new THREE.Vector3(), peaceOn = false; /* peaceOn: tiempo de paz de 10 min tras cada invasión */
     function free(a, x, z) { return inPoly(inv.rings, x, z) && botFree(x, z); }
     function okSpawn(x, z) { return inPoly(inv.rings, x, z) && inPoly(inv.rings, x + 4, z) && inPoly(inv.rings, x - 4, z) && inPoly(inv.rings, x, z + 4) && inPoly(inv.rings, x, z - 4) && botFree(x, z); }
     function start(name) {
@@ -9472,7 +9498,7 @@ window.startMap = function (RAW, AUTH) {
       }
       if (inv.al.length < 3) { stopNow(); return false; }
       inv.wall = buildWall(rings);
-      lastName = name; cur = null; pickT = 0;
+      lastName = name; cur = null; pickT = 0; peaceOn = false;
       return true;
     }
     function disposeBar(a) { if (a.bar) { grp.remove(a.bar); a.bar.material.dispose(); a.barTex.dispose(); a.bar = null; } }
@@ -9485,12 +9511,13 @@ window.startMap = function (RAW, AUTH) {
       if (inv.wall) { grp.remove(inv.wall); inv.wall.geometry.dispose(); inv.wall.material.dispose(); }
       metClean(inv.met);
       var tn = clock.elapsedTime, rest = (inv.entered && !inv.to) ? Math.max(0, 480 - inv.tIn) : 0; /* premio: lo que sobraba de los 8 min */
+      var wasReal = inv.t > 0.5;
       invLock = null; inv = null; cur = null; HFW = false;
       ufoHold = tn + rest;
       if (rest > 0 && ufo && !(ufo.state === 'wreck' || ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'spawn')) { /* retira el OVNI vivo sin ruido */
         ufo.state = 'wreck'; ufo.gone = true; ufo.T = 180; ufo.g.visible = false; if (wreck) wreck.visible = false;
       }
-      nextAt = (ufo && (ufo.state === 'wander' || ufo.state === 'approach' || ufo.state === 'abduct' || ufo.state === 'haul' || ufo.state === 'cook' || ufo.state === 'drop' || ufo.state === 'rest') && rest <= 0) ? tn + 360 : 1e12; /* la siguiente cuenta desde que aparece el OVNI */
+      if (wasReal) { nextAt = tn + 600; peaceOn = true; } /* 10 min de paz hasta la siguiente invasión */
     }
     /* Rumbo de huida: el más cercano a "alejarse del robot" que no choca con la frontera, el agua ni los edificios */
     function flee(a, want) {
@@ -9715,11 +9742,148 @@ window.startMap = function (RAW, AUTH) {
       if (D2.bites !== D2.bitP) { if (D2.bites > 0) AUD.alChew(D2.sp3); D2.bitP = D2.bites; }
       D2.o.g.rotation.y = D2.yaw; D2.o.g.rotation.z = 0.05 * Math.sin(t * 1.4) * D2.ch; D2.o.g.position.set(D2.x, D2.y + 0.012 * Math.abs(Math.sin(t * 2.8)) * D2.ch, D2.z); D2.o.g.scale.setScalar(SC * D2.k);
     }
+
+    /* ---------- Aldea alien de Tampico: OVNI estrellado, casas-huevo, 4 aliens paseando y 2 nadando ---------- */
+    var VIL = null, vilFail = 0;
+    function vilSite() {
+      var P0 = geo(-97.86, 22.23), r, an, cx, cz, k, a2, dsea, sd, hs, j, jj, rr, ang, hx, hz, ok, i;
+      function fr(x, z) { return botFree(x, z) && !botCrater(x, z); }
+      function room(x, z, rad) { var q; for (q = 0; q < 8; q++) if (!fr(x + Math.cos(q * 0.785) * rad, z + Math.sin(q * 0.785) * rad)) return false; return fr(x, z); }
+      for (r = 0; r <= 300; r += 10) {
+        for (an = 0; an < 6.2832; an += (r ? 0.4 : 7)) {
+          cx = P0.x + Math.cos(an) * r; cz = P0.z + Math.sin(an) * r;
+          if (!landAt(cx, cz) || !room(cx, cz, 4.4)) continue;
+          dsea = 1e9; sd = 0;
+          for (a2 = 0; a2 < 6.2832; a2 += 0.3927) for (k = 8; k <= 64; k += 4) if (!landAt(cx + Math.cos(a2) * k, cz + Math.sin(a2) * k)) { if (k < dsea) { dsea = k; sd = a2; } break; }
+          if (dsea < 26 || dsea > 60) continue;
+          hs = [];
+          for (j = 0; j < 7 && hs.length < 6; j++) for (jj = 0; jj < 4; jj++) {
+            ang = j * 0.8976 + jj * 0.21; rr = [9.5, 11, 12.5, 8.2][jj]; hx = cx + Math.cos(ang) * rr; hz = cz + Math.sin(ang) * rr;
+            if (!landAt(hx, hz) || !room(hx, hz, 2.3)) continue;
+            ok = true; for (i = 0; i < hs.length; i++) if (Math.hypot(hs[i].x - hx, hs[i].z - hz) < 5) ok = false;
+            if (ok) { hs.push({ x: hx, z: hz }); break; }
+          }
+          if (hs.length >= 5) return { x: cx, z: cz, sd: sd, dsea: dsea, hs: hs };
+        }
+      }
+      return null;
+    }
+    function vilAl(x, z, swim) {
+      var o = mk(), a = { o: o, x: x, z: z, y: botGround(x, z), yaw: rnd(0, 6.28), ph: rnd(0, 6.28), gk: 0, st: 'idle', wait: rnd(0.5, 3), tx: x, tz: z, wv: 0, swim: swim, spl: 0, bk: 0 };
+      o.mats[0].color.setHex(0x86d69a); o.mats[0].emissive.setHex(0x0c2a16); o.mats[1].color.setHex(0x62b277); o.mats[1].emissive.setHex(0x0c2a16); /* verdes y amistosos */
+      o.g.scale.setScalar(SC); grp.add(o.g); return a;
+    }
+    function vilBuild() {
+      var S = vilSite(), root = new THREE.Group(), eggG = new THREE.SphereGeometry(1, 18, 14), cols = [0xf7c6d9, 0xc6e8f7, 0xd6f7c6, 0xfff0b3, 0xe4cdf7, 0xffd6b0], dark = new THREE.MeshLambertMaterial({ color: 0x2a2433 }), glow = new THREE.MeshBasicMaterial({ color: 0xfff2a0 }), tipM = new THREE.MeshBasicMaterial({ color: 0x7dffa0 }), antM = new THREE.MeshLambertMaterial({ color: 0x6a6a74 }), baseM = new THREE.MeshLambertMaterial({ color: 0xcdbd96 }), i, m, w, y0, cx, cz, al = [], t2, x, z, an, rr, sw0;
+      if (!S) { vilFail = 1; console.warn('Aldea alien: sin sitio libre cerca de Tampico'); return; }
+      cx = S.x; cz = S.z; y0 = botGround(cx, cz);
+      S.hs.forEach(function (p, idx) { /* casas con forma de huevo: puerta oscura hacia el centro, ventana encendida y antena */
+        var hg = new THREE.Group(), yy = botGround(p.x, p.z), e;
+        hg.position.set(p.x, yy, p.z); hg.rotation.y = Math.atan2(cx - p.x, cz - p.z); hg.scale.setScalar(0.78);
+        e = new THREE.Mesh(eggG, new THREE.MeshLambertMaterial({ color: cols[idx % cols.length] })); e.scale.set(1.5, 2.0, 1.5); e.position.y = 1.9; e.castShadow = true; hg.add(e);
+        m = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.65, 0.18, 16), baseM); m.position.y = 0.05; hg.add(m);
+        m = new THREE.Mesh(eggG, dark); m.scale.set(0.5, 0.82, 0.14); m.position.set(0, 0.88, 1.28); hg.add(m);
+        m = new THREE.Mesh(eggG, glow); m.scale.set(0.26, 0.3, 0.07); m.position.set(0, 2.5, 1.4); hg.add(m);
+        m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.75, 6), antM); m.position.y = 4.25; hg.add(m);
+        m = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), tipM); m.position.y = 4.65; hg.add(m);
+        noRay(hg); root.add(hg); monBlk.push({ x: p.x, z: p.z, r: 1.8 });
+      });
+      m = new THREE.Mesh(new THREE.CircleGeometry(4.6, 28), new THREE.MeshBasicMaterial({ color: 0x0f0d0c, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); /* tierra quemada bajo el OVNI */
+      m.rotation.x = -Math.PI / 2; m.position.set(cx, y0 + 0.05, cz); noRay(m); root.add(m);
+      scene.add(root);
+      w = buildWreck(); w.visible = true; w.scale.setScalar(2.1); w.position.set(cx, y0 - 0.05, cz); w.rotation.y = 0.7; monBlk.push({ x: cx, z: cz, r: 4.4 });
+      bfC.clear();
+      for (i = 0; i < 4; i++) { /* aliens paseando entre las casas */
+        for (t2 = 0; t2 < 30; t2++) { an = rnd(0, 6.2832); rr = 5 + rnd(0, 8); x = cx + Math.cos(an) * rr; z = cz + Math.sin(an) * rr; if (botFree(x, z)) break; }
+        al.push(vilAl(x, z, false));
+      }
+      sw0 = { x: cx + Math.cos(S.sd) * (S.dsea + 9), z: cz + Math.sin(S.sd) * (S.dsea + 9) };
+      for (i = 0; i < 2; i++) { /* y 2 nadando en el mar frente a la playa */
+        for (t2 = 0; t2 < 30; t2++) { x = sw0.x + rnd(-5, 5); z = sw0.z + rnd(-5, 5); if (!landAt(x, z) && !landAt(x + 3, z) && !landAt(x - 3, z) && !landAt(x, z + 3) && !landAt(x, z - 3)) break; }
+        al.push(vilAl(x, z, true));
+      }
+      VIL = { x: cx, z: cz, root: root, wreck: w, al: al, sw0: sw0, smk: 0, on: true, y0: y0 };
+      VILD = { name: 'Aldea alien', cx: cx, cz: cz, r: 16, list: [{}], vil: true, ux: cx, uz: cz };
+      var el = document.createElement('div'); el.className = 'dist'; el.style.pointerEvents = 'none'; el.appendChild(document.createTextNode('Aldea alien'));
+      var sm = document.createElement('small'); sm.textContent = 'Tampico'; el.appendChild(sm); document.getElementById('labels').appendChild(el);
+      VILD.el = el; VILD.wpos = new THREE.Vector3(cx, y0 + 6.5, cz);
+    }
+    function vilStep(dt, t) {
+      var B = bot, A = aura, i, a, k, o, sp, am, ph, dd, dB, dA, tg, nx, nz, ux, uz, vis, L, ok, q;
+      if (!VIL) { if (vilFail || !landAt || !BN || !districts.length || t < 4) return; try { vilBuild(); } catch (e) { vilFail = 1; console.warn('Aldea alien desactivada:', e); } return; }
+      vis = Math.hypot(camera.position.x - VIL.x, camera.position.z - VIL.z) < 900 || (B && Math.hypot(B.x - VIL.x, B.z - VIL.z) < 300);
+      if (vis !== VIL.on) { VIL.on = vis; VIL.root.visible = vis; VIL.wreck.visible = vis; VIL.al.forEach(function (c) { c.o.g.visible = vis; }); }
+      if (!vis) return;
+      VIL.smk -= dt;
+      if (VIL.smk <= 0) { /* humo y alguna chispa del OVNI estrellado */
+        VIL.smk = 0.35 + Math.random() * 0.3;
+        fxSpawn(VIL.x + (Math.random() - 0.5) * 2, VIL.y0 + 2.2, VIL.z + (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 0.3, 1.2 + Math.random() * 0.8, (Math.random() - 0.5) * 0.3, 2.4 + Math.random(), 0.8, 2.6, 0x3a3a3a, 0.55, false);
+        if (Math.random() < 0.25) fxSpawn(VIL.x + (Math.random() - 0.5) * 3, VIL.y0 + 1.2, VIL.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2, 1.5 + Math.random() * 2, (Math.random() - 0.5) * 2, 0.5, 0.14, 0.05, 0xffd24d, 1, true);
+      }
+      for (i = 0; i < VIL.al.length; i++) {
+        a = VIL.al[i]; o = a.o; dB = B ? Math.hypot(B.x - a.x, B.z - a.z) : 99; dA = A ? Math.hypot(A.x - a.x, A.z - a.z) : 99; sp = 0;
+        if (!a.swim) {
+          if (a.st === 'idle') {
+            a.wait -= dt;
+            if (a.wait <= 0) {
+              for (k = 0; k < 10; k++) {
+                an = rnd(0, 6.2832); rr = 2 + rnd(0, 13); tg = [VIL.x + Math.cos(an) * rr, VIL.z + Math.sin(an) * rr]; ok = botFree(tg[0], tg[1]) && Math.hypot(tg[0] - a.x, tg[1] - a.z) > 3;
+                for (q = 1; ok && q < 6; q++) if (!botFree(a.x + (tg[0] - a.x) * q / 6, a.z + (tg[1] - a.z) * q / 6)) ok = false;
+                if (ok) { a.tx = tg[0]; a.tz = tg[1]; a.st = 'go'; break; }
+              }
+              a.wait = 0.8;
+            }
+          } else {
+            dd = Math.hypot(a.tx - a.x, a.tz - a.z);
+            if (dd < 0.5) { a.st = 'idle'; a.wait = 2 + Math.random() * 5; }
+            else {
+              a.yaw += nAngl(Math.atan2(a.tx - a.x, a.tz - a.z) - a.yaw) * Math.min(1, dt * 4); sp = 0.95;
+              ux = a.x + Math.sin(a.yaw) * sp * dt; uz = a.z + Math.cos(a.yaw) * sp * dt;
+              if (botFree(ux, uz) && botFree(a.x + Math.sin(a.yaw) * 0.4, a.z + Math.cos(a.yaw) * 0.4)) { a.x = ux; a.z = uz; } else { a.st = 'idle'; a.wait = 0.6; sp = 0; }
+            }
+          }
+          dd = Math.min(dB, dA);
+          if (a.st === 'idle' && dd < 12) { tg = dB <= dA ? B : A; a.yaw += nAngl(Math.atan2(tg.x - a.x, tg.z - a.z) - a.yaw) * Math.min(1, dt * 3); }
+          a.wv += (((a.st === 'idle' && dd < 12) ? 1 : 0) - a.wv) * Math.min(1, dt * 3); /* saluda al robot o a AURA si pasan cerca */
+          a.y += (botGround(a.x, a.z) - a.y) * Math.min(1, dt * 12);
+          a.gk += ((sp > 0.1 ? 1 : 0) - a.gk) * Math.min(1, dt * 8); if (sp > 0.1) a.ph += dt * 2.6;
+          am = 0.3 * a.gk;
+          for (k = 0; k < 2; k++) {
+            ph = a.ph + k * Math.PI;
+            o.leg[k].th.rotation.x = Math.sin(ph) * am; o.leg[k].kn.rotation.x = Math.max(0, Math.cos(ph)) * am * 1.2;
+            o.arm[k].sh.rotation.x = -Math.sin(ph) * am * 0.9; o.arm[k].el.rotation.x = -0.1 - 0.15 * a.gk; o.arm[k].wr.rotation.x = -0.1; o.arm[k].sh.rotation.z = (k ? 1 : -1) * 0.06;
+          }
+          o.arm[1].sh.rotation.x = o.arm[1].sh.rotation.x * (1 - a.wv) + (-2.6 + 0.35 * Math.sin(t * 7 + i)) * a.wv; o.arm[1].el.rotation.x = o.arm[1].el.rotation.x * (1 - a.wv) + (-0.5 + 0.3 * Math.sin(t * 7 + i)) * a.wv;
+          o.head.rotation.y = 0.3 * Math.sin(t * 0.5 + i) * (1 - a.gk); o.head.rotation.z = 0.06 * Math.sin(t * 0.9 + i);
+          o.g.rotation.x = 0; o.g.rotation.y = a.yaw; o.g.position.set(a.x, a.y, a.z);
+        } else {
+          /* nadando de pecho: boca abajo, bracea alternando y patalea; se mantiene en el mar frente a la aldea */
+          a.wait -= dt;
+          if (a.wait <= 0 || Math.hypot(a.tx - a.x, a.tz - a.z) < 1) {
+            for (k = 0; k < 10; k++) { tg = [VIL.sw0.x + rnd(-10, 10), VIL.sw0.z + rnd(-10, 10)]; if (!landAt(tg[0], tg[1]) && !landAt(tg[0] + 3, tg[1]) && !landAt(tg[0] - 3, tg[1]) && !landAt(tg[0], tg[1] + 3) && !landAt(tg[0], tg[1] - 3)) { a.tx = tg[0]; a.tz = tg[1]; break; } }
+            a.wait = 5 + Math.random() * 6;
+          }
+          a.yaw += nAngl(Math.atan2(a.tx - a.x, a.tz - a.z) - a.yaw) * Math.min(1, dt * 1.6); sp = 0.7;
+          ux = a.x + Math.sin(a.yaw) * sp * dt; uz = a.z + Math.cos(a.yaw) * sp * dt;
+          if (!landAt(ux, uz) && !landAt(a.x + Math.sin(a.yaw) * 3, a.z + Math.cos(a.yaw) * 3)) { a.x = ux; a.z = uz; } else { a.wait = 0; a.yaw += dt * 1.5; }
+          a.ph += dt * 3.2;
+          for (k = 0; k < 2; k++) {
+            ph = a.ph + k * Math.PI;
+            o.arm[k].sh.rotation.x = -(1.5 + 1.5 * Math.sin(ph)); o.arm[k].el.rotation.x = -0.15 - 0.25 * Math.max(0, Math.sin(ph)); o.arm[k].wr.rotation.x = -0.1; o.arm[k].sh.rotation.z = (k ? 1 : -1) * 0.12;
+            o.leg[k].th.rotation.x = 0.28 * Math.sin(a.ph * 2 + k * Math.PI); o.leg[k].kn.rotation.x = 0.12 * Math.max(0, Math.sin(a.ph * 2 + k * Math.PI + 1));
+          }
+          o.head.rotation.y = 0; o.head.rotation.z = 0; o.head.rotation.x = -1.1 + 0.12 * Math.sin(t * 1.7 + i);
+          o.g.rotation.x = 1.38; o.g.rotation.y = a.yaw; o.g.position.set(a.x, SEA_Y + 0.1 + 0.04 * Math.sin(t * 2 + a.ph), a.z);
+          a.spl -= dt; if (a.spl <= 0) { a.spl = 0.22 + Math.random() * 0.15; fxSpawn(a.x + Math.sin(a.yaw) * 0.45 + (Math.random() - 0.5) * 0.4, SEA_Y + 0.15, a.z + Math.cos(a.yaw) * 0.45 + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 1.2, 0.8 + Math.random(), (Math.random() - 0.5) * 1.2, 0.7, 0.18, 0.5, 0xe8fbff, 0.7, false); }
+        }
+      }
+    }
     function disTalk() { if (DIS && DIS.k > 0.5) { DIS.talkT = 1; AUD.alCry({ x: DIS.x, y: DIS.y + 1, z: DIS.z }); } }
     function disNear() { return !!(DIS && DIS.k > 0.6 && DIS.near); }
     function update(dt, t) {
       var i, a, live = 0, names, nm;
       try { disStep(dt, t); } catch (e) { disStep = function () {}; console.warn('Alien disfrazado desactivado:', e); }
+      try { vilStep(dt, t); } catch (e) { vilStep = function () {}; console.warn('Aldea alien desactivada:', e); }
       if (!inv) {
         if (t >= nextAt && bot && landAt) {
           names = Object.keys(statePolys).filter(function (n) { return statePolys[n] && statePolys[n].length && n !== lastName; });
@@ -9825,7 +9989,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { startHere: function () { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { peace: function () { return (peaceOn && !inv) ? Math.max(0, nextAt - clock.elapsedTime) : 0; }, startHere: function () { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
 
@@ -10056,6 +10220,12 @@ window.startMap = function (RAW, AUTH) {
           })();
           if (red !== hud._dirR) { hud._dirR = red; el2.classList.toggle('red', red); }
         })();
+        (function () { /* cuenta verde: tiempo de paz hasta la próxima invasión */
+          var pc = document.getElementById('peaceCd'), ps = (typeof ALN !== 'undefined' && ALN.peace) ? ALN.peace() : 0, on = ps > 0.5 && !(S && !S.end), sc = on ? Math.ceil(ps) : 0, tp = on ? ('0' + ((sc / 60) | 0)).slice(-2) + ':' + ('0' + (sc % 60)).slice(-2) : '';
+          if (on !== hud._pcOn) { hud._pcOn = on; pc.classList.toggle('on', on); }
+          if (tp !== hud._pcTx) { hud._pcTx = tp; pc.textContent = tp ? '☮ ' + tp : ''; }
+          var soon = on && sc <= 60; if (soon !== hud._pcSoon) { hud._pcSoon = soon; pc.classList.toggle('soon', soon); }
+        })();
         (function () { /* cuenta regresiva del límite de la invasión (desde que el robot entra) */
           var cd = document.getElementById('invCd'), sh = !!(S && !S.end && S.entered), sec = sh ? Math.ceil(S.left) : 0, tx = sh ? ('0' + ((sec / 60) | 0)).slice(-2) + ':' + ('0' + (sec % 60)).slice(-2) : '';
           if (sh !== hud._cdOn) { hud._cdOn = sh; cd.classList.toggle('on', sh); }
@@ -10125,6 +10295,7 @@ window.startMap = function (RAW, AUTH) {
       placeLabel(d1.el, d1.wpos, camera.position.distanceTo(d1.pinPos) > DIST_NEAR, rects);
     }
     if (labelsOn && CHI_D && CHI_D.el) { var dch = camera.position.distanceTo(CHI_D.wpos); placeLabel(CHI_D.el, CHI_D.wpos, dch < 520 && dch > 7, rects); }
+    if (labelsOn && VILD && VILD.el) { var dvl = camera.position.distanceTo(VILD.wpos); placeLabel(VILD.el, VILD.wpos, dvl < 520 && dvl > 7, rects); }
     var dp = camera.position.distanceTo(presPinPos);
     presPin.scale.setScalar(Math.max(1, dp / 90) * 1.3 / 3);
     presPin.visible = labelsOn && dp > PIN_D;
