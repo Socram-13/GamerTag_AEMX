@@ -8712,16 +8712,21 @@ window.startMap = function (RAW, AUTH) {
     if (dd < 140 && auraGoPath(A, e0[0], e0[1])) { A.mode = 'join'; return; }
     auraJump(A, e0[0], e0[1], 'join');
   }
-  /* ---------- Charla Aura -> robot: Aura habla primero según lo que le pasa; el robot responde ---------- */
-  var AT = { cd: {}, gap: 0, prev: {}, idle: 0, rep: null, repT: 0, off: 0, hide: 0 };
+  /* ---------- Charla Aura <-> robot: Aura habla primero según lo que le pasa; el robot responde por canal propio (no se pisa) ---------- */
+  var AT = { cd: {}, gap: 0, idle: 0, call: 0, rep: null, repT: 0, repWho: 0, hide: 0, last: null };
+  AURA_DLG.call = [["Aura, ¿dónde estás?","Voy en camino. Dame un momento."],["Apúrate, Aura.","Ya voy, ya voy. No se me acaba la batería."],["Ya casi llegas, ¿verdad?","Casi. Me falta poco para alcanzarte."],["¿Sigues ahí, Aura?","Aquí sigo. Te tengo en el radar."],["Aura, te estoy esperando.","Tranquilo, la prisa no te favorece."],["¿Todo bien por allá, Aura?","Todo bien. Voy para allá."],["No te pierdas.","Soy el mapa, ¿recuerdas? Imposible."],["¿Vienes o te quedas?","Vengo. Un poco de paciencia."]];
   function auraTalk() {
-    var A = aura, n = now0(), el = document.getElementById('aSay'), sp, k, lst, pr, pick, D, cond = {}, ev, fresh;
-    if (!el || !bot) return;
+    var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, c;
+    if (!el || !bot || !hud || !bs) return;
     if (!botFollow) { if (AT.hide) { AT.hide = 0; el.classList.remove('on'); } AT.rep = null; return; } /* solo con la cámara siguiendo al robot (HUD visible) */
     sp = el.querySelector('span');
     if (AT.hide && n > AT.hide) { AT.hide = 0; el.classList.remove('on'); }
-    if (AT.rep && n >= AT.repT) { window.__botSayQ = AT.rep; AT.rep = null; }
-    if (!A || n < AT.gap || AT.rep || !(typeof GM !== 'undefined' && GM.rel)) return;
+    if (AT.rep && n >= AT.repT) { /* segunda voz del diálogo */
+      if (AT.repWho === 1) { bs.textContent = AT.rep; bs.classList.add('on'); hud._sayT = ms + 5200; hud._sayGate = ms + 6500; AUD.talk(bkMuz.set(bot.x, bot.y + 1.4, bot.z)); }
+      else { sp.textContent = AT.rep; el.classList.add('on'); AT.hide = n + 5.5; AUD.talk(bkMuz.set(A ? A.x : bot.x, 1.4, A ? A.z : bot.z)); }
+      AT.rep = null;
+    }
+    if (!A || n < AT.gap || AT.rep) return;
     ev = (A.mode === 'inspect' && A.ev) ? A.ev : null;
     D = (typeof ALN !== 'undefined' && ALN && ALN.dis) ? ALN.dis() : null;
     cond.fog = !!(WX && WX.fogAt && WX.fogAt(A.x, A.z));
@@ -8732,22 +8737,23 @@ window.startMap = function (RAW, AUTH) {
     cond.met = !!(ev && ev.kind === 'met');
     cond.ghost = !!(WX && WX.ghostNear && WX.ghostNear(A.x, A.z, 45));
     pick = null;
-    for (k in cond) { fresh = cond[k] && !AT.prev[k]; AT.prev[k] = cond[k]; if (fresh && !pick && n >= (AT.cd[k] || 0)) pick = k; }
-    if (!pick && n >= AT.idle) {
-      if (!AT.idle) AT.idle = n + 15 + Math.random() * 10;
-      else if (bot.mode === 'walk' && !bot.tpj && !cond.fog && !cond.ufo && !(typeof ALN !== 'undefined' && ALN.state && ALN.state()) && ufoDown() && !(ev)) pick = 'chat';
-      if (!pick) AT.idle = n + 20;
-    }
+    for (k in cond) if (cond[k] && n >= (AT.cd[k] || 0)) { pick = k; break; } /* mientras dure la situación, vuelve a comentarla cada 40 s */
+    st = (typeof ALN !== 'undefined' && ALN && ALN.state) ? ALN.state() : null;
+    far = Math.hypot(A.x - bot.x, A.z - bot.z) > 70 || A.mode === 'go' || A.mode === 'back' || A.mode === 'join';
+    if (!pick && far && n >= AT.call) pick = 'call';
+    calm = !bot.tpj && bot.mode !== 'lift' && !bot.aiming && !(st && st.entered) && !ev;
+    if (!pick && calm && n >= AT.idle) pick = 'chat';
     if (!pick) return;
     lst = AURA_DLG[pick]; if (!lst) return;
     pr = lst[(Math.random() * lst.length) | 0];
     if (AT.last === pr) pr = lst[(Math.random() * lst.length) | 0];
     AT.last = pr;
-    sp.textContent = pr[0]; el.classList.add('on'); AT.hide = n + 6;
-    AUD.talk(bkMuz.set(A.x, 1.4, A.z));
-    AT.rep = pr[1]; AT.repT = n + 3.2;
-    AT.gap = n + 10; AT.cd[pick] = n + (pick === 'chat' ? 0 : 20);
-    AT.idle = n + 25 + Math.random() * 20;
+    hud._sayGate = ms + 9500; /* el robot calla sus comentarios normales durante el diálogo */
+    if (pick === 'call') { bs.textContent = pr[0]; bs.classList.add('on'); hud._sayT = ms + 5200; AUD.talk(bkMuz.set(bot.x, bot.y + 1.4, bot.z)); AT.rep = pr[1]; AT.repWho = 2; AT.call = n + 25 + Math.random() * 15; }
+    else { sp.textContent = pr[0]; el.classList.add('on'); AT.hide = n + 6; AUD.talk(bkMuz.set(A.x, 1.4, A.z)); AT.rep = pr[1]; AT.repWho = 1; }
+    AT.repT = n + 3.2;
+    AT.gap = n + 9; AT.cd[pick] = n + (pick === 'chat' || pick === 'call' ? 0 : 40);
+    if (pick !== 'call') AT.idle = n + 20 + Math.random() * 15;
   }
   function updateAura(t, dt) {
     var A = aura, a, path, seg, f, x, z, tx, tz, l, nx, nz, i, c, cand, ti, nxt, lp, bx, bz, u, vis, moving = false, e, gy, I, sp, k, dd, ang, G, mn, yawT = null, scan = false;
