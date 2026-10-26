@@ -10378,10 +10378,10 @@ window.startMap = function (RAW, AUTH) {
     if (WX && WX.fogDepth) { if (!FW.dT || t - FW.dT > 0.12 || t < FW.dT) { FW.dT = t; var dn = WX.fogDepth(camera.position.x, camera.position.z); if (dn > (FW.dep || 0) + 0.5) FW.ent = true; else if (dn < (FW.dep || 0) - 0.5) FW.ent = false; FW.dep = dn; } inF = FW.ent ? clamp((FW.dep || 0) / 20, 0, 1) : clamp(((FW.dep || 0) - 15) / 40, 0, 1); inF = inF * inF * (3 - 2 * inF); } /* entrando: desde el borde y al máximo a 30; saliendo: se aclara antes de salir */ /* aparece poco a poco desde el borde y se aclara antes de salir */
     /* horizonte limitado con la cámara baja: niebla más densa (color del horizonte) y menos vegetación lejana; arriba se ve el país completo */
     var hK = clamp((camera.position.y - 150) / 750, 0, 1); hK = hK * hK * (3 - 2 * hK);
-    FW.d0 = 0.0054 + (0.00005 - 0.0054) * hK; window.__vegLim = 450 + 3050 * hK; window.__cityLim = 450 + 6000 * hK; window.__lowCam = hK < 0.5;
+    FW.d0 = 0.00405 + (0.00005 - 0.0054) * hK; window.__vegLim = 600 + 2900 * hK; window.__cityLim = 600 + 5850 * hK; window.__lowCam = hK < 0.5;
     (function () { /* con la cámara baja, estados/bordes lejanos no se dibujan */
       var nw = performance.now(); if (nw - (window.__sgT || 0) < 500) return; window.__sgT = nw;
-      var lim = 500 + 6000 * hK, ch = statesGroup.children, i, c, d, cp = camera.position;
+      var lim = 667 + 5833 * hK, ch = statesGroup.children, i, c, d, cp = camera.position;
       for (i = 0; i < ch.length; i++) {
         c = ch[i]; if (c.name === 'relieve') continue;
         if (!window.__lowCam) { c.visible = true; continue; }
@@ -10395,7 +10395,7 @@ window.startMap = function (RAW, AUTH) {
     FW.c0.copy(FW.cL).lerp(FW.cH, hK);
     FW.k += (inF - FW.k) * Math.min(1, dt * 3);
     scene.fog.density = FW.d0 + (0.092 - FW.d0) * FW.k; /* ~10 unidades de visibilidad */
-    scene.fog.color.copy(FW.c0).lerp(FW.c1, FW.k);
+    if (!FW.cl) FW.cl = new THREE.Color(0x5a4a86); scene.fog.color.copy(FW.c0).lerp(FW.cl, 0.55 * (1 - hK)).lerp(FW.c1, FW.k);
     var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS * 0.4; seaU.uFogK.value = FW.k; seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
     sun.target.position.copy(controls.target);
     sun.position.copy(controls.target).add(SUN_OFF);
