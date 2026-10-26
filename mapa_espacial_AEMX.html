@@ -9582,6 +9582,22 @@ window.startMap = function (RAW, AUTH) {
     var inv = null, nextAt = 360, lastName = '', cur = null, pickT = 0, tpos = new THREE.Vector3(), peaceOn = false; /* peaceOn: tiempo de paz de 10 min tras cada invasión */
     function free(a, x, z) { return inPoly(inv.rings, x, z) && botFree(x, z); }
     function okSpawn(x, z) { return inPoly(inv.rings, x, z) && inPoly(inv.rings, x + 4, z) && inPoly(inv.rings, x - 4, z) && inPoly(inv.rings, x, z + 4) && inPoly(inv.rings, x, z - 4) && botFree(x, z); }
+    /* Vaca medio devorada, patas arriba: sin dos patas ni cola, con la panza abierta (carne y costillas) */
+    function mkHalfCow() {
+      var c = makeCow(), g = c.g, k = g.children, red = new THREE.MeshLambertMaterial({ color: 0x8c1d2a, emissive: 0x2a0509 }), bone = new THREE.MeshLambertMaterial({ color: 0xeee6cf }), pv = new THREE.Group(), q, i;
+      function bq(mat, px, py, pz, sx, sy, sz) { q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); g.add(q); return q; }
+      if (k[6]) k[6].visible = false; if (k[7]) k[7].visible = false; if (k[8]) k[8].visible = false;
+      bq(red, 0, 0.31, -0.12, 0.4, 0.04, 0.62); bq(red, 0, 0.55, -0.49, 0.42, 0.44, 0.03);
+      for (i = 0; i < 5; i++) bq(bone, 0, 0.29, -0.34 + i * 0.12, 0.44, 0.03, 0.04);
+      g.scale.setScalar(0.9); g.rotation.z = Math.PI; g.position.y = 0.72; /* patas arriba */
+      noRay(pv); pv.add(g);
+      return { g: pv };
+    }
+    function alarmAll() { /* el primer disparo: los que comían salen corriendo */
+      if (!inv || inv.alarm) return;
+      inv.alarm = true;
+      inv.al.forEach(function (a) { if (a.feast) { a.feast = false; a.alert = 3; a.react = 0.25 + rnd(0, 0.35); } });
+    }
     function start(name) {
       var rings = statePolys[name], bb = [1e9, 1e9, -1e9, -1e9], n, nc, c, cl = [], i, tries, x, z, an, rr, al;
       if (inv || !rings || !rings.length || !bot) return false;
@@ -9591,19 +9607,21 @@ window.startMap = function (RAW, AUTH) {
       var site = metSite(rings, bb), a0, ci;
       if (!site) { stopNow(); return false; }
       inv.met = makeMeteor(site[0], site[1]);
-      nc = 3 + ((Math.random() * 3) | 0); a0 = rnd(0, 6.2832);
+      nc = 2 + ((Math.random() * 2) | 0); a0 = rnd(0, 6.2832); inv.cows = []; inv.alarm = false;
       for (ci = 0; ci < nc; ci++) {
         for (tries = 0; tries < 40; tries++) { an = a0 + ci * 6.2832 / nc + rnd(-0.4, 0.4); rr = rnd(20, 52); x = site[0] + Math.sin(an) * rr; z = site[1] + Math.cos(an) * rr; if (okSpawn(x, z)) { cl.push([x, z]); break; } }
       }
-      n = 12 + ((Math.random() * 7) | 0);
+      n = 6 + ((Math.random() * 4) | 0);
+      cl.forEach(function (cc) { var cw = mkHalfCow(); cw.g.position.set(cc[0], botGround(cc[0], cc[1]) + 0.02, cc[1]); cw.g.rotation.y = rnd(0, 6.28); grp.add(cw.g); inv.cows.push(cw); cc.n = 0; }); /* cada grupo rodea una vaca medio devorada, patas arriba */
       for (i = 0; i < n && cl.length; i++) {
-        c = cl[i % cl.length];
+        c = cl[i % cl.length]; c.n++;
         for (tries = 0; tries < 40; tries++) {
-          an = rnd(0, 6.2832); rr = rnd(0, 12); x = c[0] + Math.sin(an) * rr; z = c[1] + Math.cos(an) * rr;
+          an = (c.n * 6.2832 / Math.max(2, Math.ceil(n / cl.length))) + rnd(-0.35, 0.35) + (i % cl.length) * 0.9; rr = rnd(1.5, 2.1); x = c[0] + Math.sin(an) * rr; z = c[1] + Math.cos(an) * rr;
           if (okSpawn(x, z)) break;
         }
         if (tries >= 40) continue;
         al = { o: mk(), x: x, z: z, y: botGround(x, z), yaw: rnd(0, 6.28), s: 'spawn', age: -(T_FALL + 0.8 + rnd(0, 1.6)), hp: 10, mhp: 10, home: [c[0], c[1]], dod: 0, dodOff: 0, dodCD: 0, zig: 0, zs: 1, bar: null, flash: 0, ph: rnd(0, 6.28), wait: rnd(0.5, 3), wsp: rnd(1.6, 2.8), tx: x, tz: z, gk: 0, fk: 0, side: Math.random() < 0.5 ? 1 : -1, hd: 0, pickT: 0, sp: 0, dy: 0, beam: null };
+        al.feast = true; al.cwT = rnd(0.2, 2.2); al.cx = c[0]; al.cz = c[1]; al.yaw = Math.atan2(c[0] - x, c[1] - z);
         al.beam = new THREE.Mesh(gBeam, new THREE.MeshBasicMaterial({ color: 0x9dffb8, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
         al.beam.position.set(x, al.y + 35, z); noRay(al.beam); grp.add(al.beam); grp.add(al.o.g); inv.al.push(al);
       }
@@ -9618,6 +9636,7 @@ window.startMap = function (RAW, AUTH) {
     function ufoAppeared() { if (nextAt > 1e11) nextAt = clock.elapsedTime + 360; }
     function stopNow() {
       if (!inv) return;
+      if (inv.cows) inv.cows.forEach(function (cw) { grp.remove(cw.g); });
       inv.al.forEach(function (a) { dispose(a.o); disposeBar(a); if (a.beam) { grp.remove(a.beam); a.beam.material.dispose(); } });
       if (inv.wall) { grp.remove(inv.wall); inv.wall.geometry.dispose(); inv.wall.material.dispose(); }
       metClean(inv.met);
@@ -9684,7 +9703,7 @@ window.startMap = function (RAW, AUTH) {
       d = B ? Math.hypot(a.x - B.x, a.z - B.z) : 999;
       var hpK = a.hp / a.mhp, wk = hpK < 0.6 ? 0.6 + 0.4 * hpK / 0.6 : 1, th, rate = 9;
       a.dodCD -= dt;
-      if (d < 60) { if (!(a.alert > 0)) { a.react = 0.4; if (clock.elapsedTime >= cryGate) { cryGate = clock.elapsedTime + 0.2 + Math.random() * 0.3; AUD.alCry({ x: a.x, y: a.y + 1.2, z: a.z }); } } a.alert = 3; } else if (a.alert > 0) a.alert -= dt;
+      if (d < 60 && !a.feast) { if (!(a.alert > 0)) { a.react = 0.4; if (clock.elapsedTime >= cryGate) { cryGate = clock.elapsedTime + 0.2 + Math.random() * 0.3; AUD.alCry({ x: a.x, y: a.y + 1.2, z: a.z }); } } a.alert = 3; } else if (a.alert > 0) a.alert -= dt;
       if (a.react > 0) { a.react -= dt; a.yaw += nAngl(Math.atan2(B.x - a.x, B.z - a.z) - a.yaw) * Math.min(1, dt * 8); /* se queda un instante mirando al robot antes de correr */ }
       else if (a.alert > 0) {
         a.pickT -= dt;
@@ -9695,6 +9714,9 @@ window.startMap = function (RAW, AUTH) {
           else if (a.zig > 0) { a.zig -= dt; th += a.zs * 0.65 * (Math.sin(t * 7 + a.ph) > 0 ? 1 : -1); rate = 12; }
           sp += ((d < 30 ? 10 : 7.5) + (a.flash > 0 ? 1.5 : 0)) * wk; a.yaw += nAngl(th - a.yaw) * Math.min(1, dt * rate);
         }
+      } else if (a.feast) { /* devorando la vaca: quieto, de frente a ella */
+        a.yaw += nAngl(Math.atan2(a.cx - a.x, a.cz - a.z) - a.yaw) * Math.min(1, dt * 4);
+        a.cwT -= dt; if (a.cwT <= 0) { a.cwT = 1.2 + rnd(0, 1.8); AUD.alChew({ x: a.x, y: a.y + 0.8, z: a.z }); }
       } else if (a.wait > 0) { a.wait -= dt; }
       else {
         if (Math.hypot(a.tx - a.x, a.tz - a.z) < 0.8) { a.wait = rnd(1, 3.5); an2(a); }
@@ -9723,6 +9745,10 @@ window.startMap = function (RAW, AUTH) {
       if (hpK < 0.6) { a.o.leg[0].th.rotation.x *= 0.6; a.o.leg[0].kn.rotation.x *= 0.5; g.rotation.z = 0.09 * Math.sin(a.ph) * a.gk; } else g.rotation.z = 0;
       if (!(a.alert > 0) && a.gk < 0.5) for (i = 0; i < 2; i++) a.o.arm[i].sh.rotation.z = (i ? 1 : -1) * (0.06 + 0.05 * Math.sin(t * 1.3 + a.ph + i)); else for (i = 0; i < 2; i++) a.o.arm[i].sh.rotation.z = 0;
       g.rotation.x = 0.22 * a.fk + 0.3 * (1 - hpK) * a.gk * (hpK < 0.4 ? 1 : 0.4);
+      if (a.feast) { /* inclinado sobre la vaca, brazos al frente y la cabeza mordiendo */
+        g.rotation.x = 0.32; a.o.head.rotation.x = 0.5 + 0.18 * Math.sin(t * 5 + a.ph); a.fed = 1;
+        for (i = 0; i < 2; i++) { a.o.arm[i].sh.rotation.x = -1.0 + 0.2 * Math.sin(t * 3 + a.ph + i * 1.7); a.o.arm[i].el.rotation.x = -0.7; a.o.arm[i].sh.rotation.z = (i ? 1 : -1) * 0.12; }
+      } else if (a.fed) { a.fed = 0; a.o.head.rotation.x = 0; }
       if (a.bar) { a.bar.position.set(a.x, a.y + 1.85, a.z); a.bar.visible = true; } g.rotation.y = a.yaw; g.position.set(a.x, a.y, a.z); g.scale.setScalar(SC);
     }
     function an2(a) { var k, an, rr, x, z; for (k = 0; k < 8; k++) { an = rnd(0, 6.28); rr = rnd(4, 12); x = a.x + Math.sin(an) * rr; z = a.z + Math.cos(an) * rr; if (k < 4 && a.home && Math.hypot(x - a.home[0], z - a.home[1]) > 16) continue; if (free(a, x, z)) { a.tx = x; a.tz = z; return; } } a.tx = a.x; a.tz = a.z; }
@@ -10106,6 +10132,7 @@ window.startMap = function (RAW, AUTH) {
           if (inv.pS >= 20 || (inv.end && inv.wk <= 0.001)) invLock = null;
         }
       }
+      if (!inv.alarm && inv.t > 150) alarmAll(); /* seguro: si nadie los molesta en 2.5 min, se espantan */
       inv.t += dt; inv.wk = inv.end ? Math.max(0, inv.wk - dt / 2) : (inv.t >= T_FALL ? Math.min(1, inv.wk + dt / 1.5) : 0); /* la barrera se forma después del impacto */
       if (inv.wall) { inv.wall.material.opacity = inv.wk * (0.62 + 0.16 * Math.sin(t * 3)); wtex.offset.x = -t * 0.04; }
       for (i = inv.al.length - 1; i >= 0; i--) {
@@ -10183,7 +10210,7 @@ window.startMap = function (RAW, AUTH) {
         k = Math.hypot(a.x - cx, a.y + 0.8 - cy, a.z - cz);
         if (k >= 1.0 && k < 5.5 && a.dodCD <= 0 && !(a.react > 0)) dodge(a, false); /* un láser pasa cerca: se tira a un lado */
         if (k < 1.0) {
-          a.hp--; a.flash = 0.3; dodge(a, true); drawBar(a); if (a.hp > 0) AUD.alHit({ x: a.x, y: a.y + 1, z: a.z }); fxSpawn(cx, cy, cz, 0, 0, 0, 0.3, 0.3, 1.1, 0x7dffa0, 0.9, true);
+          a.hp--; a.flash = 0.3; alarmAll(); dodge(a, true); drawBar(a); if (a.hp > 0) AUD.alHit({ x: a.x, y: a.y + 1, z: a.z }); fxSpawn(cx, cy, cz, 0, 0, 0, 0.3, 0.3, 1.1, 0x7dffa0, 0.9, true);
           if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; AUD.alDie({ x: a.x, y: a.y + 1, z: a.z }); for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.8 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
           return true;
         }
