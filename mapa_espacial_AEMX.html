@@ -2621,7 +2621,9 @@ window.startMap = function (RAW, AUTH) {
     var vB = new THREE.Matrix4(), vL = new THREE.Matrix4(), vP = new THREE.Vector3(), vS = new THREE.Vector3(), vQ = new THREE.Quaternion(), vQ2 = new THREE.Quaternion(), vE = new THREE.Euler();
     var AX_Y = new THREE.Vector3(0, 1, 0), AX_Z = new THREE.Vector3(0, 0, 1);
     function col(h, sat, l) { return new THREE.Color().setHSL(h, Math.min(1, sat), Math.max(0, Math.min(1, l))); }
+    var inUG = false, UGK = 0.6; /* sotobosque (arbustos, piedras, pasto y flores junto a los árboles) al 60 % */
     function part(key, px, py, pz, sx, sy, sz, c, rx, ry, rz, yawTilt) {
+      if (inUG) { sx *= UGK; sy *= UGK; sz *= UGK; py *= UGK; }
       if (yawTilt) { vQ.setFromAxisAngle(AX_Y, yawTilt[0]); vQ2.setFromAxisAngle(AX_Z, yawTilt[1]); vQ.multiply(vQ2); }
       else { vE.set(rx || 0, ry || 0, rz || 0); vQ.setFromEuler(vE); }
       vL.compose(vP.set(px, py, pz), vQ, vS.set(sx, sy, sz));
@@ -2646,6 +2648,7 @@ window.startMap = function (RAW, AUTH) {
     }
     /* Arbustos y piedras junto al árbol (sotobosque) */
     function undergrowth(spread, bushCol, forest) {
+      inUG = true;
       var u = vr(), a = vr() * 6.283, d = spread * (0.8 + vr() * 0.7), qx = Math.cos(a) * d, qz = Math.sin(a) * d;
       if (u < 0.28) {
         part('ico0', qx, 0.14, qz, 0.28 + vr() * 0.12, 0.2, 0.26 + vr() * 0.1, jit(bushCol, 0.1), 0, vr() * 3, 0);
@@ -2660,11 +2663,13 @@ window.startMap = function (RAW, AUTH) {
         part('tuft', qx, 0, qz, 0.5, 0.5, 0.5, forest, 0, vr() * 6, 0);
         for (q = 0; q < 3; q++) part('ico0', qx + (vr() - 0.5) * 0.3, 0.26 + vr() * 0.14, qz + (vr() - 0.5) * 0.3, 0.05, 0.04, 0.05, fc);
       }
+      inUG = false;
     }
     plants.forEach(function (pl) {
       var sc = 0.75 + vr() * 0.6, yaw = vr() * 6.283, z = pl.zone, c1, c2, c3, trunkC, kk, side, arm, nn, ang, rr;
       /* Los árboles grandes crecen más en el centro de los bosques (variación de tamaño) */
       if (pl.type === 'pine' || pl.type === 'oak') sc *= 1.0 + vr() * 0.35;
+      if (pl.type === 'rock' || pl.type === 'bush' || pl.type === 'grass' || pl.type === 'flower') sc *= 0.6; /* rocas, maleza y flores al 60 % */
       vqYaw.setFromAxisAngle(AX_Y, yaw);
       vB.compose(new THREE.Vector3(pl.x, pl.y || 0, pl.z), vqYaw, vOne.set(sc, sc, sc));
       trunkC = col(0.07 + vr() * 0.02, 0.4, 0.2 + vr() * 0.06);
@@ -7589,7 +7594,9 @@ window.startMap = function (RAW, AUTH) {
       if (!cr2 && landAt && !landAt(UF.x, UF.z)) { botEndRide(true, UF); }
       else if (!cr2 && (landAt ? landAt(UF.x, UF.z) : true)) { Rd.lx = UF.x; Rd.lz = UF.z; }
       if (b.mode === 'ride') {
+        Rd.age = (Rd.age || 0) + dt;
         if (ufoDown() && !cr2) botEndRide(false, UF); /* ya chocó: baja a revisar */
+        else if (!cr2 && (b.alienT || !ufo.g.visible || clock.elapsedTime < ufoHold || Rd.age > 45)) botEndRide(false, UF); /* invasión, OVNI retirado/invisible o más de 45 s: se baja siempre */
         else { if (!cr2 && !U) Rd.noU += dt; else Rd.noU = 0; if (Rd.noU > 3) botEndRide(true, UF); }
       }
     } else if (b.mode === 'lift') {
@@ -7898,11 +7905,11 @@ window.startMap = function (RAW, AUTH) {
   }
   /* Mira al horizonte, hacia donde mira el robot, para ver lo que ve y no el mapa desde arriba */
   /* Seguimiento del robot igual que el de AURA: la cámara conserva un desplazamiento (distancia y ángulo) respecto al robot y el zoom es libre */
-  var botOff = new THREE.Vector3();
+  var botOff = new THREE.Vector3(), bcV1 = new THREE.Vector3(), bcV2 = new THREE.Vector3(), bcTilt = 0;
   function botStartFollow(b) {
-    var sp = new THREE.Spherical(8, 1.2, b.yaw + Math.PI);
+    var sp = new THREE.Spherical(12, 1.2, b.yaw + Math.PI);
     botOff.setFromSpherical(sp); botYawCam = b.yaw; botFollow = true; botCamFree = true; b._lx = undefined;
-    flyTo(b.x, b.y + 0.5, b.z, 8, 1.2);
+    flyTo(b.x, b.y + 0.5, b.z, 12, 1.2);
   }
   function botChaseTarget(out) { return out.set(bot.x + Math.sin(botYawCam) * 20, bot.y + 1.0, bot.z + Math.cos(botYawCam) * 20); }
 
@@ -10351,6 +10358,14 @@ window.startMap = function (RAW, AUTH) {
     controls.target.x = clamp(controls.target.x, -1750 * GK, 1750 * GK); /* los límites siguen la escala del país */
     controls.target.z = clamp(controls.target.z, -1300 * GK, 1300 * GK);
     controls.target.y = clamp(controls.target.y, 0, 200);
+    /* cámara del robot: se inclina hacia arriba (en su sitio) igual que la cabeza del robot cuando apunta hacia arriba */
+    var bcT = (botFollow && bot && !turretCam && !fly && bot.aiming && !botDrag && clock.elapsedTime - botCamUser > 4) ? clamp(bot.aimPitch || 0, 0, 1.0) : 0;
+    bcTilt += (bcT - bcTilt) * Math.min(1, dt * 6);
+    if (bcTilt > 0.003) {
+      bcV1.copy(controls.target).sub(camera.position); var bcL = bcV1.length() || 1; bcV1.divideScalar(bcL);
+      bcV2.crossVectors(bcV1, camera.up).normalize(); bcV1.applyAxisAngle(bcV2, bcTilt);
+      camera.lookAt(bcV2.copy(camera.position).addScaledVector(bcV1, bcL));
+    }
 
     sky.position.copy(camera.position);
     starsA.position.copy(camera.position); starsB.position.copy(camera.position);
