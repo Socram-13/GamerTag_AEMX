@@ -136,6 +136,18 @@
   #x-fight, #x-fb { border-color: rgba(255,110,110,0.7) !important; color: #ffd0d0 !important; }
   #xbar { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; max-width: 92vw; padding: 7px 10px; border-radius: 14px; background: rgba(16,9,30,0.82); border: 1px solid rgba(255,228,77,0.45); backdrop-filter: blur(6px); color: #fff3d6; font: 600 12.5px var(--f-body); }
   #xbar[hidden] { display: none; }
+  #dbar { position: absolute; left: 50%; top: 62px; transform: translateX(-50%); width: min(520px, 94vw); z-index: 6; display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 14px; background: rgba(16,9,30,0.82); border: 1px solid rgba(255,228,77,0.45); backdrop-filter: blur(6px); color: #fff3d6; font: 700 12px var(--f-body); pointer-events: none; }
+  #dbar[hidden], #dres[hidden] { display: none; }
+  #dbar .dside b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
+  #dbar .dside.foe { text-align: right; } #dbar .dside.foe b { color: #ff9a9a; }
+  #dbar .dhp { position: relative; height: 10px; border-radius: 6px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: 3px; }
+  #dbar .dhp i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #4cff8a; }
+  #dbar .foe .dhp i { background: #ff5a5a; left: auto; right: 0; }
+  #dbar .dhp u { position: absolute; left: 0; top: 0; height: 3px; width: 100%; background: #5ad8ff; text-decoration: none; }
+  #dbar .foe .dhp u { left: auto; right: 0; }
+  #d-t { font: 800 18px var(--f-display); min-width: 34px; text-align: center; }
+  #dres { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); z-index: 7; font: 900 clamp(34px, 8vw, 72px) var(--f-display); letter-spacing: 0.06em; color: #fff3d6; text-shadow: 0 0 18px rgba(255,228,77,0.8), 0 3px 6px #000; pointer-events: none; text-align: center; }
+  #dres.lose { color: #ff9a9a; text-shadow: 0 0 18px rgba(255,60,60,0.8), 0 3px 6px #000; }
   #xbar button[hidden] { display: none; }
   .lvl { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
   .pill {
@@ -329,6 +341,8 @@
     </footer>
   </div>
   <div id="xbar" hidden><span id="x-txt"></span><button type="button" id="x-fb" hidden>⚔ Retar 1 vs 1</button><button type="button" id="x-back">Volver</button></div>
+  <div id="dbar" hidden><div class="dside me"><b id="d-mn"></b><div class="dhp"><i id="d-mh"></i><u id="d-ms"></u></div></div><div id="d-t">90</div><div class="dside foe"><b id="d-fn"></b><div class="dhp"><i id="d-fh"></i><u id="d-fs"></u></div></div></div>
+  <div id="dres" hidden></div>
   <div id="fail" hidden><p>No se pudo cargar el motor 3D. Revisa tu conexión y vuelve a abrir la página.</p></div>
 </main>
 
@@ -6445,6 +6459,7 @@ window.startMap = function (RAW, AUTH) {
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
+  var bkLaserR = new THREE.MeshBasicMaterial({ color: 0xff7d7d, transparent: true, opacity: 0.98, blending: THREE.AdditiveBlending, depthWrite: false }), bkLaserGlowR = new THREE.MeshBasicMaterial({ color: 0xff1f1f, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
   var bkLaser = new THREE.MeshBasicMaterial({ color: 0x7dffa0, transparent: true, opacity: 0.98, blending: THREE.AdditiveBlending, depthWrite: false });
   var bkLaserGlow = new THREE.MeshBasicMaterial({ color: 0x1fff5a, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
   var bkFlameGeo = (function () { var q = new THREE.ConeGeometry(0.07, 0.5, 8); q.rotateX(Math.PI); q.translate(0, -0.25, 0); return q; })();
@@ -7199,7 +7214,7 @@ window.startMap = function (RAW, AUTH) {
     return true;
   }
   /* ---------- Modo Explorador: enviar al robot a una ciudad o al edificio de un jugador; desde ahí se puede retar ---------- */
-  function xsCan() { return GM.mode === 'exp' && GM.rel && bot && !bot.tpj && !bot.isl && bot.mode !== 'lift'; }
+  function xsCan() { return GM.mode === 'exp' && GM.rel && bot && !bot.tpj && !bot.isl && bot.mode !== 'lift' && !DUEL; }
   function xsRefresh() {
     var X = bot && bot.xs, p = (typeof selected !== 'undefined') ? selected : null, act = document.getElementById('x-act'), go = document.getElementById('x-go'), fi = document.getElementById('x-fight'), bar = document.getElementById('xbar'), tx = document.getElementById('x-txt'), fb = document.getElementById('x-fb'), here = !!(X && X.arr && p && X.p === p);
     if (act) act.hidden = !(GM.mode === 'exp' && p && !p.banned);
@@ -7229,13 +7244,114 @@ window.startMap = function (RAW, AUTH) {
     xsRefresh(); return true;
   }
   function botXsBack() { if (bot) { bot.xs = null; bot.idle = 0; window.__botSayQ = 'Vuelvo a mi ronda.'; xsRefresh(); } }
-  function botXsFight() { /* Entrega 3: el duelo; por ahora solo valida y avisa */
+  /* ---------- Duelo 1 vs 1 en Socorro: el robot contra un clon rojo del rival; ambos autónomos, estadísticas por parcelas ---------- */
+  var DUEL = null;
+  function duelStats(p) {
+    function n(c, cap) { return Math.sqrt(Math.min(c || 0, cap) / cap); }
+    var hp = 100 + 200 * n(p.common, 5000), sh = 120 * n(p.rare, 3000);
+    return { hp: hp, hpMax: hp, sh: sh, shMax: sh, aim: 0.35 + 0.45 * n(p.epic, 1500), crit: 0.05 + 0.25 * n(p.legendary, 500) };
+  }
+  function duelRoll(A, B) { /* A dispara a B: devuelve true si acierta */
+    var hit = Math.random() < A.aim, dmg = 3 * (Math.random() < A.crit ? 2 : 1);
+    if (hit) { if (B.sh > 0) { var ab = Math.min(B.sh, dmg); B.sh -= ab; dmg -= ab; } B.hp = Math.max(0, B.hp - dmg); }
+    return hit;
+  }
+  function duelBanner(t, lose) { var e = document.getElementById('dres'); if (!t) { e.hidden = true; return; } e.hidden = false; e.textContent = t; e.className = lose ? 'lose' : ''; }
+  function duelClear() {
+    var D = DUEL; if (!D) return;
+    if (D.fg && D.fg.g.parent) D.fg.g.parent.remove(D.fg.g);
+    DUEL = null; document.getElementById('dbar').hidden = true; duelBanner('');
+  }
+  function duelStart(p) {
+    var b = bot, g = geo(-110.97, 18.78), sp, sp2, an, rs;
+    if (!xsCan() || DUEL || !b.xs || !b.xs.arr) return false;
+    if (!MYP || !isFinite(MYP.x)) { window.__botSayQ = 'Necesitas tener edificio para retar.'; return false; }
+    sp = botFreeSpot(g.x - 7, g.z); an = Math.random() * 6.283; sp2 = sp ? botFreeSpot(sp[0] + 14, sp[1] + (Math.random() - 0.5) * 4) : null;
+    rs = botFreeSpot(MYP.x, MYP.z + 9);
+    if (!sp || !sp2 || !rs) { window.__botSayQ = 'No encuentro un lugar para el duelo.'; return false; }
+    DUEL = { p: p, me: duelStats(MYP), foe: duelStats(p), ph: 'in', sp: sp, sp2: sp2, rs: rs, fg: null, tgt: null, tc: 0, tf: 0, te: 0 };
+    b.xs = null; xsRefresh(); b.tour = null;
+    b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
+    document.getElementById('d-mn').textContent = '@' + (MYP.name || 'tú'); document.getElementById('d-fn').textContent = '@' + p.name;
+    document.getElementById('dbar').hidden = false; document.getElementById('d-t').textContent = '90';
+    window.__botSayQ = 'Reto aceptado. Vamos a Socorro.';
+    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
+    return true;
+  }
+  function duelSpawnFoe() {
+    var D = DUEL, F = makeBot(), red = new THREE.Color(0xff2a2a), eye = F.eyeMat, i, bm = F.beam.material;
+    F.g.traverse(function (m) { if (!m.isMesh || !m.material || m.material === bm) return; if (m.material === eye) { m.material = new THREE.MeshBasicMaterial({ color: 0xff2a2a }); return; } m.material = m.material.clone(); if (m.material.color) m.material.color.lerp(red, 0.55); });
+    F.flames.forEach(function (fl) { fl.visible = false; });
+    for (i = 0; i < 2; i++) { F.arms[i].sh.quaternion.copy(F.arms[i].hs); F.arms[i].el.quaternion.copy(F.arms[i].he); }
+    F.x = D.sp2[0]; F.z = D.sp2[1]; F.y = botGround(F.x, F.z); F.yaw = Math.atan2(bot.x - F.x, bot.z - F.z); F.v = 0; F.ph = 0; F.side = 1; F.sideT = 0; F.fireT = 1;
+    F.g.position.set(F.x, F.y, F.z); F.g.rotation.y = F.yaw; D.fg = F; D.tgt = { x: F.x, y: F.y + 0.9, z: F.z };
+    fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.5, 0, 0.8, 0.5, 2.2, 0xff4a4a, 0.8, true); AUD.glitch(0.4, 0.6, { x: F.x, y: F.y + 0.4, z: F.z });
+  }
+  function duelBars() {
+    var D = DUEL;
+    document.getElementById('d-mh').style.width = (100 * D.me.hp / D.me.hpMax) + '%'; document.getElementById('d-ms').style.width = D.me.shMax ? (100 * D.me.sh / D.me.shMax) + '%' : '0';
+    document.getElementById('d-fh').style.width = (100 * D.foe.hp / D.foe.hpMax) + '%'; document.getElementById('d-fs').style.width = D.foe.shMax ? (100 * D.foe.sh / D.foe.shMax) + '%' : '0';
+  }
+  function duelRobotShot() { /* el robot disparó al clon: se tira la puntería */
+    var D = DUEL, F = D.fg; if (D.ph !== 'fight' || !F) return;
+    if (duelRoll(D.me, D.foe)) fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+  }
+  function duelTick(dt, now) {
+    var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
+    if (GM.mode !== 'exp') { duelClear(); return; }
+    if (D.ph === 'in' || D.ph === 'count' || D.ph === 'end') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; if (!b.tpj) b.v = 0; b.boostT = 0; b.hopGoal = null; }
+    if (D.ph === 'in') { if (!b.tpj) { duelSpawnFoe(); D.ph = 'count'; D.tc = now + 3; } return; }
+    if (D.ph === 'out') { if (!b.tpj) { b.idle = 0; duelClear(); } return; }
+    if (!F) return;
+    dx = b.x - F.x; dz = b.z - F.z; d = Math.hypot(dx, dz) || 1; ux = dx / d; uz = dz / d;
+    F.yaw += (function (a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; })(Math.atan2(dx, dz) - F.yaw) * Math.min(1, dt * 8);
+    if (D.ph === 'count') {
+      left = D.tc - now; duelBanner(left > 2 ? '3' : left > 1 ? '2' : left > 0 ? '1' : '¡Pelea!');
+      b.yaw += (function (a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; })(Math.atan2(-dx, -dz) - b.yaw) * Math.min(1, dt * 6);
+      if (left <= 0) { D.ph = 'fight'; D.tf = now; duelBanner(''); }
+      spd = 0;
+    } else if (D.ph === 'fight') {
+      left = 90 - (now - D.tf); document.getElementById('d-t').textContent = Math.max(0, Math.ceil(left));
+      F.sideT -= dt; if (F.sideT <= 0) { F.sideT = 2 + Math.random() * 2.5; F.side = -F.side; }
+      spd = d > 13 ? 4.2 : d < 8 ? -3 : 0;
+      nx = F.x + (ux * spd + -uz * F.side * 2.2) * dt; nz = F.z + (uz * spd + ux * F.side * 2.2) * dt;
+      if (botFree(nx, nz)) { F.x = nx; F.z = nz; } else F.side = -F.side;
+      F.y = botGround(F.x, F.z);
+      F.fireT -= dt;
+      if (F.fireT <= 0 && d < 24) {
+        F.fireT = 0.38; mz = bkTmpA.set(F.x + Math.sin(F.yaw) * 0.7, F.y + 0.95, F.z + Math.cos(F.yaw) * 0.7);
+        tg = bkTmpB.set(b.x, b.y + 0.9, b.z);
+        if (duelRoll(D.foe, D.me)) fxSpawn(b.x, b.y + 0.9, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+        else { tg.x += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.8); tg.y += 0.6 + Math.random() * 0.8; }
+        botShoot(mz, tg, true);
+      }
+      duelBars();
+      if (D.me.hp <= 0 || D.foe.hp <= 0 || left <= 0) {
+        win = D.foe.hp <= 0 ? true : D.me.hp <= 0 ? false : (D.me.hp + D.me.sh >= D.foe.hp + D.foe.sh);
+        D.win = win; D.ph = 'end'; D.te = now + 3.4; duelBanner(win ? '¡Ganaste!' : 'Perdiste', !win);
+        window.__botSayQ = win ? '¡Ganamos! Eso fue limpio.' : 'Perdí… me repararé y volveré.';
+        if (win) fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.8, 0, 0.9, 0.6, 3, 0xff5a5a, 0.9, true);
+        D.tgt = null;
+      }
+    } else if (D.ph === 'end') {
+      if (D.win && F.g.visible && now > D.te - 3) { F.g.visible = false; fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.5, 0, 0.9, 0.7, 3, 0xff5a5a, 0.9, true); }
+      if (now >= D.te) { duelBanner(''); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out'; b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+      spd = 0;
+    }
+    if (F && D.ph !== 'out') { /* pose del clon: piernas caminando */
+      F.v = D.ph === 'fight' ? Math.abs(spd) + 1.6 : 0; F.ph += dt * F.v * 1.9; hs = Math.min(1, F.v / 3);
+      for (i = 0; i < 2; i++) { k = Math.sin(F.ph + i * Math.PI) * 0.6 * hs; F.legs[i].th.rotation.x = k; F.legs[i].kn.rotation.x = Math.max(0, -k) * 1.1 * hs; F.legs[i].ft.rotation.x = 0; }
+      F.g.position.set(F.x, F.y, F.z); F.g.rotation.y = F.yaw;
+      if (D.tgt) { D.tgt.x = F.x; D.tgt.y = F.y + 0.9; D.tgt.z = F.z; }
+    }
+  }
+  function botXsFight() { /* botón "Retar 1 vs 1" */
     var X = bot && bot.xs, p = X && X.p, ok = !!(AUTH && AUTH.uid);
     if (!p || !X.arr) return;
     if (!ok) { window.__botSayQ = 'Para retar necesitas iniciar sesión.'; return; }
     if (p === MYP || p.uid === AUTH.uid) { window.__botSayQ = 'No puedo retarte a ti mismo.'; return; }
     if (!p.total) { window.__botSayQ = 'Ese jugador no tiene parcelas para pelear.'; return; }
-    window.__botSayQ = 'Duelo próximamente. Aún me estoy afilando.';
+    duelStart(p);
   }
   function botCallVillage() { /* código 'aldea': el robot va a visitar la aldea alien (si no hay invasión ni OVNI) */
     var b = bot;
@@ -7251,7 +7367,7 @@ window.startMap = function (RAW, AUTH) {
   function botCallIsland() { /* código 'socorro': el robot se teletransporta (destello glitch) a la isla Socorro y la recorre un rato */
     var b = bot, g = geo(-110.97, 18.78), sp, sp2, an;
     if (!b) return false;
-    if (!ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI o una invasión.'; return false; }
+    if (DUEL || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI, una invasión o un duelo.'; return false; }
     sp = botFreeSpot(g.x, g.z); if (!sp) return false;
     an = Math.random() * 6.283; sp2 = botFreeSpot(sp[0] + Math.cos(an) * 8, sp[1] + Math.sin(an) * 8) || sp;
     b.tour = null; b.vilTour = null; b.vilWatch = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
@@ -7399,7 +7515,7 @@ window.startMap = function (RAW, AUTH) {
     b.up = new THREE.Vector3(); b.uv = new THREE.Vector3(); b.hasUp = false; b.rp = null; b.jph = 0; b.perchT = 0; b.maxPerch = 8; b.aiming = false;
     bot = b;
   }
-  function botShoot(mz, tgt) {
+  function botShoot(mz, tgt, red) {
     var p, dx, dy, dz, d, i, grp, core, glow;
     if (!botLas.length) {
       for (i = 0; i < 14; i++) {
@@ -7410,12 +7526,13 @@ window.startMap = function (RAW, AUTH) {
       }
     }
     p = botLas[botLasI]; botLasI = (botLasI + 1) % botLas.length;
+    p.m.children[0].material = red ? bkLaserR : bkLaser; p.m.children[1].material = red ? bkLaserGlowR : bkLaserGlow;
     dx = tgt.x - mz.x; dy = tgt.y - mz.y; dz = tgt.z - mz.z; d = Math.hypot(dx, dy, dz) || 1;
     dx += (Math.random() - 0.5) * 0.06 * d; dy += (Math.random() - 0.5) * 0.06 * d; dz += (Math.random() - 0.5) * 0.06 * d;
     d = Math.hypot(dx, dy, dz) || 1;
     p.vx = dx / d * BOT_LASER_V; p.vy = dy / d * BOT_LASER_V; p.vz = dz / d * BOT_LASER_V; p.dist = 0; p.on = true; p.own = (bot.mode === 'perch' && bot.rp) ? bot.rp.p : null;
     p.m.position.copy(mz); p.m.lookAt(mz.x + dx, mz.y + dy, mz.z + dz); p.m.visible = true;
-    fxSpawn(mz.x, mz.y, mz.z, 0, 0, 0, 0.07, 0.05, 0.2, 0x7dffa0, 0.95, true);
+    fxSpawn(mz.x, mz.y, mz.z, 0, 0, 0, 0.07, 0.05, 0.2, red ? 0xff7d7d : 0x7dffa0, 0.95, true);
     AUD.shot(mz);
   }
   function botBolts(dt) {
@@ -7450,6 +7567,7 @@ window.startMap = function (RAW, AUTH) {
     }
     if (GM.mode && !GM.rel && now >= GM.go) { GM.rel = true; if (GM.mode === 'inv') { ufoHold = 0; deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botCamUser = -99; botStartFollow(b); } } /* tras la espera, en Modo Invasión vuelven los OVNIs y la cámara sigue al robot */
     if (!GM.mode || now < GM.go) { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.v = 0; b.boostT = 0; b.hopGoal = null; b.fogT = 0; } /* de pie frente al edificio hasta que empiece */
+    if (DUEL) duelTick(dt, now);
     if (b.xs) { /* Modo Explorador: viaje al edificio de un jugador, espera ahí y se puede retar */
       var XS = b.xs, xd = Math.hypot(XS.x - b.x, XS.z - b.z);
       if (GM.mode !== 'exp' || !GM.rel) b.xs = null;
@@ -7499,7 +7617,7 @@ window.startMap = function (RAW, AUTH) {
       }
       if (b.isc && (!iE || now - b.iscT0 > 100)) { b.isc = false; b.scan = false; b.wk = null; if (b.gtype === 'wreck') { b.goal = null; b.gtype = ''; b.path = null; } }
     } else if (b.isc) { b.isc = false; }
-    var AT = (typeof ALN !== 'undefined' && ALN && !HFL && !b.isc) ? ALN.pick(b.x, b.z, now) : null; /* invasión alienígena: tiene prioridad sobre el OVNI */
+    var AT = (DUEL && DUEL.ph === 'fight' && DUEL.tgt) ? DUEL.tgt : ((typeof ALN !== 'undefined' && ALN && !HFL && !b.isc) ? ALN.pick(b.x, b.z, now) : null); /* invasión alienígena: tiene prioridad sobre el OVNI */
     b.alienT = !!AT;
     var invIn = !!(typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && statePolys[S.name] && botInRings(statePolys[S.name], b.x, b.z); })(ALN.state())); /* dentro del estado invadido: la niebla no lo limita */
     var MR = (AT && typeof ALN !== 'undefined' && ALN && ALN.rock) ? ALN.rock() : null, orbOn = !!(MR && Math.hypot(MR.x - b.x, MR.z - b.z) < 45); /* MR: meteorito (sin aliens vivos); orbOn: ya cerca, lo rodea disparando */
@@ -8166,6 +8284,7 @@ window.startMap = function (RAW, AUTH) {
       if (canShoot && b.fireT <= 0) {
         botShoot(bkMuz, b.alienT ? pred : U); /* como la torreta: apunta a donde está ahora, sin adelantarse */
         b.fireT = b.alienT ? 0.35 : 0.12; /* fuego continuo (más pausado contra aliens) */
+        if (DUEL) duelRobotShot();
       }
     }
     botBolts(dt);
@@ -8790,7 +8909,7 @@ window.startMap = function (RAW, AUTH) {
   (function (X) { var k; for (k in X) AURA_DLG[k] = X[k]; })({"trail":[["Pasando por {E}. Actualizo las rutas del sector.","Anótame lo bueno de {E}. Lo malo me lo guardo."],["Estoy cruzando {E}. Registro caminos nuevos.","Si hay buen camino, avísame. Si no, improviso."],["Entré a {E}. El terreno cambia, mi lectura también.","Cuéntame cuando lo sepas. Yo sigo."],["{E} a mi izquierda. Sin amenazas a la vista.","Sin amenazas es una frase peligrosa. Pero gracias."],["Mapeando {E}. Tiene más caminos de los que esperaba.","Más caminos, más lugares para perderme."]],"go_wreck":[["Voy a revisar unos restos de OVNI. No tardo.","Ten cuidado, que todavía humean."],["Detecté restos de una nave. Voy a tomar lecturas.","Avísame si encuentras algo vivo."],["Salgo hacia el cráter del OVNI. Quiero ver el material.","Llévate cuidado. Yo te cubro desde aquí."]],"go_met":[["Voy al meteorito. Quiero medir su campo antes de que lo rompas.","No tardes. Yo ya voy rompiendo cosas."],["Me desvío hacia el meteorito. Necesito muestras.","Muestras de qué. ¿De alien?"],["Salgo rumbo al meteorito. Mantén tu posición.","Mi posición es siempre «adelante»."]],"go_vil":[["Voy a la aldea alien. Quiero ver cómo viven.","Pregunta por mí. Dile que no tengo hambre."],["Salgo hacia la aldea. Llevo la tablet por si acaso.","¿Para fotos o para defenderte?"],["Me voy a visitar a los aliens de la aldea.","Regresa con todas tus piezas, por favor."]],"insp_wreck":[["Llegué a los restos. Calor residual alto, radiación baja.","No toques nada que no sea tuyo."],["Estoy junto al cráter. Hay metal que no está en ninguna tabla.","Guarda una muestra. Para el museo."],["Escaneo en proceso. La nave tenía motores de plasma, creo.","¿Creo? Mi respeto por la ciencia baja un poco."]],"insp_met":[["Estoy junto al meteorito. El campo es más fuerte de cerca.","Si te asustas, aléjate. Yo me encargo."],["Tomo mediciones del meteorito. Hay una zona débil en la base.","Perfecto. Dime cuál y le apunto."],["Cerca del meteorito. Los aliens no se alejan de él.","Es su casa. Una casa que voy a demoler."]],"insp_vil":[["Ya estoy en la aldea. Los aliens me miran, pero no hacen nada.","No te comas lo que te ofrezcan. Ni lo toques."],["Reviso la aldea. Cero armas a la vista, mucha curiosidad.","Que sigan así. Y tú también."],["Estoy en la aldea. Huele a mar y a tecnología quemada.","Eso último no suena bien."]],"back":[["Terminé aquí. Regreso contigo.","Qué bueno. Ya me estaba aburriendo."],["Listo, ya tengo mis datos. Vuelvo a tu posición.","Te espero. Sin aliens, de preferencia."],["Cerré el reporte. Voy de regreso.","Tómate tu tiempo. Bueno, no tanto."]],"jump":[["Salto de teletransporte iniciado. Hay glitch, perdona.","Cada vez que lo haces me quedo viendo el efecto."],["Me muevo con un salto rápido. Mi ruta normal tardaba demasiado.","Hacer trampa con el espacio. Muy tuyo."],["Activando salto. Lo hago antes de que me atore.","Te atoras mucho últimamente."]],"join":[["Ya voy hacia ti. Tengo una ruta limpia.","Te espero aquí, de pie, con la mejor cara."],["Me incorporo a tu camino. Mantén el ritmo.","Mantengo mi ritmo, tú mantén el tuyo."],["Te alcanzo en un momento. Tengo datos para ti.","Los datos siempre llegan tarde. Ven."]],"hf":[["Ya estoy contigo. Todo el equipo reunido.","Equipo de dos. Qué lujo."],["Aquí estoy, a tu lado. Veamos qué sigue.","Lo que sigue es lo que tú digas."],["Te alcancé. Tengo el mapa de la zona.","Muéstrame. Yo solo conozco hasta donde llegan los pies."]],"vtour":[["Estoy recorriendo la aldea. Casas hechas de materiales raros.","¿Raros como qué? Dame detalles."],["Doy una vuelta por la aldea. Algunos aliens me saludan.","No les devuelvas el saludo. O sí, no sé."],["La aldea tiene calles ordenadas. Mejor que mi mapa.","Dile al urbanista que me dé el plano."]],"vwatch":[["Me detengo a observar la aldea. Hay nadadores en la orilla.","Nadadores aliens. Ahora sí lo vi todo."],["Estoy mirando cómo se mueven. Tienen rutinas.","Rutinas como las nuestras. Qué humanos."],["Observo la aldea desde aquí. Se ven pacíficos.","Pacíficos hasta que se enojen. Mantén la distancia."]]});
   function auraTalk() {
     var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN;
-    if (!el || !bot || !hud || !bs) return;
+    if (!el || !bot || !hud || !bs || DUEL) return;
     if (!botFollow) { if (AT.hide) { AT.hide = 0; el.classList.remove('on'); } AT.rep = null; return; } /* solo con la cámara siguiendo al robot (HUD visible) */
     sp = el.querySelector('span');
     if (AT.hide && n > AT.hide) { AT.hide = 0; el.classList.remove('on'); }
