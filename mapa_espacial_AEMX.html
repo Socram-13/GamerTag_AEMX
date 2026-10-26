@@ -7695,7 +7695,7 @@ window.startMap = function (RAW, AUTH) {
     b.scanK += ((((b.scan && b.mode === 'walk') || liftOn || b.hfOn) ? 1 : 0) - b.scanK) * Math.min(1, dt * 5);
     if (b.scanK > 0.01) {
       if (liftOn) botIK(1, 0.3 + (b.lift && b.lift.ph === 0 ? 0.1 * Math.sin(t * 9) : 0), 1.02, 0.05, b.scQs, b.scQe); /* brazo en alto (con seña mientras llama al dron) */
-      else if (b.hfOn) botIK(1, 0.28, 0.95, 0.5, b.scQs, b.scQe); /* choque de manos con AURA */
+      else if (b.hfOn) botIK(1, 0.28, 0.95 + 0.12 * (HF ? HF.sw || 0 : 0), 0.5 - 0.28 * (HF ? HF.sw || 0 : 0), b.scQs, b.scQe); /* choque de manos con AURA */
       else botIK(1, 0.3, 0.43 + 0.55 * sp, 0.55 * cp, b.scQs, b.scQe);
     }
     /* Brazos: libres (balanceo al correr, o a los lados en vuelo) o sujetando el rifle */
@@ -8299,9 +8299,10 @@ window.startMap = function (RAW, AUTH) {
     HF.ht += dt; b.hfOn = true; b.goal = null; b.gtype = ''; b.path = null; b.idle = 3; b.v *= Math.max(0, 1 - dt * 6);
     ang = Math.atan2(A.x - b.x, A.z - b.z); b.aimYaw = ang; if (Math.abs(nAng(ang - b.yaw)) > 0.35) b.yaw = ang; else b.yaw += nAng(ang - b.yaw) * Math.min(1, dt * 6);
     A.yaw += nAng(ang + Math.PI - A.yaw) * Math.min(1, dt * 6);
-    if (d > 0.6) { A.x += (b.x - A.x) / d * 0.5 * dt; A.z += (b.z - A.z) / d * 0.5 * dt; }
-    if (HF.ht >= 1.0 && !HF.c) { HF.c = 1; mx = (A.x + b.x) / 2; mz = (A.z + b.z) / 2; AUD.clap({ x: mx, y: A.y + 0.5, z: mz }); fxSpawn(mx, A.y + 0.55, mz, 0, 0, 0, 0.35, 0.8, 4, 0xffffff, 0.9, true); }
-    if (HF.ht >= 2.4) hfEnd(A);
+    if (d > 0.6) { A.x += (b.x - A.x) / d * 0.9 * dt; A.z += (b.z - A.z) / d * 0.9 * dt; }
+    HF.sw = HF.ht < 0.35 ? 1 : HF.ht > 1.7 ? 0 : 0.5 - 0.5 * Math.cos(6.2832 * (HF.ht - 0.8) / 0.9); /* vaivén del brazo: 1 = atrás, 0 = contacto (choques a 0.8 s y 1.7 s) */
+    if ((HF.ht >= 0.8 && !HF.c) || (HF.ht >= 1.7 && HF.c === 1)) { HF.c = (HF.c || 0) + 1; mx = (A.x + b.x) / 2; mz = (A.z + b.z) / 2; AUD.clap({ x: mx, y: A.y + 0.5, z: mz }); fxSpawn(mx, A.y + 0.55, mz, 0, 0, 0, 0.35, 0.8, 4, 0xffffff, 0.9, true); }
+    if (HF.ht >= 3.0) hfEnd(A);
   }
   function auraJump(A, x, z, mode) { /* desaparece con destello y reaparece en (x,z) */
     A.jmp = { x: x, z: z, t: 0, mode: mode, done: false };
@@ -8484,7 +8485,7 @@ window.startMap = function (RAW, AUTH) {
       A.arms[i].sh.rotation.x = sw * (1 - tk) + tk * -1.0; A.arms[i].sh.rotation.z = (i ? 1 : -1) * ((0.1 + 0.03 * Math.sin(t * 1.3 + i)) * (1 - tk) - 0.3 * tk);
       A.arms[i].el.rotation.x = (-0.18 - 0.25 * A.gk * Math.max(0, -Math.sin(A.ph + i * Math.PI)) - 1.2 * rk * A.gk) * (1 - tk) + tk * -1.4;
       if (i === 0 && A.pk > 0.01) { A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.pk) - 1.45 * A.pk; A.arms[0].sh.rotation.z = A.arms[0].sh.rotation.z * (1 - A.pk) - 0.12 * A.pk; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.pk) - 0.15 * A.pk; } /* brazo extendido hacia el sitio */
-      if (i === 0 && A.hfK > 0.01) { A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.hfK) - 2.1 * A.hfK; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.hfK) - 0.35 * A.hfK; A.arms[0].sh.rotation.z = A.arms[0].sh.rotation.z * (1 - A.hfK) - 0.12 * A.hfK; } /* choque de manos: brazo en alto al frente */
+      if (i === 0 && A.hfK > 0.01) { A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.hfK) + (-2.25 + 0.6 * (HF ? HF.sw || 0 : 0)) * A.hfK; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.hfK) - 0.35 * A.hfK; A.arms[0].sh.rotation.z = A.arms[0].sh.rotation.z * (1 - A.hfK) - 0.12 * A.hfK; } /* choque de manos: brazo en alto al frente */
     }
     A.body.position.y = 0.86 + Math.abs(Math.sin(A.ph)) * (0.03 + 0.09 * rk) * A.gk + 0.008 * Math.sin(t * 1.7);
     A.pelvis.position.x = 0.012 * sph * A.gk; A.pelvis.rotation.z = 0.04 * sph * A.gk; A.pelvis.rotation.y = 0.08 * sph * A.gk; /* contoneo: solo la pelvis y las piernas se desplazan, se inclinan y giran */
