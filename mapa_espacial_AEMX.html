@@ -7390,9 +7390,16 @@ window.startMap = function (RAW, AUTH) {
       if (Math.random() < 0.3) tk *= 0.25;
       b.g.visible = tk > 0.3; auraGlitchFx(b);
       if (Tp.done && Tp.t >= 0.6) {
-        b.g.visible = true; if (b.fxg) b.fxg.g.visible = false; b.tpj = null; b.idle = 0.5; b.liftCD = now + 40; /* se queda ~40 s en la isla antes de pedir dron */
-        if (botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0;
+        b.g.visible = true; if (b.fxg) b.fxg.g.visible = false; b.tpj = null; b.idle = 0.5;
+        if (Tp.back) { b.isl = null; b.liftCD = 0; } /* de vuelta: sigue con su rutina */
+        else { b.isl = { t0: now }; b.liftCD = now + 90; if (botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0; } /* en la isla ~40 s, luego regresa con el mismo glitch */
       }
+    }
+    if (b.isl && !b.tpj && b.mode === 'walk' && (now - b.isl.t0 > 40 || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()))) { /* fin de la visita (o llega una amenaza): vuelve con glitch frente al edificio del usuario o a una ciudad */
+      var rs = MYP && isFinite(MYP.x) ? botFreeSpot(MYP.x, MYP.z + 9) : null, rd;
+      if (!rs) { rd = districts.filter(function (q) { return q.list.length; })[0]; rs = rd ? botFreeSpot(rd.cx + rd.r + 8, rd.cz) : null; }
+      if (rs) { b.tpj = { x: rs[0], z: rs[1], gx: rs[0], gz: rs[1], t: 0, done: false, back: true }; b.isl = null; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+      else b.isl.t0 = now;
     }
     var HFL = !!(HFW || HF); /* secuencia del choque: bloquea el resto de sus tareas hasta terminar */
     if (typeof ALN !== 'undefined' && ALN && ALN.entered && !HFL) { /* al entrar a la invasión: primero revisa la vaca medio comida (~5.5 s de escaneo) sin disparar */
