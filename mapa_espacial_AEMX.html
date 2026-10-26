@@ -7554,6 +7554,18 @@ window.startMap = function (RAW, AUTH) {
     for (k in botObs) { l = botObs[k]; for (i = l.length - 1; i >= 0; i--) if (l[i]._duel) l.splice(i, 1); }
     D.cov = null; bfC.clear();
   }
+  function duelCovBlock(x, y, z) { /* ¿el punto está dentro de una cobertura del duelo (su forma real) y por debajo de su altura? */
+    var D = DUEL, i, p;
+    if (!D || !D.cov) return false;
+    for (i = 0; i < D.cov.length; i++) { p = D.cov[i]; if (x > p._x0 + 0.35 && x < p._x1 - 0.35 && z > p._z0 + 0.35 && z < p._z1 - 0.35 && y < p._rt) return true; }
+    return false;
+  }
+  function duelBlocked(x0, y0, z0, x1, y1, z1) { /* ¿hay una cobertura en la línea de tiro? (si la hay, el disparo no hace daño) */
+    var k, f;
+    if (!DUEL || !DUEL.cov) return false;
+    for (k = 1; k < 24; k++) { f = k / 24; if (duelCovBlock(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, z0 + (z1 - z0) * f)) return true; }
+    return false;
+  }
   function duelCoverHit(x0, z0, x1, z1) { /* ¿hay cobertura en el tramo? */
     var k, n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.6) || 1;
     for (k = 0; k <= n; k++) if (botBld(x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n, 0.4)) return true;
@@ -7631,7 +7643,7 @@ window.startMap = function (RAW, AUTH) {
   }
   function duelRobotShot() { /* el robot disparó al clon: se tira la puntería */
     var D = DUEL, F = D.fg; if (D.ph !== 'fight' || !F) return;
-    if (duelRoll(D.me, D.foe, !!(D.dF || D.jF))) fxSpawn(F.x, F.y + 0.45, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+    if (!duelBlocked(bot.x, bot.y + 0.5, bot.z, F.x, F.y + 0.45, F.z) && duelRoll(D.me, D.foe, !!(D.dF || D.jF))) fxSpawn(F.x, F.y + 0.45, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
   }
   function duelTick(dt, now) {
     var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
@@ -7685,7 +7697,7 @@ window.startMap = function (RAW, AUTH) {
       if (F.fireT <= 0 && d < 24) {
         F.burstN = (F.burstN || 0) + 1; if (F.burstN >= 3) { F.burstN = 0; F.fireT = 0.8; } else F.fireT = 0.13; mz = bkTmpA.set(F.x + Math.sin(F.yaw) * 0.7, F.y + 0.5, F.z + Math.cos(F.yaw) * 0.7);
         tg = bkTmpB.set(b.x, b.y + 0.45, b.z);
-        if (duelRoll(D.foe, D.me, !!(D.dR || D.jR))) fxSpawn(b.x, b.y + 0.45, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+        if (!duelBlocked(mz.x, mz.y, mz.z, tg.x, tg.y, tg.z) && duelRoll(D.foe, D.me, !!(D.dR || D.jR))) fxSpawn(b.x, b.y + 0.45, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
         else { tg.x += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.8); tg.y += 0.2 + Math.random() * 0.5; }
         botShoot(mz, tg, true);
       }
@@ -7929,9 +7941,14 @@ window.startMap = function (RAW, AUTH) {
       }
       if (ALN && ALN.bolt(ox, oy, oz, nx, ny, nz)) { p.on = false; p.m.visible = false; continue; }
       p.dist += BOT_LASER_V * dt;
-      bp = botBld(nx, nz, -0.55);
-      if (ny <= Math.max(0, terrainH(nx, nz)) + 0.05 || (bp && bp !== p.own && ny < botTop(bp)) || p.dist >= BOT_BOLT_MAX) {
-        if (p.dist < BOT_BOLT_MAX) fxSpawn(nx, ny, nz, 0, 0.6, 0, 0.25, 0.15, 0.5, 0x7dffa0, 0.8, true);
+      var bn = Math.min(40, Math.max(1, Math.ceil(BOT_LASER_V * dt / 0.3))), bk, bf, hx = nx, hy = ny, hz = nz, bhit = false; /* avanza en pasos cortos: no se salta objetos delgados */
+      for (bk = 1; bk <= bn && !bhit; bk++) {
+        bf = bk / bn; hx = ox + (nx - ox) * bf; hy = oy + (ny - oy) * bf; hz = oz + (nz - oz) * bf;
+        bp = botBld(hx, hz, -0.55);
+        if (hy <= Math.max(0, terrainH(hx, hz)) + 0.05 || (bp && !bp._duel && bp !== p.own && hy < botTop(bp)) || duelCovBlock(hx, hy, hz)) bhit = true;
+      }
+      if (bhit || p.dist >= BOT_BOLT_MAX) {
+        if (p.dist < BOT_BOLT_MAX) fxSpawn(hx, hy, hz, 0, 0.6, 0, 0.25, 0.15, 0.5, 0x7dffa0, 0.8, true);
         p.on = false; p.m.visible = false; continue;
       }
       p.m.position.set(nx, ny, nz);
