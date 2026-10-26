@@ -4747,7 +4747,7 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('input', function () {
     var v = q.value.trim().replace(/^@/, '').toLowerCase();
     resEl.textContent = '';
-    if (!v || v === 'sombrero' || v === 'invasion' || v === 'aldea' || v === 'fps') { resEl.hidden = true; matches = []; return; } /* 'sombrero' es un código oculto: sin sugerencias */
+    if (!v || v === 'sombrero' || v === 'invasion' || v === 'aldea' || v === 'socorro' || v === 'fps') { resEl.hidden = true; matches = []; return; } /* 'sombrero' es un código oculto: sin sugerencias */
     matches = [];
     if (ufo && v.length >= 2 && ('ovni'.indexOf(v) === 0 || 'ufo'.indexOf(v) === 0)) matches.push({ kind: 'u', label: '🛸 OVNI', sub: 'seguir' });
     if (car && v.length >= 2) {
@@ -4789,6 +4789,7 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'sombrero') { q.value = ''; resEl.hidden = true; matches = []; botCallDis(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'fps') { q.value = ''; resEl.hidden = true; matches = []; window.__fpsOn = !window.__fpsOn; var fe = document.getElementById('fpsBox'); if (fe) fe.style.display = window.__fpsOn ? 'block' : 'none'; return; }
+    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'socorro') { q.value = ''; resEl.hidden = true; matches = []; botCallIsland(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'aldea') { q.value = ''; resEl.hidden = true; matches = []; botCallVillage(); auraVilCall(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (typeof ALN !== 'undefined') ALN.startHere(); return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
@@ -7152,6 +7153,18 @@ window.startMap = function (RAW, AUTH) {
     else if (!botPickCity(VILD)) return false;
     window.__botSayQ = 'Voy a visitar la aldea alien.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
+    return true;
+  }
+  function botCallIsland() { /* código 'socorro': el robot viaja en dron a la isla Socorro, la recorre un rato y sigue con su rutina */
+    var b = bot, g = geo(-110.97, 18.78), sp, sp2, an;
+    if (!b) return false;
+    if (!ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI o una invasión.'; return false; }
+    sp = botFreeSpot(g.x, g.z); if (!sp) return false;
+    an = Math.random() * 6.283; sp2 = botFreeSpot(sp[0] + Math.cos(an) * 8, sp[1] + Math.sin(an) * 8) || sp;
+    b.tour = null; b.vilTour = null; b.vilWatch = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
+    window.__botSayQ = 'Voy a visitar la isla Socorro.';
+    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
+    botStartLift(sp[0], sp[1], 'sea', { x: sp2[0], z: sp2[1], t: 'patrol' });
     return true;
   }
   function botPick() {
