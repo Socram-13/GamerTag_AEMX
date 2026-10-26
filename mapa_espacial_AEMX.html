@@ -10312,7 +10312,7 @@ window.startMap = function (RAW, AUTH) {
       botYawCam += nAng((bot.aiming ? bot.aimYaw : bot.yaw) - botYawCam) * Math.min(1, dt * 2.5);
       if (fly) { fly.fb.set(bot.x, bot.y + 0.5, bot.z); fly.pb.set(bot.x, bot.y + 0.5, bot.z).add(botOff); bot._lx = undefined; }
       else {
-        var bk2 = Math.min(1, dt * 4), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
+        var bk2 = Math.min(1, dt * clamp(4 + 0.25 * (bot.v || 0), 4, 11)), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
         controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
       }
     }
