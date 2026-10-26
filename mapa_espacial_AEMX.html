@@ -7345,10 +7345,17 @@ window.startMap = function (RAW, AUTH) {
     if (b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop') { if (b.wdM !== b.mode) { b.wdM = b.mode; b.wdT = now; } else if (now - b.wdT > 12) botForceLand(b); } else b.wdM = null; /* vigilante: nunca más de 12 s en salto de azotea */
     /* rescate en tierra: más de 2 s sobre un punto no libre (costa, agua) lo lleva al libre más cercano; 8 s sin avanzar con meta lo obliga a cambiarla */
     if (b.mode === 'walk' && !b.ride && !b.ball && b.boostT <= 0 && !b.lift) {
-      if (!botFree(b.x, b.z) && !craterPush({ x: b.x, z: b.z }, 0, 0)) { b.nfT = (b.nfT || 0) + dt; if (b.nfT > 2) { b.nfT = 0; var fq = botFreeSpot(b.x, b.z); if (fq) { b.x = fq[0]; b.z = fq[1]; b.y = botGround(b.x, b.z); b.v = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.4; window.__botSayQ = 'Me atoré en la orilla, me reubico.'; } } } else b.nfT = 0;
+      if (!botFree(b.x, b.z) && !craterPush({ x: b.x, z: b.z }, 0, 0)) {
+        b.nfT = (b.nfT || 0) + dt;
+        if (b.nfT > 2) { /* empuje suave hacia el punto libre más cercano; teletransporte solo como último recurso (14 s) */
+          if (!b.nfq || now >= (b.nfqT || 0)) { b.nfq = botFreeSpot(b.x, b.z); b.nfqT = now + 1; }
+          if (b.nfq) { var nfd = Math.hypot(b.nfq[0] - b.x, b.nfq[1] - b.z) || 1, nfs = Math.min(nfd, 3 * dt); b.x += (b.nfq[0] - b.x) / nfd * nfs; b.z += (b.nfq[1] - b.z) / nfd * nfs; b.y = botGround(b.x, b.z); b.v = Math.max(b.v, 1); }
+          if (b.nfT > 14) { b.nfT = 0; if (b.nfq) { b.x = b.nfq[0]; b.z = b.nfq[1]; b.y = botGround(b.x, b.z); } b.v = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.4; window.__botSayQ = 'Me atoré en la orilla, me reubico.'; }
+        }
+      } else b.nfT = 0;
       if (b.goal && b.gtype && !b.vilWatch) {
-        if (b.pgT === undefined || Math.hypot(b.x - b.pgX, b.z - b.pgZ) > 1.5) { b.pgX = b.x; b.pgZ = b.z; b.pgT = now; }
-        else if (now - b.pgT > 8) { b.pgT = now; b.stuck = 0; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 0.3; }
+        if (b.pgT === undefined || Math.hypot(b.x - b.pgX, b.z - b.pgZ) > 1.5) { b.pgX = b.x; b.pgZ = b.z; b.pgT = now; b.pgR = 0; }
+        else if (now - b.pgT > 8) { b.pgT = now; b.stuck = 0; b.boostT = 0; if (!b.pgR) { b.pgR = 1; if (!botSetGoal(b.goal.x, b.goal.z, b.gtype)) { b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.3; } } else { b.pgR = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.3; } } /* 1.º: replanea la ruta; 2.º: cambia de meta */
       } else b.pgT = undefined;
     } else { b.nfT = 0; b.pgT = undefined; }
     if (b.mode === 'walk' && !b.ride && !b.ball && b.boostT <= 0 && craterPush(b, dt, 3)) { b.v = 3; b.stuck = 0; b.rec = 0; } /* salida de un cráter en el que quedó dentro */
@@ -7388,10 +7395,11 @@ window.startMap = function (RAW, AUTH) {
       if (thr) {
         if (dh > BOT_HUNT_D) {
           /* si el OVNI cambió de zona (pasó de mar a tierra, etc.) y el punto de caza se movió, replanea de inmediato */
-          if (b.gtype === 'hunt' && b.goal && now >= (b.hchk || 0)) { b.hchk = now + 0.4; tgt2 = botHuntPoint(U); if (!tgt2 || Math.hypot(tgt2.x - b.goal.x, tgt2.z - b.goal.z) > 18) b.replanT = 0; }
+          if (b.gtype === 'hunt' && b.goal && now >= (b.hchk || 0)) { b.hchk = now + 0.4; tgt2 = botHuntPoint(U); if (!tgt2 || Math.hypot(tgt2.x - b.goal.x, tgt2.z - b.goal.z) > 40) b.replanT = 0; }
           if (now >= b.huntHold && b.gtype !== 'roof' && b.gtype !== 'trail' && !orbOn && (b.gtype !== 'hunt' || now >= b.replanT)) {
             tgt2 = botHuntPoint(U);
-            if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) b.replanT = now + (dh > 200 ? 3 : 1.5);
+            if (tgt2 && b.gtype === 'hunt' && b.goal && b.path && Math.hypot(tgt2.x - b.goal.x, tgt2.z - b.goal.z) < 18) { b.goal.x = tgt2.x; b.goal.z = tgt2.z; b.replanT = now + (dh > 200 ? 6 : 4); } /* la meta casi no cambió: conserva la ruta y el conteo de atasco */
+            else if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) b.replanT = now + (dh > 200 ? 6 : 4);
             else { b.noHunt = now + 2.5; if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; } }
           }
         } else if (b.gtype !== 'roof' && b.gtype !== 'flank' && b.gtype !== 'orbit') { b.goal = null; b.gtype = ''; b.path = null; }
@@ -7400,9 +7408,9 @@ window.startMap = function (RAW, AUTH) {
       if (thr && !b.sameCity && b.gtype === 'roof') { b.goal = null; b.gtype = ''; b.path = null; b.tallRoof = false; b.hopGoal = null; b.huntHold = 0; b.replanT = 0; }
       if (!b.goal && !thr && !b.scan && !b.circ && !HFL) { b.idle -= dt; if (b.idle <= 0) botPick(); }
       /* Enemigo cerca y está en la ciudad: busca la azotea más alta para francotirador (más rango) */
-      if (thr && b.sameCity && !b.alienT && dh <= 110 && b.gtype !== 'roof' && now >= (b.tallCD || 0) && botCityDist(b.x, b.z) < 12) { b.tallCD = now + 6; if (botPickRoof(60, null, true)) b.tallRoof = true; }
+      if (thr && b.sameCity && !b.alienT && dh <= 110 && b.gtype !== 'roof' && now >= (b.tallCD || 0) && botCityDist(b.x, b.z) < 12) { b.tallCD = now + 6; if (botPickRoof(250, null, true)) b.tallRoof = true; }
       /* El OVNI vuela alto y está cerca: sube a una azotea para tener mejor ángulo */
-      if (thr && b.sameCity && !b.alienT && dh <= 70 && U.y > 9 && b.gtype !== 'roof' && now >= b.roofCD && !b.tallRoof) { b.roofCD = now + 8; if (!botPickRoof(60, null, true)) botPickRoof(30); }
+      if (thr && b.sameCity && !b.alienT && dh <= 70 && U.y > 9 && b.gtype !== 'roof' && now >= b.roofCD && !b.tallRoof) { b.roofCD = now + 8; if (!botPickRoof(250, null, true)) botPickRoof(30); }
       /* Sin línea de tiro desde el suelo: sube a una azotea cercana */
       if (thr && (b.sameCity || b.alienT) && dh <= BOT_HUNT_D && (!b.goal || b.gtype === 'flank')) {
         b.losT -= dt;
@@ -7412,7 +7420,7 @@ window.startMap = function (RAW, AUTH) {
           if (b.alienT) {
             if (b.los && b.gtype === 'flank') { b.goal = null; b.gtype = ''; b.path = null; }
             else if (!b.los && b.losBlock > 0.7 && now >= (b.flankT || 0)) { b.flankT = now + 1.2; botAlienFlank(U); }
-          } else if (b.losBlock > 1.4) { b.losBlock = 0; b.roofCD = now + 8; if (!botPickRoof(40, null, true)) botPickRoof(26); }
+          } else if (b.losBlock > 1.4) { b.losBlock = 0; b.roofCD = now + 8; if (!botPickRoof(150, null, true)) botPickRoof(26); }
         }
       }
       /* Meteorito: con los aliens muertos lo rodea a unos 8 de distancia, mirándolo y disparándole (como al rondar el cráter del OVNI) */
@@ -7513,7 +7521,17 @@ window.startMap = function (RAW, AUTH) {
           else if (b.path && b.path[b.pi] && dw < 40 && botLineFree(b.x, b.z, tw.x, tw.z, 0.3, true)) { hd = want; b.blockD = 99; }
           else if (now < (b.fineT || 0)) { hd = want; b.blockD = 99; } /* tras detectar vueltas: sigue la ruta fina sin esquivador local */
           else hd = botSteer(b, want, b.path && b.path[b.pi] && b.path[b.pi][2] ? Math.min(3 + b.v * 0.8, Math.max(1.3, dw + 0.3)) : 3 + b.v * 0.8);
-          if (hd === null) { b.v *= Math.max(0, 1 - dt * 6); b.yaw += b.side * dt * 1.2; b.nullT = (b.nullT || 0) + dt; if (b.nullT > 1.0) { b.nullT = 0; b.rec = 0.9; b.recDir = b.yaw + 3.1416 + b.side * 0.9; } }
+          if (hd === null) { /* sin dirección libre: se detiene mirando a la ruta (sin girar en círculos) */
+            b.v *= Math.max(0, 1 - dt * 6); b.yaw += nAng(want - b.yaw) * Math.min(1, dt * 3); b.nullT = (b.nullT || 0) + dt;
+            if (b.nullT > 0.6) {
+              b.nullT = 0;
+              if (b.nuX !== undefined && Math.hypot(b.x - b.nuX, b.z - b.nuZ) < 3 && now - b.nuT < 20) b.nuN++; else { b.nuN = 1; b.nuX = b.x; b.nuZ = b.z; }
+              b.nuT = now;
+              if (b.nuN === 2 && b.goal) { var nfp = botFineAStar(b.x, b.z, b.goal.x, b.goal.z); if (nfp && nfp.length > 1) { b.path = nfp; b.pi = 1; b.fineT = now + 6; } else b.nuN = 3; } /* 2.ª vez en el mismo sitio: ruta fina de calles, sin esquivador */
+              if (b.nuN >= 3) { b.nuN = 0; b.nuX = undefined; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 0.3; } /* 3.ª: cambia de meta */
+              else if (b.nuN !== 2) { b.rec = 0.9; b.recDir = b.yaw + 3.1416 + b.side * 0.9; }
+            }
+          }
           else {
             b.nullT = 0;
             b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 12);
