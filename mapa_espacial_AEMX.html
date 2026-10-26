@@ -136,7 +136,7 @@
   #x-fight, #x-fb { border-color: rgba(255,110,110,0.7) !important; color: #ffd0d0 !important; }
   #xbar { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; max-width: 92vw; padding: 7px 10px; border-radius: 14px; background: rgba(16,9,30,0.82); border: 1px solid rgba(255,228,77,0.45); backdrop-filter: blur(6px); color: #fff3d6; font: 600 12.5px var(--f-body); }
   #xbar[hidden] { display: none; }
-  #dbar { position: absolute; left: 50%; top: 62px; transform: translateX(-50%); width: min(520px, 94vw); z-index: 6; display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 14px; background: rgba(16,9,30,0.82); border: 1px solid rgba(255,228,77,0.45); backdrop-filter: blur(6px); color: #fff3d6; font: 700 12px var(--f-body); pointer-events: none; }
+  #dbar { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(520px, 94vw); z-index: 6; display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 14px; background: rgba(16,9,30,0.82); border: 1px solid rgba(255,228,77,0.45); backdrop-filter: blur(6px); color: #fff3d6; font: 700 12px var(--f-body); pointer-events: none; }
   #dbar[hidden], #dres[hidden] { display: none; }
   #dbar .dside b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
   #dbar .dside.foe { text-align: right; } #dbar .dside.foe b { color: #ff9a9a; }
@@ -145,6 +145,7 @@
   #dbar .foe .dhp i { background: #ff5a5a; left: auto; right: 0; }
   #dbar .dhp u { position: absolute; left: 0; top: 0; height: 3px; width: 100%; background: #5ad8ff; text-decoration: none; }
   #dbar .foe .dhp u { left: auto; right: 0; }
+  @media (max-width: 700px) { #dbar { top: 56px; bottom: auto; } }
   #d-t { font: 800 18px var(--f-display); min-width: 34px; text-align: center; }
   #dres { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); z-index: 7; font: 900 clamp(34px, 8vw, 72px) var(--f-display); letter-spacing: 0.06em; color: #fff3d6; text-shadow: 0 0 18px rgba(255,228,77,0.8), 0 3px 6px #000; pointer-events: none; text-align: center; }
   #dres.lose { color: #ff9a9a; text-shadow: 0 0 18px rgba(255,60,60,0.8), 0 3px 6px #000; }
@@ -341,7 +342,7 @@
     </footer>
   </div>
   <div id="xbar" hidden><span id="x-txt"></span><button type="button" id="x-fb" hidden>⚔ Retar 1 vs 1</button><button type="button" id="x-back">Volver</button></div>
-  <div id="dbar" hidden><div class="dside me"><b id="d-mn"></b><div class="dhp"><i id="d-mh"></i><u id="d-ms"></u></div></div><div id="d-t">90</div><div class="dside foe"><b id="d-fn"></b><div class="dhp"><i id="d-fh"></i><u id="d-fs"></u></div></div></div>
+  <div id="dbar" hidden><div class="dside dme"><b id="d-mn"></b><div class="dhp"><i id="d-mh"></i><u id="d-ms"></u></div></div><div id="d-t">90</div><div class="dside foe"><b id="d-fn"></b><div class="dhp"><i id="d-fh"></i><u id="d-fs"></u></div></div></div>
   <div id="dres" hidden></div>
   <div id="fail" hidden><p>No se pudo cargar el motor 3D. Revisa tu conexión y vuelve a abrir la página.</p></div>
 </main>
@@ -7251,8 +7252,8 @@ window.startMap = function (RAW, AUTH) {
     var hp = 100 + 200 * n(p.common, 5000), sh = 120 * n(p.rare, 3000);
     return { hp: hp, hpMax: hp, sh: sh, shMax: sh, aim: 0.35 + 0.45 * n(p.epic, 1500), crit: 0.05 + 0.25 * n(p.legendary, 500) };
   }
-  function duelRoll(A, B) { /* A dispara a B: devuelve true si acierta */
-    var hit = Math.random() < A.aim, dmg = 3 * (Math.random() < A.crit ? 2 : 1);
+  function duelRoll(A, B, dash) { /* A dispara a B: devuelve true si acierta (un blanco en hiperimpulso es mucho más difícil) */
+    var hit = Math.random() < A.aim * (dash ? 0.4 : 1), dmg = 3 * (Math.random() < A.crit ? 2 : 1);
     if (hit) { if (B.sh > 0) { var ab = Math.min(B.sh, dmg); B.sh -= ab; dmg -= ab; } B.hp = Math.max(0, B.hp - dmg); }
     return hit;
   }
@@ -7269,7 +7270,7 @@ window.startMap = function (RAW, AUTH) {
     sp = botFreeSpot(g.x - 7, g.z); an = Math.random() * 6.283; sp2 = sp ? botFreeSpot(sp[0] + 14, sp[1] + (Math.random() - 0.5) * 4) : null;
     rs = botFreeSpot(MYP.x, MYP.z + 9);
     if (!sp || !sp2 || !rs) { window.__botSayQ = 'No encuentro un lugar para el duelo.'; return false; }
-    DUEL = { cx: g.x, cz: g.z, rt: 0, p: p, me: duelStats(MYP), foe: duelStats(p), ph: 'in', sp: sp, sp2: sp2, rs: rs, fg: null, tgt: null, tc: 0, tf: 0, te: 0 };
+    DUEL = { cx: g.x, cz: g.z, rt: 0, dR: null, dF: null, dodgeR: 0, dodgeF: 0, mvR: 0, rfl: 0, p: p, me: duelStats(MYP), foe: duelStats(p), ph: 'in', sp: sp, sp2: sp2, rs: rs, fg: null, tgt: null, tc: 0, tf: 0, te: 0 };
     b.xs = null; xsRefresh(); b.tour = null;
     b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
     document.getElementById('d-mn').textContent = '@' + (MYP.name || 'tú'); document.getElementById('d-fn').textContent = '@' + p.name;
@@ -7292,6 +7293,57 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < 8; i++) { a = i * 0.785; if (!botFree(x + Math.cos(a) * 6, z + Math.sin(a) * 6)) return true; }
     return false;
   }
+  function duelDashGo(E, dx, dz) { /* tirón de hiperimpulso: dura ~0.5 s */
+    var L = Math.hypot(dx, dz) || 1; return { dx: dx / L, dz: dz / L, t: 0.5 };
+  }
+  function duelDashStep(E, Dh, dt) { /* avanza el tirón; devuelve false al terminar o chocar */
+    var nx, nz;
+    if (!Dh) return false;
+    nx = E.x + Dh.dx * 18 * dt; nz = E.z + Dh.dz * 18 * dt;
+    if (!botFree(nx, nz)) return false;
+    E.x = nx; E.z = nz; E.y = botGround(nx, nz); Dh.t -= dt;
+    fxSpawn(E.x - Dh.dx * 0.35, E.y + 0.5, E.z - Dh.dz * 0.35, -Dh.dx * 0.6, 0, -Dh.dz * 0.6, 0.3, 0.12, 0.02, 0x5ad8ff, 0.85, true);
+    fxSpawn(E.x, E.y + 0.1, E.z, 0, 0.2, 0, 0.5, 0.07, 0.25, 0xc8b48a, 0.3, false);
+    return Dh.t > 0;
+  }
+  function duelMoves(D, b, F, d, ux, uz, now, dt) { /* ambos se reposicionan, esquivan con hiperimpulso y huyen con poca vida */
+    var lowR = (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax) < 0.35, lowF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax) < 0.35, sg, dx, dz, tries, ok, ang, px, pz, cdx = D.cx - b.x, cdz = D.cz - b.z;
+    /* tirones en curso */
+    if (D.dR && !duelDashStep(b, D.dR, dt)) D.dR = null; else if (D.dR) { b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z); if (botFollow) { /* la cámara acompaña */ } }
+    if (D.dF && !duelDashStep(F, D.dF, dt)) D.dF = null;
+    /* robot: esquiva (o huye) con hiperimpulso cuando ya cargó */
+    if (!D.dR && b.mode === 'walk' && !b.tpj && b.boostCD <= 0 && (lowR || now >= D.dodgeR)) {
+      sg = Math.random() < 0.5 ? 1 : -1;
+      for (tries = 0, ok = false; tries < 4 && !ok; tries++) {
+        if (lowR && tries < 2) { dx = -ux * 0.5 - uz * sg * 0.5; dz = -uz * 0.5 + ux * sg * 0.5; } else { dx = -uz * sg; dz = ux * sg; }
+        if (tries === 2) { dx = cdx; dz = cdz; }
+        if (tries % 2 === 1) { dx = -dx; dz = -dz; }
+        px = Math.hypot(dx, dz) || 1; ok = botFree(b.x + dx / px * 9, b.z + dz / px * 9);
+      }
+      if (ok) { D.dR = duelDashGo(b, dx, dz); b.boostCD = BOT_BOOST_CD; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+      D.dodgeR = now + 7 + Math.random() * 3;
+    }
+    /* clon: lo mismo con su propio enfriamiento */
+    if (!D.dF && now >= (F.bcd || 0) && (lowF || now >= D.dodgeF)) {
+      sg = Math.random() < 0.5 ? 1 : -1; ok = false;
+      for (tries = 0; tries < 4 && !ok; tries++) {
+        if (lowF && tries < 2) { dx = ux * 0.5 + uz * sg * 0.5; dz = uz * 0.5 - ux * sg * 0.5; } else { dx = uz * sg; dz = -ux * sg; }
+        if (tries % 2 === 1) { dx = -dx; dz = -dz; }
+        px = Math.hypot(dx, dz) || 1; ok = botFree(F.x + dx / px * 9, F.z + dz / px * 9);
+      }
+      if (ok) { D.dF = duelDashGo(F, dx, dz); F.bcd = now + 7; AUD.shot(bkMuz.set(F.x, F.y + 1, F.z)); }
+      D.dodgeF = now + 7 + Math.random() * 3;
+    }
+    /* robot: reposiciona cada 3-5 s (a los lados o alejándose) para no quedarse quieto; con poca vida se aleja hacia el centro */
+    if (!D.dR && b.mode === 'walk' && !b.tpj && !b.goal && now >= D.mvR) {
+      D.mvR = now + 3 + Math.random() * 2;
+      for (tries = 0, ok = false; tries < 6 && !ok; tries++) {
+        ang = Math.atan2(b.x - F.x, b.z - F.z) + (Math.random() < 0.5 ? 1 : -1) * (0.9 + Math.random() * 0.8);
+        px = F.x + Math.sin(ang) * (lowR ? 19 : 8 + Math.random() * 6); pz = F.z + Math.cos(ang) * (lowR ? 19 : 8 + Math.random() * 6);
+        ok = botFree(px, pz) && Math.hypot(px - D.cx, pz - D.cz) < 60 && botSetGoal(px, pz, 'patrol');
+      }
+    }
+  }
   function duelBars() {
     var D = DUEL;
     document.getElementById('d-mh').style.width = (100 * D.me.hp / D.me.hpMax) + '%'; document.getElementById('d-ms').style.width = D.me.shMax ? (100 * D.me.sh / D.me.shMax) + '%' : '0';
@@ -7299,7 +7351,7 @@ window.startMap = function (RAW, AUTH) {
   }
   function duelRobotShot() { /* el robot disparó al clon: se tira la puntería */
     var D = DUEL, F = D.fg; if (D.ph !== 'fight' || !F) return;
-    if (duelRoll(D.me, D.foe)) fxSpawn(F.x, F.y + 0.45, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+    if (duelRoll(D.me, D.foe, !!D.dF)) fxSpawn(F.x, F.y + 0.45, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
   }
   function duelTick(dt, now) {
     var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
@@ -7318,21 +7370,24 @@ window.startMap = function (RAW, AUTH) {
     } else if (D.ph === 'fight') {
       left = 90 - (now - D.tf); document.getElementById('d-t').textContent = Math.max(0, Math.ceil(left));
       F.sideT -= dt; if (F.sideT <= 0) { F.sideT = 2 + Math.random() * 2.5; F.side = -F.side; }
-      spd = d > 13 ? 4.2 : d < 8 ? -3 : 0;
+      if (now >= (F.ddT || 0)) { F.ddT = now + 3 + Math.random() * 2; F.dd = 7 + Math.random() * 6; }
+      var lowF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax) < 0.35;
+      spd = lowF ? (d < 19 ? -3.6 : 0) : (d > F.dd + 2 ? 4.2 : d < F.dd - 2 ? -3 : 0);
       var edge = duelEdge(F.x, F.z), cdx = D.cx - F.x, cdz = D.cz - F.z, cdd = Math.hypot(cdx, cdz) || 1, mx, mz2, cands, ci, moved = false;
       mx = ux * spd + -uz * F.side * 2.2; mz2 = uz * spd + ux * F.side * 2.2;
-      if (edge) { mx += cdx / cdd * 2.6; mz2 += cdz / cdd * 2.6; if (spd < 0) { mx -= ux * spd; mz2 -= uz * spd; } } /* cerca de la orilla: no retrocede y se desliza hacia el centro */
+      if (edge) { mx += cdx / cdd * 2.6; mz2 += cdz / cdd * 2.6; if (spd < 0 && !lowF) { mx -= ux * spd; mz2 -= uz * spd; } } /* cerca de la orilla: no retrocede y se desliza hacia el centro */
       cands = [[mx, mz2], [-uz * F.side * 2.4, ux * F.side * 2.4], [ux * 3, uz * 3], [cdx / cdd * 3, cdz / cdd * 3], [uz * F.side * 2.4, -ux * F.side * 2.4]];
       for (ci = 0; ci < cands.length && !moved; ci++) { nx = F.x + cands[ci][0] * dt; nz = F.z + cands[ci][1] * dt; if (botFree(nx, nz)) { F.x = nx; F.z = nz; moved = true; if (ci > 0) { spd = 2.4; if (ci === 1) F.side = -F.side * -1; } } }
       if (!moved) F.side = -F.side;
       /* el robot: si lleva más de 2 s casi quieto junto a la orilla, vuelve hacia el centro */
       if (duelEdge(b.x, b.z) && b.v < 0.6 && b.mode === 'walk') { D.rt += dt; if (D.rt > 2 && !b.tpj) { D.rt = 0; var cs = botFreeSpot(D.cx - 4, D.cz); if (cs) botSetGoal(cs[0], cs[1], 'patrol'); } } else D.rt = 0;
+      duelMoves(D, b, F, d, ux, uz, now, dt);
       F.y = botGround(F.x, F.z);
       F.fireT -= dt;
       if (F.fireT <= 0 && d < 24) {
         F.fireT = 0.38; mz = bkTmpA.set(F.x + Math.sin(F.yaw) * 0.7, F.y + 0.5, F.z + Math.cos(F.yaw) * 0.7);
         tg = bkTmpB.set(b.x, b.y + 0.45, b.z);
-        if (duelRoll(D.foe, D.me)) fxSpawn(b.x, b.y + 0.45, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+        if (duelRoll(D.foe, D.me, !!D.dR)) fxSpawn(b.x, b.y + 0.45, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
         else { tg.x += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.8); tg.y += 0.2 + Math.random() * 0.5; }
         botShoot(mz, tg, true);
       }
@@ -8920,7 +8975,8 @@ window.startMap = function (RAW, AUTH) {
   (function (X) { var k; for (k in X) AURA_DLG[k] = X[k]; })({"trail":[["Pasando por {E}. Actualizo las rutas del sector.","Anótame lo bueno de {E}. Lo malo me lo guardo."],["Estoy cruzando {E}. Registro caminos nuevos.","Si hay buen camino, avísame. Si no, improviso."],["Entré a {E}. El terreno cambia, mi lectura también.","Cuéntame cuando lo sepas. Yo sigo."],["{E} a mi izquierda. Sin amenazas a la vista.","Sin amenazas es una frase peligrosa. Pero gracias."],["Mapeando {E}. Tiene más caminos de los que esperaba.","Más caminos, más lugares para perderme."]],"go_wreck":[["Voy a revisar unos restos de OVNI. No tardo.","Ten cuidado, que todavía humean."],["Detecté restos de una nave. Voy a tomar lecturas.","Avísame si encuentras algo vivo."],["Salgo hacia el cráter del OVNI. Quiero ver el material.","Llévate cuidado. Yo te cubro desde aquí."]],"go_met":[["Voy al meteorito. Quiero medir su campo antes de que lo rompas.","No tardes. Yo ya voy rompiendo cosas."],["Me desvío hacia el meteorito. Necesito muestras.","Muestras de qué. ¿De alien?"],["Salgo rumbo al meteorito. Mantén tu posición.","Mi posición es siempre «adelante»."]],"go_vil":[["Voy a la aldea alien. Quiero ver cómo viven.","Pregunta por mí. Dile que no tengo hambre."],["Salgo hacia la aldea. Llevo la tablet por si acaso.","¿Para fotos o para defenderte?"],["Me voy a visitar a los aliens de la aldea.","Regresa con todas tus piezas, por favor."]],"insp_wreck":[["Llegué a los restos. Calor residual alto, radiación baja.","No toques nada que no sea tuyo."],["Estoy junto al cráter. Hay metal que no está en ninguna tabla.","Guarda una muestra. Para el museo."],["Escaneo en proceso. La nave tenía motores de plasma, creo.","¿Creo? Mi respeto por la ciencia baja un poco."]],"insp_met":[["Estoy junto al meteorito. El campo es más fuerte de cerca.","Si te asustas, aléjate. Yo me encargo."],["Tomo mediciones del meteorito. Hay una zona débil en la base.","Perfecto. Dime cuál y le apunto."],["Cerca del meteorito. Los aliens no se alejan de él.","Es su casa. Una casa que voy a demoler."]],"insp_vil":[["Ya estoy en la aldea. Los aliens me miran, pero no hacen nada.","No te comas lo que te ofrezcan. Ni lo toques."],["Reviso la aldea. Cero armas a la vista, mucha curiosidad.","Que sigan así. Y tú también."],["Estoy en la aldea. Huele a mar y a tecnología quemada.","Eso último no suena bien."]],"back":[["Terminé aquí. Regreso contigo.","Qué bueno. Ya me estaba aburriendo."],["Listo, ya tengo mis datos. Vuelvo a tu posición.","Te espero. Sin aliens, de preferencia."],["Cerré el reporte. Voy de regreso.","Tómate tu tiempo. Bueno, no tanto."]],"jump":[["Salto de teletransporte iniciado. Hay glitch, perdona.","Cada vez que lo haces me quedo viendo el efecto."],["Me muevo con un salto rápido. Mi ruta normal tardaba demasiado.","Hacer trampa con el espacio. Muy tuyo."],["Activando salto. Lo hago antes de que me atore.","Te atoras mucho últimamente."]],"join":[["Ya voy hacia ti. Tengo una ruta limpia.","Te espero aquí, de pie, con la mejor cara."],["Me incorporo a tu camino. Mantén el ritmo.","Mantengo mi ritmo, tú mantén el tuyo."],["Te alcanzo en un momento. Tengo datos para ti.","Los datos siempre llegan tarde. Ven."]],"hf":[["Ya estoy contigo. Todo el equipo reunido.","Equipo de dos. Qué lujo."],["Aquí estoy, a tu lado. Veamos qué sigue.","Lo que sigue es lo que tú digas."],["Te alcancé. Tengo el mapa de la zona.","Muéstrame. Yo solo conozco hasta donde llegan los pies."]],"vtour":[["Estoy recorriendo la aldea. Casas hechas de materiales raros.","¿Raros como qué? Dame detalles."],["Doy una vuelta por la aldea. Algunos aliens me saludan.","No les devuelvas el saludo. O sí, no sé."],["La aldea tiene calles ordenadas. Mejor que mi mapa.","Dile al urbanista que me dé el plano."]],"vwatch":[["Me detengo a observar la aldea. Hay nadadores en la orilla.","Nadadores aliens. Ahora sí lo vi todo."],["Estoy mirando cómo se mueven. Tienen rutinas.","Rutinas como las nuestras. Qué humanos."],["Observo la aldea desde aquí. Se ven pacíficos.","Pacíficos hasta que se enojen. Mantén la distancia."]]});
   function auraTalk() {
     var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN;
-    if (!el || !bot || !hud || !bs || DUEL) return;
+    if (!el || !bot || !hud || !bs) return;
+    if (DUEL) { if (AT.hide) { AT.hide = 0; el.classList.remove('on'); } AT.rep = null; return; } /* en el duelo Aura calla */
     if (!botFollow) { if (AT.hide) { AT.hide = 0; el.classList.remove('on'); } AT.rep = null; return; } /* solo con la cámara siguiendo al robot (HUD visible) */
     sp = el.querySelector('span');
     if (AT.hide && n > AT.hide) { AT.hide = 0; el.classList.remove('on'); }
