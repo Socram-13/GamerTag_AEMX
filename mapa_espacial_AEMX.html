@@ -658,7 +658,7 @@ window.startMap = function (RAW, AUTH) {
       if (!photo) Object.keys(u).forEach(function (key) { if (!photo && /photo|avatar|pic|image|img/i.test(key) && typeof u[key] === 'string' && /^https?:\/\//i.test(u[key])) photo = u[key]; });
     }
     if (!photo && AUTH.photoURL) photo = AUTH.photoURL;
-    document.getElementById('me-name').textContent = '@' + name;
+    document.getElementById('me-name').textContent = '' + name;
     document.getElementById('me-total').textContent = fmt(total);
     document.getElementById('me-state').textContent = estado;
     document.getElementById('me-ini').textContent = name.charAt(0);
@@ -4632,7 +4632,7 @@ window.startMap = function (RAW, AUTH) {
     b.tabIndex = -1;
     if (p.isPres) b.appendChild(el('em', null, 'Presidente'));
     else if (p.banned) b.appendChild(el('em', null, 'Baneado'));
-    b.appendChild(el('span', null, '@' + p.name));
+    b.appendChild(el('span', null, '' + p.name));
     b.appendChild(el('small', null, p.city));
     b.addEventListener('click', function () { select(p); });
     labelsEl.appendChild(b);
@@ -4715,7 +4715,7 @@ window.startMap = function (RAW, AUTH) {
     var rk = document.getElementById('c-rank');
     rk.textContent = p.banned ? 'Baneado' : p.isPres ? 'Presidente de México' : 'Puesto ' + p.rank + ' de ' + ranked.length;
     rk.className = 'rank' + (p.isPres || p.banned ? ' pres' : '');
-    document.getElementById('c-name').textContent = '@' + p.name;
+    document.getElementById('c-name').textContent = '' + p.name;
     document.getElementById('c-meta').textContent = p.city + ' · México';
     document.getElementById('c-total').textContent = fmt(p.total);
     var bar = document.getElementById('c-bar'), rows = document.getElementById('c-rows');
@@ -4839,7 +4839,7 @@ window.startMap = function (RAW, AUTH) {
     }
     districts.forEach(function (d) { if (d.name.toLowerCase().indexOf(v) > -1) { matches.push({ kind: 'd', d: d, label: d.name, sub: 'ver ciudad' }); if (GM.mode === 'exp' && d.list.length) matches.push({ kind: 'sd', d: d, label: '🤖 Enviar robot a ' + d.name, sub: 'visitar' }); } });
     players.forEach(function (p) {
-      if (matches.length < 6 && (p.name.toLowerCase().indexOf(v) > -1 || p.city.toLowerCase().indexOf(v) > -1)) matches.push({ kind: 'p', p: p, label: '@' + p.name, sub: p.city });
+      if (matches.length < 6 && (p.name.toLowerCase().indexOf(v) > -1 || p.city.toLowerCase().indexOf(v) > -1)) matches.push({ kind: 'p', p: p, label: '' + p.name, sub: p.city });
     });
     matches = matches.slice(0, 6);
     if (!matches.length) {
@@ -7235,7 +7235,7 @@ window.startMap = function (RAW, AUTH) {
     if (act) act.hidden = !(GM.mode === 'exp' && p && !p.banned);
     if (go) { go.hidden = !!here; go.textContent = (X && X.p === p && !X.arr) ? '🤖 El robot va en camino…' : '🤖 Enviar al robot'; go.disabled = !!(X && X.p === p && !X.arr); }
     if (fi) fi.hidden = !here;
-    if (bar) { bar.hidden = !X; if (X) { tx.textContent = X.arr ? '🤖 El robot está en el edificio de @' + X.p.name : '🤖 El robot va a @' + X.p.name; fb.hidden = !X.arr; } }
+    if (bar) { bar.hidden = !X; if (X) { tx.textContent = X.arr ? '🤖 El robot está en el edificio de ' + X.p.name : '🤖 El robot va a @' + X.p.name; fb.hidden = !X.arr; } }
   }
   function botSendPlayer(p) { /* el robot va al edificio de un jugador (solo Modo Explorador) */
     var b = bot, sp, dx, dz, L;
@@ -7247,7 +7247,7 @@ window.startMap = function (RAW, AUTH) {
     L = Math.hypot(sp[0] - b.x, sp[1] - b.z);
     if (L > 120 && now0() >= (b.liftCD || 0)) botStartLift(sp[0], sp[1], 'sea', null); /* lejos: lo lleva el dron */
     else if (L > 120 || !botSetGoal(sp[0], sp[1], 'patrol')) { b.xs.tp = 1; b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); } /* sin dron o sin camino: glitch */
-    window.__botSayQ = 'Voy al edificio de @' + p.name + '.';
+    window.__botSayQ = 'Voy al edificio de ' + p.name + '.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     xsRefresh(); return true;
   }
@@ -7294,7 +7294,7 @@ window.startMap = function (RAW, AUTH) {
     DUEL = { cx: (sp[0] + sp2[0]) / 2, cz: (sp[1] + sp2[1]) / 2, rt: 0, dR: null, dF: null, dodgeR: 0, dodgeF: 0, mvR: 0, rfl: 0, p: p, me: duelStats(MYP), foe: duelStats(p), ph: 'in', sp: sp, sp2: sp2, rs: rs, fg: null, tgt: null, tc: 0, tf: 0, te: 0 };
     b.xs = null; xsRefresh(); b.tour = null;
     b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
-    document.getElementById('d-mn').textContent = '@' + (MYP.name || 'tú'); document.getElementById('d-fn').textContent = '@' + p.name;
+    document.getElementById('d-mn').textContent = '' + (MYP.name || 'tú'); document.getElementById('d-fn').textContent = '' + p.name;
     document.getElementById('dbar').hidden = false; document.getElementById('d-t').textContent = '90'; stage.classList.add('duel-on'); resEl.hidden = true;
     window.__botSayQ = 'Reto aceptado. Vamos a Socorro.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
@@ -7428,24 +7428,24 @@ window.startMap = function (RAW, AUTH) {
     S = Rm * 2 + 2; cv = document.createElement('canvas'); cv.width = cv.height = 1024; c2 = cv.getContext('2d'); sc = 1024 / S;
     to = function (wx, wz) { return [512 + (wx - D.cx) * sc, 512 + (wz - D.cz) * sc]; };
     c2.fillStyle = 'rgba(2,16,14,0.62)'; c2.fillRect(0, 0, 1024, 1024);
-    c2.strokeStyle = 'rgba(70,255,200,0.9)'; c2.lineWidth = 2.2;
+    c2.strokeStyle = 'rgba(60,200,160,0.5)'; c2.lineWidth = 2;
     for (q = -Rm - 2; q <= Rm + 2; q += 3) { /* rejilla cada 3 km alineada al centro */
       px = to(D.cx + q, D.cz)[0]; py = to(D.cx, D.cz + q)[1];
       c2.beginPath(); c2.moveTo(px, 0); c2.lineTo(px, 1024); c2.moveTo(0, py); c2.lineTo(1024, py); c2.stroke();
     }
-    c2.shadowColor = 'rgba(80,255,210,1)'; c2.shadowBlur = 14; c2.strokeStyle = 'rgba(150,255,230,1)'; c2.lineWidth = 4;
+    c2.shadowColor = 'rgba(60,200,160,0.7)'; c2.shadowBlur = 8; c2.strokeStyle = 'rgba(90,210,180,0.65)'; c2.lineWidth = 3;
     px = to(D.cx, D.cz); /* círculo central con rayos */
     c2.beginPath(); c2.arc(px[0], px[1], 6.5 * sc, 0, 6.2832); c2.stroke();
     c2.beginPath(); c2.arc(px[0], px[1], 3 * sc, 0, 6.2832); c2.stroke();
     for (q = 0; q < 12; q++) { a = q * 0.5236; c2.beginPath(); c2.moveTo(px[0] + Math.cos(a) * 3 * sc, px[1] + Math.sin(a) * 3 * sc); c2.lineTo(px[0] + Math.cos(a) * 6.5 * sc, px[1] + Math.sin(a) * 6.5 * sc); c2.stroke(); }
     [[D.sp, '60,255,110'], [D.sp2, '255,60,60']].forEach(function (s) { /* puntos de salida: verde tú, rojo rival */
-      var m = to(s[0][0], s[0][1]); c2.shadowColor = 'rgba(' + s[1] + ',1)'; c2.strokeStyle = 'rgba(' + s[1] + ',1)'; c2.fillStyle = 'rgba(' + s[1] + ',0.35)'; c2.lineWidth = 5;
+      var m = to(s[0][0], s[0][1]); c2.shadowColor = 'rgba(' + s[1] + ',0.6)'; c2.strokeStyle = 'rgba(' + s[1] + ',0.6)'; c2.fillStyle = 'rgba(' + s[1] + ',0.2)'; c2.lineWidth = 4;
       c2.beginPath(); c2.arc(m[0], m[1], 2.1 * sc, 0, 6.2832); c2.fill(); c2.stroke(); c2.beginPath(); c2.arc(m[0], m[1], 1 * sc, 0, 6.2832); c2.stroke();
     });
     tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
     for (j = 0; j <= NR; j++) for (i = 0; i < N; i++) {
       a = i / N * 6.2832; r = j === 0 ? 0 : Math.max(0.1, (rr[i] - 0.4)) * j / NR; x = D.cx + Math.cos(a) * r; z = D.cz + Math.sin(a) * r;
-      pos.push(x, Math.max(0, botGround(x, z)) + 0.14, z); uv.push((x - D.cx) / S + 0.5, 1 - ((z - D.cz) / S + 0.5)); col.push(1, 1, 1);
+      pos.push(x, Math.max(0, botGround(x, z)) + 0.11, z); uv.push((x - D.cx) / S + 0.5, 1 - ((z - D.cz) / S + 0.5)); col.push(1, 1, 1);
     }
     for (j = 0; j < NR; j++) for (i = 0; i < N; i++) { var i2 = (i + 1) % N, A = j * N + i, Bq = j * N + i2, C = (j + 1) * N + i, E = (j + 1) * N + i2; idx.push(A, C, Bq, Bq, C, E); }
     geo2 = new THREE.BufferGeometry(); geo2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo2.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo2.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo2.setIndex(idx);
@@ -7456,10 +7456,10 @@ window.startMap = function (RAW, AUTH) {
   function duelFloorTick(D, dt) {
     var F = D.fl, B = D.bar, i, j, k, rn, w, v, c;
     if (!F) return;
-    F.m.material.opacity = Math.min(1, B.k * 0.95);
+    F.m.material.opacity = Math.min(1, B.k * 0.85);
     F.wave = (F.wave + dt * (D.ph === 'fight' ? 0.5 : 0.25)) % 1.4; c = F.col;
     for (j = 0; j <= F.NR; j++) {
-      rn = j / F.NR; w = Math.abs(rn - F.wave); v = 0.62 + 0.38 * Math.max(0, 1 - w / 0.14) + (D.ph === 'fight' ? 0.1 * Math.sin(performance.now() / 260) : 0); v = Math.min(1, v);
+      rn = j / F.NR; w = Math.abs(rn - F.wave); v = 0.6 + 0.25 * Math.max(0, 1 - w / 0.14) + (D.ph === 'fight' ? 0.1 * Math.sin(performance.now() / 260) : 0); v = Math.min(1, v);
       for (i = 0; i < F.N; i++) { k = (j * F.N + i) * 3; c[k] = v; c[k + 1] = v; c[k + 2] = v; }
     }
     F.m.geometry.attributes.color.needsUpdate = true;
@@ -7606,7 +7606,7 @@ window.startMap = function (RAW, AUTH) {
     if (D.ph === 'in') {
       if (!b.tpj) {
         duelSpawnFoe(); D.ph = 'intro'; D.ti = now + 3.4; D.tc = 0;
-        document.getElementById('v-me').textContent = '@' + (MYP.name || 'tú'); document.getElementById('v-foe').textContent = '@' + D.p.name; document.getElementById('dvs').hidden = false;
+        document.getElementById('v-me').textContent = '' + (MYP.name || 'tú'); document.getElementById('v-foe').textContent = '' + D.p.name; document.getElementById('dvs').hidden = false;
         DUELCAM = { r: 4, dir: -1, until: now + 3.5 };
       }
       return;
@@ -11342,7 +11342,7 @@ window.startMap = function (RAW, AUTH) {
               n1 ? L2.push('En ' + nm2 + ' hay ' + n1 + (n1 > 1 ? ' edificios apagados' : ' edificio apagado') + ' por inactividad… qué abandono.', 'Edificios apagados: ' + n1 + '. Falta que sus dueños regresen.', 'Hay luces apagadas en ' + nm2 + '. ¿Dónde andan sus jugadores?', 'Un edificio apagado se ve muy triste.') : L2.push('Todos los edificios de ' + nm2 + ' están activos. ¡Así me gusta!');
               if (n2) L2.push(n2 + (n2 > 1 ? ' ruinas' : ' ruina') + ' de baneados en ' + nm2 + '. Las trampas se pagan.', 'Esas ruinas humeantes son de baneados. Se lo buscaron.', 'Con trampa no se llega lejos… ahí están las ruinas.', 'Las ruinas de baneados dan un poco de miedo.');
               if (STATE_FACTS[nm2]) L2 = L2.concat(STATE_FACTS[nm2], STATE_FACTS[nm2]); /* datos curiosos del estado: solo el robot */
-              if (q2.list.length) { k2 = q2.list[(Math.random() * q2.list.length) | 0]; if (k2 && k2.name && !k2.banned) L2.push('Qué buen edificio el de @' + k2.name + '.'); }
+              if (q2.list.length) { k2 = q2.list[(Math.random() * q2.list.length) | 0]; if (k2 && k2.name && !k2.banned) L2.push('Qué buen edificio el de ' + k2.name + '.'); }
               if (q2.chi) L2 = ['El Castillo marca los equinoccios con la sombra de Kukulkán.', '365 escalones… y no pienso contarlos.', 'Dicen que si aplaudes al pie de la escalera, responde un quetzal.', '¡Qué pirámide tan bien conservada!', 'Los mayas ya sabían mucho de astronomía.', 'Una de las nuevas maravillas del mundo.', 'Cuatro escalinatas, 91 escalones cada una… más el templo.', 'Aquí el tiempo se cuenta distinto.', 'Ni los aliens se atreven con Kukulkán.'];
               if (nm2 === 'Ciudad de México' && !hud._quesa) { hud._quesa = true; L2 = ['¿Aquí venden quesadillas sin queso?']; } /* siempre es lo primero que comenta en la CDMX */
             } else {
