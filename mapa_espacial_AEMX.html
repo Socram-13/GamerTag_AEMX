@@ -7280,7 +7280,7 @@ window.startMap = function (RAW, AUTH) {
   function duelClear() {
     var D = DUEL; if (!D) return;
     if (D.fg && D.fg.g.parent) D.fg.g.parent.remove(D.fg.g);
-    if (bot) bot.jy = 0;
+    if (bot) { bot.jy = 0; bot.bwd = 0; }
     if (D.parts) duelDebrisClear(D);
     document.getElementById('dvs').hidden = true;
     duelFloorClear(D); duelCoverClear(D);
@@ -7347,7 +7347,7 @@ window.startMap = function (RAW, AUTH) {
     return true;
   }
   function duelMoves(D, b, F, d, ux, uz, now, dt) { /* ambos se reposicionan, esquivan con hiperimpulso y huyen con poca vida */
-    var lowR = (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax) < 0.35, lowF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax) < 0.2, sg, dx, dz, tries, ok, ang, px, pz, cdx = D.cx - b.x, cdz = D.cz - b.z;
+    var r, lowR = (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax) < 0.35, lowF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax) < 0.2, sg, dx, dz, tries, ok, ang, px, pz, cdx = D.cx - b.x, cdz = D.cz - b.z;
     /* tirones en curso */
     if (D.dR && !duelDashStep(b, D.dR, dt)) D.dR = null; else if (D.dR) { b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z); if (botFollow) { /* la cámara acompaña */ } }
     if (D.dF && (d < 2.8 || !duelDashStep(F, D.dF, dt))) D.dF = null; /* no atraviesa al robot */
@@ -7384,24 +7384,38 @@ window.startMap = function (RAW, AUTH) {
       if (ok) { D.dF = duelDashGo(F, dx, dz); F.bcd = now + 6; AUD.shot(bkMuz.set(F.x, F.y + 1, F.z)); }
       D.dodgeF = now + 5 + Math.random() * 3;
     }
-    /* robot: nunca se queda parado: si pasa ~0.3 s quieto elige otro destino (a los lados, alrededor del clon o rodeando coberturas) */
-    b.idle = 0; /* en pelea no hay pausas de descanso */
-    if (D.lx === undefined) { D.lx = b.x; D.lz = b.z; D.stR = 0; D.stN = 0; }
+    /* robot: nunca se queda parado y siempre mira al clon: elige un punto cercano (a cualquier lado, incluso de espaldas) y de vez en cuando da un salto corto */
+    b.goal = null; b.gtype = ''; b.path = null; b.idle = 0;
+    if (D.lx === undefined) { D.lx = b.x; D.lz = b.z; D.stR = 0; D.rg = null; D.hopR = now + 3; }
     if (Math.hypot(b.x - D.lx, b.z - D.lz) / Math.max(dt, 0.001) < 0.8 && !D.dR && !D.jR) D.stR += dt; else D.stR = 0;
     D.lx = b.x; D.lz = b.z;
-    if (!D.dR && !D.jR && b.mode === 'walk' && !b.tpj && (D.stR > 0.3 || (!b.goal && now >= D.mvR))) {
-      D.mvR = now + 1 + Math.random() * 1; D.stR = 0;
-      for (tries = 0, ok = false; tries < 8 && !ok; tries++) {
-        ang = Math.atan2(b.x - F.x, b.z - F.z) + (Math.random() < 0.5 ? 1 : -1) * (0.6 + Math.random() * 1.2);
-        px = F.x + Math.sin(ang) * (lowR ? 19 : 6 + Math.random() * 8); pz = F.z + Math.cos(ang) * (lowR ? 19 : 6 + Math.random() * 8);
-        ok = botFree(px, pz) && !duelEdge(px, pz) && botSetGoal(px, pz, 'patrol');
-      }
-      if (!ok) { /* sin ruta: un paso lateral inmediato */
-        sg = Math.random() < 0.5 ? 1 : -1; px = b.x - uz * sg * 4; pz = b.z + ux * sg * 4;
-        if (!botFree(px, pz) || duelEdge(px, pz)) { px = b.x + uz * sg * 4; pz = b.z - ux * sg * 4; }
-        if (botFree(px, pz)) { b.goal = { x: px, z: pz }; b.gtype = 'patrol'; b.path = null; }
+    if (!D.dR && !D.jR && b.mode === 'walk' && !b.tpj && (!D.rg || D.stR > 0.3 || now >= D.mvR || Math.hypot(D.rg.x - b.x, D.rg.z - b.z) < 1.2)) {
+      D.mvR = now + 1 + Math.random() * 1.5; D.stR = 0; D.rg = null;
+      for (tries = 0; tries < 10 && !D.rg; tries++) {
+        ang = Math.atan2(b.x - F.x, b.z - F.z) + (Math.random() - 0.5) * (lowR ? 1.2 : 4.4);
+        r = lowR ? 14 + Math.random() * 5 : 4 + Math.random() * 8;
+        px = F.x + Math.sin(ang) * r; pz = F.z + Math.cos(ang) * r;
+        if (botFree(px, pz) && !duelEdge(px, pz) && !duelCoverHit(b.x, b.z, px, pz) && Math.hypot(px - b.x, pz - b.z) > 2.5) D.rg = { x: px, z: pz };
       }
     }
+    if (!D.jR && !D.dR && b.mode === 'walk' && !b.tpj && now >= D.hopR) { /* salto corto hacia atrás o de lado, sin dejar de mirar al clon */
+      D.hopR = now + 4 + Math.random() * 3; ang = Math.atan2(b.x - F.x, b.z - F.z) + (Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1) * 1.5708) + (Math.random() - 0.5) * 0.6;
+      px = b.x + Math.sin(ang) * 6; pz = b.z + Math.cos(ang) * 6;
+      if (botFree(px, pz) && !duelEdge(px, pz) && !duelCoverHit(b.x, b.z, px, pz)) { D.jR = { sx: b.x, sz: b.z, ex: px, ez: pz, t: 0, T: 0.7 }; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+    }
+  }
+  /* Movimiento del robot en pelea: siempre de frente al clon; camina de lado o hacia atrás (la animación se invierte) */
+  function duelRobotStep(dt) {
+    var D = DUEL, b = bot, F = D.fg, h, v, nx, nz, rel, yT;
+    if (!F || b.tpj || b.mode !== 'walk') return;
+    yT = Math.atan2(F.x - b.x, F.z - b.z); b.yaw += nAng(yT - b.yaw) * Math.min(1, dt * 10); b.aimYaw = b.yaw;
+    if (D.dR || D.jR || !D.rg) { b.bwd = 0; if (!D.dR && !D.jR) b.v *= Math.max(0, 1 - dt * 8); return; }
+    h = botSteer(b, Math.atan2(D.rg.x - b.x, D.rg.z - b.z), 3.5);
+    if (h === null) { D.rg = null; b.v *= Math.max(0, 1 - dt * 8); return; }
+    rel = nAng(h - b.yaw); v = Math.abs(rel) > 1.2 ? 5 : 6.5;
+    b.v += (v - b.v) * Math.min(1, dt * 8); b.bwd = Math.abs(rel) > 2.0 ? 1 : 0;
+    nx = b.x + Math.sin(h) * b.v * dt; nz = b.z + Math.cos(h) * b.v * dt;
+    if (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz)) { b.x = nx; b.z = nz; b.y = botGround(nx, nz); } else { D.rg = null; b.v *= 0.5; }
   }
   /* Barrera holográfica verde que sigue la costa de Socorro (solo durante el duelo) */
   function duelBarrierMake(D) {
@@ -8094,7 +8108,7 @@ window.startMap = function (RAW, AUTH) {
         if (dh > BOT_HUNT_D) {
           /* si el OVNI cambió de zona (pasó de mar a tierra, etc.) y el punto de caza se movió, replanea de inmediato */
           if (b.gtype === 'hunt' && b.goal && now >= (b.hchk || 0)) { b.hchk = now + 0.4; tgt2 = botHuntPoint(U); if (!tgt2 || Math.hypot(tgt2.x - b.goal.x, tgt2.z - b.goal.z) > 40) b.replanT = 0; }
-          if (now >= b.huntHold && b.gtype !== 'roof' && b.gtype !== 'trail' && !orbOn && !(DUEL && b.gtype === 'patrol' && b.goal) && (b.gtype !== 'hunt' || now >= b.replanT)) {
+          if (now >= b.huntHold && b.gtype !== 'roof' && b.gtype !== 'trail' && !orbOn && !(DUEL && DUEL.ph === 'fight') && (b.gtype !== 'hunt' || now >= b.replanT)) {
             tgt2 = botHuntPoint(U);
             if (tgt2 && b.gtype === 'hunt' && b.goal && b.path && Math.hypot(tgt2.x - b.goal.x, tgt2.z - b.goal.z) < 18) { b.goal.x = tgt2.x; b.goal.z = tgt2.z; b.replanT = now + (dh > 200 ? 6 : 4); } /* la meta casi no cambió: conserva la ruta y el conteo de atasco */
             else if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) b.replanT = now + (dh > 200 ? 6 : 4);
@@ -8412,6 +8426,7 @@ window.startMap = function (RAW, AUTH) {
       } else if ((!b.alert && b.perchT > 3) || (b.perchT > b.maxPerch && (!thr || b.perchT > (b.tallRoof ? 70 : 25)))) { botPickDescent(b.rp); b.mode = 'jetDown'; b.jph = 0; b.tallRoof = false; }
     }
 
+    if (DUEL && DUEL.ph === 'fight') duelRobotStep(dt);
     /* Puntería: sigue al OVNI con algo de adelanto; si no hay amenaza, vigila de lado a lado */
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
@@ -8482,7 +8497,7 @@ window.startMap = function (RAW, AUTH) {
     b.hangK = (b.hangK || 0) + (((b.mode === 'lift' && b.lift && b.lift.ph >= 2) ? 1 : 0) - (b.hangK || 0)) * Math.min(1, dt * 4);
     b.gk += ((moving ? 1 : 0) - b.gk) * Math.min(1, dt * 8);
     am = Math.min(0.9, 0.45 + b.v * 0.15); /* zancada más larga y cadencia ligada a la velocidad: el pie apoyado avanza hacia atrás tan rápido como el cuerpo (sin derrapar) */
-    if (moving) b.ph += dt * Math.max(3.0, Math.min(12, 3.1416 * b.v / (1.44 * am))); kf = Math.min(1.6, 0.25 + b.v * 0.14);
+    if (moving) b.ph += dt * Math.max(3.0, Math.min(12, 3.1416 * b.v / (1.44 * am))) * (b.bwd ? -1 : 1); kf = Math.min(1.6, 0.25 + b.v * 0.14);
     for (i = 0; i < 2; i++) {
       la = -am * Math.sin(b.ph + i * Math.PI) * b.gk;
       sg = kf * Math.max(0, Math.cos(b.ph + i * Math.PI)) * b.gk;
