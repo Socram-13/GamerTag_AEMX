@@ -7852,13 +7852,13 @@ window.startMap = function (RAW, AUTH) {
         fl.material.color.setHex(b.boostT > 0 ? 0x5ad8ff : 0x6dffc2);
       } else fl.visible = false;
     }
-    if (Math.abs(b.sideK) > 0.12) { /* mini propulsores laterales: salen de la tobera de la mochila del lado contrario al giro */
+    b.eyeMat.color.setHex(b.boostT > 0 ? 0xc8ffe0 : 0x3dff7a);
+    b.g.updateMatrixWorld(true);
+    if (Math.abs(b.sideK) > 0.12) { /* (después de actualizar las matrices: sigue a la mochila sin retraso) mini propulsores laterales: salen de la tobera de la mochila del lado contrario al giro */
       var sgn = b.sideK > 0 ? 1 : -1, srx = -Math.cos(b.yaw) * sgn, srz = Math.sin(b.yaw) * sgn, sj, nzI = b.nozzles[sgn > 0 ? 0 : 1], sLen = 2 + Math.round(Math.abs(b.sideK) * 3);
       bkTmpA.set(sgn > 0 ? -0.02 : 0.02, -0.12, 0); nzI.localToWorld(bkTmpA);
       for (sj = 0; sj < sLen; sj++) fxSpawn(bkTmpA.x + srx * 0.045 * sj, bkTmpA.y, bkTmpA.z + srz * 0.045 * sj, srx * 1.1, 0, srz * 1.1, 0.08, 0.045 * (1 - sj / (sLen + 1)) + 0.012, 0.01, sj === 0 ? 0xe8ffff : 0x5ad8ff, 0.9, true);
     }
-    b.eyeMat.color.setHex(b.boostT > 0 ? 0xc8ffe0 : 0x3dff7a);
-    b.g.updateMatrixWorld(true);
     /* Llama continua: se siembran varias partículas pequeñas a lo largo del trayecto recorrido en este cuadro, para que no queden círculos separados */
     var fdx = b.x - (b.px === undefined ? b.x : b.px), fdy = b.y - (b.py === undefined ? b.y : b.py), fdz = b.z - (b.pz === undefined ? b.z : b.pz), fn, fj;
     b.px = b.x; b.py = b.y; b.pz = b.z;
