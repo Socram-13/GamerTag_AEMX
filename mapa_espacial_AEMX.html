@@ -7312,10 +7312,10 @@ window.startMap = function (RAW, AUTH) {
     return Dh.t > 0;
   }
   function duelMoves(D, b, F, d, ux, uz, now, dt) { /* ambos se reposicionan, esquivan con hiperimpulso y huyen con poca vida */
-    var lowR = (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax) < 0.35, lowF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax) < 0.35, sg, dx, dz, tries, ok, ang, px, pz, cdx = D.cx - b.x, cdz = D.cz - b.z;
+    var lowR = (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax) < 0.35, lowF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax) < 0.2, sg, dx, dz, tries, ok, ang, px, pz, cdx = D.cx - b.x, cdz = D.cz - b.z;
     /* tirones en curso */
     if (D.dR && !duelDashStep(b, D.dR, dt)) D.dR = null; else if (D.dR) { b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z); if (botFollow) { /* la cámara acompaña */ } }
-    if (D.dF && !duelDashStep(F, D.dF, dt)) D.dF = null;
+    if (D.dF && (d < 2.8 || !duelDashStep(F, D.dF, dt))) D.dF = null; /* no atraviesa al robot */
     /* robot: esquiva (o huye) con hiperimpulso cuando ya cargó */
     if (!D.dR && b.mode === 'walk' && !b.tpj && b.boostCD <= 0 && (lowR || now >= D.dodgeR)) {
       sg = Math.random() < 0.5 ? 1 : -1;
@@ -7332,12 +7332,12 @@ window.startMap = function (RAW, AUTH) {
     if (!D.dF && now >= (F.bcd || 0) && (lowF || now >= D.dodgeF)) {
       sg = Math.random() < 0.5 ? 1 : -1; ok = false;
       for (tries = 0; tries < 4 && !ok; tries++) {
-        if (lowF && tries < 2) { dx = ux * 0.5 + uz * sg * 0.5; dz = uz * 0.5 - ux * sg * 0.5; } else { dx = uz * sg; dz = -ux * sg; }
-        if (tries % 2 === 1) { dx = -dx; dz = -dz; }
+        if (lowF && tries < 2) { dx = ux * 0.5 + uz * sg * 0.5; dz = uz * 0.5 - ux * sg * 0.5; } else if (!lowF && d > 6 && tries < 2 && Math.random() < 0.7) { dx = ux; dz = uz; } else { dx = uz * sg; dz = -ux * sg; } /* normalmente embiste hacia el robot */
+        if (tries % 2 === 1 && !(!lowF && d > 6 && tries === 1)) { dx = -dx; dz = -dz; }
         px = Math.hypot(dx, dz) || 1; ok = botFree(F.x + dx / px * 9, F.z + dz / px * 9);
       }
-      if (ok) { D.dF = duelDashGo(F, dx, dz); F.bcd = now + 7; AUD.shot(bkMuz.set(F.x, F.y + 1, F.z)); }
-      D.dodgeF = now + 7 + Math.random() * 3;
+      if (ok) { D.dF = duelDashGo(F, dx, dz); F.bcd = now + 6; AUD.shot(bkMuz.set(F.x, F.y + 1, F.z)); }
+      D.dodgeF = now + 5 + Math.random() * 3;
     }
     /* robot: reposiciona cada 3-5 s (a los lados o alejándose) para no quedarse quieto; con poca vida se aleja hacia el centro */
     if (!D.dR && b.mode === 'walk' && !b.tpj && !b.goal && now >= D.mvR) {
@@ -7360,11 +7360,11 @@ window.startMap = function (RAW, AUTH) {
     }
     for (k = 0; k < 2; k++) rr = rr.map(function (v, j) { return Math.min(v, (rr[(j + N - 1) % N] + v + rr[(j + 1) % N]) / 3 + 0.5); }); /* suaviza sin salirse de la tierra */
     cv = document.createElement('canvas'); cv.width = W; cv.height = H; cx2 = cv.getContext('2d');
-    cx2.strokeStyle = 'rgba(80,255,140,0.9)'; cx2.lineWidth = 2;
+    cx2.strokeStyle = 'rgba(120,255,170,1)'; cx2.fillStyle = 'rgba(60,255,120,0.16)'; cx2.lineWidth = 4;
     for (var hy = 0; hy < 3; hy++) for (var hx = 0; hx < 3; hx++) {
       var ox = hx * 44 + (hy % 2 ? 22 : 0), oy = hy * 38 + 10; cx2.beginPath();
       for (var q = 0; q < 6; q++) { var an = q * 1.0472 + 0.5236; cx2[q ? 'lineTo' : 'moveTo'](ox + Math.cos(an) * 22, oy + Math.sin(an) * 22); }
-      cx2.closePath(); cx2.stroke();
+      cx2.closePath(); cx2.fill(); cx2.stroke();
     }
     tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(N / 3, 3);
     pos = []; uv = []; idx = [];
@@ -7374,7 +7374,7 @@ window.startMap = function (RAW, AUTH) {
       if (i < N) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
     }
     geo2 = new THREE.BufferGeometry(); geo2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo2.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo2.setIndex(idx);
-    mat = new THREE.MeshBasicMaterial({ map: tex, color: 0x66ff9a, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    mat = new THREE.MeshBasicMaterial({ map: tex, color: 0xaaffc4, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     mesh = new THREE.Mesh(geo2, mat); mesh.frustumCulled = false; noRay(mesh); scene.add(mesh);
     D.bar = { m: mesh, rr: rr, tex: tex, k: 0, flash: 0, on: true };
   }
@@ -7388,7 +7388,7 @@ window.startMap = function (RAW, AUTH) {
     var B = D.bar; if (!B) return;
     B.k += ((B.on ? 1 : 0) - B.k) * Math.min(1, dt * 2.5); B.flash = Math.max(0, B.flash - dt * 2.5);
     B.tex.offset.y -= dt * 0.18; B.tex.offset.x += dt * 0.02;
-    B.m.material.opacity = B.k * (0.28 + 0.1 * Math.sin(performance.now() / 400) + 0.45 * B.flash);
+    B.m.material.opacity = Math.min(1, B.k * (0.5 + 0.12 * Math.sin(performance.now() / 400) + 0.3 * B.flash));
     if (B.on && D.ph !== 'in') { duelClamp(D, bot); if (D.fg) duelClamp(D, D.fg); }
   }
   function duelBars() {
@@ -7418,15 +7418,17 @@ window.startMap = function (RAW, AUTH) {
     } else if (D.ph === 'fight') {
       left = 90 - (now - D.tf); document.getElementById('d-t').textContent = Math.max(0, Math.ceil(left));
       F.sideT -= dt; if (F.sideT <= 0) { F.sideT = 2 + Math.random() * 2.5; F.side = -F.side; }
-      if (now >= (F.ddT || 0)) { F.ddT = now + 3 + Math.random() * 2; F.dd = 7 + Math.random() * 6; }
-      var lowF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax) < 0.35;
-      spd = lowF ? (d < 19 ? -3.6 : 0) : (d > F.dd + 2 ? 4.2 : d < F.dd - 2 ? -3 : 0);
+      if (now >= (F.ddT || 0)) { F.ddT = now + 3 + Math.random() * 2; F.dd = 5 + Math.random() * 4; }
+      var lowF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax) < 0.2;
+      if (now >= (F.rkT || 0)) { F.rkT = now + 3 + Math.random() * 2; F.rk = Math.random() < 0.4 ? now + 2.5 : 0; } /* a veces se lanza de frente sin pensarlo */
+      spd = lowF ? (d < 19 ? -3.6 : 0) : (now < (F.rk || 0) ? (d > 3 ? 5.4 : 0) : (d > F.dd + 1.5 ? 5.2 : d < F.dd - 2.5 ? -2 : 0));
       var edge = duelEdge(F.x, F.z), cdx = D.cx - F.x, cdz = D.cz - F.z, cdd = Math.hypot(cdx, cdz) || 1, mx, mz2, cands, ci, moved = false;
       mx = ux * spd + -uz * F.side * 2.2; mz2 = uz * spd + ux * F.side * 2.2;
       if (edge) { mx += cdx / cdd * 2.6; mz2 += cdz / cdd * 2.6; if (spd < 0 && !lowF) { mx -= ux * spd; mz2 -= uz * spd; } } /* cerca de la orilla: no retrocede y se desliza hacia el centro */
       cands = [[mx, mz2], [-uz * F.side * 2.4, ux * F.side * 2.4], [ux * 3, uz * 3], [cdx / cdd * 3, cdz / cdd * 3], [uz * F.side * 2.4, -ux * F.side * 2.4]];
       for (ci = 0; ci < cands.length && !moved; ci++) { nx = F.x + cands[ci][0] * dt; nz = F.z + cands[ci][1] * dt; if (botFree(nx, nz)) { F.x = nx; F.z = nz; moved = true; if (ci > 0) { spd = 2.4; if (ci === 1) F.side = -F.side * -1; } } }
       if (!moved) F.side = -F.side;
+      if (d < 2.2 && botFree(F.x - ux * (2.2 - d), F.z - uz * (2.2 - d))) { F.x -= ux * (2.2 - d); F.z -= uz * (2.2 - d); } /* separación mínima */
       /* el robot: si lleva más de 2 s casi quieto junto a la orilla, vuelve hacia el centro */
       if (duelEdge(b.x, b.z) && b.v < 0.6 && b.mode === 'walk') { D.rt += dt; if (D.rt > 2 && !b.tpj) { D.rt = 0; var cs = botFreeSpot(D.cx - 4, D.cz); if (cs) botSetGoal(cs[0], cs[1], 'patrol'); } } else D.rt = 0;
       duelMoves(D, b, F, d, ux, uz, now, dt);
