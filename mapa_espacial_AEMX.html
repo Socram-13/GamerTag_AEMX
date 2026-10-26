@@ -7601,7 +7601,8 @@ window.startMap = function (RAW, AUTH) {
           }
           /* Ruta de calles (mapa fino): si el tramo hasta el siguiente punto está libre con el mismo margen con que se planeó, lo sigue directo sin dudar */
           var airFly = (b.bh || 0) > 2 && (b.boostT > 0 || (b.glr || 0) > 0); /* en vuelo (impulso o planeo) sobrevuela montañas, árboles y desniveles */
-          if (airFly) { hd = want; b.blockD = 99; }
+          if (b.boostT <= 0 && (b.bh || 0) > 0.15 && b.v > 6) { hd = b.yaw; b.blockD = 99; } /* planeando o cayendo tras el impulso: rumbo recto, sin rodear la meta (evita la espiral) */
+          else if (airFly) { hd = want; b.blockD = 99; }
           else if (b.path && b.path[b.pi] && dw < 40 && botLineFree(b.x, b.z, tw.x, tw.z, 0.3, true)) { hd = want; b.blockD = 99; }
           else if (now < (b.fineT || 0)) { hd = want; b.blockD = 99; } /* tras detectar vueltas: sigue la ruta fina sin esquivador local */
           else hd = botSteer(b, want, b.path && b.path[b.pi] && b.path[b.pi][2] ? Math.min(3 + b.v * 0.8, Math.max(1.3, dw + 0.3)) : 3 + b.v * 0.8);
@@ -7670,7 +7671,7 @@ window.startMap = function (RAW, AUTH) {
       }
       if (b.boostT <= 0 && (b.glr || 0) > 0 && (b.bh || 0) > 0) {
         b.glr -= b.v * dt;
-        if (b.wxBad || !b.goal || ((b.bh || 0) < 12 && botCityDist(b.x + Math.sin(b.yaw) * 12, b.z + Math.cos(b.yaw) * 12) < 8) || !botLandAhead(b.x, b.z, b.yaw, 24)) b.glr = 0;
+        if (b.wxBad || !b.goal || Math.hypot(b.goal.x - b.x, b.goal.z - b.z) < 15 || ((b.bh || 0) < 12 && botCityDist(b.x + Math.sin(b.yaw) * 12, b.z + Math.cos(b.yaw) * 12) < 8) || !botLandAhead(b.x, b.z, b.yaw, 24)) b.glr = 0;
         if (b.glr > 0) { var gu = 1 - b.glr / b.glr0, bhO = b.bh; b.bh = Math.max(0.05, b.bh0 * (1 - Math.pow(gu, 4))); b.bvy = 0; if (b.flew && (b.bh - bhO) / Math.max(dt, 0.001) < -6) b.ball = true; /* planea extendido y se encoge solo en la picada final */ } else { b.glr0 = 0; }
       } else if (b.boostT <= 0 && !(b.glr > 0)) { b.glr0 = 0; if ((b.bh || 0) <= 0) b.bdist = 0; }
       if (b.boostT > 0) { }
