@@ -8364,6 +8364,19 @@ window.startMap = function (RAW, AUTH) {
       i = (Math.random() * trails.length) | 0; A.path = edgePath(i, trails[i].b); A.last = i; A.s = Math.random() * A.path.len * 0.5; A.next = null;
     }
     A.hfMv = false; hfStep(A, dt); if (A.hfMv) moving = true; /* caminando hacia el robot: anima las piernas */
+    /* vigilante de atoros: tope de tiempo por modo y detector de progreso; si se pasa, salta con glitch (a la ciudad más cercana o junto al sitio) */
+    if (A.mode === 'back' || A.mode === 'join' || A.mode === 'go') {
+      if (A.wdM !== A.mode) { A.wdM = A.mode; A.wdT = 0; A.wdBest = 1e9; A.wdPT = 0; }
+      A.wdT += dt;
+      G = (A.wp && A.wp.length) ? A.wp[A.wp.length - 1] : null;
+      if (G) { dd = Math.hypot(G[0] - A.x, G[1] - A.z); if (dd < A.wdBest - 3) { A.wdBest = dd; A.wdPT = 0; } else A.wdPT += dt; }
+      if (A.wdT > (A.mode === 'go' ? 120 : 25) || A.wdPT > 8) {
+        A.wdM = null; G = null;
+        if (A.mode === 'go' && A.ev) { G = auraFreeNear(A.ev.x + 12, A.ev.z + 12); if (G) { A.wp = null; auraJump(A, G[0], G[1], 'go'); return; } }
+        c = A.bc || auraCityNear(A.x, A.z); G = c ? auraFreeNear(c.cx, c.cz) : null;
+        if (G) { A.bc = c; A.ev = null; A.wp = null; A.jmp = null; auraJump(A, G[0], G[1], 'back'); A.bc = c; A.mode = 'jump'; return; }
+      }
+    } else A.wdM = null;
     a = A; A.hOn = false; A.hyT = A.mode === 'trail' ? 0.1 * Math.sin(t * 0.6) : 0; A.hxT = 0.02;
     if (A.mode === 'trail') {
       A.s += 0.8 * dt; path = A.path; moving = true;
