@@ -7199,7 +7199,8 @@ window.startMap = function (RAW, AUTH) {
       if (!trails.length || !roots.length || (!landAt && now < 30)) return;
       botInit(); b = bot;
     }
-    var AT = (typeof ALN !== 'undefined' && ALN) ? ALN.pick(b.x, b.z, now) : null; /* invasión alienígena: tiene prioridad sobre el OVNI */
+    var HFL = !!(HFW || HF); /* secuencia del choque: bloquea el resto de sus tareas hasta terminar */
+    var AT = (typeof ALN !== 'undefined' && ALN && !HFL) ? ALN.pick(b.x, b.z, now) : null; /* invasión alienígena: tiene prioridad sobre el OVNI */
     b.alienT = !!AT;
     var invIn = !!(typeof ALN !== 'undefined' && ALN && ALN.state && (function (S) { return S && statePolys[S.name] && botInRings(statePolys[S.name], b.x, b.z); })(ALN.state())); /* dentro del estado invadido: la niebla no lo limita */
     var MR = (AT && typeof ALN !== 'undefined' && ALN && ALN.rock) ? ALN.rock() : null, orbOn = !!(MR && Math.hypot(MR.x - b.x, MR.z - b.z) < 45); /* MR: meteorito (sin aliens vivos); orbOn: ya cerca, lo rodea disparando */
@@ -7210,7 +7211,7 @@ window.startMap = function (RAW, AUTH) {
     } else b.hasUp = false;
     thr = !!U && now >= b.noHunt;
     (function () { /* encuentro con el alien disfrazado: se acerca, lo mira y charlan (él solo murmura) */
-      var Dd = (typeof ALN !== 'undefined' && ALN && ALN.dis) ? ALN.dis() : null, free = ufoDown() && !U && !(typeof ALN !== 'undefined' && ALN.state && ALN.state()), dist, SCR, tt, ln;
+      var Dd = (typeof ALN !== 'undefined' && ALN && ALN.dis) ? ALN.dis() : null, free = !HFL && ufoDown() && !U && !(typeof ALN !== 'undefined' && ALN.state && ALN.state()), dist, SCR, tt, ln;
       if (!Dd || Dd.k < 0.5 || !free) { if (b.disTalk || b.disMeet) { b.disTalk = 0; b.disMeet = 0; b.disForce = 0; b.disCD = now + 90; } return; }
       dist = Math.hypot(Dd.x - b.x, Dd.z - b.z);
       if (b.disTalk) {
@@ -7233,7 +7234,7 @@ window.startMap = function (RAW, AUTH) {
     })();
     /* OVNI derribado cayendo: no lo pierde de vista, se queda quieto mirándolo hasta que choca */
     b.trk = null;
-    if (ufo && ufo.state === 'crash' && !thr && (b.mode === 'walk' || b.mode === 'perch') && Math.hypot(ufo.g.position.x - b.x, ufo.g.position.z - b.z) < 450) b.trk = ufo.g.position;
+    if (!HFL && ufo && ufo.state === 'crash' && !thr && (b.mode === 'walk' || b.mode === 'perch') && Math.hypot(ufo.g.position.x - b.x, ufo.g.position.z - b.z) < 450) b.trk = ufo.g.position;
     if (b.trk && b.mode === 'walk') { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; b.v *= Math.max(0, 1 - dt * 5); }
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
     b.alert = thr && d3 <= botRng() + 25;
@@ -7259,11 +7260,11 @@ window.startMap = function (RAW, AUTH) {
 
     /* Restos del OVNI: va a revisarlos (sobre todo si él lo derribó) y se detiene fuera del cráter */
     if (b.circ) { b.circT = (b.circT || 0) + dt; if (b.circT > 22 && ufo) { ufo.done = true; b.circ = false; b.circT = 0; } } else b.circT = 0; /* rondar el cráter dura como máximo ~22 s */
-    var wOn0 = !!ufo && !ufo.done && !ufo.gone && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck'), wOn, wx, wz, wd, wa, wk2, wr, ck;
+    var wOn0 = !HFL && !!ufo && !ufo.done && !ufo.gone && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck'), wOn, wx, wz, wd, wa, wk2, wr, ck;
     if (wOn0 && ufo.state !== 'crash' && !b.wk) b.wk = { x: ufo.x, z: ufo.z };
     /* el cráter sigue ahí un rato aunque los restos ya hayan desaparecido: se queda patrullándolo hasta que se borre */
     if (b.wk && !b.wkC) for (ck = 0; ck < craters.length; ck++) if (craters[ck].on && Math.hypot(craters[ck].x - b.wk.x, craters[ck].z - b.wk.z) < 2) b.wkC = craters[ck];
-    wOn = wOn0 || !!(b.wk && b.wkC && b.wkC.on && !(ufo && (ufo.done || ufo.gone)));
+    wOn = wOn0 || !HFL && !!(b.wk && b.wkC && b.wkC.on && !(ufo && (ufo.done || ufo.gone)));
     if (!wOn) { if (b.scan || b.circ) { b.scan = false; b.idle = 1; } b.circ = false; b.wk = null; b.wkC = null; if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; } }
     if (thr) { b.circ = false; if (!wOn0) { b.wk = null; b.wkC = null; } }
     if (b.wk && b.mode === 'perch') b.maxPerch = Math.min(b.maxPerch, b.perchT);
@@ -7308,7 +7309,7 @@ window.startMap = function (RAW, AUTH) {
       } else if (b.gtype === 'hunt' || b.gtype === 'flank' || b.gtype === 'orbit') { b.goal = null; b.gtype = ''; b.path = null; }
       /* el OVNI ya no está en esta ciudad: cancela el plan de subir a un edificio y sigue al enemigo */
       if (thr && !b.sameCity && b.gtype === 'roof') { b.goal = null; b.gtype = ''; b.path = null; b.tallRoof = false; b.hopGoal = null; b.huntHold = 0; b.replanT = 0; }
-      if (!b.goal && !thr && !b.scan && !b.circ) { b.idle -= dt; if (b.idle <= 0) botPick(); }
+      if (!b.goal && !thr && !b.scan && !b.circ && !HFL) { b.idle -= dt; if (b.idle <= 0) botPick(); }
       /* Enemigo cerca y está en la ciudad: busca la azotea más alta para francotirador (más rango) */
       if (thr && b.sameCity && !b.alienT && dh <= 110 && b.gtype !== 'roof' && now >= (b.tallCD || 0) && botCityDist(b.x, b.z) < 12) { b.tallCD = now + 6; if (botPickRoof(60, null, true)) b.tallRoof = true; }
       /* El OVNI vuela alto y está cerca: sube a una azotea para tener mejor ángulo */
@@ -8298,21 +8299,21 @@ window.startMap = function (RAW, AUTH) {
     }
     /* hit: se detienen de frente, levantan la mano y chocan */
     HF.wt = (HF.wt || 0) + dt; if (HF.wt > 30) { hfEnd(A); return; }
-    if (d <= 1.6 || HF.wt > 6) HF.ht += dt; /* la cuenta del choque empieza al quedar frente a frente */
+    if (d <= 1.0 || HF.wt > 6) HF.ht += dt; /* la cuenta del choque empieza al quedar frente a frente */
     b.hfOn = true; b.goal = null; b.gtype = ''; b.path = null; b.idle = 3; b.v *= Math.max(0, 1 - dt * 6);
     ang = Math.atan2(A.x - b.x, A.z - b.z); b.aimYaw = ang; if (Math.abs(nAng(ang - b.yaw)) > 0.35) b.yaw = ang; else b.yaw += nAng(ang - b.yaw) * Math.min(1, dt * 6);
     A.yaw += nAng(ang + Math.PI - A.yaw) * Math.min(1, dt * 6);
-    if (d > 1.2) { /* se acercan: si el robot no puede avanzar (cráter, edificios), AURA recorre todo el tramo */
-      var sp2 = Math.min(0.8 * dt, (d - 1.2) / 2), ux = (b.x - A.x) / d, uz = (b.z - A.z) / d, nx2, nz2, rOk = false;
+    if (d > 0.7) { /* se acercan: si el robot no puede avanzar (cráter, edificios), AURA recorre todo el tramo */
+      var sp2 = Math.min(0.8 * dt, (d - 0.7) / 2), ux = (b.x - A.x) / d, uz = (b.z - A.z) / d, nx2, nz2, rOk = false;
       nx2 = b.x - ux * sp2; nz2 = b.z - uz * sp2; if (botFree(nx2, nz2) && !botCrater(nx2, nz2)) { b.x = nx2; b.z = nz2; rOk = true; }
-      if (!rOk) sp2 = Math.min(1.2 * dt, d - 1.2);
+      if (!rOk) sp2 = Math.min(1.2 * dt, d - 0.7);
       nx2 = A.x + ux * sp2; nz2 = A.z + uz * sp2; if (botFree(nx2, nz2) && !botCrater(nx2, nz2)) { A.x = nx2; A.z = nz2; }
-    } else if (d < 1.0 && d > 0.001) { /* separación mínima */
-      var ux2 = (b.x - A.x) / d, uz2 = (b.z - A.z) / d, ps = Math.min(0.6 * dt, (1.0 - d) / 2);
+    } else if (d < 0.6 && d > 0.001) { /* separación mínima */
+      var ux2 = (b.x - A.x) / d, uz2 = (b.z - A.z) / d, ps = Math.min(0.6 * dt, (0.6 - d) / 2);
       A.x -= ux2 * ps; A.z -= uz2 * ps; b.x += ux2 * ps; b.z += uz2 * ps;
     }
     HF.sw = HF.ht < 0.35 ? 1 : HF.ht > 1.7 ? 0 : 0.5 - 0.5 * Math.cos(6.2832 * (HF.ht - 0.8) / 0.9); /* vaivén del brazo: 1 = atrás, 0 = contacto (choques a 0.8 s y 1.7 s) */
-    if ((HF.ht >= 0.8 && !HF.c) || (HF.ht >= 1.7 && HF.c === 1)) { HF.c = (HF.c || 0) + 1; mx = (A.x + b.x) / 2; mz = (A.z + b.z) / 2; AUD.clap({ x: mx, y: A.y + 0.5, z: mz }); fxSpawn(mx, A.y + 0.55, mz, 0, 0, 0, 0.35, 0.8, 4, 0xffffff, 0.9, true); }
+    if ((HF.ht >= 0.8 && !HF.c) || (HF.ht >= 1.7 && HF.c === 1)) { HF.c = (HF.c || 0) + 1; mx = (A.x + b.x) / 2; mz = (A.z + b.z) / 2; AUD.clap({ x: mx, y: A.y + 0.5, z: mz }); }
     if (HF.ht >= 3.0) hfEnd(A);
   }
   function auraJump(A, x, z, mode) { /* desaparece con destello y reaparece en (x,z) */
@@ -8393,7 +8394,7 @@ window.startMap = function (RAW, AUTH) {
       u = terrainH(A.x, A.z); gy = Math.max(0, u) + 0.06; u = 0.012 + u + Math.min(0.08, u * 0.8) + 0.04; if (u > gy) gy = u; A.y = gy;
       /* ¿hay algo que investigar? */
       A.evCD -= dt;
-      if (A.evCD <= 0 && BN) {
+      if (A.evCD <= 0 && BN && !HF && !HFW) {
         A.evCD = 2; e = auraEvent();
         if (e && !auraDone[e.key] && e.left >= 30) {
           dd = Math.hypot(e.x - A.x, e.z - A.z);
