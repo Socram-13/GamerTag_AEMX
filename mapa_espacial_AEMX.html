@@ -220,6 +220,13 @@
   @keyframes gtGl2 { 0%, 82%, 100% { transform: translate(3px, 0); } 85% { transform: translate(9px, 1px); } 92% { transform: translate(-4px, 0); } }
   #gate .gt-load { width: 100%; }
   #gate .gt-load[hidden] { display: none; }
+  #gate .gt-modes { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; width: 100%; margin: 6px 0 0; }
+  #gate .gt-modes[hidden] { display: none; }
+  #gate .gt-modes button { height: auto; min-width: 190px; padding: 12px 22px 11px; border-radius: 6px 18px 6px 18px; border: 1px solid #ffe44d; background: rgba(16,9,30,0.84); color: #ffe44d; text-align: center; transition: transform 0.15s, box-shadow 0.15s; }
+  #gate .gt-modes button.inv { background: #d9232f; box-shadow: 0 0 16px rgba(217,35,47,0.55); }
+  #gate .gt-modes button:hover { transform: translateY(-2px); box-shadow: 0 0 18px rgba(255,228,77,0.5); }
+  #gate .gt-modes b { display: block; font: 800 16px 'GtOxa', var(--f-body), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; }
+  #gate .gt-modes small { display: block; margin-top: 3px; font: 600 12px var(--f-body); color: var(--ink); opacity: 0.85; }
   #gate .gt-bar { height: 14px; border-radius: 99px; border: 1px solid #ffe44d; background: rgba(255,228,77,0.08); overflow: hidden; box-shadow: 0 0 14px rgba(255,228,77,0.25); }
   #gate .gt-fill { height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, #d9232f, #ff9a1f 45%, #ffe44d); box-shadow: 0 0 12px #ffcf2a; transition: width 0.25s linear; }
   #gate .gt-log { list-style: none; margin: 14px 0 0; padding: 0; height: 66px; overflow: hidden; text-align: center; font: 700 13px 'GtOxa', var(--f-body), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -245,7 +252,7 @@
     #gate .gt-fig.al { grid-column: 3; grid-row: 1; justify-self: start; }
     #gate .gt-met { grid-column: 2; grid-row: 1; height: 100px; margin: 0 0 20px; align-self: center; }
     #gate h1.gt-title { grid-column: 1 / -1; grid-row: 2; margin: 6px 0 0; }
-    #gate .gt-load { grid-column: 1 / -1; grid-row: 3; }
+    #gate .gt-load, #gate .gt-modes { grid-column: 1 / -1; grid-row: 3; }
     #gate #gate-msg, #gate #gate-btn, #gate #gate-err { grid-column: 1 / -1; grid-row: auto; }
   }
   @media (prefers-reduced-motion: reduce) { #gate .gt-fig, #gate .gt-met, #gate .gt-boom, #gate .gt-flash, #gate h1.gt-title::before, #gate h1.gt-title::after, #gate .gt-petals i { animation: none; } }
@@ -321,6 +328,10 @@
         <ul class="gt-log" id="gt-log"></ul>
       </div>
       <p id="gate-msg">Inicia sesión con Google para ver a los jugadores en el mapa.</p>
+      <div class="gt-modes" id="gt-modes" hidden>
+        <button type="button" id="gm-inv" class="inv"><b>Modo Invasión</b><small>Caza OVNIs e invasores</small></button>
+        <button type="button" id="gm-exp"><b>Modo Explorador</b><small>Paz permanente · viaja y reta</small></button>
+      </div>
       <button type="button" id="gate-btn">Iniciar con Google</button>
       <p id="gate-err" hidden></p>
     </div>
@@ -4627,6 +4638,7 @@ window.startMap = function (RAW, AUTH) {
     /* carga inicial en el edificio del usuario (si tiene); si no, panorama del país */
     var au = AUTH || window.__aemxUser || (window.__aemxAuth && window.__aemxAuth.currentUser), mp = null, q;
     if (au && au.uid) { for (q = 0; q < players.length; q++) { if (players[q].uid === au.uid) { mp = players[q]; break; } } }
+    MYP = mp;
     if (mp && isFinite(mp.x) && isFinite(mp.z)) {
       var md = mp.tier === 5 ? 42 : 28, mty = (mp.topY || 10) * 0.35;
       controls.target.set(mp.x, mty, mp.z);
@@ -4799,7 +4811,7 @@ window.startMap = function (RAW, AUTH) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'fps') { q.value = ''; resEl.hidden = true; matches = []; window.__fpsOn = !window.__fpsOn; var fe = document.getElementById('fpsBox'); if (fe) fe.style.display = window.__fpsOn ? 'block' : 'none'; return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'socorro') { q.value = ''; resEl.hidden = true; matches = []; botCallIsland(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'aldea') { q.value = ''; resEl.hidden = true; matches = []; botCallVillage(); auraVilCall(); return; }
-    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (typeof ALN !== 'undefined') ALN.startHere(); return; }
+    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'inv') { window.__botSayQ = 'La invasión solo existe en el Modo Invasión.'; return; } if (typeof ALN !== 'undefined') ALN.startHere(); return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
   });
 
@@ -4878,7 +4890,8 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- OVNI que patrulla fuera de las ciudades y secuestra vacas ---------- */
   var ufoPrev = null; /* posición anterior del OVNI para que la cámara lo siga sin retraso a toda velocidad */
-  var ufoHold = 0; /* premio de la invasión: el OVNI no reaparece antes de este instante (reloj de la escena) */
+  var ufoHold = 1e12; /* el OVNI no reaparece antes de este instante (reloj de la escena): al cargar espera a que se elija el modo */
+  var GM = { mode: null, go: 1e12, rel: false }, MYP; /* modo de juego ('inv' invasión / 'exp' explorador), instante en que el robot empieza a actuar y edificio del usuario */
   var cowSpots = [], cows = [], cowRespawn = [], ufo = null, COWS_MAX = 10, UFO_CRUISE = 12, UFO_LOW = 8, UFO_SPEED = 20, ufoFollow = false, ufoOff = new THREE.Vector3(), carFollow = false, turretCam = false, carOff = new THREE.Vector3(), tcP = new THREE.Vector3(), tcT = new THREE.Vector3();
   var cowWhite = new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }), cowBlack = new THREE.MeshLambertMaterial({ color: 0x1b1b1f });
   var cowPink = new THREE.MeshLambertMaterial({ color: 0xe9a3a8 }), cowHorn = new THREE.MeshLambertMaterial({ color: 0xe8dcb0 });
@@ -7304,6 +7317,10 @@ window.startMap = function (RAW, AUTH) {
     }
     b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = Math.random() * 6.2832; b.aimYaw = b.yaw; b.aimPitch = 0.05; b.v = 0; b.vy = 0;
     b.mode = 'walk'; b.goal = null; b.gtype = ''; b.idle = 0; b.side = 1; b.ph = 0; b.gk = 0; b.air = 0; b.flame = 0; b.boostT = 0; b.boostCD = BOT_BOOST_CD; b.jog = false; b.roofCD = 0; b.kneel = 0; b.hold = 0; b.runK = 0; b.flyK = 0; b.path = null; b.pi = 0; b.replanT = 0; b.huntHold = 0;
+    if (MYP && isFinite(MYP.x) && isFinite(MYP.z)) { /* nace de pie frente al edificio del usuario, mirando a la cámara */
+      var fs0 = botFreeSpot(MYP.x, MYP.z + 9);
+      if (fs0) { b.x = fs0[0]; b.z = fs0[1]; b.y = botGround(b.x, b.z); b.yaw = Math.atan2(camera.position.x - b.x, camera.position.z - b.z); b.aimYaw = b.yaw; }
+    }
     b.stuck = 0; b.pt = 0; b.lastGD = 1e9; b.noHunt = 0; b.fireT = 0; b.burst = 0; b.los = true; b.losT = 0; b.losBlock = 0; b.fxT = 0; b.dustT = 0;
     b.spot = new THREE.Mesh(new THREE.CircleGeometry(3.4, 28), new THREE.MeshBasicMaterial({ color: 0x44ff88, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); b.spot.rotation.x = -Math.PI / 2; b.spot.visible = false; b.spot.renderOrder = 3; noRay(b.spot); scene.add(b.spot);
     b.scQs = new THREE.Quaternion(); b.scQe = new THREE.Quaternion(); b.scan = false; b.scanK = 0; b.scanT = 0; b.wk = null; b.wkT = 0; b.hitT = -99; b.wkFx = 0;
@@ -7359,6 +7376,8 @@ window.startMap = function (RAW, AUTH) {
       if (!trails.length || !roots.length || (!landAt && now < 30)) return;
       botInit(); b = bot;
     }
+    if (GM.mode && !GM.rel && now >= GM.go) { GM.rel = true; if (GM.mode === 'inv') ufoHold = 0; } /* tras la espera, en Modo Invasión vuelven los OVNIs */
+    if (!GM.mode || now < GM.go) { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.v = 0; b.boostT = 0; b.hopGoal = null; b.fogT = 0; } /* de pie frente al edificio hasta que empiece */
     if (b.tpj) { /* teletransporte: desaparece con destello y reaparece en el destino */
       var Tp = b.tpj, tk, tdx, tdz;
       Tp.t += dt; b.v = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0; b.hopGoal = null;
@@ -10459,7 +10478,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { entered: function () { return inv && inv.entered && !inv.end ? inv : null; }, cowAt: function (x, z) { var i, c, d, bd = 1e9, r = null; if (!inv || !inv.cows) return null; for (i = 0; i < inv.cows.length; i++) { c = inv.cows[i].g.position; d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; r = { x: c.x, z: c.z }; } } return r; }, peace: function () { return (peaceOn && !inv) ? Math.max(0, nextAt - clock.elapsedTime) : 0; }, startHere: function () { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { entered: function () { return inv && inv.entered && !inv.end ? inv : null; }, cowAt: function (x, z) { var i, c, d, bd = 1e9, r = null; if (!inv || !inv.cows) return null; for (i = 0; i < inv.cows.length; i++) { c = inv.cows[i].g.position; d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; r = { x: c.x, z: c.z }; } } return r; }, peace: function () { return (peaceOn && !inv) ? Math.max(0, nextAt - clock.elapsedTime) : 0; }, startHere: function () { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, hold: function () { nextAt = 1e12; }, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
 
@@ -10823,6 +10842,9 @@ window.startMap = function (RAW, AUTH) {
       if (nw - window.__fpsT > 500) { window.__fpsV = Math.round(window.__fpsN * 1000 / (nw - window.__fpsT)); window.__fpsN = 0; window.__fpsT = nw; fb.textContent = window.__fpsV + ' fps\nllamadas ' + renderer.info.render.calls + '\ntriángulos ' + renderer.info.render.triangles + '\nveg ' + (window.__vegStats ? window.__vegStats.shown + ' bloques / ' + window.__vegStats.inst + ' inst' : '-') + '\naltura ' + Math.round(camera.position.y) + (window.__lowCam ? ' (baja)' : ''); }
     }
   }
+  if (typeof ALN !== 'undefined' && ALN.hold) ALN.hold(); /* ninguna invasión empieza hasta que haya OVNI (solo en Modo Invasión) */
+  window.__aemxMode = function (m) { if (GM.mode || (m !== 'inv' && m !== 'exp')) return; GM.mode = m; GM.go = clock.elapsedTime + 6; window.__gmode = m; }; /* lo llama la pantalla de carga: el robot espera ~6 s (incluye el desvanecido) */
+  if (window.__aemxPendingMode) window.__aemxMode(window.__aemxPendingMode);
   frame();
 };
 </script>
@@ -10854,7 +10876,12 @@ const gtLog = document.getElementById('gt-log');
 const gtTasks = [[0.06, 'Cargando parcelas'], [0.18, 'Construyendo edificios'], [0.30, 'Calibrando servos'], [0.42, 'Cargando aliens'], [0.54, 'Abduciendo vacas'], [0.64, 'Encendiendo la niebla'], [0.74, 'Despertando fantasmas'], [0.84, 'Afilando láseres'], [0.93, 'Alineando el meteoro'], [0.995, 'Mapa listo']];
 function gtPush(t) { const li = document.createElement('li'); li.textContent = t; li.className = 'new'; gtLog.insertBefore(li, gtLog.firstChild); while (gtLog.children.length > 4) gtLog.removeChild(gtLog.lastChild); }
 const gtFmt = (n) => n.toLocaleString('es-MX');
-let gtOut = false;
+let gtOut = false, gtModeShown = false;
+const gtModes = document.getElementById('gt-modes');
+function gtAskMode() { if (gtModeShown || gtOut) return; gtModeShown = true; cancelAnimationFrame(gtRaf); gtRaf = 0; gtLoad.hidden = true; msg.textContent = 'Elige tu modo'; msg.hidden = false; gtModes.hidden = false; }
+function gtPick(m) { if (gtOut) return; if (window.__aemxMode) window.__aemxMode(m); else window.__aemxPendingMode = m; gtModes.hidden = true; gtHide(); }
+document.getElementById('gm-inv').addEventListener('click', () => gtPick('inv'));
+document.getElementById('gm-exp').addEventListener('click', () => gtPick('exp'));
 function gtHide() { if (gtOut || gate.hidden) return; gtOut = true; gate.classList.add('out'); setTimeout(() => { gate.hidden = true; }, 950); }
 function gtShow() { gtLoad.hidden = false; msg.hidden = true; }
 function gtTick(now) { /* avanza por tiempo hasta ~90 %; al terminar el mapa se completa */
@@ -10865,7 +10892,7 @@ function gtTick(now) { /* avanza por tiempo hasta ~90 %; al terminar el mapa se 
   gtFill.style.width = (gtP * 100).toFixed(1) + '%';
   while (gtI < gtTasks.length && gtP >= gtTasks[gtI][0]) gtPush(gtTasks[gtI++][1]);
   gtCnt.textContent = gtTot > 0 ? gtFmt(Math.round(gtTot * gtP)) + ' / ' + gtFmt(gtTot) + ' parcelas' : 'Cargando el mapa…';
-  if (gtDone && gtP >= 1) { gtHide(); return; }
+  if (gtDone && gtP >= 1) { gtAskMode(); return; }
   gtRaf = requestAnimationFrame(gtTick);
 }
 
@@ -10878,9 +10905,9 @@ btn.addEventListener('click', async () => {
 });
 
 onAuthStateChanged(auth, async (user) => {
-  if (!user) { gtOut = false; gate.classList.remove('out'); gate.hidden = false; btn.hidden = false; msg.hidden = false; gtLoad.hidden = true; msg.textContent = 'Inicia sesión con Google para ver a los jugadores en el mapa.'; return; }
+  if (!user) { gtOut = false; gtModeShown = false; gtModes.hidden = true; gate.classList.remove('out'); gate.hidden = false; btn.hidden = false; msg.hidden = false; gtLoad.hidden = true; msg.textContent = 'Inicia sesión con Google para ver a los jugadores en el mapa.'; return; }
   if (started) return;
-  btn.hidden = true; msg.textContent = 'Cargando jugadores…'; gtShow(); cancelAnimationFrame(gtRaf); gtDone = false; gtT0 = 0; gtP = 0; gtI = 0; gtLog.innerHTML = ''; gtRaf = requestAnimationFrame(gtTick);
+  btn.hidden = true; gtModeShown = false; gtModes.hidden = true; msg.textContent = 'Cargando jugadores…'; gtShow(); cancelAnimationFrame(gtRaf); gtDone = false; gtT0 = 0; gtP = 0; gtI = 0; gtLog.innerHTML = ''; gtRaf = requestAnimationFrame(gtTick);
   try {
     const snap = await get(ref(db, 'users'));
     started = true;
@@ -10888,7 +10915,7 @@ onAuthStateChanged(auth, async (user) => {
     msg.textContent = 'Cargando mapa…';
     /* El mapa avisa cuando terminó de cargar; el temporizador evita que el panel se quede atorado */
     window.__aemxHideGate = () => { requestAnimationFrame(() => requestAnimationFrame(() => { gtDone = true; if (!gtRaf) gtRaf = requestAnimationFrame(gtTick); })); };
-    setTimeout(() => { gtHide(); }, 25000);
+    setTimeout(() => { gtAskMode(); }, 25000);
     await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
     window.__aemxUser = user;
     window.startMap(snap.val() || {}, user);
