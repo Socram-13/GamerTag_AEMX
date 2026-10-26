@@ -9584,13 +9584,28 @@ window.startMap = function (RAW, AUTH) {
     function okSpawn(x, z) { return inPoly(inv.rings, x, z) && inPoly(inv.rings, x + 4, z) && inPoly(inv.rings, x - 4, z) && inPoly(inv.rings, x, z + 4) && inPoly(inv.rings, x, z - 4) && botFree(x, z); }
     /* Vaca medio devorada, patas arriba: sin dos patas ni cola, con la panza abierta (carne y costillas) */
     function mkHalfCow() {
-      var c = makeCow(), g = c.g, k = g.children, red = new THREE.MeshLambertMaterial({ color: 0x8c1d2a, emissive: 0x2a0509 }), bone = new THREE.MeshLambertMaterial({ color: 0xeee6cf }), pv = new THREE.Group(), q, i;
-      function bq(mat, px, py, pz, sx, sy, sz) { q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); g.add(q); return q; }
-      if (k[6]) k[6].visible = false; if (k[7]) k[7].visible = false; if (k[8]) k[8].visible = false;
-      bq(red, 0, 0.31, -0.12, 0.4, 0.04, 0.62); bq(red, 0, 0.55, -0.49, 0.42, 0.44, 0.03);
-      for (i = 0; i < 5; i++) bq(bone, 0, 0.29, -0.34 + i * 0.12, 0.44, 0.03, 0.04);
+      var c = makeCow(), g = c.g, k = g.children, red = new THREE.MeshLambertMaterial({ color: 0x8c1d2a, emissive: 0x2a0509 }), dred = new THREE.MeshLambertMaterial({ color: 0x5e1019, emissive: 0x1a0305 }), bone = new THREE.MeshLambertMaterial({ color: 0xeee6cf, emissive: 0x2a2820 }), pv = new THREE.Group(), q, i, z, rg;
+      function bq(par, mat, px, py, pz, sx, sy, sz) { q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); par.add(q); return q; }
+      if (!mkHalfCow.rg) mkHalfCow.rg = new THREE.TorusGeometry(0.22, 0.017, 5, 12, Math.PI);
+      rg = mkHalfCow.rg;
+      /* mitad delantera con piel; la trasera, esqueleto */
+      k[0].scale.z = 0.48; k[0].position.z = 0.24; /* cuerpo: solo la mitad delantera */
+      k[1].visible = false; k[3].visible = false; k[6].visible = false; k[7].visible = false; k[8].visible = false;
+      bq(g, red, 0, 0.55, 0.0, 0.44, 0.44, 0.03); /* cara cortada del cuerpo */
+      for (i = 0; i < 6; i++) { /* costillar: arcos abiertos hacia la panza */
+        z = -0.06 - i * 0.075; q = new THREE.Mesh(rg, bone); q.position.set(0, 0.52, z); q.scale.set(1.0, 1.0 - i * 0.03, 1); g.add(q);
+      }
+      for (i = 0; i < 8; i++) bq(g, bone, 0, 0.775 - i * 0.004, -0.04 - i * 0.06, 0.05, 0.045, 0.05); /* columna */
+      bq(g, bone, 0, 0.64, -0.48, 0.36, 0.09, 0.09); bq(g, bone, -0.15, 0.6, -0.47, 0.07, 0.07, 0.07).scale.set(0.09, 0.09, 0.09); bq(g, bone, 0.15, 0.6, -0.47, 0.09, 0.09, 0.09); /* pelvis */
+      bq(g, red, 0, 0.7, -0.35, 0.1, 0.08, 0.12); bq(g, red, 0.12, 0.34, -0.12, 0.1, 0.07, 0.14); bq(g, red, -0.1, 0.35, -0.3, 0.08, 0.07, 0.12); bq(g, dred, 0, 0.32, -0.02, 0.4, 0.05, 0.05); /* carne y restos */
+      q = bq(g, k[0].material, -0.22, 0.4, -0.12, 0.03, 0.13, 0.2); q.rotation.x = 0.2; bq(g, k[0].material, 0.22, 0.38, -0.2, 0.03, 0.1, 0.18); /* jirones de piel */
+      q = bq(g, bone, 0.14, 0.2, -0.33, 0.05, 0.26, 0.05); q.rotation.x = 0.15; bq(g, bone, 0.14, 0.04, -0.3, 0.045, 0.2, 0.045).rotation.x = -0.35; bq(g, bone, 0.14, 0.33, -0.34, 0.08, 0.07, 0.08); bq(g, red, 0.14, 0.31, -0.33, 0.09, 0.05, 0.09); /* pata trasera: solo el hueso */
       g.scale.setScalar(0.9); g.rotation.z = Math.PI; g.position.y = 0.72; /* patas arriba */
-      noRay(pv); pv.add(g);
+      /* huesos y un cráneo en el suelo */
+      bq(pv, bone, 0.9, 0.03, -0.3, 0.36, 0.045, 0.05).rotation.y = 0.6; bq(pv, bone, -0.85, 0.03, 0.5, 0.3, 0.04, 0.045).rotation.y = -0.4; bq(pv, bone, 0.5, 0.03, 0.95, 0.26, 0.04, 0.045).rotation.y = 1.4;
+      q = new THREE.Mesh(uSphere, bone); q.position.set(-0.75, 0.07, -0.65); q.scale.set(0.09, 0.075, 0.1); pv.add(q); bq(pv, bone, -0.75, 0.035, -0.58, 0.07, 0.04, 0.1);
+      pv.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
+      pv.add(g);
       return { g: pv };
     }
     function alarmAll() { /* el primer disparo: los que comían salen corriendo */
