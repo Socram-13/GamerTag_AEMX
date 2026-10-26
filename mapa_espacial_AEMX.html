@@ -8198,8 +8198,8 @@ window.startMap = function (RAW, AUTH) {
     });
     /* Torso femenino: cintura estrecha, caja torácica que se ensancha hacia el pecho, placas de pecho anguladas con bordes rojos */
     upper.position.set(0, 0.1, 0); body.add(upper); upper.add(shell);
-    tap(auJoint2, 0.17, 0.13, 0.25, 0.17, 0.12, 0, 0.04, 0, shell); /* la cintura se ensancha hacia la cadera */
-    tap(auBlack, 0.19, 0.145, 0.27, 0.185, 0.14, 0, 0.1, 0, shell); tap(auGray, 0.09, 0.02, 0.14, 0.02, 0.11, 0, 0.1, 0.088, shell); bx(auRed, 0, 0.1, 0.1, 0.004, 0.1, 0.004, shell); /* vientre: ancho como la cadera al bajar */
+    tap(auJoint2, 0.2506, 0.1759, 0.28, 0.19, 0.065, 0, -0.0025, 0, shell); /* la cintura se ensancha hacia la cadera */
+    tap(auBlack, 0.19, 0.145, 0.2506, 0.1759, 0.14, 0, 0.1, 0, shell); /* de la cadera (0.28) al borde superior del vientre (0.19): una sola pendiente */ tap(auGray, 0.09, 0.02, 0.14, 0.02, 0.11, 0, 0.1, 0.088, shell); bx(auRed, 0, 0.1, 0.1, 0.004, 0.1, 0.004, shell); /* vientre: ancho como la cadera al bajar */
     tap(auPearl, 0.3, 0.195, 0.19, 0.15, 0.3, 0, 0.35, 0, shell); /* tórax */
     tap(auDark, 0.205, 0.16, 0.19, 0.15, 0.04, 0, 0.19, 0, shell); /* banda bajo el pecho */
     [-1, 1].forEach(function (sx) {
@@ -10375,14 +10375,14 @@ window.startMap = function (RAW, AUTH) {
     /* inmersión: cuando la cámara está dentro de una zona de niebla sube la niebla del mundo (gris, densa) y el cielo se vuelve gris; al salir vuelve a la normal */
     if (!window.__fogW) window.__fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x3a2f5c) };
     var FW = window.__fogW, inF = 0;
-    if (WX && WX.fogDepth) { if (!FW.dT || t - FW.dT > 0.12 || t < FW.dT) { FW.dT = t; var dn = WX.fogDepth(camera.position.x, camera.position.z); if (dn > (FW.dep || 0) + 0.5) FW.ent = true; else if (dn < (FW.dep || 0) - 0.5) FW.ent = false; FW.dep = dn; } inF = FW.ent ? clamp((FW.dep || 0) / 30, 0, 1) : clamp(((FW.dep || 0) - 15) / 40, 0, 1); inF = inF * inF * (3 - 2 * inF); } /* entrando: desde el borde y al máximo a 30; saliendo: se aclara antes de salir */ /* aparece poco a poco desde el borde y se aclara antes de salir */
+    if (WX && WX.fogDepth) { if (!FW.dT || t - FW.dT > 0.12 || t < FW.dT) { FW.dT = t; var dn = WX.fogDepth(camera.position.x, camera.position.z); if (dn > (FW.dep || 0) + 0.5) FW.ent = true; else if (dn < (FW.dep || 0) - 0.5) FW.ent = false; FW.dep = dn; } inF = FW.ent ? clamp((FW.dep || 0) / 20, 0, 1) : clamp(((FW.dep || 0) - 15) / 40, 0, 1); inF = inF * inF * (3 - 2 * inF); } /* entrando: desde el borde y al máximo a 30; saliendo: se aclara antes de salir */ /* aparece poco a poco desde el borde y se aclara antes de salir */
     /* horizonte limitado con la cámara baja: niebla más densa (color del horizonte) y menos vegetación lejana; arriba se ve el país completo */
     var hK = clamp((camera.position.y - 150) / 750, 0, 1); hK = hK * hK * (3 - 2 * hK);
     FW.d0 = 0.00052 + (0.00005 - 0.00052) * hK; window.__vegLim = 3300 + 200 * hK; window.__lowCam = hK < 0.5;
     if (!FW.cL) { FW.cH = new THREE.Color(0x2a1a4a); FW.cL = new THREE.Color(0x5c2b73); }
     FW.c0.copy(FW.cL).lerp(FW.cH, hK);
     FW.k += (inF - FW.k) * Math.min(1, dt * 3);
-    scene.fog.density = FW.d0 + (0.052 - FW.d0) * FW.k; /* ~18 unidades de visibilidad */
+    scene.fog.density = FW.d0 + (0.092 - FW.d0) * FW.k; /* ~10 unidades de visibilidad */
     scene.fog.color.copy(FW.c0).lerp(FW.c1, FW.k);
     var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS * 0.4; seaU.uFogK.value = FW.k; seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
     sun.target.position.copy(controls.target);
