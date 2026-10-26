@@ -7269,7 +7269,7 @@ window.startMap = function (RAW, AUTH) {
     sp = botFreeSpot(g.x - 7, g.z); an = Math.random() * 6.283; sp2 = sp ? botFreeSpot(sp[0] + 14, sp[1] + (Math.random() - 0.5) * 4) : null;
     rs = botFreeSpot(MYP.x, MYP.z + 9);
     if (!sp || !sp2 || !rs) { window.__botSayQ = 'No encuentro un lugar para el duelo.'; return false; }
-    DUEL = { p: p, me: duelStats(MYP), foe: duelStats(p), ph: 'in', sp: sp, sp2: sp2, rs: rs, fg: null, tgt: null, tc: 0, tf: 0, te: 0 };
+    DUEL = { cx: g.x, cz: g.z, rt: 0, p: p, me: duelStats(MYP), foe: duelStats(p), ph: 'in', sp: sp, sp2: sp2, rs: rs, fg: null, tgt: null, tc: 0, tf: 0, te: 0 };
     b.xs = null; xsRefresh(); b.tour = null;
     b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
     document.getElementById('d-mn').textContent = '@' + (MYP.name || 'tú'); document.getElementById('d-fn').textContent = '@' + p.name;
@@ -7284,8 +7284,13 @@ window.startMap = function (RAW, AUTH) {
     F.flames.forEach(function (fl) { fl.visible = false; });
     for (i = 0; i < 2; i++) { F.arms[i].sh.quaternion.copy(F.arms[i].hs); F.arms[i].el.quaternion.copy(F.arms[i].he); }
     F.x = D.sp2[0]; F.z = D.sp2[1]; F.y = botGround(F.x, F.z); F.yaw = Math.atan2(bot.x - F.x, bot.z - F.z); F.v = 0; F.ph = 0; F.side = 1; F.sideT = 0; F.fireT = 1;
-    F.g.position.set(F.x, F.y, F.z); F.g.rotation.y = F.yaw; D.fg = F; D.tgt = { x: F.x, y: F.y + 0.9, z: F.z };
+    F.g.position.set(F.x, F.y, F.z); F.g.rotation.y = F.yaw; D.fg = F; D.tgt = { x: F.x, y: F.y + 0.45, z: F.z };
     fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.5, 0, 0.8, 0.5, 2.2, 0xff4a4a, 0.8, true); AUD.glitch(0.4, 0.6, { x: F.x, y: F.y + 0.4, z: F.z });
+  }
+  function duelEdge(x, z) { /* hay mar o un obstáculo a menos de 6 en alguna dirección */
+    var i, a;
+    for (i = 0; i < 8; i++) { a = i * 0.785; if (!botFree(x + Math.cos(a) * 6, z + Math.sin(a) * 6)) return true; }
+    return false;
   }
   function duelBars() {
     var D = DUEL;
@@ -7294,7 +7299,7 @@ window.startMap = function (RAW, AUTH) {
   }
   function duelRobotShot() { /* el robot disparó al clon: se tira la puntería */
     var D = DUEL, F = D.fg; if (D.ph !== 'fight' || !F) return;
-    if (duelRoll(D.me, D.foe)) fxSpawn(F.x, F.y + 0.9, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+    if (duelRoll(D.me, D.foe)) fxSpawn(F.x, F.y + 0.45, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
   }
   function duelTick(dt, now) {
     var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
@@ -7314,15 +7319,21 @@ window.startMap = function (RAW, AUTH) {
       left = 90 - (now - D.tf); document.getElementById('d-t').textContent = Math.max(0, Math.ceil(left));
       F.sideT -= dt; if (F.sideT <= 0) { F.sideT = 2 + Math.random() * 2.5; F.side = -F.side; }
       spd = d > 13 ? 4.2 : d < 8 ? -3 : 0;
-      nx = F.x + (ux * spd + -uz * F.side * 2.2) * dt; nz = F.z + (uz * spd + ux * F.side * 2.2) * dt;
-      if (botFree(nx, nz)) { F.x = nx; F.z = nz; } else F.side = -F.side;
+      var edge = duelEdge(F.x, F.z), cdx = D.cx - F.x, cdz = D.cz - F.z, cdd = Math.hypot(cdx, cdz) || 1, mx, mz2, cands, ci, moved = false;
+      mx = ux * spd + -uz * F.side * 2.2; mz2 = uz * spd + ux * F.side * 2.2;
+      if (edge) { mx += cdx / cdd * 2.6; mz2 += cdz / cdd * 2.6; if (spd < 0) { mx -= ux * spd; mz2 -= uz * spd; } } /* cerca de la orilla: no retrocede y se desliza hacia el centro */
+      cands = [[mx, mz2], [-uz * F.side * 2.4, ux * F.side * 2.4], [ux * 3, uz * 3], [cdx / cdd * 3, cdz / cdd * 3], [uz * F.side * 2.4, -ux * F.side * 2.4]];
+      for (ci = 0; ci < cands.length && !moved; ci++) { nx = F.x + cands[ci][0] * dt; nz = F.z + cands[ci][1] * dt; if (botFree(nx, nz)) { F.x = nx; F.z = nz; moved = true; if (ci > 0) { spd = 2.4; if (ci === 1) F.side = -F.side * -1; } } }
+      if (!moved) F.side = -F.side;
+      /* el robot: si lleva más de 2 s casi quieto junto a la orilla, vuelve hacia el centro */
+      if (duelEdge(b.x, b.z) && b.v < 0.6 && b.mode === 'walk') { D.rt += dt; if (D.rt > 2 && !b.tpj) { D.rt = 0; var cs = botFreeSpot(D.cx - 4, D.cz); if (cs) botSetGoal(cs[0], cs[1], 'patrol'); } } else D.rt = 0;
       F.y = botGround(F.x, F.z);
       F.fireT -= dt;
       if (F.fireT <= 0 && d < 24) {
-        F.fireT = 0.38; mz = bkTmpA.set(F.x + Math.sin(F.yaw) * 0.7, F.y + 0.95, F.z + Math.cos(F.yaw) * 0.7);
-        tg = bkTmpB.set(b.x, b.y + 0.9, b.z);
-        if (duelRoll(D.foe, D.me)) fxSpawn(b.x, b.y + 0.9, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
-        else { tg.x += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.8); tg.y += 0.6 + Math.random() * 0.8; }
+        F.fireT = 0.38; mz = bkTmpA.set(F.x + Math.sin(F.yaw) * 0.7, F.y + 0.5, F.z + Math.cos(F.yaw) * 0.7);
+        tg = bkTmpB.set(b.x, b.y + 0.45, b.z);
+        if (duelRoll(D.foe, D.me)) fxSpawn(b.x, b.y + 0.45, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+        else { tg.x += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.8); tg.y += 0.2 + Math.random() * 0.5; }
         botShoot(mz, tg, true);
       }
       duelBars();
@@ -7342,7 +7353,7 @@ window.startMap = function (RAW, AUTH) {
       F.v = D.ph === 'fight' ? Math.abs(spd) + 1.6 : 0; F.ph += dt * F.v * 1.9; hs = Math.min(1, F.v / 3);
       for (i = 0; i < 2; i++) { k = Math.sin(F.ph + i * Math.PI) * 0.6 * hs; F.legs[i].th.rotation.x = k; F.legs[i].kn.rotation.x = Math.max(0, -k) * 1.1 * hs; F.legs[i].ft.rotation.x = 0; }
       F.g.position.set(F.x, F.y, F.z); F.g.rotation.y = F.yaw;
-      if (D.tgt) { D.tgt.x = F.x; D.tgt.y = F.y + 0.9; D.tgt.z = F.z; }
+      if (D.tgt) { D.tgt.x = F.x; D.tgt.y = F.y + 0.45; D.tgt.z = F.z; }
     }
   }
   function botXsFight() { /* botón "Retar 1 vs 1" */
