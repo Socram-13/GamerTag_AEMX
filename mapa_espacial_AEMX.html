@@ -10359,7 +10359,7 @@ window.startMap = function (RAW, AUTH) {
     /* inmersión: cuando la cámara está dentro de una zona de niebla sube la niebla del mundo (gris, densa) y el cielo se vuelve gris; al salir vuelve a la normal */
     if (!window.__fogW) window.__fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x3a2f5c) };
     var FW = window.__fogW, inF = 0;
-    if (WX && WX.fogDepth) { if (!FW.dT || t - FW.dT > 0.12 || t < FW.dT) { FW.dT = t; FW.dep = WX.fogDepth(camera.position.x, camera.position.z); } inF = clamp(((FW.dep || 0) - 15) / 40, 0, 1); inF = inF * inF * (3 - 2 * inF); } /* aparece poco a poco desde el borde y se aclara antes de salir */
+    if (WX && WX.fogDepth) { if (!FW.dT || t - FW.dT > 0.12 || t < FW.dT) { FW.dT = t; var dn = WX.fogDepth(camera.position.x, camera.position.z); if (dn > (FW.dep || 0) + 0.5) FW.ent = true; else if (dn < (FW.dep || 0) - 0.5) FW.ent = false; FW.dep = dn; } inF = FW.ent ? clamp((FW.dep || 0) / 30, 0, 1) : clamp(((FW.dep || 0) - 15) / 40, 0, 1); inF = inF * inF * (3 - 2 * inF); } /* entrando: desde el borde y al máximo a 30; saliendo: se aclara antes de salir */ /* aparece poco a poco desde el borde y se aclara antes de salir */
     /* horizonte limitado con la cámara baja: niebla más densa (color del horizonte) y menos vegetación lejana; arriba se ve el país completo */
     var hK = clamp((camera.position.y - 150) / 750, 0, 1); hK = hK * hK * (3 - 2 * hK);
     FW.d0 = 0.0004 + (0.00005 - 0.0004) * hK; window.__vegLim = 3300 + 200 * hK; window.__lowCam = hK < 0.5;
