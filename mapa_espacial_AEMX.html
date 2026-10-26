@@ -9949,7 +9949,7 @@ window.startMap = function (RAW, AUTH) {
           a.wv += (((a.st === 'idle' && dd < 12) ? 1 : 0) - a.wv) * Math.min(1, dt * 3); /* saluda al robot o a AURA si pasan cerca */
           if (a.wv > 0.6 && !a.wvP) { a.wvP = 1; AUD.alTing({ x: a.x, y: a.y + 1, z: a.z }); } else if (a.wv < 0.3) a.wvP = 0;
           a.snd = (a.snd === undefined ? 2 + Math.random() * 8 : a.snd) - dt;
-          if (a.snd <= 0) { a.snd = 6 + Math.random() * 8; if (Math.random() < 0.7) AUD.alMur({ x: a.x, y: a.y + 1, z: a.z }); else AUD.alWhistle({ x: a.x, y: a.y + 1, z: a.z }); }
+          if (a.snd <= 0) { a.snd = 6 + Math.random() * 8; AUD.alCry({ x: a.x, y: a.y + 1, z: a.z }); }
           a.y += (botGround(a.x, a.z) - a.y) * Math.min(1, dt * 12);
           a.gk += ((sp > 0.1 ? 1 : 0) - a.gk) * Math.min(1, dt * 8); if (sp > 0.1) a.ph += dt * 2.6;
           am = 0.3 * a.gk;
@@ -9979,7 +9979,7 @@ window.startMap = function (RAW, AUTH) {
           }
           o.head.rotation.y = 0; o.head.rotation.z = 0; o.head.rotation.x = -1.1 + 0.12 * Math.sin(t * 1.7 + i);
           o.g.rotation.x = 1.38; o.g.rotation.y = a.yaw; o.g.position.set(a.x, SEA_Y + 0.1 + 0.04 * Math.sin(t * 2 + a.ph), a.z);
-          a.sps = (a.sps || 0) - dt; if (a.sps <= 0) { a.sps = 1.1 + Math.random() * 0.4; AUD.splash({ x: a.x, y: SEA_Y + 0.3, z: a.z }); if (Math.random() < 0.12) AUD.alMur({ x: a.x, y: SEA_Y + 0.8, z: a.z }); }
+          a.sps = (a.sps || 0) - dt; if (a.sps <= 0) { a.sps = 1.1 + Math.random() * 0.4; AUD.splash({ x: a.x, y: SEA_Y + 0.3, z: a.z }); if (Math.random() < 0.12) AUD.alCry({ x: a.x, y: SEA_Y + 0.8, z: a.z }); }
           a.spl -= dt; if (a.spl <= 0) { a.spl = 0.22 + Math.random() * 0.15; fxSpawn(a.x + Math.sin(a.yaw) * 0.45 + (Math.random() - 0.5) * 0.4, SEA_Y + 0.15, a.z + Math.cos(a.yaw) * 0.45 + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 1.2, 0.8 + Math.random(), (Math.random() - 0.5) * 1.2, 0.7, 0.18, 0.5, 0xe8fbff, 0.7, false); }
         }
       }
