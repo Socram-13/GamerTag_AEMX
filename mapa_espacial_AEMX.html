@@ -270,7 +270,7 @@ window.startMap = function (RAW, AUTH) {
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
   /* ---------- Geografía: 1 unidad = 1 km ---------- */
-  var GK = 2; /* factor de escala del país: ciudades más separadas, el resto de las cosas mantiene su tamaño */
+  var GK = Math.SQRT2; /* factor de escala del país: ciudades más separadas, el resto de las cosas mantiene su tamaño */
   var LON0 = -102.0, LAT0 = 23.5, KX = 102.1 * GK, KZ = 110.57 * GK;
   function geo(lon, lat) { return { x: (lon - LON0) * KX, z: -(lat - LAT0) * KZ }; }
 
@@ -1549,7 +1549,7 @@ window.startMap = function (RAW, AUTH) {
   scene.add(plate);
 
   /* ---------- Mar: olas, espuma en la costa y color según profundidad ---------- */
-  var SEA_Y = -0.45, SEA_X0 = -2800 * GK, SEA_Z0 = -3400 * GK, SEA_W = 6800 * GK, SEA_H = 5200 * GK, SEA_TW = 480 * GK, SEA_TH = 360 * GK, SEA_MAXD = 480;
+  var SEA_Y = -0.45, SEA_X0 = -2800 * GK, SEA_Z0 = -3400 * GK, SEA_W = 6800 * GK, SEA_H = 5200 * GK, SEA_TW = Math.round(480 * GK), SEA_TH = Math.round(360 * GK), SEA_MAXD = 480;
   var foreignRings = [], seaStatesOn = false;
   var SEA_COMMON_V = ['#include <common>', '#include <logdepthbuf_pars_vertex>'].join('\n');
   /* Textura de distancia a la costa: alimenta el degradado de profundidad (se recalcula con los estados) */
@@ -6657,7 +6657,7 @@ window.startMap = function (RAW, AUTH) {
   /* Navegación terrestre: rejilla gruesa de tierra transitable (sin agua ni pendientes fuertes), islas separadas y búsqueda de ruta A* */
   var BN = null, botHN = [], botHF = [];
   function botBuildNav() {
-    var C = 6, X0 = -1650 * GK, Z0 = -1100 * GK, NX = 567 * GK, NZ = 367 * GK, N = NX * NZ, pass = new Uint8Array(N), H = new Float32Array(N), comp = new Int32Array(N), queue = new Int32Array(N);
+    var C = 6, X0 = -1650 * GK, Z0 = -1100 * GK, NX = Math.round(567 * GK), NZ = Math.round(367 * GK), N = NX * NZ, pass = new Uint8Array(N), H = new Float32Array(N), comp = new Int32Array(N), queue = new Int32Array(N);
     var i, j, k, x, z, id = 0, best = 0, sizes = [0], qs, qe, q, n, ci, cj, di, dj, ni, nj, m;
     for (j = 0; j < NZ; j++) for (i = 0; i < NX; i++) {
       k = j * NX + i; x = X0 + (i + 0.5) * C; z = Z0 + (j + 0.5) * C;
@@ -10311,8 +10311,8 @@ window.startMap = function (RAW, AUTH) {
     }
     controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !auraFollow && !botFollow && !turretCam;
     controls.update();
-    controls.target.x = clamp(controls.target.x, -1750, 1750);
-    controls.target.z = clamp(controls.target.z, -1300, 1300);
+    controls.target.x = clamp(controls.target.x, -1750 * GK, 1750 * GK); /* los límites siguen la escala del país */
+    controls.target.z = clamp(controls.target.z, -1300 * GK, 1300 * GK);
     controls.target.y = clamp(controls.target.y, 0, 60);
 
     sky.position.copy(camera.position);
