@@ -8408,9 +8408,9 @@ window.startMap = function (RAW, AUTH) {
     var hopY = A.hop > 0 ? Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - A.hop / 0.55))) * 0.55 : 0;
     A.gk += ((moving ? 1 : 0) - A.gk) * Math.min(1, dt * 7); A.sk += ((scan ? 1 : 0) - A.sk) * Math.min(1, dt * 5); A.pk = (A.pk || 0) + ((A.hOn ? 1 : 0) - (A.pk || 0)) * Math.min(1, dt * 4);
     if (moving) A.ph += dt * 6.4 * (1 + 1.1 * rk);
-    var am = 0.285 * A.gk * (1 + 0.9 * rk), kf = 0.45 * A.gk * (1 + 1.1 * rk), la, sg, sw, tk, sph = Math.sin(A.ph);
+    var am = 0.285 * A.gk * (1 + 1.8 * rk), kf = 0.45 * A.gk * (1 + 2.3 * rk), la, sg, sw, tk, sph = Math.sin(A.ph);
     for (i = 0; i < 2; i++) {
-      la = -am * Math.sin(A.ph + i * Math.PI); sg = kf * Math.max(0, Math.cos(A.ph + i * Math.PI));
+      la = -am * Math.sin(A.ph + i * Math.PI); sg = kf * Math.max(0, Math.cos(A.ph + i * Math.PI)) + 0.35 * rk * A.gk * Math.max(0, -Math.cos(A.ph + i * Math.PI));
       if (hopY > 0.02) { la = i ? -0.5 : -0.8; sg = 0.9; }
       A.legs[i].th.rotation.x = la; A.legs[i].kn.rotation.x = sg; A.legs[i].ft.rotation.x = -(la + sg) * 0.5 + sg * 0.3;
       A.legs[i].th.rotation.z = (i ? -1 : 1) * (0.045 + 0.015 * A.gk * Math.max(0, Math.cos(A.ph + i * Math.PI))); /* piernas algo inclinadas hacia adentro */
@@ -8420,7 +8420,7 @@ window.startMap = function (RAW, AUTH) {
       A.arms[i].el.rotation.x = (-0.18 - 0.25 * A.gk * Math.max(0, -Math.sin(A.ph + i * Math.PI)) - 1.2 * rk * A.gk) * (1 - tk) + tk * -1.4;
       if (i === 0 && A.pk > 0.01) { A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.pk) - 1.45 * A.pk; A.arms[0].sh.rotation.z = A.arms[0].sh.rotation.z * (1 - A.pk) - 0.12 * A.pk; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.pk) - 0.15 * A.pk; } /* brazo extendido hacia el sitio */
     }
-    A.body.position.y = 0.86 + Math.abs(Math.sin(A.ph)) * (0.03 + 0.05 * rk) * A.gk + 0.008 * Math.sin(t * 1.7);
+    A.body.position.y = 0.86 + Math.abs(Math.sin(A.ph)) * (0.03 + 0.09 * rk) * A.gk + 0.008 * Math.sin(t * 1.7);
     A.pelvis.position.x = 0.012 * sph * A.gk; A.pelvis.rotation.z = 0.04 * sph * A.gk; A.pelvis.rotation.y = 0.08 * sph * A.gk; /* contoneo: solo la pelvis y las piernas se desplazan, se inclinan y giran */
     A.upper.rotation.z = 0; A.upper.rotation.y = -0.07 * sph * A.gk; A.upper.rotation.x = (0.03 + 0.16 * rk) * A.gk; /* el torso queda erguido, con un leve contragiro de hombros */
     A.hy = (A.hy || 0) + (A.hyT - (A.hy || 0)) * Math.min(1, dt * 6); A.hx = (A.hx || 0) + (A.hxT - (A.hx || 0)) * Math.min(1, dt * 6);
