@@ -8187,9 +8187,16 @@ window.startMap = function (RAW, AUTH) {
     bx(new THREE.MeshBasicMaterial({ color: 0xbfe2ff }), -0.04, 0.03, 0.012, 0.09, 0.012, 0.002, tab); bx(new THREE.MeshBasicMaterial({ color: 0x7fc0ff }), -0.02, 0.0, 0.012, 0.13, 0.01, 0.002, tab);
     bx(auRed, 0.09, -0.065, 0.012, 0.012, 0.012, 0.002, tab);
     cy(auDark, 0, 0.05, -0.012, 0.022, 0.012, Math.PI / 2, 0, tab);
+    /* Linterna de niebla: haz cálido que sale del lente de la tablet (mismo cono que la lámpara del robot) */
+    var tbg = new THREE.ConeGeometry(5, 28, 20, 1, true), tbp, tbc, tbq, tbt, tbeam;
+    tbg.rotateX(-Math.PI / 2); tbg.translate(0, 0, 14); tbp = tbg.attributes.position; tbc = new Float32Array(tbp.count * 3);
+    for (tbq = 0; tbq < tbp.count; tbq++) { tbt = Math.max(0, 1 - tbp.getZ(tbq) / 28); tbt *= tbt; tbc[tbq * 3] = tbt; tbc[tbq * 3 + 1] = tbt * 0.94; tbc[tbq * 3 + 2] = tbt * 0.72; }
+    tbg.setAttribute('color', new THREE.BufferAttribute(tbc, 3));
+    tbeam = new THREE.Mesh(tbg, new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    tbeam.position.set(0, 0.05, -0.02); tbeam.rotation.set(-0.26, Math.PI, 0); tbeam.visible = false; tbeam.frustumCulled = false; tab.add(tbeam);
     g.scale.setScalar(0.37);
     noRay(g); g.visible = false; scene.add(g);
-    return { g: g, body: body, pelvis: pelvis, upper: upper, shell: shell, head: head, legs: legs, arms: arms, locks: locks, tab: tab, tabScr: scr };
+    return { tabBeam: tbeam, g: g, body: body, pelvis: pelvis, upper: upper, shell: shell, head: head, legs: legs, arms: arms, locks: locks, tab: tab, tabScr: scr };
   }
   var auHoloV1 = new THREE.Vector3(), auHoloV2 = new THREE.Vector3(), auHoloUp = new THREE.Vector3(0, 1, 0);
   function auraHoloBuild() {
@@ -8305,9 +8312,9 @@ window.startMap = function (RAW, AUTH) {
     A.yaw += nAng(ang + Math.PI - A.yaw) * Math.min(1, dt * 6);
     if (d > 0.7) { /* se acercan: si el robot no puede avanzar (cráter, edificios), AURA recorre todo el tramo */
       var sp2 = Math.min(0.8 * dt, (d - 0.7) / 2), ux = (b.x - A.x) / d, uz = (b.z - A.z) / d, nx2, nz2, rOk = false;
-      nx2 = b.x - ux * sp2; nz2 = b.z - uz * sp2; if (botFree(nx2, nz2) && !botCrater(nx2, nz2)) { b.x = nx2; b.z = nz2; rOk = true; }
+      nx2 = b.x - ux * sp2; nz2 = b.z - uz * sp2; if (botFree(nx2, nz2) && !botCrater(nx2, nz2)) { b.x = nx2; b.z = nz2; rOk = true; b.v = 1.2; }
       if (!rOk) sp2 = Math.min(1.2 * dt, d - 0.7);
-      nx2 = A.x + ux * sp2; nz2 = A.z + uz * sp2; if (botFree(nx2, nz2) && !botCrater(nx2, nz2)) { A.x = nx2; A.z = nz2; }
+      nx2 = A.x + ux * sp2; nz2 = A.z + uz * sp2; if (botFree(nx2, nz2) && !botCrater(nx2, nz2)) { A.x = nx2; A.z = nz2; A.hfMv = true; }
     } else if (d < 0.6 && d > 0.001) { /* separación mínima */
       var ux2 = (b.x - A.x) / d, uz2 = (b.z - A.z) / d, ps = Math.min(0.6 * dt, (0.6 - d) / 2);
       A.x -= ux2 * ps; A.z -= uz2 * ps; b.x += ux2 * ps; b.z += uz2 * ps;
@@ -8339,7 +8346,7 @@ window.startMap = function (RAW, AUTH) {
     }
   }
   function auraGoPath(A, gx, gz) { var q = null; try { q = botAStar(A.x, A.z, gx, gz); if (q && q.length > 2) q = botRefine(q); } catch (e) { q = null; } if (!q || q.length < 1) return false; A.wp = q; A.pi = 0; return true; }
-  function auraFinishJoin(A) { A.path = A.jp; A.next = null; A.s = 0; A.last = A.jti; A.off = 0; A.mode = 'trail'; A.evCD = 6; A.sn = 0; }
+  function auraFinishJoin(A) { A.path = A.jp; A.next = null; A.s = 0; A.last = A.jti; A.off = 0; A.mode = 'trail'; A.evCD = 2; A.sn = 0; }
   function auraResume(A, c) { /* de vuelta al sistema de senderos: camina hasta el inicio del sendero (o reaparece ahí) y solo entonces lo sigue */
     var ti, cand = [], e0, dd;
     for (ti = 0; ti < trails.length; ti++) if (trails[ti].a === c || trails[ti].b === c) cand.push(ti);
@@ -8353,10 +8360,10 @@ window.startMap = function (RAW, AUTH) {
     var A = aura, a, path, seg, f, x, z, tx, tz, l, nx, nz, i, c, cand, ti, nxt, lp, bx, bz, u, vis, moving = false, e, gy, I, sp, k, dd, ang, G, mn, yawT = null, scan = false;
     if (!trails.length) return;
     if (!A) {
-      A = aura = makeAura(); A.holo = auraHoloBuild(); A.ph = 0; A.gk = 0; A.sk = 0; A.k = 1; A.mode = 'trail'; A.yaw = 0; A.evCD = 20; A.x = 0; A.z = 0; A.y = 0; A.hop = 0; A.dodge = false; A.off = 0; A.side = 1;
+      A = aura = makeAura(); A.holo = auraHoloBuild(); A.ph = 0; A.gk = 0; A.sk = 0; A.k = 1; A.mode = 'trail'; A.yaw = 0; A.evCD = 3; A.x = 0; A.z = 0; A.y = 0; A.hop = 0; A.dodge = false; A.off = 0; A.side = 1;
       i = (Math.random() * trails.length) | 0; A.path = edgePath(i, trails[i].b); A.last = i; A.s = Math.random() * A.path.len * 0.5; A.next = null;
     }
-    hfStep(A, dt);
+    A.hfMv = false; hfStep(A, dt); if (A.hfMv) moving = true; /* caminando hacia el robot: anima las piernas */
     a = A; A.hOn = false; A.hyT = A.mode === 'trail' ? 0.1 * Math.sin(t * 0.6) : 0; A.hxT = 0.02;
     if (A.mode === 'trail') {
       A.s += 0.8 * dt; path = A.path; moving = true;
@@ -8396,17 +8403,17 @@ window.startMap = function (RAW, AUTH) {
       A.evCD -= dt;
       if (A.evCD <= 0 && BN && !HF && !HFW) {
         A.evCD = 2; e = auraEvent();
-        if (e && !auraDone[e.key] && e.left >= 30) {
+        if (e && (e.kind === 'met' ? now0() >= (auraDone[e.key] || 0) : !auraDone[e.key]) && e.left >= 30) { /* invasión: se atiende mientras dure (enfriamiento 20 s); restos: una vez */
           dd = Math.hypot(e.x - A.x, e.z - A.z);
           if (dd > 60) { /* lejos: la invasión, desde un estado vecino; los restos del OVNI, desde la ciudad más cercana */
             G = null; I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
             if (e.kind === 'met' && I && I.name) { try { G = auraNeighborSpot(I.name, e.x, e.z); } catch (er) { G = null; } }
             if (!G) { c = auraCityNear(e.x, e.z); G = c && auraFreeNear(c.cx, c.cz); }
             if (G && Math.hypot(G[0] - e.x, G[1] - e.z) > dd - 20) G = null; /* si no la acerca, mejor corre directo */
-            if (G) { auraDone[e.key] = 1; A.ev = e; auraJump(A, G[0], G[1], 'go'); return; }
-            if (auraStart(A, e)) auraDone[e.key] = 1;
-            else { G = auraFreeNear(e.x + 12, e.z + 12); if (G) { auraDone[e.key] = 1; A.ev = e; e.fb = 1; auraJump(A, G[0], G[1], 'go'); return; } }
-          } else if (auraStart(A, e)) auraDone[e.key] = 1;
+            if (G) { auraDone[e.key] = (e.kind === 'met' ? now0() + 20 : 1); A.ev = e; auraJump(A, G[0], G[1], 'go'); return; }
+            if (auraStart(A, e)) auraDone[e.key] = (e.kind === 'met' ? now0() + 20 : 1);
+            else { G = auraFreeNear(e.x + 12, e.z + 12); if (G) { auraDone[e.key] = (e.kind === 'met' ? now0() + 20 : 1); A.ev = e; e.fb = 1; auraJump(A, G[0], G[1], 'go'); return; } }
+          } else if (auraStart(A, e)) auraDone[e.key] = (e.kind === 'met' ? now0() + 20 : 1);
         }
       }
     } else if (A.mode === 'jump') {
@@ -8484,7 +8491,7 @@ window.startMap = function (RAW, AUTH) {
     if (A.g.visible !== vis) A.g.visible = vis;
     if (!vis) { A.holo.g.visible = false; A.holo.beam.visible = false; return; }
     var hopY = A.hop > 0 ? Math.sin(Math.PI * Math.min(1, Math.max(0, 1 - A.hop / 0.55))) * 0.55 : 0;
-    A.gk += ((moving ? 1 : 0) - A.gk) * Math.min(1, dt * 7); A.sk += ((scan ? 1 : 0) - A.sk) * Math.min(1, dt * 5); A.pk = (A.pk || 0) + ((A.hOn ? 1 : 0) - (A.pk || 0)) * Math.min(1, dt * 4);
+    A.gk += ((moving ? 1 : 0) - A.gk) * Math.min(1, dt * 7); A.fk = (A.fk || 0) + (((A.mode !== 'jump' && WX && WX.fogAt && WX.fogAt(A.x, A.z)) ? 1 : 0) - (A.fk || 0)) * Math.min(1, dt * 1.5); A.sk += (((scan || A.fk > 0.15) ? 1 : 0) - A.sk) * Math.min(1, dt * 5); A.pk = (A.pk || 0) + ((A.hOn ? 1 : 0) - (A.pk || 0)) * Math.min(1, dt * 4);
     if (moving) A.ph += dt * 6.4 * (1 + 1.1 * rk);
     var am = 0.285 * A.gk * (1 + 1.8 * rk), kf = 0.45 * A.gk * (1 + 2.3 * rk), la, sg, sw, tk, sph = Math.sin(A.ph);
     for (i = 0; i < 2; i++) {
@@ -8507,6 +8514,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < A.locks.length; i++) { k = A.locks[i]; k.g.rotation.x = (k.back ? 0.1 : 0.03) * Math.sin(A.ph * 2 + k.ph) * A.gk - (k.back ? 0.02 : 0.05) * A.gk; if (!k.back) k.g.rotation.z = k.sx * (0.04 * Math.sin(A.ph + k.ph) * A.gk); }
     A.flash = Math.max(0, (A.flash || 0) - dt);
     A.tab.visible = A.sk > 0.04; A.tab.scale.setScalar(Math.max(0.001, A.sk)); A.tabScr.material.color.setHex(A.flash > 0 ? 0xffffff : 0x2a8cff);
+    A.tabBeam.material.opacity = 0.55 * A.fk * Math.min(1, A.sk * 1.5) * (0.95 + 0.05 * Math.sin(t * 9)); A.tabBeam.visible = A.fk > 0.02 && A.sk > 0.1;
     A.g.rotation.y = A.yaw; A.g.position.set(A.x, A.y + hopY + (A.mode === 'trail' ? Math.abs(Math.sin(A.ph)) * 0.0 : 0), A.z); A.g.scale.setScalar(0.37 * Math.max(0.001, A.k));
     auraHoloStep(A, t, dt);
   }
