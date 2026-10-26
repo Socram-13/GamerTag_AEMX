@@ -4545,6 +4545,14 @@ window.startMap = function (RAW, AUTH) {
     var d = overviewDist();
     camera.position.set(0, d * Math.cos(0.6), d * Math.sin(0.6));
     controls.target.set(0, 0, 0);
+    /* carga inicial en el edificio del usuario (si tiene); si no, panorama del país */
+    var au = AUTH || window.__aemxUser || (window.__aemxAuth && window.__aemxAuth.currentUser), mp = null, q;
+    if (au && au.uid) { for (q = 0; q < players.length; q++) { if (players[q].uid === au.uid) { mp = players[q]; break; } } }
+    if (mp && isFinite(mp.x) && isFinite(mp.z)) {
+      var md = mp.tier === 5 ? 42 : 28, mty = (mp.topY || 10) * 0.35;
+      controls.target.set(mp.x, mty, mp.z);
+      camera.position.set(mp.x, mty + md * Math.cos(0.95), mp.z + md * Math.sin(0.95));
+    }
     controls.update();
   })();
 
