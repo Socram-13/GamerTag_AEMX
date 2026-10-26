@@ -10311,15 +10311,10 @@ window.startMap = function (RAW, AUTH) {
     if (botFollow && bot) {
       botYawCam += nAng((bot.aiming ? bot.aimYaw : bot.yaw) - botYawCam) * Math.min(1, dt * 2.5);
       if (fly) { fly.fb.set(bot.x, bot.y + 0.5, bot.z); fly.pb.set(bot.x, bot.y + 0.5, bot.z).add(botOff); bot._lx = undefined; }
-      else if (!fly) { /* cámara libre: el punto de mira sigue al robot y conserva la distancia y el ángulo */
-        /* acompaña el desplazamiento exacto del robot (sin retraso aunque corra o vuele) y luego corrige el resto suavemente */
-        var bmx = 0, bmy = 0, bmz = 0, by0 = bot.y + 0.5;
-        if (bot._lx !== undefined) { bmx = bot.x - bot._lx; bmy = by0 - bot._ly; bmz = bot.z - bot._lz; if (Math.abs(bmx) + Math.abs(bmy) + Math.abs(bmz) > 60) { bmx = bmy = bmz = 0; } }
-        bot._lx = bot.x; bot._ly = by0; bot._lz = bot.z;
-        controls.target.x += bmx; controls.target.y += bmy; controls.target.z += bmz; camera.position.x += bmx; camera.position.y += bmy; camera.position.z += bmz;
-        var bk2 = Math.min(1, dt * 8), bdx = (bot.x - controls.target.x) * bk2, bdy = (by0 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
+      else {
+        var bk2 = Math.min(1, dt * 4), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
         controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
-      } else bot._lx = undefined;
+      }
     }
     controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !auraFollow && !botFollow && !turretCam;
     controls.update();
