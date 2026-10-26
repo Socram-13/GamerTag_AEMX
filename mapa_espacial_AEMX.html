@@ -3567,7 +3567,15 @@ window.startMap = function (RAW, AUTH) {
         if (!ESTADO_COORDS[nombre] || !f.geometry) return;
         var g = f.geometry;
         var polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
-        polys.forEach(function (pl) { addStatePoly(pl, nombre); });
+        polys.forEach(function (pl) {
+          var r0 = pl[0], mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9, q, cx0, cy0, K = 3;
+          for (q = 0; q < r0.length; q++) { mnx = Math.min(mnx, r0[q][0]); mxx = Math.max(mxx, r0[q][0]); mny = Math.min(mny, r0[q][1]); mxy = Math.max(mxy, r0[q][1]); }
+          cx0 = (mnx + mxx) / 2; cy0 = (mny + mxy) / 2;
+          if (mxx - mnx < 0.2 && Math.abs(cx0 + 110.985) < 0.05 && Math.abs(cy0 - 18.795) < 0.05) { /* isla Socorro: agrandada ×3 para que se vea y el robot pueda visitarla */
+            pl = pl.map(function (ring) { return ring.map(function (c) { return [cx0 + (c[0] - cx0) * K, cy0 + (c[1] - cy0) * K]; }); });
+          }
+          addStatePoly(pl, nombre);
+        });
       });
       fitDistricts();
       if (statesGroup.children.length) { plate.visible = false; rock.visible = false; try { seaUseStates(); } catch (e) { console.warn('Mar: no se pudo ajustar a la costa', e); } }
@@ -7155,7 +7163,7 @@ window.startMap = function (RAW, AUTH) {
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     return true;
   }
-  function botCallIsland() { /* código 'socorro': el robot viaja en dron a la isla Socorro, la recorre un rato y sigue con su rutina */
+  function botCallIsland() { /* código 'socorro': el robot se teletransporta (destello glitch) a la isla Socorro y la recorre un rato */
     var b = bot, g = geo(-110.97, 18.78), sp, sp2, an;
     if (!b) return false;
     if (!ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI o una invasión.'; return false; }
@@ -7164,7 +7172,10 @@ window.startMap = function (RAW, AUTH) {
     b.tour = null; b.vilTour = null; b.vilWatch = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
     window.__botSayQ = 'Voy a visitar la isla Socorro.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
-    botStartLift(sp[0], sp[1], 'sea', { x: sp2[0], z: sp2[1], t: 'patrol' });
+    if (b.mode !== 'walk') botForceLand(b);
+    b.ball = false; b.ballK = 0; b.glr = 0; b.glr0 = 0; b.bh = 0; b.bvy = 0; b.v = 0; b.rec = 0; b.scan = false; b.circ = false;
+    b.tpj = { x: sp[0], z: sp[1], gx: sp2[0], gz: sp2[1], t: 0, done: false }; /* se teletransporta con destello glitch, como Aura */
+    AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
     return true;
   }
   function botPick() {
@@ -7347,6 +7358,22 @@ window.startMap = function (RAW, AUTH) {
     if (!b) {
       if (!trails.length || !roots.length || (!landAt && now < 30)) return;
       botInit(); b = bot;
+    }
+    if (b.tpj) { /* teletransporte: desaparece con destello y reaparece en el destino */
+      var Tp = b.tpj, tk, tdx, tdz;
+      Tp.t += dt; b.v = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0; b.hopGoal = null;
+      if (!Tp.done && Tp.t >= 0.3) {
+        Tp.done = true; tdx = Tp.x - b.x; tdz = Tp.z - b.z; b.x = Tp.x; b.z = Tp.z; b.y = botGround(b.x, b.z); b.pgT = undefined; b.nfT = 0;
+        if (botFollow) { controls.target.x += tdx; controls.target.z += tdz; camera.position.x += tdx; camera.position.z += tdz; controls.target.y = b.y + 0.5; }
+        b.g.position.set(b.x, b.y, b.z);
+      }
+      tk = Tp.done ? Math.min(1, (Tp.t - 0.3) / 0.3) : 1 - Math.min(1, Tp.t / 0.3);
+      if (Math.random() < 0.3) tk *= 0.25;
+      b.g.visible = tk > 0.3; auraGlitchFx(b);
+      if (Tp.done && Tp.t >= 0.6) {
+        b.g.visible = true; if (b.fxg) b.fxg.g.visible = false; b.tpj = null; b.idle = 0.5; b.liftCD = now + 40; /* se queda ~40 s en la isla antes de pedir dron */
+        if (botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0;
+      }
     }
     var HFL = !!(HFW || HF); /* secuencia del choque: bloquea el resto de sus tareas hasta terminar */
     if (typeof ALN !== 'undefined' && ALN && ALN.entered && !HFL) { /* al entrar a la invasión: primero revisa la vaca medio comida (~5.5 s de escaneo) sin disparar */
