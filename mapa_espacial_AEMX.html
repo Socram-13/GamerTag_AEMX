@@ -8293,14 +8293,24 @@ window.startMap = function (RAW, AUTH) {
       A.yaw += nAng(Math.atan2(b.x - A.x, b.z - A.z) - A.yaw) * Math.min(1, dt * 4); /* AURA espera mirando al robot */
       HF.gt = (HF.gt || 0) - dt;
       if ((!b.goal || b.gtype !== 'patrol') && HF.gt <= 0) { HF.gt = 0.6; if (!botSetGoal(HF.x, HF.z, 'patrol')) { if (++HF.tries >= 5) { hfEnd(A); return; } } b.jog = true; }
-      if (d < 2.2 && b.v < 4) { HF.ph = 'hit'; HF.ht = 0; HF.c = 0; A.wp = null; }
+      if ((d < 6 && b.v < 3.5) || (HF.t > 5 && d < 12)) { HF.ph = 'hit'; HF.ht = 0; HF.c = 0; A.wp = null; }
       return;
     }
     /* hit: se detienen de frente, levantan la mano y chocan */
-    HF.ht += dt; b.hfOn = true; b.goal = null; b.gtype = ''; b.path = null; b.idle = 3; b.v *= Math.max(0, 1 - dt * 6);
+    HF.wt = (HF.wt || 0) + dt; if (HF.wt > 30) { hfEnd(A); return; }
+    if (d <= 1.6 || HF.wt > 6) HF.ht += dt; /* la cuenta del choque empieza al quedar frente a frente */
+    b.hfOn = true; b.goal = null; b.gtype = ''; b.path = null; b.idle = 3; b.v *= Math.max(0, 1 - dt * 6);
     ang = Math.atan2(A.x - b.x, A.z - b.z); b.aimYaw = ang; if (Math.abs(nAng(ang - b.yaw)) > 0.35) b.yaw = ang; else b.yaw += nAng(ang - b.yaw) * Math.min(1, dt * 6);
     A.yaw += nAng(ang + Math.PI - A.yaw) * Math.min(1, dt * 6);
-    if (d > 0.6) { A.x += (b.x - A.x) / d * 0.9 * dt; A.z += (b.z - A.z) / d * 0.9 * dt; }
+    if (d > 1.2) { /* se acercan: si el robot no puede avanzar (cráter, edificios), AURA recorre todo el tramo */
+      var sp2 = Math.min(0.8 * dt, (d - 1.2) / 2), ux = (b.x - A.x) / d, uz = (b.z - A.z) / d, nx2, nz2, rOk = false;
+      nx2 = b.x - ux * sp2; nz2 = b.z - uz * sp2; if (botFree(nx2, nz2) && !botCrater(nx2, nz2)) { b.x = nx2; b.z = nz2; rOk = true; }
+      if (!rOk) sp2 = Math.min(1.2 * dt, d - 1.2);
+      nx2 = A.x + ux * sp2; nz2 = A.z + uz * sp2; if (botFree(nx2, nz2) && !botCrater(nx2, nz2)) { A.x = nx2; A.z = nz2; }
+    } else if (d < 1.0 && d > 0.001) { /* separación mínima */
+      var ux2 = (b.x - A.x) / d, uz2 = (b.z - A.z) / d, ps = Math.min(0.6 * dt, (1.0 - d) / 2);
+      A.x -= ux2 * ps; A.z -= uz2 * ps; b.x += ux2 * ps; b.z += uz2 * ps;
+    }
     HF.sw = HF.ht < 0.35 ? 1 : HF.ht > 1.7 ? 0 : 0.5 - 0.5 * Math.cos(6.2832 * (HF.ht - 0.8) / 0.9); /* vaivén del brazo: 1 = atrás, 0 = contacto (choques a 0.8 s y 1.7 s) */
     if ((HF.ht >= 0.8 && !HF.c) || (HF.ht >= 1.7 && HF.c === 1)) { HF.c = (HF.c || 0) + 1; mx = (A.x + b.x) / 2; mz = (A.z + b.z) / 2; AUD.clap({ x: mx, y: A.y + 0.5, z: mz }); fxSpawn(mx, A.y + 0.55, mz, 0, 0, 0, 0.35, 0.8, 4, 0xffffff, 0.9, true); }
     if (HF.ht >= 3.0) hfEnd(A);
