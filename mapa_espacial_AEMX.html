@@ -6306,7 +6306,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var vegObs = null, botVG = null, bot = null, botFollow = false, botCamFree = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 35, BOT_HUNT_D = 6, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 36, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
+  var BOT_RANGE = 35, BOT_HUNT_D = 6, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
@@ -7490,7 +7490,7 @@ window.startMap = function (RAW, AUTH) {
             b.nullT = 0;
             b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 12);
             tg = spd * Math.max(0.2, Math.cos(nAng(hd - b.yaw))) * Math.max(0.35, Math.min(1, (b.blockD - 1.2) / (b.v * 0.5 + 2)));
-            if ((b.bh || 0) > 0.15 && b.boostT <= 0) tg = Math.max(tg, (b.glr || 0) > 0 ? 36 - 18 * (1 - b.glr / Math.max(1, b.glr0)) : 16); /* conserva el impulso mientras cae */
+            if ((b.bh || 0) > 0.15 && b.boostT <= 0) tg = Math.max(tg, (b.glr || 0) > 0 ? 30 - 15 * (1 - b.glr / Math.max(1, b.glr0)) : 16); /* conserva el impulso mientras cae */
             b.v += (tg - b.v) * Math.min(1, dt * 5);
           }
           steps = Math.max(1, Math.ceil(b.v * dt / 0.5));
@@ -7852,9 +7852,10 @@ window.startMap = function (RAW, AUTH) {
         fl.material.color.setHex(b.boostT > 0 ? 0x5ad8ff : 0x6dffc2);
       } else fl.visible = false;
     }
-    if (Math.abs(b.sideK) > 0.12) { /* mini propulsores laterales: dispara el del lado contrario al giro */
-      var sgn = b.sideK > 0 ? 1 : -1, srx = -Math.cos(b.yaw) * sgn, srz = Math.sin(b.yaw) * sgn, sn2 = Math.ceil(Math.abs(b.sideK) * 3), sj;
-      for (sj = 0; sj < sn2; sj++) fxSpawn(b.x + srx * 0.3 + (Math.random() - 0.5) * 0.04, b.y + (b.bh || 0) * 0 + 0.55, b.z + srz * 0.3 + (Math.random() - 0.5) * 0.04, srx * 2.6, 0.1, srz * 2.6, 0.14, 0.06, 0.012, sj % 2 ? 0xe8ffff : 0x5ad8ff, 0.9, true);
+    if (Math.abs(b.sideK) > 0.12) { /* mini propulsores laterales: salen de la tobera de la mochila del lado contrario al giro */
+      var sgn = b.sideK > 0 ? 1 : -1, srx = -Math.cos(b.yaw) * sgn, srz = Math.sin(b.yaw) * sgn, sj, nzI = b.nozzles[sgn > 0 ? 0 : 1], sLen = 2 + Math.round(Math.abs(b.sideK) * 3);
+      bkTmpA.set(sgn > 0 ? -0.02 : 0.02, -0.12, 0); nzI.localToWorld(bkTmpA);
+      for (sj = 0; sj < sLen; sj++) fxSpawn(bkTmpA.x + srx * 0.045 * sj, bkTmpA.y, bkTmpA.z + srz * 0.045 * sj, srx * 1.1, 0, srz * 1.1, 0.08, 0.045 * (1 - sj / (sLen + 1)) + 0.012, 0.01, sj === 0 ? 0xe8ffff : 0x5ad8ff, 0.9, true);
     }
     b.eyeMat.color.setHex(b.boostT > 0 ? 0xc8ffe0 : 0x3dff7a);
     b.g.updateMatrixWorld(true);
@@ -10348,7 +10349,7 @@ window.startMap = function (RAW, AUTH) {
         /* si el jugador no la mueve, la cámara gira suave para quedarse a la espalda del robot */
         if (botDrag) botCamUser = clock.elapsedTime;
         if (!turretCam && clock.elapsedTime - botCamUser > 4) {
-          var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng(botYawCam + Math.PI - bcur) * Math.min(1, dt * 1.5);
+          var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng((bot.aiming ? bot.aimYaw : bot.yaw) + Math.PI - bcur) * Math.min(1, dt * 4);
           if (brr > 0.01) { camera.position.x = controls.target.x + Math.sin(bnew) * brr; camera.position.z = controls.target.z + Math.cos(bnew) * brr; }
         }
       }
@@ -10359,7 +10360,7 @@ window.startMap = function (RAW, AUTH) {
     controls.target.z = clamp(controls.target.z, -1300 * GK, 1300 * GK);
     controls.target.y = clamp(controls.target.y, 0, 200);
     /* cámara del robot: se inclina hacia arriba (en su sitio) igual que la cabeza del robot cuando apunta hacia arriba */
-    var bcT = (botFollow && bot && !turretCam && !fly && bot.aiming && !botDrag && clock.elapsedTime - botCamUser > 4) ? clamp(bot.aimPitch || 0, 0, 1.0) : 0;
+    var bcT = (botFollow && bot && !turretCam && !fly && bot.aiming && !botDrag && clock.elapsedTime - botCamUser > 4) ? clamp((bot.aimPitch || 0) * 0.4, 0, 0.28) : 0; /* máx. ~16°: el robot siempre queda a la vista, en el tercio inferior */
     bcTilt += (bcT - bcTilt) * Math.min(1, dt * 6);
     if (bcTilt > 0.003) {
       bcV1.copy(controls.target).sub(camera.position); var bcL = bcV1.length() || 1; bcV1.divideScalar(bcL);
