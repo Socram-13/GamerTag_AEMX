@@ -8266,7 +8266,7 @@ window.startMap = function (RAW, AUTH) {
   var _auNoFace = false, _aftO = auraFaceTex, _dummyTex = null;
   auraFaceTex = function () { if (_auNoFace) return _dummyTex || (_dummyTex = new THREE.Texture()); return _aftO(); };
   function sbMakeF(col) {
-    var bik = new THREE.MeshLambertMaterial({ color: col, emissive: col === 0xe0162b ? 0x4a0409 : 0x06174a }), a, ast, hm, vz, H, f = 0.55, q;
+    var bik = new THREE.MeshLambertMaterial({ color: col, emissive: col === 0xe0162b ? 0x4a0409 : 0x06174a }), a, ast, hm, vz, H, f = 0.85, q;
     function bk(par, px, py, pz, sx, sy, sz) { q = new THREE.Mesh(uBox, bik); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); par.add(q); return q; }
     _auNoFace = true; a = makeAura(); _auNoFace = false;
     scene.remove(a.g); a.g.visible = true;
@@ -8281,12 +8281,17 @@ window.startMap = function (RAW, AUTH) {
     bk(a.pelvis, 0, -0.012, 0.0, 0.33, 0.1, 0.22); /* parte de abajo */
     a.g.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
     a.parts = { armL: a.arms[0].sh, armR: a.arms[1].sh, legL: a.legs[0].th, legR: a.legs[1].th };
-    a.g.scale.setScalar(0.47);
+    (function () { /* escala automática: misma altura (0.667) que el robot, Aura y los astronautas comunes */
+      var bb = new THREE.Box3(), qb = new THREE.Box3(), h;
+      a.g.scale.setScalar(1); a.g.position.set(0, 0, 0); a.g.rotation.set(0, 0, 0); a.g.updateMatrixWorld(true);
+      a.g.traverse(function (m) { if (m.isMesh && m.geometry && m.material && m.material.blending !== THREE.AdditiveBlending && !m.material.wireframe) { m.geometry.computeBoundingBox(); qb.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld); bb.union(qb); } });
+      h = bb.max.y - bb.min.y; a.g.scale.setScalar(h > 0.1 ? 0.667 / h : 0.37);
+    })();
     return a;
   }
   function sbBuild(s) {
     var a = sbMakeF(0xe0162b);
-    a.g.rotation.order = 'XYZ'; a.g.rotation.x = -Math.PI / 2; a.by = 0.11; a.g.position.set(0, a.by, 0.4); /* boca arriba, cabeza hacia -z */
+    a.g.rotation.order = 'XYZ'; a.g.rotation.x = -Math.PI / 2; a.by = 0.16 * a.g.scale.x + 0.035; a.g.position.set(0, a.by, 0.86 * a.g.scale.x); /* boca arriba, cabeza hacia -z */
     a.parts.armL.rotation.z = -0.12; a.parts.armR.rotation.x = -3.0; a.parts.armR.rotation.z = 0.5; /* un brazo detrás de la cabeza */
     a.parts.legL.rotation.z = -0.06; a.parts.legR.rotation.z = 0.06;
     s.g.add(a.g); s.ast = a;
