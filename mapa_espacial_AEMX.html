@@ -5295,6 +5295,15 @@ window.startMap = function (RAW, AUTH) {
     if (!presCity) for (k = 0; k < districts.length; k++) if (districts[k].name === 'Ciudad de México') { presCity = districts[k]; break; }
     return !presCity || Math.hypot(ufo.x - presCity.cx, ufo.z - presCity.cz) <= presCity.r;
   }
+  function ufoRetire() { /* retira el OVNI sin ruido (paz tras una invasión) */
+    if (!ufo) return;
+    if (ufo.glt > 0 && typeof ufoGlitchEnd === 'function') ufoGlitchEnd(true);
+    if (typeof glitch !== 'undefined' && glitch && glitch.g) glitch.g.visible = false;
+    if (ufo.cow && ufo.cow.state === 'lifted') { ufo.cow.g.position.y = 0.02; ufo.cow.g.rotation.x = 0; ufo.cow.g.rotation.z = 0; ufo.cow.g.scale.setScalar(0.9); ufo.cow.state = 'idle'; ufo.cow.born = clock.elapsedTime - 2; ufo.cow = null; }
+    if (ufo.carry) { scene.remove(ufo.carry.g); ufo.carry = null; }
+    ufo.beam.visible = false; ufo.ring.visible = false;
+    ufo.state = 'wreck'; ufo.gone = true; ufo.T = 180; ufo.g.visible = false; if (wreck) wreck.visible = false;
+  }
   function ufoDown() { return !!ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck' || ufo.state === 'spawn'); }
   function fxInit() {
     var i, m;
@@ -5521,6 +5530,7 @@ window.startMap = function (RAW, AUTH) {
   function ufoSpawnEnd() {
     var u = ufo, s;
     glitch.g.visible = false;
+    if (clock.elapsedTime < ufoHold) { ufoRetire(); return; } /* en paz no aparece */
     u.g.visible = true; u.blk = 0.5;
     u.noFireUntil = clock.elapsedTime + 5; /* ventaja de 5 s: la torreta no dispara */
     u.legs = 2 + ((Math.random() * 2) | 0);
@@ -5764,6 +5774,7 @@ window.startMap = function (RAW, AUTH) {
       if (Math.sin(t * 9) > 0.3) { ufoDome.color.setHex(0xff5a5a); ufoDome.emissive.setHex(0xff1010); }
       else { ufoDome.color.setHex(0x9ff3ff); ufoDome.emissive.setHex(0x1a6a80); }
     } else { ufoDome.color.setHex(0x9ff3ff); ufoDome.emissive.setHex(0x1a6a80); }
+    if (clock.elapsedTime < ufoHold && ufo.state !== 'crash' && ufo.state !== 'stuck' && ufo.state !== 'wreck') ufoRetire(); /* seguro: nada de OVNI vivo durante la paz */
     if (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck' || ufo.state === 'spawn') { if (ufo.glt > 0) ufoGlitchEnd(true); ufoCrashStep(t, dt); return; }
     /* Parpadeo al materializarse */
     if (ufo.blk > 0) { ufo.blk -= dt; ufo.g.visible = ufo.blk <= 0 || ((t * 18) | 0) % 2 === 0; }
@@ -9552,9 +9563,7 @@ window.startMap = function (RAW, AUTH) {
       var wasReal = inv.t > 0.5;
       invLock = null; inv = null; cur = null; HFW = false;
       ufoHold = tn + Math.max(rest, wasReal ? 600 : 0); /* durante los 10 min de paz no reaparece el OVNI */
-      if ((rest > 0 || wasReal) && ufo && !(ufo.state === 'wreck' || ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'spawn')) { /* retira el OVNI vivo sin ruido */
-        ufo.state = 'wreck'; ufo.gone = true; ufo.T = 180; ufo.g.visible = false; if (wreck) wreck.visible = false;
-      }
+      if ((rest > 0 || wasReal) && ufo && !(ufo.state === 'wreck' || ufo.state === 'crash' || ufo.state === 'stuck')) ufoRetire(); /* retira el OVNI vivo (o en aparición) sin ruido */
       if (wasReal) { nextAt = tn + 600; peaceOn = true; } /* 10 min de paz hasta la siguiente invasión */
     }
     /* Rumbo de huida: el más cercano a "alejarse del robot" que no choca con la frontera, el agua ni los edificios */
