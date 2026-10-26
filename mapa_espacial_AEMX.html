@@ -8500,7 +8500,7 @@ window.startMap = function (RAW, AUTH) {
       A.legs[i].th.rotation.x = la; A.legs[i].kn.rotation.x = sg; A.legs[i].ft.rotation.x = -(la + sg) * 0.5 + sg * 0.3;
       A.legs[i].th.rotation.z = (i ? -1 : 1) * (0.045 + 0.015 * A.gk * Math.max(0, Math.cos(A.ph + i * Math.PI))); /* piernas algo inclinadas hacia adentro */
       A.legs[i].ft.rotation.z = -A.legs[i].th.rotation.z * 1.0; A.legs[i].ft.rotation.y = 0; /* el pie queda plano y al frente */
-      sw = Math.sin(A.ph + i * Math.PI) * 0.55 * (1 + 0.9 * rk) * A.gk; tk = A.sk;
+      sw = Math.sin(A.ph + i * Math.PI) * (0.55 - 0.17 * (1 - rk)) * (1 + 0.9 * rk) * A.gk; /* al caminar el braceo es más sutil; al correr queda igual */ tk = A.sk;
       A.arms[i].sh.rotation.x = sw * (1 - tk) + tk * -1.0; A.arms[i].sh.rotation.z = (i ? 1 : -1) * ((0.1 + 0.03 * Math.sin(t * 1.3 + i)) * (1 - tk) - 0.3 * tk);
       A.arms[i].el.rotation.x = (-0.18 - 0.25 * A.gk * Math.max(0, -Math.sin(A.ph + i * Math.PI)) - 1.2 * rk * A.gk) * (1 - tk) + tk * -1.4;
       if (i === 0 && A.pk > 0.01) { A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.pk) - 1.45 * A.pk; A.arms[0].sh.rotation.z = A.arms[0].sh.rotation.z * (1 - A.pk) - 0.12 * A.pk; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.pk) - 0.15 * A.pk; } /* brazo extendido hacia el sitio */
