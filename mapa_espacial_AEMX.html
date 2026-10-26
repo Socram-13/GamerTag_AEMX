@@ -128,6 +128,15 @@
   .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
   .rows li { display: flex; justify-content: space-between; gap: 10px; font-variant-numeric: tabular-nums; }
   .rows span:last-child { font-weight: 600; }
+  .xact { display: none; margin-top: 10px; flex-direction: column; gap: 6px; }
+  .stage.gm-exp .xact { display: flex; }
+  .xact[hidden] { display: none !important; }
+  .xact button, #xbar button { pointer-events: auto; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,228,77,0.55); background: rgba(40,28,70,0.9); color: #fff3d6; font: 700 12.5px var(--f-body); cursor: pointer; }
+  .xact button:hover, #xbar button:hover { background: rgba(70,50,120,0.95); }
+  #x-fight, #x-fb { border-color: rgba(255,110,110,0.7) !important; color: #ffd0d0 !important; }
+  #xbar { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; max-width: 92vw; padding: 7px 10px; border-radius: 14px; background: rgba(16,9,30,0.82); border: 1px solid rgba(255,228,77,0.45); backdrop-filter: blur(6px); color: #fff3d6; font: 600 12.5px var(--f-body); }
+  #xbar[hidden] { display: none; }
+  #xbar button[hidden] { display: none; }
   .lvl { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
   .pill {
     position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; display: flex; flex-direction: column; align-items: center;
@@ -315,9 +324,11 @@
         <div class="bar" id="c-bar"></div>
         <ul class="rows" id="c-rows"></ul>
         <p class="lvl" id="c-lvl"></p>
+        <div class="xact" id="x-act" hidden><button type="button" id="x-go">🤖 Enviar al robot</button><button type="button" id="x-fight" hidden>⚔ Retar 1 vs 1</button></div>
       </aside>
     </footer>
   </div>
+  <div id="xbar" hidden><span id="x-txt"></span><button type="button" id="x-fb" hidden>⚔ Retar 1 vs 1</button><button type="button" id="x-back">Volver</button></div>
   <div id="fail" hidden><p>No se pudo cargar el motor 3D. Revisa tu conexión y vuelve a abrir la página.</p></div>
 </main>
 
@@ -4700,6 +4711,7 @@ window.startMap = function (RAW, AUTH) {
     document.getElementById('c-lvl').textContent = p.banned ? 'Edificio en ruinas' : 'Nivel: ' + TIER_NAMES[p.tier] + ' (' + TIER_RANGE[p.tier] + ' parcelas)';
     card.hidden = false;
     stage.classList.add('has-card');
+    if (typeof xsRefresh === 'function') xsRefresh();
     setRot(false);
     flyTo(p.x, p.topY * 0.35, p.z, p.tier === 5 ? 42 : 28, 0.95);
   }
@@ -4769,6 +4781,7 @@ window.startMap = function (RAW, AUTH) {
       }
     } else if (m.kind === 't') {
       if (car) { deselect(); fly = null; turretCam = true; turretMode = 'car'; }
+    } else if (m.kind === 'sd') { botSendCity(m.d);
     } else if (m.kind === 's') {
       if (bot) { deselect(); botStartFollow(bot); }
     } else if (m.kind === 'g') {
@@ -4795,7 +4808,7 @@ window.startMap = function (RAW, AUTH) {
       else if ('scout'.indexOf(v) === 0) matches.push({ kind: 's', label: '🤖 Scout (robot)', sub: 'seguir' });
       else if ('shoter'.indexOf(v) === 0 || 'shooter'.indexOf(v) === 0) matches.push({ kind: 'g', label: '🔫 Shooter (rifle)', sub: 'vista' });
     }
-    districts.forEach(function (d) { if (d.name.toLowerCase().indexOf(v) > -1) matches.push({ kind: 'd', d: d, label: d.name, sub: 'ver ciudad' }); });
+    districts.forEach(function (d) { if (d.name.toLowerCase().indexOf(v) > -1) { matches.push({ kind: 'd', d: d, label: d.name, sub: 'ver ciudad' }); if (GM.mode === 'exp' && d.list.length) matches.push({ kind: 'sd', d: d, label: '🤖 Enviar robot a ' + d.name, sub: 'visitar' }); } });
     players.forEach(function (p) {
       if (matches.length < 6 && (p.name.toLowerCase().indexOf(v) > -1 || p.city.toLowerCase().indexOf(v) > -1)) matches.push({ kind: 'p', p: p, label: '@' + p.name, sub: p.city });
     });
@@ -4829,6 +4842,10 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('keydown', function (e) { if (GM.mode === 'inv' && (e.key === 'Enter' || e.key === 'Escape')) setTimeout(function () { q.blur(); }, 0); });
   q.addEventListener('blur', function () { stage.classList.remove('q-on'); });
   document.addEventListener('keydown', function (e) { if (GM.mode === 'inv' && e.key === '/' && document.activeElement !== q) { e.preventDefault(); stage.classList.add('q-on'); q.focus(); } }); /* Modo Invasión: la búsqueda (y sus códigos) aparece con / */
+  document.getElementById('x-go').addEventListener('click', function () { if (selected) botSendPlayer(selected); });
+  document.getElementById('x-fight').addEventListener('click', botXsFight);
+  document.getElementById('x-fb').addEventListener('click', botXsFight);
+  document.getElementById('x-back').addEventListener('click', botXsBack);
   document.getElementById('b-align').addEventListener('click', function () { if (bot && GM.mode === 'inv') { botCamUser = -99; botStartFollow(bot); } }); /* vuelve a la vista por defecto detrás del robot */
 
   /* Tocar o arrastrar el mapa desactiva el seguimiento del OVNI para ajustar la cámara */
@@ -7181,6 +7198,45 @@ window.startMap = function (RAW, AUTH) {
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     return true;
   }
+  /* ---------- Modo Explorador: enviar al robot a una ciudad o al edificio de un jugador; desde ahí se puede retar ---------- */
+  function xsCan() { return GM.mode === 'exp' && GM.rel && bot && !bot.tpj && !bot.isl && bot.mode !== 'lift'; }
+  function xsRefresh() {
+    var X = bot && bot.xs, p = (typeof selected !== 'undefined') ? selected : null, act = document.getElementById('x-act'), go = document.getElementById('x-go'), fi = document.getElementById('x-fight'), bar = document.getElementById('xbar'), tx = document.getElementById('x-txt'), fb = document.getElementById('x-fb'), here = !!(X && X.arr && p && X.p === p);
+    if (act) act.hidden = !(GM.mode === 'exp' && p && !p.banned);
+    if (go) { go.hidden = !!here; go.textContent = (X && X.p === p && !X.arr) ? '🤖 El robot va en camino…' : '🤖 Enviar al robot'; go.disabled = !!(X && X.p === p && !X.arr); }
+    if (fi) fi.hidden = !here;
+    if (bar) { bar.hidden = !X; if (X) { tx.textContent = X.arr ? '🤖 El robot está en el edificio de @' + X.p.name : '🤖 El robot va a @' + X.p.name; fb.hidden = !X.arr; } }
+  }
+  function botSendPlayer(p) { /* el robot va al edificio de un jugador (solo Modo Explorador) */
+    var b = bot, sp, dx, dz, L;
+    if (!p || p.banned || !xsCan()) { if (b && GM.mode === 'exp') window.__botSayQ = 'Ahora no puedo, ya estoy ocupado.'; return false; }
+    dx = b.x - p.x; dz = b.z - p.z; L = Math.hypot(dx, dz) || 1;
+    sp = botFreeSpot(p.x + dx / L * 6, p.z + dz / L * 6); if (!sp) return false;
+    b.tour = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.disTalk = 0; b.disMeet = 0; b.disForce = 0;
+    b.xs = { p: p, x: sp[0], z: sp[1], t0: now0(), rg: 0, arr: 0, tp: 0 };
+    if (!botSetGoal(sp[0], sp[1], 'patrol')) { b.xs.tp = 1; b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+    window.__botSayQ = 'Voy al edificio de @' + p.name + '.';
+    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
+    xsRefresh(); return true;
+  }
+  function botSendCity(d) { /* el robot va a visitar una ciudad (solo Modo Explorador) */
+    var b = bot;
+    if (!d || !d.list.length || !xsCan()) { if (b && GM.mode === 'exp') window.__botSayQ = 'Ahora no puedo, ya estoy ocupado.'; return false; }
+    b.xs = null; b.tour = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0;
+    if (!botPickCity(d)) return false;
+    window.__botSayQ = 'Voy a visitar ' + d.name + '.';
+    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
+    xsRefresh(); return true;
+  }
+  function botXsBack() { if (bot) { bot.xs = null; bot.idle = 0; window.__botSayQ = 'Vuelvo a mi ronda.'; xsRefresh(); } }
+  function botXsFight() { /* Entrega 3: el duelo; por ahora solo valida y avisa */
+    var X = bot && bot.xs, p = X && X.p, ok = !!(AUTH && AUTH.uid);
+    if (!p || !X.arr) return;
+    if (!ok) { window.__botSayQ = 'Para retar necesitas iniciar sesión.'; return; }
+    if (p === MYP || p.uid === AUTH.uid) { window.__botSayQ = 'No puedo retarte a ti mismo.'; return; }
+    if (!p.total) { window.__botSayQ = 'Ese jugador no tiene parcelas para pelear.'; return; }
+    window.__botSayQ = 'Duelo próximamente. Aún me estoy afilando.';
+  }
   function botCallVillage() { /* código 'aldea': el robot va a visitar la aldea alien (si no hay invasión ni OVNI) */
     var b = bot;
     if (!b || !VILD) return false;
@@ -7394,6 +7450,21 @@ window.startMap = function (RAW, AUTH) {
     }
     if (GM.mode && !GM.rel && now >= GM.go) { GM.rel = true; if (GM.mode === 'inv') { ufoHold = 0; deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botCamUser = -99; botStartFollow(b); } } /* tras la espera, en Modo Invasión vuelven los OVNIs y la cámara sigue al robot */
     if (!GM.mode || now < GM.go) { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.v = 0; b.boostT = 0; b.hopGoal = null; b.fogT = 0; } /* de pie frente al edificio hasta que empiece */
+    if (b.xs) { /* Modo Explorador: viaje al edificio de un jugador, espera ahí y se puede retar */
+      var XS = b.xs, xd = Math.hypot(XS.x - b.x, XS.z - b.z);
+      if (GM.mode !== 'exp' || !GM.rel) b.xs = null;
+      else if (!XS.arr) {
+        if (!b.tpj && b.mode !== 'lift' && !b.isl) {
+          if (xd < 5 || (now - XS.t0 > 4 && !b.goal && !b.path && b.mode === 'walk' && XS.rg > 0 && xd < 14)) { XS.arr = now; xsRefresh(); }
+          else if (now - XS.t0 > 170 && !XS.tp) { XS.tp = 1; b.tpj = { x: XS.x, z: XS.z, gx: XS.x, gz: XS.z, t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+          else if (b.mode === 'walk' && now >= XS.rg && (!b.goal || Math.hypot(b.goal.x - XS.x, b.goal.z - XS.z) > 3)) { XS.rg = now + 2.5; if (!botSetGoal(XS.x, XS.z, 'patrol') && !XS.tp) { XS.tp = 1; b.tpj = { x: XS.x, z: XS.z, gx: XS.x, gz: XS.z, t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); } }
+        }
+      } else if (!b.tpj) {
+        b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.v = 0; b.boostT = 0; b.hopGoal = null;
+        b.yaw = Math.atan2(XS.p.x - b.x, XS.p.z - b.z);
+        if (now - XS.arr > 240) { b.xs = null; b.idle = 0; xsRefresh(); }
+      }
+    }
     if (b.tpj) { /* teletransporte: desaparece con destello y reaparece en el destino */
       var Tp = b.tpj, tk, tdx, tdz;
       Tp.t += dt; b.v = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0; b.hopGoal = null;
@@ -10937,7 +11008,7 @@ window.startMap = function (RAW, AUTH) {
     }
   }
   if (typeof ALN !== 'undefined' && ALN.hold) ALN.hold(); /* ninguna invasión empieza hasta que haya OVNI (solo en Modo Invasión) */
-  window.__aemxMode = function (m) { if (GM.mode || (m !== 'inv' && m !== 'exp')) return; GM.mode = m; GM.go = clock.elapsedTime + 6; window.__gmode = m; if (m === 'inv') { stage.classList.add('gm-inv'); document.getElementById('b-align').hidden = false; deselect(); } }; /* lo llama la pantalla de carga: el robot espera ~6 s (incluye el desvanecido) */
+  window.__aemxMode = function (m) { if (GM.mode || (m !== 'inv' && m !== 'exp')) return; GM.mode = m; if (m === 'exp') stage.classList.add('gm-exp'); GM.go = clock.elapsedTime + 6; window.__gmode = m; if (m === 'inv') { stage.classList.add('gm-inv'); document.getElementById('b-align').hidden = false; deselect(); } }; /* lo llama la pantalla de carga: el robot espera ~6 s (incluye el desvanecido) */
   if (window.__aemxPendingMode) window.__aemxMode(window.__aemxPendingMode);
   frame();
 };
