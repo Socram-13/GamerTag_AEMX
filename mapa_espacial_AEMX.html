@@ -9869,7 +9869,21 @@ window.startMap = function (RAW, AUTH) {
       m = new THREE.Mesh(new THREE.CircleGeometry(4.6, 28), new THREE.MeshBasicMaterial({ color: 0x0f0d0c, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); /* tierra quemada bajo el OVNI */
       m.rotation.x = -Math.PI / 2; m.position.set(cx, y0 + 0.02, cz); noRay(m); root.add(m);
       scene.add(root);
-      w = buildWreck(); w.visible = true; w.scale.setScalar(2.1); w.position.set(cx, y0 - 0.05, cz); w.rotation.y = 0.7; monBlk.push({ x: cx, z: cz, r: 4.4 });
+      /* el OVNI real (mismo modelo que el que vuela) clavado en el suelo, con materiales propios: su cúpula no parpadea en rojo */
+      (function () {
+        var U = makeUfo(), lampM = [];
+        scene.remove(U.ring); scene.remove(U.g); U.beam.visible = false; U.g.remove(U.beam);
+        U.body.traverse(function (m) {
+          if (!m.isMesh) return;
+          if (m.material === ufoDome) { m.material = new THREE.MeshLambertMaterial({ color: 0x7fb0b8, emissive: 0x0e2a30, transparent: true, opacity: 0.8 }); }
+          else if (m.material === ufoHull) { m.material = new THREE.MeshLambertMaterial({ color: 0x7e8798, emissive: 0x10161f }); }
+          else if (m.material === ufoUnder) { m.material = new THREE.MeshBasicMaterial({ color: 0x9a9a9a }); }
+          else if (m.material && m.material.isMeshBasicMaterial) { m.material = m.material.clone(); lampM.push(m.material); }
+        });
+        w = new THREE.Group(); U.g.position.y = 0.9; U.g.rotation.set(0.3, 0, 0.8); w.add(U.g); w.position.set(cx, y0, cz); w.rotation.y = 0.7; scene.add(w); w.visible = true;
+        w.userData.lamps = lampM;
+        monBlk.push({ x: cx, z: cz, r: 4.4 });
+      })();
       bfC.clear();
       /* senderos de tierra: anillo interior, uno por casa hasta su puerta y la entrada hacia la ciudad más cercana */
       var RR = 5.8, lines = [], ringPts = [], dc = null, bd = 1e9, dd2, ga = 0, oi, ok2, rq, off2, ang2, gx, gz;
@@ -9941,6 +9955,7 @@ window.startMap = function (RAW, AUTH) {
       if (vis !== VIL.on) { VIL.on = vis; VIL.root.visible = vis; VIL.wreck.visible = vis; VIL.al.forEach(function (c) { c.o.g.visible = vis; }); }
       if (!vis) return;
       VIL.smk -= dt;
+      (function () { var lm = VIL.wreck.userData.lamps, q; if (lm) for (q = 0; q < lm.length; q++) lm[q].color.setHex(Math.sin(t * 3 + q * 2.1) > 0.55 ? 0x39ff6a : 0x0f3a1c); })(); /* luces a medio morir */
       (function () { var sx = 0, sz = 0, n = 0, q; for (q = 0; q < VIL.al.length; q++) if (VIL.al[q].swim) { sx += VIL.al[q].x; sz += VIL.al[q].z; n++; } if (n) { VILD.sx = sx / n; VILD.sz = sz / n; } })(); /* posición media de los nadadores: hacia allá miran los visitantes */
       if (VIL.smk <= 0) { /* humo y alguna chispa del OVNI estrellado */
         VIL.smk = 0.35 + Math.random() * 0.3; VIL.cr = (VIL.cr || 0) - 1; if (VIL.cr <= 0) { VIL.cr = 6 + ((Math.random() * 6) | 0); AUD.crackle({ x: VIL.x, y: VIL.y0 + 1.5, z: VIL.z }); }
@@ -9959,14 +9974,22 @@ window.startMap = function (RAW, AUTH) {
                 if (ok) { a.tx = tg[0]; a.tz = tg[1]; a.st = 'go'; break; }
               }
               a.wait = 0.8;
+              if (a.st === 'idle' && !VIL.rep && Math.random() < 0.22) { /* de vez en cuando se acerca a la nave a ponerle las manos encima, como reparándola */
+                for (k = 0; k < 8; k++) { an = rnd(0, 6.2832); tg = [VIL.x + Math.cos(an) * 5.3, VIL.z + Math.sin(an) * 5.3]; if (botFree(tg[0], tg[1])) { a.tx = tg[0]; a.tz = tg[1]; a.st = 'go'; a.rep = true; VIL.rep = true; break; } }
+              }
             }
+          } else if (a.st === 'rep') {
+            a.yaw += nAngl(Math.atan2(VIL.x - a.x, VIL.z - a.z) - a.yaw) * Math.min(1, dt * 4);
+            a.rT -= dt;
+            if (a.rT <= 0) { a.st = 'idle'; a.rep = false; VIL.rep = false; a.wait = 3 + Math.random() * 4; }
+            else if ((a.rTk = (a.rTk || 0) - dt) <= 0) { a.rTk = 1.1 + Math.random() * 0.9; AUD.alTing({ x: VIL.x + (a.x - VIL.x) * 0.6, y: VIL.y0 + 1.5, z: VIL.z + (a.z - VIL.z) * 0.6 }); }
           } else {
             dd = Math.hypot(a.tx - a.x, a.tz - a.z);
-            if (dd < 0.5) { a.st = 'idle'; a.wait = 2 + Math.random() * 5; }
+            if (dd < 0.5) { if (a.rep) { a.st = 'rep'; a.rT = 6 + Math.random() * 4; a.rTk = 0.5; } else { a.st = 'idle'; a.wait = 2 + Math.random() * 5; } }
             else {
               a.yaw += nAngl(Math.atan2(a.tx - a.x, a.tz - a.z) - a.yaw) * Math.min(1, dt * 4); sp = 0.95;
               ux = a.x + Math.sin(a.yaw) * sp * dt; uz = a.z + Math.cos(a.yaw) * sp * dt;
-              if (botFree(ux, uz) && botFree(a.x + Math.sin(a.yaw) * 0.4, a.z + Math.cos(a.yaw) * 0.4)) { a.x = ux; a.z = uz; } else { a.st = 'idle'; a.wait = 0.6; sp = 0; }
+              if (botFree(ux, uz) && botFree(a.x + Math.sin(a.yaw) * 0.4, a.z + Math.cos(a.yaw) * 0.4)) { a.x = ux; a.z = uz; } else { a.st = 'idle'; a.wait = 0.6; sp = 0; if (a.rep) { a.rep = false; VIL.rep = false; } }
             }
           }
           dd = Math.min(dB, dA);
@@ -9985,6 +10008,7 @@ window.startMap = function (RAW, AUTH) {
           }
           o.arm[1].sh.rotation.x = o.arm[1].sh.rotation.x * (1 - a.wv) + (-2.6 + 0.35 * Math.sin(t * 7 + i)) * a.wv; o.arm[1].el.rotation.x = o.arm[1].el.rotation.x * (1 - a.wv) + (-0.5 + 0.3 * Math.sin(t * 7 + i)) * a.wv;
           o.head.rotation.y = 0.3 * Math.sin(t * 0.5 + i) * (1 - a.gk); o.head.rotation.z = 0.06 * Math.sin(t * 0.9 + i);
+          if (a.st === 'rep') { for (k = 0; k < 2; k++) { o.arm[k].sh.rotation.x = -1.35 + 0.2 * Math.sin(t * 5 + k * 1.9); o.arm[k].el.rotation.x = -0.25 + 0.15 * Math.sin(t * 5 + k * 1.9 + 1); o.arm[k].wr.rotation.x = -0.1; o.arm[k].sh.rotation.z = (k ? 1 : -1) * 0.12; o.leg[k].th.rotation.x = 0; o.leg[k].kn.rotation.x = 0; } o.head.rotation.x = 0.25; } else o.head.rotation.x = 0;
           o.g.rotation.x = 0; o.g.rotation.y = a.yaw; o.g.position.set(a.x, a.y, a.z);
         } else {
           /* nadando de pecho: boca abajo, bracea alternando y patalea; se mantiene en el mar frente a la aldea */
