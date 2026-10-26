@@ -4711,7 +4711,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* Tocar o arrastrar el mapa desactiva el seguimiento del OVNI para ajustar la cámara */
   function stopUfoFollow() {
-    if (botFollow && !turretCam && !ufoFollow && !carFollow && !wandFollow) { botCamFree = true; fly = null; return; } /* con el robot: sigue siguiéndolo, pero la cámara queda libre para orbitar y acercarse */
+    if (botFollow && !turretCam && !ufoFollow && !carFollow && !wandFollow) { if (!botCamFree && bot) { controls.target.set(bot.x, bot.y + 0.5, bot.z); bot._lx = undefined; } botCamFree = true; fly = null; return; } /* al pasar a cámara libre el punto de mira se pone EN el robot (en persecución miraba 20 delante): así el zoom parte de la distancia real */ /* con el robot: sigue siguiéndolo, pero la cámara queda libre para orbitar y acercarse */
     if (turretCam) {
       var dv = camera.getWorldDirection(new THREE.Vector3());
       controls.target.set(camera.position.x + dv.x * 30, Math.max(0, camera.position.y + dv.y * 30), camera.position.z + dv.z * 30);
