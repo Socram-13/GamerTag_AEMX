@@ -4710,8 +4710,11 @@ window.startMap = function (RAW, AUTH) {
   });
 
   /* Tocar o arrastrar el mapa desactiva el seguimiento del OVNI para ajustar la cámara */
+  var botCamUser = -99, botDrag = false; /* última vez que el jugador movió la cámara del robot */
+  canvas.addEventListener('pointerdown', function () { botDrag = true; });
+  window.addEventListener('pointerup', function () { botDrag = false; });
   function stopUfoFollow() {
-    if (botFollow && !turretCam && !ufoFollow && !carFollow && !wandFollow) return; /* al pasar a cámara libre el punto de mira se pone EN el robot (en persecución miraba 20 delante): así el zoom parte de la distancia real */ /* con el robot: sigue siguiéndolo, pero la cámara queda libre para orbitar y acercarse */
+    if (botFollow && !turretCam && !ufoFollow && !carFollow && !wandFollow) { botCamUser = clock.elapsedTime; return; } /* al pasar a cámara libre el punto de mira se pone EN el robot (en persecución miraba 20 delante): así el zoom parte de la distancia real */ /* con el robot: sigue siguiéndolo, pero la cámara queda libre para orbitar y acercarse */
     if (turretCam) {
       var dv = camera.getWorldDirection(new THREE.Vector3());
       controls.target.set(camera.position.x + dv.x * 30, Math.max(0, camera.position.y + dv.y * 30), camera.position.z + dv.z * 30);
@@ -6298,7 +6301,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var vegObs = null, botVG = null, bot = null, botFollow = false, botCamFree = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 35, BOT_HUNT_D = 6, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
+  var BOT_RANGE = 35, BOT_HUNT_D = 6, BOT_WALK = 2.6, BOT_RUN = 10, BOT_BOOST = 36, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
@@ -6550,6 +6553,7 @@ window.startMap = function (RAW, AUTH) {
         if (botHexIn(dx, dz, 3.6)) return Math.max(h, botHexIn(dx, dz, 3.2) ? 0.34 : 0.14);
       }
     }
+    if (trailNear(x, z, 1.1)) { c = terrainH(x, z); h = Math.max(h, 0.012 + c + Math.min(0.08, c * 0.8) + 0.04); } /* sobre la cinta del sendero (misma altura que AURA): no la atraviesa */
     return h;
   }
   /* Libre = tierra (nunca agua), fuera de edificios */
@@ -7446,7 +7450,7 @@ window.startMap = function (RAW, AUTH) {
           }
           if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxDense = !!(WX && WX.denseAt && (WX.denseAt(b.x, b.z) || WX.denseAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); if (invIn) { b.wxFog = b.wxDense = b.wxBad = false; } }
           var chA = !!(b.alienT && invIn); /* persiguiendo aliens dentro de la invasión: impulso más corto pero más frecuente */
-          if (b.boostT <= 0 && b.boostCD <= 0 && gd > (chA ? 25 : 45) && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > (chA ? 12 : 30) && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > (chA ? 6 : 12) && botLandAhead(b.x, b.z, want, chA ? 60 : 80)) { b.boostT = b.bMax = invIn ? (chA ? 3 : 1) : 10; /* dentro del estado invadido durante la invasión, el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          if (b.boostT <= 0 && b.boostCD <= 0 && gd > (chA ? 25 : 45) && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > (chA ? 12 : 30) && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > (chA ? 6 : 12) && botLandAhead(b.x, b.z, want, chA ? 60 : 80)) { b.boostT = b.bMax = invIn ? (chA ? 5 : 3) : 12; /* dentro del estado invadido durante la invasión, el hiperimpulso dura 1 s */ AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
             if (b.wxBad || gd < 10 || ((b.bh || 0) < 12 && botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) || !botLandAhead(b.x, b.z, b.yaw, 32)) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
@@ -7481,7 +7485,7 @@ window.startMap = function (RAW, AUTH) {
             b.nullT = 0;
             b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 12);
             tg = spd * Math.max(0.2, Math.cos(nAng(hd - b.yaw))) * Math.max(0.35, Math.min(1, (b.blockD - 1.2) / (b.v * 0.5 + 2)));
-            if ((b.bh || 0) > 0.15 && b.boostT <= 0) tg = Math.max(tg, (b.glr || 0) > 0 ? 30 - 15 * (1 - b.glr / Math.max(1, b.glr0)) : 16); /* conserva el impulso mientras cae */
+            if ((b.bh || 0) > 0.15 && b.boostT <= 0) tg = Math.max(tg, (b.glr || 0) > 0 ? 36 - 18 * (1 - b.glr / Math.max(1, b.glr0)) : 16); /* conserva el impulso mientras cae */
             b.v += (tg - b.v) * Math.min(1, dt * 5);
           }
           steps = Math.max(1, Math.ceil(b.v * dt / 0.5));
@@ -7773,7 +7777,9 @@ window.startMap = function (RAW, AUTH) {
     b.rifle.rotation.x = -1.2 * (1 - b.hold) - pit * b.hold; b.rifle.rotation.z = 0.05 * Math.sin(b.ph * 2) * (1 - b.hold);
     lean = (b.boostT > 0 ? 0.55 : Math.min(0.22, b.v * 0.03)) * b.gk + (b.air > 0.5 ? 0.08 : 0) + 0.18 * kq;
     b.lean = (b.lean || 0) + (lean - (b.lean || 0)) * Math.min(1, dt * 6);
-    b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin; b.body.rotation.z = -0.18 * b.hangK; /* torso ligeramente inclinado */
+    var yrR = b.pyaw === undefined ? 0 : nAng(b.yaw - b.pyaw) / Math.max(dt, 0.001); b.pyaw = b.yaw; b.yr = (b.yr || 0) + (yrR - (b.yr || 0)) * Math.min(1, dt * 8);
+    b.sideK = (b.sideK || 0) + ((((b.boostT > 0 || ((b.glr || 0) > 0 && (b.bh || 0) > 0.3)) && Math.abs(b.yr) > 0.3) ? clamp(b.yr / 2.5, -1, 1) : 0) - (b.sideK || 0)) * Math.min(1, dt * 10); /* giro en vuelo: sideK>0 gira a la izquierda */
+    b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin; b.body.rotation.z = -0.18 * b.hangK - 0.22 * b.sideK; /* torso ligeramente inclinado */
     b.body.position.y = -0.38 * bk + (0.84 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.595 * kq;
     /* Al caminar (suave) y al correr (más marcado) el torso se balancea de lado a lado y gira un poco con la zancada; al apuntar no */
     var swA = (0.044 + 0.061 * b.runK) * (1 - b.hold) * b.gk * (1 - fK) * (1 - bk) * (1 - kq);
@@ -7835,9 +7841,13 @@ window.startMap = function (RAW, AUTH) {
       var fl = b.flames[i];
       if (b.flame > 0.03) {
         fl.visible = true;
-        fl.scale.set(0.6 + 0.6 * b.flame, 0.25 + 1.9 * b.flame * (0.85 + 0.15 * Math.sin(t * 55 + i * 2)), 0.6 + 0.6 * b.flame);
+        var bst = b.boostT > 0; fl.scale.set(bst ? 0.4 + 0.4 * b.flame : 0.6 + 0.6 * b.flame, (bst ? 0.2 : 0.25) + (bst ? 1.0 : 1.9) * b.flame * (0.85 + 0.15 * Math.sin(t * 55 + i * 2)), bst ? 0.4 + 0.4 * b.flame : 0.6 + 0.6 * b.flame);
         fl.material.color.setHex(b.boostT > 0 ? 0x5ad8ff : 0x6dffc2);
       } else fl.visible = false;
+    }
+    if (Math.abs(b.sideK) > 0.12) { /* mini propulsores laterales: dispara el del lado contrario al giro */
+      var sgn = b.sideK > 0 ? 1 : -1, srx = -Math.cos(b.yaw) * sgn, srz = Math.sin(b.yaw) * sgn, sn2 = Math.ceil(Math.abs(b.sideK) * 3), sj;
+      for (sj = 0; sj < sn2; sj++) fxSpawn(b.x + srx * 0.3 + (Math.random() - 0.5) * 0.04, b.y + (b.bh || 0) * 0 + 0.55, b.z + srz * 0.3 + (Math.random() - 0.5) * 0.04, srx * 2.6, 0.1, srz * 2.6, 0.14, 0.06, 0.012, sj % 2 ? 0xe8ffff : 0x5ad8ff, 0.9, true);
     }
     b.eyeMat.color.setHex(b.boostT > 0 ? 0xc8ffe0 : 0x3dff7a);
     b.g.updateMatrixWorld(true);
@@ -7849,7 +7859,7 @@ window.startMap = function (RAW, AUTH) {
       for (i = 0; i < 2; i++) {
         bkTmpA.set(0, -0.3, 0); b.nozzles[i].localToWorld(bkTmpA);
         for (fj = 0; fj < fn; fj++) {
-          fxSpawn(bkTmpA.x - fdx * fj / fn, bkTmpA.y - fdy * fj / fn, bkTmpA.z - fdz * fj / fn, (Math.random() - 0.5) * 0.3, -0.9, (Math.random() - 0.5) * 0.3, b.boostT > 0 ? 0.09 : 0.2, 0.09, 0.015, b.boostT > 0 ? 0x5ad8ff : 0x7dffd0, 0.85, true);
+          fxSpawn(bkTmpA.x - fdx * fj / fn, bkTmpA.y - fdy * fj / fn, bkTmpA.z - fdz * fj / fn, (Math.random() - 0.5) * 0.3, -0.9, (Math.random() - 0.5) * 0.3, b.boostT > 0 ? 0.06 : 0.2, b.boostT > 0 ? 0.07 : 0.09, 0.015, b.boostT > 0 ? 0x5ad8ff : 0x7dffd0, 0.85, true);
         }
         if (b.mode !== 'walk' && Math.random() < 0.5) fxSpawn(bkTmpA.x, bkTmpA.y, bkTmpA.z, (Math.random() - 0.5) * 0.6, -0.4, (Math.random() - 0.5) * 0.6, 0.8, 0.04, 0.2, 0xb4b4b4, 0.3, false);
       }
@@ -7857,7 +7867,7 @@ window.startMap = function (RAW, AUTH) {
       if (b.boostT > 0 && b.fxT <= 0) {
         b.fxT = 0.035;
         bkTmpA.set(b.x - Math.sin(b.yaw) * 0.5, b.y + 0.45, b.z - Math.cos(b.yaw) * 0.5);
-        fxSpawn(bkTmpA.x, bkTmpA.y, bkTmpA.z, 0, 0, 0, 0.4, 0.1, 0.015, 0x4dffb0, 0.5, true);
+        fxSpawn(bkTmpA.x, bkTmpA.y, bkTmpA.z, 0, 0, 0, 0.25, 0.08, 0.015, 0x4dffb0, 0.5, true);
         fxSpawn(bkTmpA.x, b.y + 0.1, bkTmpA.z, 0, 0.2, 0, 0.5, 0.07, 0.25, 0xc8b48a, 0.3, false);
       }
     }
@@ -9257,16 +9267,23 @@ window.startMap = function (RAW, AUTH) {
         hx = 1 - hx * hx * (3 - 2 * hx); hy = 1 - hy * hy * (3 - 2 * hy); lv = fade * hx * hy;
         if (ev.rain) sa += lv; else sb += lv;
         var far = Math.max(0.25, Math.min(1, cp.distanceTo(ev.cpos) / 120));
-        ev.mat.opacity = (ev.rain ? 0.6 : 0.4) * fade;
+        /* lejos del estado (>500) o muy alto (>400) la lluvia no se genera ni se dibuja; en el borde se desvanece */
+        var cfar = Math.max(0, Math.min(1, (500 - hd) / 100)) * Math.max(0, Math.min(1, (400 - cp.y) / 100));
+        if (cfar <= 0.01) { ev.lines.visible = false; for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].visible = false; continue; }
+        ev.lines.visible = true; for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].visible = true;
+        ev.mat.opacity = (ev.rain ? 0.6 : 0.4) * fade * cfar;
+        /* con la cámara pegada al personaje: círculo cercano más chico y gotas anchas solo cerca de la cámara */
+        var lowW = cp.y < 80 && cp.distanceTo(tg) < 40, nR = lowW ? 22 : ev.Rf, wR = 90;
         /* Gotas: unas cerca de donde miras y otras repartidas por todo el estado, bajo toda la nube */
-        var nearOK = distToArea(ev.area, tg.x, tg.z) < ev.Rf, okd;
+        var nearOK = distToArea(ev.area, tg.x, tg.z) < nR, okd;
         for (j = 0; j < ev.N; j++) {
           dr = ev.drops[j];
           if (!dr.wide && !nearOK) { dr.on = false; p[o++] = 0; p[o++] = -100; p[o++] = 0; p[o++] = 0; p[o++] = -100; p[o++] = 0; continue; }
           if (dr.on) { dr.y -= dr.v * dt; dr.x += ev.wind * dt; }
-          if (!dr.on || dr.y < 0.3 || (!dr.wide && (dr.x - tg.x) * (dr.x - tg.x) + (dr.z - tg.z) * (dr.z - tg.z) > ev.Rf * ev.Rf)) {
-            if (dr.wide) { okd = randIn(ev.area); if (okd) { qx = okd[0]; qz = okd[1]; } }
-            else { a2 = rnd(0, 6.2832); r2 = ev.Rf * Math.sqrt(Math.random()); qx = tg.x + Math.cos(a2) * r2; qz = tg.z + Math.sin(a2) * r2; okd = inArea(ev.area, qx, qz); }
+          if (!dr.on || dr.y < 0.3 || (!dr.wide && (dr.x - tg.x) * (dr.x - tg.x) + (dr.z - tg.z) * (dr.z - tg.z) > nR * nR) || (dr.wide && lowW && (dr.x - cp.x) * (dr.x - cp.x) + (dr.z - cp.z) * (dr.z - cp.z) > wR * wR)) {
+            if (dr.wide && !lowW) { okd = randIn(ev.area); if (okd) { qx = okd[0]; qz = okd[1]; } }
+            else if (dr.wide) { a2 = rnd(0, 6.2832); r2 = wR * Math.sqrt(Math.random()); qx = cp.x + Math.cos(a2) * r2; qz = cp.z + Math.sin(a2) * r2; okd = inArea(ev.area, qx, qz); }
+            else { a2 = rnd(0, 6.2832); r2 = nR * Math.sqrt(Math.random()); qx = tg.x + Math.cos(a2) * r2; qz = tg.z + Math.sin(a2) * r2; okd = inArea(ev.area, qx, qz); }
             if (okd) { dr.on = true; dr.x = qx; dr.z = qz; dr.y = dr.seen ? ev.H * rnd(0.7, 1) : rnd(0, ev.H); dr.seen = true; }
             else { dr.on = false; dr.y = -100; }
           }
@@ -9276,7 +9293,7 @@ window.startMap = function (RAW, AUTH) {
           } else { p[o++] = 0; p[o++] = -100; p[o++] = 0; p[o++] = 0; p[o++] = -100; p[o++] = 0; }
         }
         ev.geo.attributes.position.needsUpdate = true;
-        for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].material.opacity = (ev.rain ? 0.75 : 0.55) * fade * (0.92 + 0.08 * Math.sin(t * 0.4 + j)) * Math.min(1, far * 1.4) * (j >= ev.nS ? 0.6 : 1);
+        for (j = 0; j < ev.clouds.length; j++) ev.clouds[j].material.opacity = (ev.rain ? 0.75 : 0.55) * fade * cfar * (0.92 + 0.08 * Math.sin(t * 0.4 + j)) * Math.min(1, far * 1.4) * (j >= ev.nS ? 0.6 : 1);
       }
       updateFogEvents(dt, t); updateGhosts(dt, t); updatePuddles(dt); updateRings(dt);
       AUD.setRain(Math.min(1, sa), Math.min(1, sb));
@@ -9310,6 +9327,13 @@ window.startMap = function (RAW, AUTH) {
       return v;
     }
     function fogAt(x, z) { return wxMemo('f', fogAtRaw, x, z); }
+    /* Profundidad dentro de la niebla: distancia (hasta 70) a la salida más cercana; 0 fuera */
+    function fogDepth(x, z) {
+      if (!fogAtRaw(x, z)) return 0;
+      var m = 70, a, c, sn, r;
+      for (a = 0; a < 8; a++) { c = Math.cos(a * 0.7854); sn = Math.sin(a * 0.7854); for (r = 6; r < m; r += 6) if (!fogAtRaw(x + c * r, z + sn * r)) { m = r; break; } }
+      return m;
+    }
     function fogAtRaw(x, z) {
       var i, d, fe;
       for (i = 0; i < fogEvents.length; i++) { fe = fogEvents[i]; if (Math.hypot(x - fe.d.cx, z - fe.d.cz) < 64) return true; }
@@ -9322,7 +9346,7 @@ window.startMap = function (RAW, AUTH) {
     }
     function kindAt(x, z) { var i; for (i = 0; i < events.length; i++) if (events[i].area && inArea(events[i].area, x, z)) return events[i].rain ? 'rain' : 'snow'; return fogAt(x, z) ? 'fog' : ''; }
     function ghostNear(x, z, r) { var i; for (i = 0; i < ghosts.length; i++) if (!ghosts[i].dead && Math.hypot(ghosts[i].x - x, ghosts[i].z - z) < r) return true; return false; }
-    return { kindAt: kindAt, ghostNear: ghostNear, bad: bad, fogAt: fogAt, denseAt: denseAt, update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
+    return { kindAt: kindAt, ghostNear: ghostNear, bad: bad, fogAt: fogAt, fogDepth: fogDepth, denseAt: denseAt, update: update, fog: function (name, dur) { return startFog(name || 'Puebla', dur || 90); }, start: function (kind, name, dur) { return startEvent(kind || 'rain', name || 'Chiapas', dur || 90); } };
   })();
   window.__aemxClima = WX; /* prueba manual: __aemxClima.start('rain','Veracruz',60) */
 
@@ -10314,6 +10338,12 @@ window.startMap = function (RAW, AUTH) {
       else {
         var bk2 = Math.min(1, dt * clamp(4 + 0.5 * (bot.v || 0), 4, 18)), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
         controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
+        /* si el jugador no la mueve, la cámara gira suave para quedarse a la espalda del robot */
+        if (botDrag) botCamUser = clock.elapsedTime;
+        if (!turretCam && clock.elapsedTime - botCamUser > 4) {
+          var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng(botYawCam + Math.PI - bcur) * Math.min(1, dt * 1.5);
+          if (brr > 0.01) { camera.position.x = controls.target.x + Math.sin(bnew) * brr; camera.position.z = controls.target.z + Math.cos(bnew) * brr; }
+        }
       }
     }
     controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !auraFollow && !botFollow && !turretCam;
@@ -10328,13 +10358,14 @@ window.startMap = function (RAW, AUTH) {
     starsB.material.opacity = 0.65 + 0.3 * Math.sin(t * 1.7 + 2.0);
     /* inmersión: cuando la cámara está dentro de una zona de niebla sube la niebla del mundo (gris, densa) y el cielo se vuelve gris; al salir vuelve a la normal */
     if (!window.__fogW) window.__fogW = { k: 0, c0: scene.fog.color.clone(), d0: scene.fog.density, c1: new THREE.Color(0x3a2f5c) };
-    var FW = window.__fogW, inF = !!(WX && WX.fogAt && WX.fogAt(camera.position.x, camera.position.z));
+    var FW = window.__fogW, inF = 0;
+    if (WX && WX.fogDepth) { if (!FW.dT || t - FW.dT > 0.12 || t < FW.dT) { FW.dT = t; FW.dep = WX.fogDepth(camera.position.x, camera.position.z); } inF = clamp(((FW.dep || 0) - 15) / 40, 0, 1); inF = inF * inF * (3 - 2 * inF); } /* aparece poco a poco desde el borde y se aclara antes de salir */
     /* horizonte limitado con la cámara baja: niebla más densa (color del horizonte) y menos vegetación lejana; arriba se ve el país completo */
     var hK = clamp((camera.position.y - 150) / 750, 0, 1); hK = hK * hK * (3 - 2 * hK);
     FW.d0 = 0.0004 + (0.00005 - 0.0004) * hK; window.__vegLim = 3300 + 200 * hK; window.__lowCam = hK < 0.5;
     if (!FW.cL) { FW.cH = new THREE.Color(0x2a1a4a); FW.cL = new THREE.Color(0x5c2b73); }
     FW.c0.copy(FW.cL).lerp(FW.cH, hK);
-    FW.k += ((inF ? 1 : 0) - FW.k) * Math.min(1, dt * 1.2);
+    FW.k += (inF - FW.k) * Math.min(1, dt * 3);
     scene.fog.density = FW.d0 + (0.052 - FW.d0) * FW.k; /* ~18 unidades de visibilidad */
     scene.fog.color.copy(FW.c0).lerp(FW.c1, FW.k);
     var fkS = FW.k; sky.material.uniforms.uFogK.value = fkS * 0.4; seaU.uFogK.value = FW.k; seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); starsA.material.opacity *= (1 - fkS); starsB.material.opacity *= (1 - fkS);
