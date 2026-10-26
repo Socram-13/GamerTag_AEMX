@@ -9097,26 +9097,27 @@ window.startMap = function (RAW, AUTH) {
     }
     function ghKill(g) { group.remove(g.sp); g.M.body.dispose(); g.M.dark.dispose(); g.M.eye.dispose(); }
     /* A quién se acercan los fantasmas: el robot, el caminante y el astronauta que acampa (la fogata no cuenta) */
-    var ghT = [], ghTmp = new THREE.Vector3(), ghW = { x: 0, z: 0 };
+    var ghT = [], ghP = [], ghTmp = new THREE.Vector3(), ghW = { x: 0, z: 0 };
     function ghTargets() {
       var i, c;
-      ghT.length = 0;
-      if (bot) ghT.push(bot);
-      if (aura && aura.g.visible) ghT.push(aura);
-      if (wand && wand.g && wand.g.visible) { wand.g.getWorldPosition(ghTmp); ghW.x = ghTmp.x; ghW.z = ghTmp.z; ghT.push(ghW); }
+      ghT.length = 0; ghP.length = 0; /* prioridad: 0 el personaje que sigue la cámara en tercera persona, 1 los demás, 2 los campamentos */
+      if (bot) { ghT.push(bot); ghP.push(botFollow ? 0 : 1); }
+      if (aura && aura.g.visible) { ghT.push(aura); ghP.push(auraFollow ? 0 : 1); }
+      if (wand && wand.g && wand.g.visible) { wand.g.getWorldPosition(ghTmp); ghW.x = ghTmp.x; ghW.z = ghTmp.z; ghT.push(ghW); ghP.push(wandFollow ? 0 : 1); }
       for (i = 0; i < camps.length; i++) {
         c = camps[i];
         if (!c.wp) { c.root.updateMatrixWorld(true); c.ast.g.getWorldPosition(ghTmp); c.wp = { x: ghTmp.x, z: ghTmp.z }; }
-        ghT.push(c.wp);
+        ghT.push(c.wp); ghP.push(2);
       }
     }
     var ghNowT = 0;
     function ghNear(g, R) {
-      var j, o, dx, dz, dd, bd = R, r = null;
+      var j, o, dx, dz, dd, bd = R, r = null, pr, bp = 9;
       if (g._ncT !== undefined && g._ncR === R && ghNowT - g._ncT < 0.15 && ghNowT >= g._ncT) return g._nc; /* se revisa 6 veces por segundo, no cada cuadro */
       for (j = 0; j < ghT.length; j++) {
         o = ghT[j]; dx = o.x - g.x; dz = o.z - g.z; dd = Math.sqrt(dx * dx + dz * dz);
-        if (dd < bd && inArea(g.area, o.x, o.z)) { bd = dd; r = o; }
+        pr = ghP[j];
+        if ((pr < bp || (pr === bp && dd < bd)) && dd < R && inArea(g.area, o.x, o.z)) { bp = pr; bd = dd; r = o; }
       }
       g._nc = r; g._ncT = ghNowT; g._ncR = R;
       return r;
@@ -9135,7 +9136,7 @@ window.startMap = function (RAW, AUTH) {
             tg = ghNear(g, 70);
             if (tg) { /* aparece de golpe cerca de quien pasa */
               for (tries = 0; tries < 8 && !q; tries++) {
-                ang = rnd(0, 6.2832); rr = rnd(8, 15); x = tg.x + Math.sin(ang) * rr; z = tg.z + Math.cos(ang) * rr;
+                ang = (typeof tg.yaw === 'number' && tries < 6) ? tg.yaw + rnd(-0.87, 0.87) : rnd(0, 6.2832); rr = rnd(8, 15); x = tg.x + Math.sin(ang) * rr; /* delante del personaje (±50°); sin lugar, en cualquier lado */ z = tg.z + Math.cos(ang) * rr;
                 if (inArea(g.area, x, z)) q = [x, z];
               }
               if (q) g.scare = true;
@@ -10431,7 +10432,7 @@ window.startMap = function (RAW, AUTH) {
         if (!window.__lowCam) { c.visible = true; continue; }
         if (!c.geometry) continue;
         if (!c.geometry.boundingSphere) c.geometry.computeBoundingSphere();
-        var bs = c.geometry.boundingSphere; if (!c._sc) c._sc = bs.center.clone().applyMatrix4(c.matrixWorld);
+        var bs = c.geometry.boundingSphere; if (!c._sc) { c.updateWorldMatrix(true, false); c._sc = bs.center.clone().applyMatrix4(c.matrixWorld); }
         d = Math.hypot(c._sc.x - cp.x, c._sc.z - cp.z) - bs.radius; c.visible = d < lim;
       }
     })();
