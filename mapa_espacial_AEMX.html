@@ -7333,7 +7333,7 @@ window.startMap = function (RAW, AUTH) {
     if (b.circ && b.wk && b.mode === 'walk' && (!b.goal || b.gtype === 'wreckp') && !thr && now >= (b.circNT || 0)) {
       var ci3, ca, cdone = false;
       b.circNT = now + 0.15;
-      if (b.stuck >= 1) { b.circDir = -b.circDir; b.stuck = 0; }
+      if (b.stuck >= 2) { b.circDir = -b.circDir; b.stuck = 0; }
       ca = Math.atan2(b.x - b.wk.x, b.z - b.wk.z) + 1.2 * b.circDir; wx = b.wk.x + Math.sin(ca) * 6.2; wz = b.wk.z + Math.cos(ca) * 6.2; /* curva continua: punto bien adelantado, sin recalcular ruta ni frenar */
       if (botFree(wx, wz) && botFree((wx + b.x) / 2, (wz + b.z) / 2)) { b.goal = { x: wx, z: wz }; b.gtype = 'wreckp'; b.path = null; cdone = true; }
       if (!cdone && !b.goal)
@@ -7393,7 +7393,7 @@ window.startMap = function (RAW, AUTH) {
         if (!b.orbDir) b.orbDir = Math.random() < 0.5 ? 1 : -1;
         var oa0 = Math.atan2(b.x - MR.x, b.z - MR.z), oi, oa, ox, oz, od = Math.hypot(b.x - MR.x, b.z - MR.z), orr, odone = false, olk = [1.2, 0.9, 0.6];
         if (od <= 14) { /* ya cerca: avanza en curva continua hacia un punto del círculo bien adelantado, sin recalcular ruta ni frenar */
-          if (b.stuck >= 1) { b.orbDir = -b.orbDir; b.stuck = 0; }
+          if (b.stuck >= 2) { b.orbDir = -b.orbDir; b.stuck = 0; }
           for (oi = 0; oi < 3 && !odone; oi++) {
             oa = oa0 + olk[oi] * b.orbDir; orr = Math.max(6, Math.min(16, 8 + 1.6 * (8 - od))); ox = MR.x + Math.sin(oa) * orr; oz = MR.z + Math.cos(oa) * orr;
             if (botFree(ox, oz) && botFree((ox + b.x) / 2, (oz + b.z) / 2)) { b.goal = { x: ox, z: oz }; b.gtype = 'orbit'; b.path = null; odone = true; }
@@ -7524,7 +7524,7 @@ window.startMap = function (RAW, AUTH) {
           /* Atasco: si no se acerca en ~3.6 s, cambia de objetivo (y deja de perseguir un rato) */
           b.pt += dt;
           if (b.pt >= 1.2) {
-            b.stuck = (b.lastGD - dw < 0.5) ? b.stuck + 1 : 0; b.lastGD = dw; b.pt = 0;
+            var stkC = (b.gtype === 'wreckp' || b.gtype === 'orbit') ? Math.hypot(b.x - (b.stX === undefined ? 1e9 : b.stX), b.z - (b.stZ || 0)) < 0.8 : (b.lastGD - dw < 0.5); /* rondando (cráter/meteoro) la meta se mueve con él: el atasco se mide por el avance real */ b.stX = b.x; b.stZ = b.z; b.stuck = stkC ? b.stuck + 1 : 0; b.lastGD = dw; b.pt = 0;
             if (b.stuck >= 3) { b.stuck = 0; if (b.gtype === 'hunt') b.noHunt = now + 4; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 0.3; }
           }
           }
@@ -8198,8 +8198,8 @@ window.startMap = function (RAW, AUTH) {
     });
     /* Torso femenino: cintura estrecha, caja torácica que se ensancha hacia el pecho, placas de pecho anguladas con bordes rojos */
     upper.position.set(0, 0.1, 0); body.add(upper); upper.add(shell);
-    bx(auJoint2, 0, 0.04, 0, 0.17, 0.12, 0.13, shell);
-    tap(auBlack, 0.19, 0.145, 0.165, 0.125, 0.14, 0, 0.1, 0, shell); bx(auGray, 0, 0.1, 0.078, 0.1, 0.11, 0.02, shell); bx(auRed, 0, 0.1, 0.09, 0.004, 0.1, 0.004, shell);
+    tap(auJoint2, 0.17, 0.13, 0.25, 0.17, 0.12, 0, 0.04, 0, shell); /* la cintura se ensancha hacia la cadera */
+    tap(auBlack, 0.19, 0.145, 0.27, 0.185, 0.14, 0, 0.1, 0, shell); tap(auGray, 0.09, 0.02, 0.14, 0.02, 0.11, 0, 0.1, 0.088, shell); bx(auRed, 0, 0.1, 0.1, 0.004, 0.1, 0.004, shell); /* vientre: ancho como la cadera al bajar */
     tap(auPearl, 0.3, 0.195, 0.19, 0.15, 0.3, 0, 0.35, 0, shell); /* tórax */
     tap(auDark, 0.205, 0.16, 0.19, 0.15, 0.04, 0, 0.19, 0, shell); /* banda bajo el pecho */
     [-1, 1].forEach(function (sx) {
@@ -10378,7 +10378,7 @@ window.startMap = function (RAW, AUTH) {
     if (WX && WX.fogDepth) { if (!FW.dT || t - FW.dT > 0.12 || t < FW.dT) { FW.dT = t; var dn = WX.fogDepth(camera.position.x, camera.position.z); if (dn > (FW.dep || 0) + 0.5) FW.ent = true; else if (dn < (FW.dep || 0) - 0.5) FW.ent = false; FW.dep = dn; } inF = FW.ent ? clamp((FW.dep || 0) / 30, 0, 1) : clamp(((FW.dep || 0) - 15) / 40, 0, 1); inF = inF * inF * (3 - 2 * inF); } /* entrando: desde el borde y al máximo a 30; saliendo: se aclara antes de salir */ /* aparece poco a poco desde el borde y se aclara antes de salir */
     /* horizonte limitado con la cámara baja: niebla más densa (color del horizonte) y menos vegetación lejana; arriba se ve el país completo */
     var hK = clamp((camera.position.y - 150) / 750, 0, 1); hK = hK * hK * (3 - 2 * hK);
-    FW.d0 = 0.0004 + (0.00005 - 0.0004) * hK; window.__vegLim = 3300 + 200 * hK; window.__lowCam = hK < 0.5;
+    FW.d0 = 0.00052 + (0.00005 - 0.00052) * hK; window.__vegLim = 3300 + 200 * hK; window.__lowCam = hK < 0.5;
     if (!FW.cL) { FW.cH = new THREE.Color(0x2a1a4a); FW.cL = new THREE.Color(0x5c2b73); }
     FW.c0.copy(FW.cL).lerp(FW.cH, hK);
     FW.k += (inF - FW.k) * Math.min(1, dt * 3);
@@ -10593,7 +10593,7 @@ window.startMap = function (RAW, AUTH) {
       var s = Math.max(1, d0 / 90) / 3;
       dd.pin.scale.setScalar(s);
       dd.pin.visible = labelsOn && d0 > PIN_D;
-      if (dd.group) dd.group.visible = !window.__lowCam || d0 < 4000; /* con la cámara baja, las ciudades lejanas (ya en la niebla) no se dibujan */
+      if (dd.group) dd.group.visible = !window.__lowCam || d0 < 3300; /* con la cámara baja, las ciudades lejanas (ya en la niebla) no se dibujan */
       dd.wpos.y = 0.35 + 6.6 * (d0 > PIN_D ? s : 1);
     }
     if (labelsOn) for (n = 0; n < districts._order.length; n++) {
