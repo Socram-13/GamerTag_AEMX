@@ -4442,12 +4442,12 @@ window.startMap = function (RAW, AUTH) {
       logoAt(g, x, y, z, 2.2 * k, ry);
     }
     function buildCorp() { /* torre de oficinas rectangular: vidrio azul con losas gris claro (referencia 1) */
-      var g = new THREE.Group(), WX2 = 5.4, WZ2 = 3.0, TOP = 14.0, nF = 9, i, fh = (TOP - 0.7) / nF;
-      cyBox(g, bgSlab, WX2 + 0.9, 0.7, WZ2 + 0.9, 0, 0.35, 0);
-      cyBox(g, bgGlass, WX2, TOP - 0.7, WZ2, 0, 0.7 + (TOP - 0.7) / 2, 0);
-      for (i = 0; i <= nF; i++) cyBox(g, bgSlab, WX2 + 0.26, 0.55, WZ2 + 0.26, 0, 0.7 + i * fh, 0);
+      var g = new THREE.Group(), WX2 = 5.4, WZ2 = 3.0, TOP = 14.0, nF = 9, i, B0 = 0.1, fh = (TOP - B0) / nF;
+      cyBox(g, bgSlab, WX2 + 0.6, B0, WZ2 + 0.6, 0, B0 / 2, 0); /* zócalo bajo */
+      cyBox(g, bgGlass, WX2, TOP - B0, WZ2, 0, B0 + (TOP - B0) / 2, 0);
+      for (i = 1; i <= nF; i++) cyBox(g, bgSlab, WX2 + 0.26, 0.55, WZ2 + 0.26, 0, B0 + i * fh, 0);
       cyBox(g, bgSlab, 3.6, 1.3, 2.0, 0, TOP + 0.55, 0); cyBox(g, bgSlab, 2.4, 0.5, 1.4, 0, TOP + 1.45, 0); cyBox(g, bgSlab, 0.1, 2.2, 0.1, 0.8, TOP + 2.8, 0.2);
-      cyBox(g, bgDoor, 1.4, 1.5, 0.06, 0, 1.45, WZ2 / 2 + 0.03); cyBox(g, bgSlab, 2.2, 0.14, 0.9, 0, 2.3, WZ2 / 2 + 0.4);
+      cyBox(g, bgDoor, 1.4, 1.5, 0.06, 0, 0.85, WZ2 / 2 + 0.03); cyBox(g, bgSlab, 2.2, 0.14, 0.9, 0, 1.7, WZ2 / 2 + 0.4);
       corpLogo(g, -1.3, TOP - 2.7, WZ2 / 2 + 0.34, 0); corpLogo(g, 1.3, TOP - 2.7, -WZ2 / 2 - 0.34, Math.PI);
       corpLogo(g, WX2 / 2 + 0.34, TOP - 2.7, 0, 1.5708); corpLogo(g, -WX2 / 2 - 0.34, TOP - 2.7, 0, -1.5708);
       return g;
