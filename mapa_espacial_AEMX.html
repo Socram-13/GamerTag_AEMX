@@ -7419,14 +7419,26 @@ window.startMap = function (RAW, AUTH) {
     }
   }
   /* Movimiento del robot en pelea: siempre de frente al clon; camina de lado o hacia atrás (la animación se invierte) */
+  function duelInspectGo(D) { /* tras ganar, el robot se acerca a mirar los restos del clon */
+    var b = bot, F = D.fg, a0, k, a, px, pz;
+    D.dR = null; D.jR = null; b.jy = 0; D.rg = null; D.insp = true; D.arr = false;
+    if (!F) return;
+    a0 = Math.atan2(b.x - F.x, b.z - F.z);
+    for (k = 0; k < 8 && !D.rg; k++) {
+      a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5; px = F.x + Math.sin(a) * 3.4; pz = F.z + Math.cos(a) * 3.4;
+      if (botFree(px, pz) && !duelEdge(px, pz) && !duelCoverHit(b.x, b.z, px, pz)) D.rg = { x: px, z: pz };
+    }
+    if (!D.rg) D.arr = true;
+  }
   function duelRobotStep(dt) {
     var D = DUEL, b = bot, F = D.fg, h, v, nx, nz, rel, yT;
     if (!F || b.tpj || b.mode !== 'walk') return;
     yT = Math.atan2(F.x - b.x, F.z - b.z); b.yaw += nAng(yT - b.yaw) * Math.min(1, dt * 10); b.aimYaw = b.yaw;
+    if (D.insp && D.rg && Math.hypot(D.rg.x - b.x, D.rg.z - b.z) < 0.9) { D.arr = true; b.bwd = 0; b.v *= Math.max(0, 1 - dt * 8); return; } /* llegó a los restos */
     if (D.dR || D.jR || !D.rg) { b.bwd = 0; if (!D.dR && !D.jR) b.v *= Math.max(0, 1 - dt * 8); return; }
     h = botSteer(b, Math.atan2(D.rg.x - b.x, D.rg.z - b.z), 3.5);
     if (h === null) { D.rg = null; b.v *= Math.max(0, 1 - dt * 8); return; }
-    rel = nAng(h - b.yaw); v = Math.abs(rel) > 1.2 ? 5 : 6.5;
+    rel = nAng(h - b.yaw); v = D.insp ? 3.6 : Math.abs(rel) > 1.2 ? 5 : 6.5;
     b.v += (v - b.v) * Math.min(1, dt * 8); b.bwd = Math.abs(rel) > 2.0 ? 1 : 0;
     nx = b.x + Math.sin(h) * b.v * dt; nz = b.z + Math.cos(h) * b.v * dt;
     if (botFree(nx, nz) && botSlopeOK(b.x, b.z, nx, nz)) { b.x = nx; b.z = nz; b.y = botGround(nx, nz); } else { D.rg = null; b.v *= 0.5; }
@@ -7667,7 +7679,7 @@ window.startMap = function (RAW, AUTH) {
     if (GM.mode !== 'exp') { duelClear(); return; }
     duelBarrierTick(D, dt);
     b.liftCD = Math.max(b.liftCD || 0, now + 60); /* sin dron en Socorro ni en el minuto siguiente al duelo */
-    if (D.ph === 'in' || D.ph === 'intro' || D.ph === 'count' || D.ph === 'end') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; if (!b.tpj) b.v = 0; b.boostT = 0; b.hopGoal = null; }
+    if (D.ph === 'in' || D.ph === 'intro' || D.ph === 'count' || D.ph === 'end') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; if (!b.tpj && !D.insp) b.v = 0; b.boostT = 0; b.hopGoal = null; }
     if (D.ph === 'in') {
       if (!b.tpj) {
         duelSpawnFoe(); D.ph = 'intro'; D.ti = now + 3.4; D.tc = 0;
@@ -7722,13 +7734,13 @@ window.startMap = function (RAW, AUTH) {
       duelBars();
       if (D.me.hp <= 0 || D.foe.hp <= 0 || left <= 0) {
         win = D.foe.hp <= 0 ? true : D.me.hp <= 0 ? false : (D.me.hp + D.me.sh >= D.foe.hp + D.foe.sh);
-        D.win = win; D.ph = 'end'; D.tb = now; D.te = now + 5.4; D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
+        D.win = win; D.ph = 'end'; D.tb = now; D.te = now + (win ? 9 : 5.4); D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
         D.tgt = null;
       }
     } else if (D.ph === 'end') {
       var el2 = now - D.tb, LG = D.loser === 'me' ? b : F;
-      if (!D.boomed) { LG.g.visible = el2 < 0.85 ? (Math.floor(el2 * 14) % 2 === 0) : false; if (el2 >= 0.85) { D.boomed = true; duelExplode(D, D.loser); } } /* parpadea y estalla */
-      if (D.boomed && !D.banShown && el2 >= 2.2) { D.banShown = true; duelBanner(D.win ? '¡Ganaste!' : 'Perdiste', !D.win); }
+      if (!D.boomed) { LG.g.visible = el2 < 0.85 ? (Math.floor(el2 * 14) % 2 === 0) : false; if (el2 >= 0.85) { D.boomed = true; duelExplode(D, D.loser); if (D.loser === 'foe') duelInspectGo(D); } } /* parpadea y estalla */
+      if (D.boomed && !D.banShown && el2 >= 2.2) { D.banShown = true; duelBanner(D.win ? '¡GANASTE!' : 'PERDISTE', !D.win); }
       if (now >= D.te) {
         duelDebrisClear(D); if (D.bar) D.bar.on = false; duelCoverClear(D); duelBanner(''); stage.classList.remove('duel-on'); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out';
         b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
@@ -8471,7 +8483,7 @@ window.startMap = function (RAW, AUTH) {
       } else if ((!b.alert && b.perchT > 3) || (b.perchT > b.maxPerch && (!thr || b.perchT > (b.tallRoof ? 70 : 25)))) { botPickDescent(b.rp); b.mode = 'jetDown'; b.jph = 0; b.tallRoof = false; }
     }
 
-    if (DUEL && DUEL.ph === 'fight') duelRobotStep(dt);
+    if (DUEL && (DUEL.ph === 'fight' || (DUEL.ph === 'end' && DUEL.insp))) duelRobotStep(dt);
     /* Puntería: sigue al OVNI con algo de adelanto; si no hay amenaza, vigila de lado a lado */
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
@@ -9337,10 +9349,11 @@ window.startMap = function (RAW, AUTH) {
     f25: [["Al clon le queda poco. ¡Remátalo!", "¡Eso hago!"], ["Está en rojo. Es tu momento, aprovéchalo.", "Lo estoy aprovechando con mucho gusto."], ["Va a huir o a lanzarse. Cuidado con su siguiente movimiento.", "Si huye, lo alcanzo. Si se lanza, lo recibo."]],
     dodge: [["Esa esquiva estuvo limpia.", "Es la ventaja de tener piernas decentes."], ["Buen impulso. Así les arruinas la puntería.", "Se llama estilo, no suerte."], ["¡Qué salto! Casi sin tocar el suelo.", "Casi. Por eso no lo hago en casa."]],
     cover: [["Esa cobertura te salvó de un par de disparos.", "Un obstáculo bien puesto vale más que un escudo."], ["Están disparándole a la roca. Qué eficiente.", "Que la roca no se queje, ya está acostumbrada."], ["Los impactos se quedaron en el obstáculo. Buen reflejo.", "Reflejo, precisión y un poco de suerte."]],
+    insp: [["Revisando lo que queda del clon… irreconocible.", "Calibración confirmada. Aunque no era necesario."], ["Restos esparcidos por todo el sector. Qué desastre.", "Yo solo hice mi trabajo. El desastre vino solo."], ["Los sensores no detectan señales de vida. Ni de nada.", "Eso era justo lo que buscaba."]],
     win: [["¡Ganamos! El clon quedó hecho piezas.", "Nada que no se pueda reparar. Aunque a él, no tanto."], ["Victoria confirmada. Buen trabajo.", "Fue un placer. Y buena calibración."], ["Duelo ganado. Tu rival tendrá que reconstruirse.", "Cuando quiera, otra ronda."]],
     lose: [["Perdimos esta vez. Reparo lo que pueda.", "Perdí… pero me repararé y volveré."], ["Derrota. No pasa nada, aprendemos para la próxima.", "Aprender duele menos que explotar."], ["Sistemas dañados, pero seguimos con vida. Reorganízate.", "Reorganizado. Con ganas de revancha."]]
   };
-  var DUEL_PRI = ['win', 'lose', 'h25', 'shm', 'f25', 'shf', 'h50', 'f50', 'h75', 'start', 'count', 'in', 'cover', 'dodge'];
+  var DUEL_PRI = ['win', 'lose', 'insp', 'h25', 'shm', 'f25', 'shf', 'h50', 'f50', 'h75', 'start', 'count', 'in', 'cover', 'dodge'];
   function duelTalk() { /* eventos del duelo -> frase de Aura y respuesta del robot (una cada ~6 s, sin repetir la anterior) */
     var D = DUEL, n = now0(), ms = performance.now(), A = aura, el = document.getElementById('aSay'), bs = document.getElementById('bSay'), hud = document.getElementById('botHud'), sp = el.querySelector('span'), q, i, r, f, ev, lst, pr, ph = D.ph;
     if (!D.q) { D.q = []; D.said = {}; D.pph = ''; D.pd = false; D.blk = 0; D.coverCD = 0; D.dodCD = 0; }
@@ -9361,6 +9374,7 @@ window.startMap = function (RAW, AUTH) {
       if (D.blk >= 3 && n >= D.coverCD) { D.coverCD = n + 30; D.blk = 0; add('cover'); }
     }
     if (ph === 'end' && D.banShown && !D.said.end) { D.said.end = 1; add(D.win ? 'win' : 'lose'); }
+    if (ph === 'end' && D.insp && D.arr && D.said.end && !D.said.insp) { D.said.insp = 1; add('insp'); }
     for (i = D.q.length - 1; i >= 0; i--) if (n - D.q[i].t > 8 && D.q[i].k !== 'win' && D.q[i].k !== 'lose') D.q.splice(i, 1); /* lo viejo ya no tiene sentido */
     if (!D.q.length || n < AT.gap || AT.rep) return;
     D.q.sort(function (a, c) { return DUEL_PRI.indexOf(a.k) - DUEL_PRI.indexOf(c.k); });
@@ -9368,7 +9382,7 @@ window.startMap = function (RAW, AUTH) {
     pr = lst[(Math.random() * lst.length) | 0]; if (pr === AT.last) pr = lst[(Math.random() * lst.length) | 0]; AT.last = pr;
     sp.textContent = pr[0]; el.classList.add('on'); AT.hide = n + 5.5; AUD.talk(bkMuz.set(A ? A.x : bot.x, 1.4, A ? A.z : bot.z));
     hud._sayGate = ms + 8000; AT.rep = pr[1]; AT.repWho = 1; AT.repT = n + 2.3;
-    AT.gap = n + (ev === 'in' || ev === 'count' ? 3.3 : 6.2);
+    AT.gap = n + (ev === 'in' || ev === 'count' || ev === 'win' || ev === 'lose' ? 3.3 : 6.2);
   }
   function auraTalk() {
     var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN;
