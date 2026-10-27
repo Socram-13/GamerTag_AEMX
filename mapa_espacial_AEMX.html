@@ -1109,6 +1109,29 @@ window.startMap = function (RAW, AUTH) {
   }
   /* Casco ovalado liso: elipsoide más angosto hacia el mentón y abultado atrás */
   var EGG = [0.21, 0.24, 0.27];
+  /* Parche S13 (logo del fabricante) para el brazo derecho de los personajes: mosaico oscuro con el logo, textura compartida */
+  var s13Mat = null, s13Geo = null, s13BB = []; /* s13BB: espectaculares holográficos (parpadeo en el bucle) */
+  function s13BBTick(t) {
+    var i, b, v;
+    for (i = 0; i < s13BB.length; i++) { b = s13BB[i]; v = 0.86 + 0.07 * Math.sin(t * 2.3 + b.ph); if (Math.sin(t * 13 + b.ph * 5) > 0.992) v *= 0.55; b.m.opacity = v; }
+  }
+  function s13Decal(sd, size, x, y) {
+    if (!s13Mat) {
+      var cv = document.createElement('canvas'), cx = cv.getContext('2d'), tx, im = new Image(), src = document.querySelector('#s13-logo img');
+      cv.width = cv.height = 128;
+      var paint = function () {
+        cx.clearRect(0, 0, 128, 128); cx.fillStyle = '#10131a'; cx.beginPath(); cx.moveTo(14, 4); cx.arcTo(124, 4, 124, 124, 16); cx.arcTo(124, 124, 4, 124, 16); cx.arcTo(4, 124, 4, 4, 16); cx.arcTo(4, 4, 124, 4, 16); cx.closePath(); cx.fill();
+        cx.strokeStyle = '#e0243a'; cx.lineWidth = 6; cx.stroke();
+        if (im.complete && im.naturalWidth) { var r = Math.min(88 / im.naturalWidth, 88 / im.naturalHeight); cx.drawImage(im, 64 - im.naturalWidth * r / 2, 64 - im.naturalHeight * r / 2, im.naturalWidth * r, im.naturalHeight * r); }
+        tx.needsUpdate = true;
+      };
+      tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding;
+      im.onload = paint; if (src && src.src) im.src = src.src; paint();
+      s13Mat = new THREE.MeshBasicMaterial({ map: tx, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); s13Geo = new THREE.PlaneGeometry(1, 1);
+    }
+    var m = new THREE.Mesh(s13Geo, s13Mat); m.scale.set(size, size, 1); m.position.set(x, y, 0); m.rotation.y = sd < 0 ? -Math.PI / 2 : Math.PI / 2; m.raycast = function () {};
+    return m;
+  }
   function eggPt(dx, dy, dz, k) {
     var t = dy < 0 ? 1 - 0.28 * -dy : 1, zz = dz * EGG[2] * (dz < 0 ? 1.08 : 1);
     return [dx * EGG[0] * t * k, dy * EGG[1] * k, zz * t * k];
@@ -1201,6 +1224,7 @@ window.startMap = function (RAW, AUTH) {
         lo = new THREE.Mesh(gl, astVC); jt.add(lo);
         parts[name + 'J'] = jt;
       }
+      if (!leg && sd < 0) piv.add(s13Decal(-1, 0.075, -0.07, -0.12));
       g.add(piv); parts[name] = piv;
     }
     limb('legL', true, -1, -0.1, 0.65); limb('legR', true, 1, 0.1, 0.65); limb('armL', false, -1, -0.22, 1.2); limb('armR', false, 1, 0.22, 1.2);
@@ -3435,6 +3459,18 @@ window.startMap = function (RAW, AUTH) {
           dx = b0[0] - a0[0]; dz = b0[1] - a0[1]; dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
           dup = false; for (k = 0; k < gnt.length; k++) if (Math.hypot(gnt[k][0] - px, gnt[k][1] - pz) < 14) { dup = true; break; }
           if (dup) continue;
+          /* nada de pórticos en cruces: ni cerca de los extremos del tramo (nodos) ni donde otra carretera pasa transversalmente */
+          var jn = Math.hypot(pts[0][0] - px, pts[0][1] - pz) < 16 || Math.hypot(pts[pts.length - 1][0] - px, pts[pts.length - 1][1] - pz) < 16;
+          if (!jn) chosen.forEach(function (o) {
+            var oi, ax, az, bx, bz, ex2, ez2, ll, tt, qx, qz;
+            if (jn || o === e) return;
+            for (oi = 1; oi < o.pts.length; oi++) {
+              ax = o.pts[oi - 1][0]; az = o.pts[oi - 1][1]; bx = o.pts[oi][0]; bz = o.pts[oi][1]; ex2 = bx - ax; ez2 = bz - az; ll = ex2 * ex2 + ez2 * ez2;
+              tt = ll > 0 ? Math.max(0, Math.min(1, ((px - ax) * ex2 + (pz - az) * ez2) / ll)) : 0; qx = ax + ex2 * tt; qz = az + ez2 * tt;
+              if (Math.hypot(px - qx, pz - qz) < 16) { jn = true; return; }
+            }
+          });
+          if (jn) continue;
           gnt.push([px, pz]);
           nmA = names[sa - 1]; nmB = names[sb - 1];
           g = new THREE.Group(); yaw = Math.atan2(dx, dz); y0 = Math.max(0, terrainH(px, pz));
@@ -3449,6 +3485,74 @@ window.startMap = function (RAW, AUTH) {
         }
       });
       window.__gantries = gnt.length; window.__gantPos = gnt;
+
+      /* Espectaculares holográficos S13: pocos, junto a las carreteras más largas, lejos de ciudades, cruces y pórticos */
+      (function () {
+        var PH = ['Conectados. Siempre.', 'Sistemas Autónomos. Futuro en marcha.', 'Más inteligencia, menos fricción.', 'Hoy construimos lo que vendrá.', 'Actualización disponible: el mañana v2.0', 'Piensa en grande. Piensa en S13.', 'Tecnología que piensa por ti.', 'Sin cables. Sin límites.', 'La red que te cuida.', 'Descarga el futuro.', 'Tu mundo, siempre en línea.', 'Innovación en cada kilómetro.', 'Autonomía que se nota.', 'Hecho por máquinas, pensado para ti.'];
+        var logo = new Image(), srcEl = document.querySelector('#s13-logo img'), ents = [], taken = [], list = [], k, q, ord = [];
+        function paint(en) {
+          var c2 = en.cv.getContext('2d'), W = 1024, H = 428, ph = en.txt, fs = 88, lines, y;
+          c2.clearRect(0, 0, W, H);
+          var gr = c2.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(8,24,52,0.62)'); gr.addColorStop(1, 'rgba(4,12,32,0.72)'); c2.fillStyle = gr; c2.fillRect(0, 0, W, H);
+          c2.strokeStyle = 'rgba(80,230,255,0.95)'; c2.lineWidth = 6; c2.strokeRect(8, 8, W - 16, H - 16);
+          c2.strokeStyle = 'rgba(80,230,255,0.10)'; c2.lineWidth = 2; for (y = 20; y < H; y += 8) { c2.beginPath(); c2.moveTo(14, y); c2.lineTo(W - 14, y); c2.stroke(); } /* líneas de escaneo */
+          if (logo.complete && logo.naturalWidth) { var r = Math.min(150 / logo.naturalWidth, 150 / logo.naturalHeight); c2.drawImage(logo, 48, 40, logo.naturalWidth * r, logo.naturalHeight * r); }
+          c2.fillStyle = 'rgba(190,245,255,0.95)'; c2.font = '600 34px Inter, Arial, sans-serif'; c2.textAlign = 'left'; c2.textBaseline = 'middle'; c2.fillText('S13 · SISTEMAS AUTÓNOMOS', 230, 90);
+          c2.textAlign = 'center'; c2.fillStyle = '#ffffff'; c2.shadowColor = 'rgba(80,230,255,0.9)'; c2.shadowBlur = 18;
+          var words = ph.split(' '), l1 = '', l2 = '', w2;
+          do { c2.font = '700 ' + fs + 'px Inter, Arial, sans-serif'; l1 = ''; l2 = ''; words.forEach(function (w) { w2 = (l1 ? l1 + ' ' : '') + w; if (!l2 && c2.measureText(w2).width < 930) l1 = w2; else l2 = (l2 ? l2 + ' ' : '') + w; }); fs -= 4; } while ((c2.measureText(l1).width > 930 || c2.measureText(l2).width > 930) && fs > 36);
+          if (l2) { c2.fillText(l1, W / 2, 240); c2.fillText(l2, W / 2, 330); } else c2.fillText(l1, W / 2, 288);
+          c2.shadowBlur = 0; en.tx.needsUpdate = true;
+        }
+        for (k = 0; k < PH.length; k++) ord.push(k);
+        for (k = ord.length - 1; k > 0; k--) { q = Math.floor(rg() * (k + 1)); var tmp = ord[k]; ord[k] = ord[q]; ord[q] = tmp; }
+        chosen.forEach(function (e) {
+          var L2 = 0, i2; for (i2 = 1; i2 < e.pts.length; i2++) L2 += Math.hypot(e.pts[i2][0] - e.pts[i2 - 1][0], e.pts[i2][1] - e.pts[i2 - 1][1]);
+          list.push({ e: e, L: L2 });
+        });
+        list.sort(function (m, o) { return o.L - m.L; });
+        var postG = new THREE.CylinderGeometry(0.08, 0.1, 5.8, 8), glowM = new THREE.MeshBasicMaterial({ color: 0x55e6ff }), bbPlane = new THREE.PlaneGeometry(7.2, 3.0), nBB = 0;
+        list.forEach(function (it) {
+          if (nBB >= 10 || it.L < 140) return;
+          var pts = it.e.pts, acc = 0, half = it.L * (0.45 + 0.1 * rg()), i3, seg, f, px, pz, dx, dz, dl, nx, nz, ok = true, ox, oz, en, cv, tx, mat, g, m5, yawN, fx, fz, y0;
+          for (i3 = 1; i3 < pts.length; i3++) { seg = Math.hypot(pts[i3][0] - pts[i3 - 1][0], pts[i3][1] - pts[i3 - 1][1]); if (acc + seg >= half) break; acc += seg; }
+          if (i3 >= pts.length) return;
+          f = seg > 0 ? (half - acc) / seg : 0; px = pts[i3 - 1][0] + (pts[i3][0] - pts[i3 - 1][0]) * f; pz = pts[i3 - 1][1] + (pts[i3][1] - pts[i3 - 1][1]) * f;
+          dx = pts[i3][0] - pts[i3 - 1][0]; dz = pts[i3][1] - pts[i3 - 1][1]; dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl; nx = dz; nz = -dx; /* nx,nz: izquierda del sentido de avance */
+          ox = px - nx * 8.5; oz = pz - nz * 8.5; /* a la derecha del sentido de avance, fuera del asfalto */
+          if (!stateAt(px, pz) || !stateAt(ox, oz)) return;
+          gnt.forEach(function (gp) { if (Math.hypot(gp[0] - px, gp[1] - pz) < 40) ok = false; });
+          taken.forEach(function (tp) { if (Math.hypot(tp[0] - px, tp[1] - pz) < 120) ok = false; });
+          ds.forEach(function (dd) { if (Math.hypot(dd.cx - px, dd.cz - pz) < dd.r + 30) ok = false; });
+          chosen.forEach(function (o) {
+            var oi, ax, az, bx, bz, ex2, ez2, ll, tt, qx, qz;
+            if (!ok || o === it.e) return;
+            for (oi = 1; oi < o.pts.length; oi++) {
+              ax = o.pts[oi - 1][0]; az = o.pts[oi - 1][1]; bx = o.pts[oi][0]; bz = o.pts[oi][1]; ex2 = bx - ax; ez2 = bz - az; ll = ex2 * ex2 + ez2 * ez2;
+              tt = ll > 0 ? Math.max(0, Math.min(1, ((px - ax) * ex2 + (pz - az) * ez2) / ll)) : 0; qx = ax + ex2 * tt; qz = az + ez2 * tt;
+              if (Math.hypot(px - qx, pz - qz) < 30) { ok = false; return; }
+            }
+          });
+          if (!ok) return;
+          taken.push([px, pz]); nBB++;
+          cv = document.createElement('canvas'); cv.width = 1024; cv.height = 428; tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding; tx.anisotropy = 4;
+          en = { cv: cv, tx: tx, txt: PH[ord[(nBB - 1) % PH.length]] }; ents.push(en); paint(en);
+          mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.88, depthWrite: false, side: THREE.FrontSide });
+          s13BB.push({ m: mat, ph: rg() * 6.28 });
+          fx = -dx * 0.8 + nx * 0.6; fz = -dz * 0.8 + nz * 0.6; yawN = Math.atan2(fx, fz); /* de cara al tráfico que viene y un poco hacia la vía */
+          y0 = Math.max(0, terrainH(ox, oz));
+          g = new THREE.Group(); g.position.set(ox, y0, oz); g.rotation.y = yawN;
+          [-3.5, 3.5].forEach(function (lx) { m5 = new THREE.Mesh(postG, gPostMat); m5.position.set(lx, 2.9, 0); g.add(m5); m5 = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.34), glowM); m5.position.set(lx, 5.85, 0); g.add(m5); });
+          m5 = new THREE.Mesh(bbPlane, mat); m5.position.set(0, 7.5, 0.03); m5.renderOrder = 7; g.add(m5);
+          m5 = new THREE.Mesh(bbPlane, mat); m5.position.set(0, 7.5, -0.03); m5.rotation.y = Math.PI; m5.renderOrder = 7; g.add(m5);
+          m5 = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.07, 0.07), glowM); m5.position.set(0, 5.95, 0); g.add(m5);
+          g.traverse(function (o) { o.raycast = function () {}; });
+          scene.add(g);
+        });
+        logo.onload = function () { ents.forEach(paint); };
+        if (srcEl && srcEl.src) logo.src = srcEl.src;
+        window.__billboards = nBB; window.__bbPos = taken;
+      })();
     } catch (ex) { console.warn('No se pudieron crear los pórticos', ex); }
   }
 
@@ -6714,6 +6818,7 @@ window.startMap = function (RAW, AUTH) {
       ball(bkJoint, 0, 0, 0, 0.085, sh);
       bx(bkBlack, 0, -0.155, 0, 0.1, 0.26, 0.12, sh);
       bx(bkGray, sx * 0.065, -0.14, 0, 0.02, 0.17, 0.1, sh);
+      if (sx < 0) sh.add(s13Decal(-1, 0.11, -0.079, -0.15)); /* parche S13 en el brazo derecho */
       ball(bkJoint, 0, 0, 0, 0.07, el);
       bx(bkBlack, 0, -0.135, 0, 0.11, 0.22, 0.12, el);
       bx(bkGray, 0, -0.1, 0.065, 0.09, 0.15, 0.03, el);
@@ -9278,6 +9383,7 @@ window.startMap = function (RAW, AUTH) {
       ball(auDark, 0, 0, 0, 0.058, sh);
       tap(auPearl, 0.092, 0.105, 0.075, 0.09, 0.27, 0, -0.145, 0, sh);
       bx(auGray, sx * 0.047, -0.14, 0, 0.016, 0.18, 0.08, sh); bx(auRed, sx * 0.05, -0.14, 0.02, 0.008, 0.2, 0.012, sh);
+      if (sx < 0) sh.add(s13Decal(-1, 0.09, -0.059, -0.15)); /* parche S13 en el brazo derecho */
       el.position.y = -0.29; sh.add(el);
       ball(auGray, 0, 0, 0, 0.05, el);
       tap(auPearl, 0.078, 0.092, 0.062, 0.075, 0.25, 0, -0.14, 0, el);
@@ -9531,6 +9637,18 @@ window.startMap = function (RAW, AUTH) {
   (function (X) { var k; for (k in X) AURA_DLG[k] = (AURA_DLG[k] || []).concat(X[k]); })({"ufo":[["Contacto visual con el OVNI. Se mueve como si no supiera volar.","Es su estilo. Lo voy a corregir a balazos."],["Nave sospechosa sobre el estado. Velocidad irregular, rumbo absurdo.","Absurdo es lo que más se me da. Voy."],["El OVNI cambió de rumbo otra vez. Ni él sabe a dónde va.","Eso lo hace impredecible. Y me aburre menos."],["Tengo al platillo en pantalla. Ya sabe que lo vemos.","Que se ponga cómodo, no va a durar."]],"ufo_abduct":[["Se están llevando una vaca. Otra vez.","Las vacas del país están más vigiladas que yo."],["Rayo de abducción activo. La vaca no opone resistencia.","Pobre. Ni mugió."],["El OVNI levanta a la vaca. Tiene muy buena puntería.","Si la tiene, la voy a usar yo mejor."],["Estimo un 90 % de que esa vaca termine en un platillo.","Entonces el 10 % restante me toca a mí."],["Hay una vaca flotando. Eso no estaba en el reporte.","Nada de lo que hace un OVNI está en el reporte."],["La abducción sigue. Te recomiendo darte prisa.","Ya voy, ya voy. No me presiones."]],"ufo_cook":[["Detecto calor en la nave. Están cocinando algo.","Si es la vaca, no me invitaron."],["Sale humo del OVNI. Huele a carne asada intergaláctica.","Ahora sí me dio hambre y no tengo estómago."],["Mi sensor térmico marca mucha lumbre dentro de la nave.","Parrillada alienígena. Qué falta de respeto."],["Están asando algo ahí arriba. No pregunto qué.","Mejor no preguntes. Yo ya tengo mis sospechas."]],"ufo_crash":[["El OVNI está cayendo. Impacto en pocos segundos.","Ahí va. Que no caiga encima de nadie."],["Nave en caída libre. Se acabó el recorrido.","Qué mala suerte, qué buena puntería."],["Confirmo derribo. Humo, chispas y mucho ruido.","Eso me gusta. Voy a revisar el cráter."],["El platillo se estrelló. No encuentro señales de vida.","Cuando hay señales de vida, es peor."],["Impacto confirmado. Marco el cráter en el mapa.","Perfecto. Ya sé a dónde caminar."],["Cayó con todo y escándalo. Se escuchó hasta aquí.","Tenía que hacer entrada, ni modo."]],"wreck":[["Los restos todavía están calientes. No los toques con la mano.","No tengo mano para eso. Pero buen consejo."],["Hay tornillos que no reconozco en los restos.","Mejor, así no hay manual."],["Los restos emiten un zumbido muy bajo. No me gusta.","A mí tampoco, pero es mi trabajo."],["Solo quedan fragmentos. Y huele a ozono quemado.","Qué manera de acabar un vuelo."]],"inv_alert":[["Alerta de invasión. Hay una señal fuerte en otro estado.","Lo vi en el HUD. Ya voy para allá."],["Detecto una firma enorme en el cielo. Esto no es un OVNI cualquiera.","Siempre dices lo mismo. Y siempre tengo que ir."],["Invasión confirmada. Marcando la zona para ti.","Gracias. Dime cuántos son."],["Los sensores marcan actividad alienígena masiva. Cuidado.","Cuidado es mi segundo nombre. El primero es Rifle."],["Hay una invasión en curso. Ya viste el aviso, ¿verdad?","Lo vi. Voy a ir antes de que se acomoden."],["Nos llegó una invasión. Te mando la ruta más rápida.","Perfecto. Yo pongo los disparos."]],"inv_fight":[["Aliens en el área. Cuenta rápida: bastantes.","Cuenta lenta: cada uno cuenta."],["Ten cuidado, se agrupan. No les des tiempo.","Gracias, ya los vi. Se acabó su juego."],["Tu precisión va bien. Sigue así.","Hago lo que puedo con lo que me dan."],["Cuidado con los flancos. Yo los vigilo contigo.","Entonces dos pares de ojos. Gracias."],["Los aliens se mueven rápido. Anticipa su rumbo.","Anticipo desde que nací."],["Aguanta, vas muy bien. Pero te falta apuntar mejor.","Dices eso cuando fallo uno de cada cien."],["Mi radar marca aliens por todos lados. Tú sabrás qué hacer.","Disparar. Siempre disparar."],["Estás haciendo ruido. Eso los atrae.","Ese es el plan. Que se acerquen."]],"inv_rock":[["El meteorito está expuesto. Dispárale al centro.","Apunto, disparo, veo qué pasa."],["Esa roca guarda un campo raro. Rómpela y se acaba.","Lo hago. Aléjate un poco."],["Falta poco para romper el meteorito. Presiona.","Estoy presionando. Con balas."],["El meteorito está agrietándose. Un poco más.","Un poco más es mi especialidad."],["Cuidado con los fragmentos cuando caiga la roca.","Con el casco puesto no me importan."]],"inv_few":[["Quedan pocos aliens. Los puedo contar con los dedos.","Dedos sí tienes, yo solo tengo cañones."],["Ya van cayendo todos. Faltan los más tercos.","Siempre faltan los más tercos."],["Pocos enemigos en pantalla. Buen trabajo hasta ahora.","Aún no termino. Guarda los aplausos."],["La invasión está de salida. Queda lo último.","Lo último siempre cuesta más. Voy."]],"inv_end":[["La invasión terminó. Todo en calma otra vez.","Perfecto. Ahora sí, a seguir patrullando."],["Zona despejada. Buen trabajo, y no lo digo por cortesía.","Se nota que lo dices en serio. Gracias."],["Sin aliens a la vista. Mis sensores se aburren.","Los míos también. Pero me gusta."],["Misión cumplida. Estimo que habrá paz por un rato.","Ese rato nunca dura. Aprovéchalo."],["Invasión repelida. Me debes una explicación de tus tácticas.","Disparar mucho. Esa es toda la táctica."]],"fog":[["Entré en niebla. Mis lecturas se vuelven poco confiables.","Pues confía en mí. Yo no me pierdo."],["La niebla está espesa. Mantén la distancia.","Estoy al lado tuyo, aunque no me veas."],["Visibilidad mala. Voy despacio para no chocar con algo.","Yo choco con todo. Para eso estoy blindado."]],"chat":[["Estoy actualizando datos de las ciudades cercanas. Todo bien.","Qué productiva. Yo solo camino."],["Sentí una vibración rara en el suelo hace un rato.","Fui yo. Tropecé con una piedra."],["Mi pantalla marca una ruta nueva que no existía ayer.","Seguro es de alguien con pocas ganas de rodear."],["¿Cuánto llevas patrullando hoy?","No llevo la cuenta. Yo solo camino."],["Los edificios de los jugadores tienen luces de colores. Me gustan.","A mí me dan envidia. Yo no tengo edificio."],["Calculo que podrías caminar 20 % más rápido sin riesgo.","Calcula mejor. A mí me gusta el ritmo."],["Si te quedas sin batería, avisa antes de apagarte.","Si me apago, se nota. Hago ruido al caer."],["He visto huellas raras cerca del último poblado.","Estaban mías. No te asustes."],["Dicen que en algunos estados el clima se pone loco.","Dicen. Yo lo vi con mis propios sensores."],["Quiero hacer un mapa con todos los lugares que visitamos.","Cuando termines, me lo enseñas. Si no se me pierde."],["Cada vez te muevo menos preocupada. Eso es buena señal.","O mala. Depende de cuándo me veas tropezar."],["Mi tablet marca que hoy no hay amenazas inmediatas.","Que no me lo digan dos veces. Siempre aparece algo."],["El suelo de este lugar es raro. Tiene mucha arcilla.","Se nota: se me pegan las botas."],["¿Alguna vez te dieron ganas de dormir?","Mi modo reposo cuenta. Pero no es lo mismo."],["Te veo muy callado hoy.","Estoy pensando. O fingiendo que pienso."],["Mi lista dice que hoy toca revisar tres ciudades.","Mientras no haya sorpresas, voy encantado."],["Detecto un olor extraño, mezcla de pasto y polvo.","Es el campo. Se llama aire fresco."],["Prometo no hablar de baterías el resto del día.","Mentira. Pero te lo agradezco igual."]]});
   AURA_DLG.call = [["¿Dónde estás? Te perdí en el radar.","Aquí sigo, ya casi llego."],["Apúrate, que llegamos tarde.","Voy a mi ritmo. Y mi ritmo es perfecto."],["Ya casi llegas, ¿verdad?","Ya casi. Tú sigue en lo tuyo."],["Te estoy esperando. ¿Piensas venir?","Voy, voy. No me presiones."],["¿Sigues vivo por allá?","Vivo y apuntando. Ya voy."],["Camina más rápido. Tengo datos que enseñarte.","Los datos no se van a ir."],["No te pierdas, que luego te tengo que buscar.","Nunca me pierdo. Solo exploro."],["¿Vienes o te quedas ahí de adorno?","Un adorno con cañones. Voy."],["Llevo rato esperando. Muévete un poco.","Me muevo, me muevo. Qué impaciente."],["Si tardas más me voy a otro sitio.","No te atreves. Sin mí te aburres."]];
   (function (X) { var k; for (k in X) AURA_DLG[k] = X[k]; })({"trail":[["Pasando por {E}. Actualizo las rutas del sector.","Anótame lo bueno de {E}. Lo malo me lo guardo."],["Estoy cruzando {E}. Registro caminos nuevos.","Si hay buen camino, avísame. Si no, improviso."],["Entré a {E}. El terreno cambia, mi lectura también.","Cuéntame cuando lo sepas. Yo sigo."],["{E} a mi izquierda. Sin amenazas a la vista.","Sin amenazas es una frase peligrosa. Pero gracias."],["Mapeando {E}. Tiene más caminos de los que esperaba.","Más caminos, más lugares para perderme."]],"go_wreck":[["Voy a revisar unos restos de OVNI. No tardo.","Ten cuidado, que todavía humean."],["Detecté restos de una nave. Voy a tomar lecturas.","Avísame si encuentras algo vivo."],["Salgo hacia el cráter del OVNI. Quiero ver el material.","Llévate cuidado. Yo te cubro desde aquí."]],"go_met":[["Voy al meteorito. Quiero medir su campo antes de que lo rompas.","No tardes. Yo ya voy rompiendo cosas."],["Me desvío hacia el meteorito. Necesito muestras.","Muestras de qué. ¿De alien?"],["Salgo rumbo al meteorito. Mantén tu posición.","Mi posición es siempre «adelante»."]],"go_vil":[["Voy a la aldea alien. Quiero ver cómo viven.","Pregunta por mí. Dile que no tengo hambre."],["Salgo hacia la aldea. Llevo la tablet por si acaso.","¿Para fotos o para defenderte?"],["Me voy a visitar a los aliens de la aldea.","Regresa con todas tus piezas, por favor."]],"insp_wreck":[["Llegué a los restos. Calor residual alto, radiación baja.","No toques nada que no sea tuyo."],["Estoy junto al cráter. Hay metal que no está en ninguna tabla.","Guarda una muestra. Para el museo."],["Escaneo en proceso. La nave tenía motores de plasma, creo.","¿Creo? Mi respeto por la ciencia baja un poco."]],"insp_met":[["Estoy junto al meteorito. El campo es más fuerte de cerca.","Si te asustas, aléjate. Yo me encargo."],["Tomo mediciones del meteorito. Hay una zona débil en la base.","Perfecto. Dime cuál y le apunto."],["Cerca del meteorito. Los aliens no se alejan de él.","Es su casa. Una casa que voy a demoler."]],"insp_vil":[["Ya estoy en la aldea. Los aliens me miran, pero no hacen nada.","No te comas lo que te ofrezcan. Ni lo toques."],["Reviso la aldea. Cero armas a la vista, mucha curiosidad.","Que sigan así. Y tú también."],["Estoy en la aldea. Huele a mar y a tecnología quemada.","Eso último no suena bien."]],"back":[["Terminé aquí. Regreso contigo.","Qué bueno. Ya me estaba aburriendo."],["Listo, ya tengo mis datos. Vuelvo a tu posición.","Te espero. Sin aliens, de preferencia."],["Cerré el reporte. Voy de regreso.","Tómate tu tiempo. Bueno, no tanto."]],"jump":[["Salto de teletransporte iniciado. Hay glitch, perdona.","Cada vez que lo haces me quedo viendo el efecto."],["Me muevo con un salto rápido. Mi ruta normal tardaba demasiado.","Hacer trampa con el espacio. Muy tuyo."],["Activando salto. Lo hago antes de que me atore.","Te atoras mucho últimamente."]],"join":[["Ya voy hacia ti. Tengo una ruta limpia.","Te espero aquí, de pie, con la mejor cara."],["Me incorporo a tu camino. Mantén el ritmo.","Mantengo mi ritmo, tú mantén el tuyo."],["Te alcanzo en un momento. Tengo datos para ti.","Los datos siempre llegan tarde. Ven."]],"hf":[["Ya estoy contigo. Todo el equipo reunido.","Equipo de dos. Qué lujo."],["Aquí estoy, a tu lado. Veamos qué sigue.","Lo que sigue es lo que tú digas."],["Te alcancé. Tengo el mapa de la zona.","Muéstrame. Yo solo conozco hasta donde llegan los pies."]],"vtour":[["Estoy recorriendo la aldea. Casas hechas de materiales raros.","¿Raros como qué? Dame detalles."],["Doy una vuelta por la aldea. Algunos aliens me saludan.","No les devuelvas el saludo. O sí, no sé."],["La aldea tiene calles ordenadas. Mejor que mi mapa.","Dile al urbanista que me dé el plano."]],"vwatch":[["Me detengo a observar la aldea. Hay nadadores en la orilla.","Nadadores aliens. Ahora sí lo vi todo."],["Estoy mirando cómo se mueven. Tienen rutinas.","Rutinas como las nuestras. Qué humanos."],["Observo la aldea desde aquí. Se ven pacíficos.","Pacíficos hasta que se enojen. Mantén la distancia."]]});
+  /* Historia: S13 es la tecnología de este mundo */
+  (function (X) { AURA_DLG.chat = (AURA_DLG.chat || []).concat(X); })([
+    ["Mi armadura salió de los talleres de S13. Todavía huele a laboratorio nuevo.", "La mía también. S13 no entrega nada sin calibrar dos veces."],
+    ["Sin S13 no habría carreteras, hologramas ni señales en el mapa.", "Y sin nosotros nadie probaría lo que construyen. Trabajo en equipo."],
+    ["Los sistemas autónomos de S13 se actualizan solos cada noche. Presumen de eso.", "Yo solo espero que no actualicen el sentido del humor."],
+    ["Mi núcleo es S13 de tercera generación. Cero fallas en el último ciclo.", "Cero fallas, cero quejas. Eso lo anotan en el informe."],
+    ["¿Viste los espectaculares? S13 insiste en que la gente lea sus lemas.", "Yo los leo por cortesía. Algunos son bastante buenos."],
+    ["La red de S13 cubre todo el territorio. Hasta las carreteras entre estados.", "Y las repara sola. No me pidas que explique cómo."],
+    ["Cuando algo falla, S13 manda una unidad. Hoy les tocó a ustedes.", "Unidad S13 en servicio. Mantenimiento al día, como siempre."],
+    ["Dicen que S13 empezó con un solo robot y una idea.", "Qué bueno que la idea creció. Mi chasis lo agradece."],
+    ["Mi firma S13 está en el brazo derecho. Para que me reconozcan.", "La mía también. Es el sello de fábrica."]
+  ]);
   /* ---------- Diálogos del duelo: Aura habla primero y el robot responde; todo ligado a lo que pasa en la pelea ---------- */
   var DUEL_DLG = {
     in: [["Socorro a la vista. La arena ya está lista, la barrera sube sola.", "Entendido. Yo pongo el estilo, tú pones los datos."], ["Frecuencia limpia, sin interferencias. Buen sitio para pelear.", "Buen sitio y mal rival. Combinación perfecta."], ["Escaneo la isla: terreno estable, coberturas dispersas.", "Las coberturas son para él. Yo no me escondo… casi nunca."], ["Barrera holográfica activa. Nadie sale hasta que haya ganador.", "Nadie pensaba salir de todos modos."]],
@@ -11782,6 +11900,7 @@ window.startMap = function (RAW, AUTH) {
     })();
     if (botFollow && bot && !fly && !botCamFree) { botChasePos(camera.position); botChaseTarget(controls.target); camera.lookAt(controls.target); }
     updateRuins(t);
+    s13BBTick(t);
     updateCamps(t, dt);
     updateSunbathers(t, dt);
     if (selected) selRing.rotation.z = t * 0.8;
