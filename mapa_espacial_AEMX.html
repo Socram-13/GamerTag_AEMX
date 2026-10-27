@@ -8255,14 +8255,24 @@ window.startMap = function (RAW, AUTH) {
       /* Avance con rumbo libre; el hiperimpulso dura 5 s */
       if (b.goal) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
-        if (gd < (b.gtype === 'roof' ? 0.55 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
+        if (gd < (b.gtype === 'roof' ? 0.55 : (GM.mode === 'exp' && b.gtype === 'patrol') ? 2.5 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
           if (b.gtype === 'roof') { b.ball = false; b.ballK = 0; b.spin = Math.round((b.spin || 0) / 6.2832) * 6.2832; b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
           else { if (b.gtype === 'wreck') { b.scan = true; b.scanT = 0; } if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; } else if (b.gtype === 'hunt') b.huntHold = now + 0.6; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
         } else {
           tw = b.goal;
           if (b.path) {
             while (b.pi < b.path.length - 1 && Math.hypot(b.path[b.pi][0] - b.x, b.path[b.pi][1] - b.z) < (b.path[b.pi][2] ? 0.7 : 3.5)) { b.pi++; b.lastGD = 1e9; }
-            tw = { x: b.path[b.pi][0], z: b.path[b.pi][1] };
+            if (GM.mode === 'exp' && b.gtype === 'patrol') {
+              /* paz: salta waypoints pegados si la línea al siguiente está libre (sin zigzag en esquinas de hexágono) */
+              for (var sk = 0; sk < 3 && b.pi < b.path.length - 1; sk++) { var nx = b.path[b.pi + 1]; if (Math.hypot(nx[0] - b.x, nx[1] - b.z) < 12 && botLineFree(b.x, b.z, nx[0], nx[1], 0.3, true)) { b.pi++; b.lastGD = 1e9; } else break; }
+              /* anti-vueltas: giro acumulado sin avanzar de waypoint */
+              if (b._opi !== b.pi || b._og !== b.goal) { b._opi = b.pi; b._og = b.goal; b._oacc = 0; }
+              var oy = nAng(b.yaw - (b._oly === undefined ? b.yaw : b._oly)); b._oly = b.yaw; b._oacc += Math.abs(oy);
+              if (b._oacc > 4) { b._oacc = 0; if (b.pi < b.path.length - 1) b.pi++; else { b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.3; } }
+            }
+            /* último waypoint alcanzado pero la meta sigue lejos: suelta la ruta y avanza directo (evita girar sobre el punto) */
+            if (b.path && b.pi >= b.path.length - 1 && gd > 1.8 && Math.hypot(b.path[b.pi][0] - b.x, b.path[b.pi][1] - b.z) < 1.2) { b.path = null; b.pi = 0; }
+            if (b.path) tw = { x: b.path[b.pi][0], z: b.path[b.pi][1] };
           }
           dw = Math.hypot(tw.x - b.x, tw.z - b.z);
           want = Math.atan2(tw.x - b.x, tw.z - b.z);
