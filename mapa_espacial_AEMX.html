@@ -4404,9 +4404,9 @@ window.startMap = function (RAW, AUTH) {
     var bgNeon = new THREE.MeshBasicMaterial({ map: nvT, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
     function logoAt(g, x, y, z, size, ry) { var n2 = new THREE.Mesh(uPlane, bgNeon); n2.scale.set(size * 2, size * 2, 1); n2.position.set(x + Math.sin(ry) * 0.12, y, z + Math.cos(ry) * 0.12); n2.rotation.y = ry; g.add(n2); var m = new THREE.Mesh(uPlane, bgLogo); m.scale.set(size, size, 1); m.position.set(x + Math.sin(ry) * 0.06, y, z + Math.cos(ry) * 0.06); m.rotation.y = ry; g.add(m); }
     var bgHexM = new THREE.MeshBasicMaterial({ color: 0xaab1b8, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), bgRing1 = new THREE.MeshBasicMaterial({ color: 0x5ff3ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }), bgRing2 = new THREE.MeshBasicMaterial({ color: 0xff4fd8, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }), bgHexG = new THREE.CircleGeometry(1.42, 6), bgRingG1 = new THREE.RingGeometry(1.62, 1.74, 48), bgRingG2 = new THREE.RingGeometry(1.84, 1.89, 48);
-    function corpLogo(g, x, y, z, ry) { /* logo sobre hexágono blanco con aro holográfico */
-      var m = new THREE.Mesh(bgHexG, bgHexM); m.rotation.z = 0.5236; m.position.set(x - Math.sin(ry) * 0.04, y, z - Math.cos(ry) * 0.04); m.rotation.y = ry; m.rotation.order = 'YXZ'; g.add(m);
-      logoAt(g, x, y, z, 2.2, ry);
+    function corpLogo(g, x, y, z, ry, k) { k = k || 1; /* logo sobre hexágono blanco con aro holográfico */
+      var m = new THREE.Mesh(bgHexG, bgHexM); m.scale.set(k, k, 1); m.rotation.z = 0.5236; m.position.set(x - Math.sin(ry) * 0.04, y, z - Math.cos(ry) * 0.04); m.rotation.y = ry; m.rotation.order = 'YXZ'; g.add(m);
+      logoAt(g, x, y, z, 2.2 * k, ry);
     }
     function buildCorp() { /* torre de oficinas rectangular: vidrio azul con losas gris claro (referencia 1) */
       var g = new THREE.Group(), WX2 = 5.4, WZ2 = 3.0, TOP = 14.0, nF = 9, i, fh = (TOP - 0.7) / nF;
@@ -4433,7 +4433,7 @@ window.startMap = function (RAW, AUTH) {
       }
       cyBox(g, bgDoor, 0.7, 1.1, 0.06, 0, 0.73, 1.53); cyBox(g, bgSlab, 1.3, 0.1, 0.55, 0, 1.3, 1.78); cyBox(g, bgSlab, 1.0, 0.08, 0.5, 0, 0.12, 1.8); /* puerta, toldo y escalón */
       for (s2 = -1; s2 <= 1; s2 += 2) { cyBox(g, bgWin, 0.05, 0.7, 0.9, s2 * 1.78, 1.65, 0.2); cyBox(g, bgWin, 0.05, 0.7, 0.9, s2 * 1.78, 1.65, -0.85); cyBox(g, bgSlab, 0.07, 0.05, 2.1, s2 * 1.79, 1.3, -0.3); cyBox(g, bgSlab, 0.07, 0.05, 2.1, s2 * 1.79, 2.0, -0.3); }
-      logoAt(g, 0, 2.25, 1.56, 1.0, 0); logoAt(g, 0.52, 3.68, -0.2, 0.9, 1.5708);
+      corpLogo(g, 0, 2.25, 1.62, 0, 0.46); corpLogo(g, 0.56, 3.68, -0.2, 1.5708, 0.4);
       return g;
     }
     var bgHexD = new THREE.Color(0x0b1220), bgGlowL = [], bgHot = new Map([[bgGlass, 0x5ff3ff], [bgWin, 0x5ff3ff], [bgRoofG, 0xbff0ff]]), bgGT = -9;
@@ -4475,8 +4475,8 @@ window.startMap = function (RAW, AUTH) {
     districts.forEach(function (d) {
       var skip = [];
       if (!d.list.length || !d.extra.length) return; /* solo estados con jugadores */
-      if (d.name === 'Ciudad de México') d.corp = placeBg(d, buildCorp, skip, 16.6);
-      if (d.name !== 'Ciudad de México') d.branch = placeBg(d, buildBranch, skip, 4.8);
+      if (d.name === 'Ciudad de México') d.corp = placeBg(d, buildCorp, skip, 18.4);
+      if (d.name !== 'Ciudad de México') d.branch = placeBg(d, buildBranch, skip, 5.4);
     });
   })();
 
@@ -5303,7 +5303,7 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('input', function () {
     var v = q.value.trim().replace(/^@/, '').toLowerCase();
     resEl.textContent = '';
-    if (!v || v === 'sombrero' || v === 'invasion' || v === 'aldea' || v === 'socorro' || v === 'chatarra' || v === 'fps') { resEl.hidden = true; matches = []; return; }
+    if (!v || v === 'sombrero' || v === 'invasion' || v === 'aldea' || v === 'socorro' || v === 'chatarra' || v === 'corporativo' || v === 'sucursal' || v === 'fps') { resEl.hidden = true; matches = []; return; }
     matches = [];
     if (ufo && v.length >= 2 && ('ovni'.indexOf(v) === 0 || 'ufo'.indexOf(v) === 0)) matches.push({ kind: 'u', label: '🛸 OVNI', sub: 'seguir' });
     if (car && v.length >= 2) {
@@ -5346,6 +5346,7 @@ window.startMap = function (RAW, AUTH) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'sombrero') { q.value = ''; resEl.hidden = true; matches = []; botCallDis(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'fps') { q.value = ''; resEl.hidden = true; matches = []; window.__fpsOn = !window.__fpsOn; var fe = document.getElementById('fpsBox'); if (fe) fe.style.display = window.__fpsOn ? 'block' : 'none'; return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'chatarra') { q.value = ''; resEl.hidden = true; matches = []; botCallIsland(true); return; }
+    if (e.key === 'Enter' && (q.value.trim().toLowerCase() === 'corporativo' || q.value.trim().toLowerCase() === 'sucursal')) { var bkd = q.value.trim().toLowerCase(); q.value = ''; resEl.hidden = true; matches = []; botCallBld(bkd === 'corporativo'); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'socorro') { q.value = ''; resEl.hidden = true; matches = []; botCallIsland(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'aldea') { q.value = ''; resEl.hidden = true; matches = []; botCallVillage(); auraVilCall(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'inv') { window.__botSayQ = 'La invasión solo existe en el Modo Invasión.'; return; } if (typeof ALN !== 'undefined') ALN.startHere(); return; }
@@ -8283,6 +8284,26 @@ window.startMap = function (RAW, AUTH) {
     else if (!botPickCity(VILD)) return false;
     window.__botSayQ = 'Voy a visitar la aldea alien.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
+    return true;
+  }
+  var botBldI = 0;
+  function botCallBld(corp) { /* el robot va al corporativo S13 o a una sucursal (cada vez a la siguiente) */
+    var b = bot, L = [], d, o, nx, nz, nl, sp, sp2, an, i;
+    for (i = 0; i < districts.length; i++) { d = districts[i]; o = corp ? d.corp : d.branch; if (o && o._bp) L.push([d, o]); }
+    if (!b || !L.length) { window.__botSayQ = corp ? 'No hay corporativo en el mapa.' : 'No hay sucursales en el mapa.'; return false; }
+    if (DUEL || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI, una invasión o un duelo.'; return false; }
+    var it = L[botBldI++ % L.length]; d = it[0]; o = it[1]._bp;
+    nx = o.x - d.cx; nz = o.z - d.cz; nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
+    sp = botFreeSpot(o.x + nx * 6, o.z + nz * 6) || botFreeSpot(o.x - nx * 6, o.z - nz * 6) || botFreeSpot(o.x + 6, o.z);
+    if (!sp) return false;
+    an = Math.random() * 6.283; sp2 = botFreeSpot(sp[0] + Math.cos(an) * 4, sp[1] + Math.sin(an) * 4) || sp;
+    b.tour = null; b.vilTour = null; b.vilWatch = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
+    window.__botSayQ = corp ? 'Voy al corporativo S13.' : 'Voy a una sucursal S13.';
+    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
+    if (b.mode !== 'walk') botForceLand(b);
+    b.ball = false; b.ballK = 0; b.glr = 0; b.glr0 = 0; b.bh = 0; b.bvy = 0; b.v = 0; b.rec = 0; b.scan = false; b.circ = false;
+    b.tpj = { x: sp[0], z: sp[1], gx: sp2[0], gz: sp2[1], t: 0, done: false };
+    AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
     return true;
   }
   function botCallIsland(jk) { /* jk: ir a la chatarrería de las Islas Marías en vez de Socorro */
