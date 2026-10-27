@@ -9209,6 +9209,65 @@ window.startMap = function (RAW, AUTH) {
   var auSkin = new THREE.MeshLambertMaterial({ color: 0xf0c3b3 }), auPearl = new THREE.MeshLambertMaterial({ color: 0xe9eef3, emissive: 0x15191d });
   var auJoint2 = new THREE.MeshLambertMaterial({ color: 0x3a414b }), auGray = new THREE.MeshLambertMaterial({ color: 0xa3abb4 }), auBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), auDark = new THREE.MeshLambertMaterial({ color: 0x3a3f46 });
   var auRed = new THREE.MeshBasicMaterial({ color: 0xff2a2a }), auHair = new THREE.MeshLambertMaterial({ color: 0xf3f6fb, emissive: 0x23282e });
+  var auHairF = new THREE.MeshLambertMaterial({ color: 0xf3f6fb, emissive: 0x23282e, flatShading: true }), auSkinF = new THREE.MeshLambertMaterial({ color: 0xf0c3b3, flatShading: true }), _auFD = null, auHairV = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x23282e, flatShading: true });
+  function auFaceData() { var t, im, c; if (_auFD) return _auFD; t = auraFaceTex(); im = t.image; c = im.getContext('2d'); _auFD = { w: im.width, h: im.height, d: c.getImageData(0, 0, im.width, im.height).data }; return _auFD; }
+  /* Cabeza low-poly por cortes: anillos horizontales con medidas de perfil (frente, cejas, pómulo, mandíbula, mentón) */
+  function auLoftTris(grow) {
+    var K = [[0.158, 0.04, 0.05, 0.06], [0.14, 0.054, 0.068, 0.088], [0.128, 0.064, 0.082, 0.094], [0.105, 0.082, 0.083, 0.092], [0.098, 0.082, 0.085, 0.091], [0.09, 0.082, 0.088, 0.09], [0.082, 0.082, 0.09, 0.088], [0.072, 0.082, 0.09, 0.085], [0.055, 0.082, 0.088, 0.08], [0.03, 0.072, 0.088, 0.066], [0.008, 0.068, 0.082, 0.056], [-0.02, 0.05, 0.08, 0.04], [-0.037, 0.03, 0.072, 0.025]], YS = [0.158, 0.141, 0.124, 0.107, 0.09, 0.073, 0.056, 0.042, 0.03, 0.022, 0.014, 0.006, -0.002, -0.01, -0.019, -0.028, -0.037], NR = YS.length, N = 16, R = [], r, k, a, y, t, q, T = [], c = [0, 0.065, -0.004], g = grow || 1, A, B, C, D, ap, bp;
+    function itp(yy) { var m; for (m = 0; m < K.length - 1; m++) if (yy <= K[m][0] && yy >= K[m + 1][0]) { t = (K[m][0] - yy) / (K[m][0] - K[m + 1][0]); return [K[m][1] + (K[m + 1][1] - K[m][1]) * t, K[m][2] + (K[m + 1][2] - K[m][2]) * t, K[m][3] + (K[m + 1][3] - K[m][3]) * t]; } return K[K.length - 1].slice(1); }
+    function P(x, yy, z) { return [c[0] + (x - c[0]) * g, c[1] + (yy - c[1]) * g, c[2] + (z - c[2]) * g]; }
+    for (r = 0; r < NR; r++) {
+      y = YS[r]; q = itp(y); R[r] = [];
+      for (k = 0; k < N; k++) { a = k * 2 * Math.PI / N; R[r].push(P(q[0] * Math.sin(a), y, Math.cos(a) >= 0 ? q[1] * Math.cos(a) : q[2] * Math.cos(a))); }
+    }
+    ap = P(0, 0.17, 0); bp = P(0, -0.044, 0.04);
+    function tri(u, v, w) { var n = [(v[1] - u[1]) * (w[2] - u[2]) - (v[2] - u[2]) * (w[1] - u[1]), (v[2] - u[2]) * (w[0] - u[0]) - (v[0] - u[0]) * (w[2] - u[2]), (v[0] - u[0]) * (w[1] - u[1]) - (v[1] - u[1]) * (w[0] - u[0])], m = [(u[0] + v[0] + w[0]) / 3 - c[0], (u[1] + v[1] + w[1]) / 3 - c[1], (u[2] + v[2] + w[2]) / 3 - c[2]]; T.push(n[0] * m[0] + n[1] * m[1] + n[2] * m[2] >= 0 ? [u, v, w] : [u, w, v]); }
+    for (k = 0; k < N; k++) tri(ap, R[0][k], R[0][(k + 1) % N]);
+    for (r = 0; r < NR - 1; r++) for (k = 0; k < N; k++) { A = R[r][k]; B = R[r][(k + 1) % N]; C = R[r + 1][k]; D = R[r + 1][(k + 1) % N]; tri(A, B, C); tri(B, D, C); }
+    for (k = 0; k < N; k++) tri(bp, R[NR - 1][(k + 1) % N], R[NR - 1][k]);
+    return T;
+  }
+  function auTrisMesh(T, mat, colorFn, uvFn) {
+    var geo = new THREE.BufferGeometry(), pos = new Float32Array(T.length * 9), col = colorFn ? new Float32Array(T.length * 9) : null, uvs = uvFn ? new Float32Array(T.length * 6) : null, i, k, cc, uu;
+    for (i = 0; i < T.length; i++) { cc = colorFn ? colorFn(T[i]) : null; for (k = 0; k < 3; k++) { pos[i * 9 + k * 3] = T[i][k][0]; pos[i * 9 + k * 3 + 1] = T[i][k][1]; pos[i * 9 + k * 3 + 2] = T[i][k][2]; if (cc) { col[i * 9 + k * 3] = cc[0]; col[i * 9 + k * 3 + 1] = cc[1]; col[i * 9 + k * 3 + 2] = cc[2]; } if (uvs) { uu = uvFn(T[i][k]); uvs[i * 6 + k * 2] = uu[0]; uvs[i * 6 + k * 2 + 1] = uu[1]; } } }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); if (col) geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); if (uvs) geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2)); geo.computeVertexNormals();
+    return new THREE.Mesh(geo, mat);
+  }
+  function auFacetSkull() { /* cabeza facetada con la textura completa del rostro (ojos, sonrisa, pecas y marcas) mapeada por posición */
+    var tex = auraFaceTex(), cvs = tex.image, cx2 = cvs.getContext('2d'); tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping; cx2.globalCompositeOperation = 'destination-over'; cx2.fillStyle = '#e8b4a3'; cx2.fillRect(0, 0, cvs.width, cvs.height); cx2.globalCompositeOperation = 'source-over'; /* fondo de piel donde la textura es transparente */
+    return auTrisMesh(auLoftTris(1), new THREE.MeshLambertMaterial({ map: tex, flatShading: true }), null, function (v) {
+      var x = v[0] / 0.087, y = (v[1] - 0.065) / 0.12, z = v[2] / 0.094, l = Math.sqrt(x * x + y * y + z * z) || 1, ph, th, u, w;
+      if (z <= 0) return [0.5, 0.95];
+      x /= l; y /= l; z /= l; ph = Math.atan2(z, -x); th = Math.acos(Math.max(-1, Math.min(1, y)));
+      u = (ph - (Math.PI / 2 - 0.78)) / 1.56; w = (th - 0.28 * Math.PI) / (0.54 * Math.PI);
+      var eb = Math.max(0, 1 - Math.abs(w - 0.39) / 0.12); u = 0.5 + (u - 0.5) * (1 - 0.13 * eb); w -= 0.072 * eb; /* separa y baja un poco los ojos */
+      w -= 0.1025 * Math.max(0, Math.min(1, (w - 0.475) / 0.13)); w += 0.7 * Math.max(0, w - 0.6) + 0.0206 * Math.max(0, Math.min(1, (w - 0.6) / 0.04)); /* la boca se ve más baja y sin estirar: se muestrea la textura más densa bajo la nariz */ /* sube la boca hacia su sitio */
+      return [Math.max(0.03, Math.min(0.97, u)), Math.max(0.03, Math.min(0.97, 1 - w))];
+    });
+  }
+  function auHairCap() { /* casco de cabello: la misma forma, un poco más grande, sin la zona del rostro */
+    var T = auLoftTris(1.075).filter(function (t) { var x = (t[0][0] + t[1][0] + t[2][0]) / 3, y = (t[0][1] + t[1][1] + t[2][1]) / 3, z = (t[0][2] + t[1][2] + t[2][2]) / 3; return y >= 0.108 || (z < 0.0 && y > 0.0) || (Math.abs(x) > 0.078 && y > 0.09); });
+    return auTrisMesh(T, auHairV, function (t) { var x = (t[0][0] + t[1][0] + t[2][0]) / 3, y = (t[0][1] + t[1][1] + t[2][1]) / 3, z = (t[0][2] + t[1][2] + t[2][2]) / 3; return Math.abs(x) < 0.03 && y > 0.11 && z > -0.04 ? [0.66, 0.69, 0.74] : [0.96 - 0.05 * Math.abs(x) * 6, 0.97 - 0.04 * Math.abs(x) * 6, 1]; });
+  }
+  function auStrand(len, w0, th, amp, ph, drift, fz) { /* mechón: cinta ondulada de caras planas que cuelga desde el origen y termina en punta */
+    var n = 9, rings = [], i, t, p, tg, sd, nm, T = [], x, y, z, l, w, pts = [], k, q;
+    for (i = 0; i <= n; i++) { t = i / n; pts.push([drift * t + amp * Math.sin(t * 9.4 + ph) * (0.35 + t), -len * t, fz * t + amp * 0.7 * Math.cos(t * 7.1 + ph * 1.3)]); }
+    for (i = 0; i <= n; i++) {
+      p = pts[i]; q = pts[Math.min(n, i + 1)]; k = pts[Math.max(0, i - 1)]; tg = [q[0] - k[0], q[1] - k[1], q[2] - k[2]]; l = Math.hypot(tg[0], tg[1], tg[2]) || 1; tg = [tg[0] / l, tg[1] / l, tg[2] / l];
+      sd = [tg[1] * 0 - tg[2] * 0 + (-tg[2]) * 0 + tg[1] * 0 + 1 * 1 - 0, 0, 0]; /* lado ≈ eje x, corregido para ser perpendicular al trazo */
+      sd = [1 - tg[0] * tg[0], -tg[0] * tg[1], -tg[0] * tg[2]]; l = Math.hypot(sd[0], sd[1], sd[2]) || 1; sd = [sd[0] / l, sd[1] / l, sd[2] / l];
+      nm = [tg[1] * sd[2] - tg[2] * sd[1], tg[2] * sd[0] - tg[0] * sd[2], tg[0] * sd[1] - tg[1] * sd[0]];
+      w = (w0 * (1 - 0.55 * i / n)) / 2 * (i === n ? 0.02 : 1); t = th / 2 * (i === n ? 0.1 : 1 - 0.4 * i / n);
+      rings.push([[p[0] + sd[0] * w + nm[0] * t, p[1] + sd[1] * w + nm[1] * t, p[2] + sd[2] * w + nm[2] * t], [p[0] - sd[0] * w + nm[0] * t, p[1] - sd[1] * w + nm[1] * t, p[2] - sd[2] * w + nm[2] * t], [p[0] - sd[0] * w - nm[0] * t, p[1] - sd[1] * w - nm[1] * t, p[2] - sd[2] * w - nm[2] * t], [p[0] + sd[0] * w - nm[0] * t, p[1] + sd[1] * w - nm[1] * t, p[2] + sd[2] * w - nm[2] * t]]);
+    }
+    for (i = 0; i < n; i++) for (k = 0; k < 4; k++) { T.push([rings[i][k], rings[i][(k + 1) % 4], rings[i + 1][k]]); T.push([rings[i][(k + 1) % 4], rings[i + 1][(k + 1) % 4], rings[i + 1][k]]); }
+    for (k = 1; k < 3; k++) { T.push([rings[0][0], rings[0][k], rings[0][k + 1]]); }
+    return auTrisMesh(T, auHairF, null);
+  }
+  function auNose() { /* cuña: puente, punta y alas */
+    var a = [0, 0.067, 0.084], b = [0, 0.007, 0.104], l = [-0.017, 0.011, 0.079], r = [0.017, 0.011, 0.079], d = [0, 0.003, 0.084];
+    return auTrisMesh([[a, l, b], [a, b, r], [l, d, b], [b, d, r], [a, r, l]].map(function (t) { return t; }), auSkinF, null);
+  }
   function auraFaceTex() {
     var W = 1024, H = 1280, cv = document.createElement('canvas'), c = cv.getContext('2d'), i, s = 11, rnd2 = function () { s = (s * 16807) % 2147483647; return s / 2147483647; }, side, cx, cy, gr, k, a;
     cv.width = W; cv.height = H; c.scale(2, 2); /* se dibuja en 512×640 y sale a doble resolución */
@@ -9341,31 +9400,32 @@ window.startMap = function (RAW, AUTH) {
       bx(auBlack, sx * 0.06, 0.52, 0.05, 0.05, 0.02, 0.05, shell);
       bx(auRed, sx * 0.045, 0.49, 0.105, 0.008, 0.07, 0.008, shell).rotation.z = sx * 0.55; /* líneas rojas del cuello */
     });
-    cy(auDark, 0, 0.545, 0.012, 0.043, 0.11, 0, 0, shell); /* cuello centrado bajo la barbilla */
+    cy(auSkin, 0, 0.545, 0.012, 0.046, 0.11, 0, 0, shell); /* cuello de piel centrado bajo la barbilla */
     m = cy(auBlack, 0, 0.5, 0.098, 0.04, 0.016, Math.PI / 2, 0, shell); /* disco hexagonal */
     var hx = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.02, 6), auBlack); hx.rotation.x = Math.PI / 2; hx.position.set(0, 0.5, 0.098); shell.add(hx); shell.remove(m);
     bx(auGray, 0, 0.5, 0.108, 0.04, 0.026, 0.005, shell);
     /* Cabeza: rostro detallado (cráneo liso con textura de alta resolución) */
     head.position.set(0, 0.612, 0); head.scale.setScalar(1.12); shell.add(head);
-    ball(auSkin, 0, 0.065, 0, 1, head).scale.set(0.087, 0.12, 0.094); /* cráneo y mandíbula (una sola pieza para que el rostro quede liso) */
-    ball(auSkin, 0, 0.038, 0.095, 1, head).scale.set(0.0085, 0.013, 0.01); /* punta de la nariz */
-    var fg = new THREE.SphereGeometry(1, 40, 30, Math.PI / 2 - 0.78, 1.56, 0.28 * Math.PI, 0.54 * Math.PI), fm = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ map: auraFaceTex(), transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, depthWrite: false }));
-    fm.scale.set(0.0882, 0.1215, 0.0954); fm.position.y = 0.065; fm.renderOrder = 2; head.add(fm);
+    function fsph(mat, px, py, pz, sx, sy, sz, par, ws, hs) { var q = new THREE.Mesh(new THREE.SphereGeometry(1, ws, hs), mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); par.add(q); return q; }
+    var sk = auFacetSkull(); head.add(sk); /* cráneo y rostro low-poly con los colores de su cara */
+    head.add(auNose()); /* nariz angulosa */
     /* Cabello platino largo y ondulado, en placas alargadas */
-    ball(auHair, 0, 0.104, -0.026, 1, head).scale.set(0.097, 0.1, 0.1);
-    ball(auHair, 0, 0.17, 0.0, 1, head).scale.set(0.07, 0.03, 0.08);
+    head.add(auHairCap());
+    [-1, 1].forEach(function (sx) { /* pasadores blancos sobre la cabeza */
+      bx(auPearl, sx * 0.05, 0.175, 0.02, 0.026, 0.006, 0.07, head).rotation.set(-0.15, sx * 0.25, -sx * 0.5); bx(auBlack, sx * 0.062, 0.162, 0.045, 0.01, 0.008, 0.02, head).rotation.z = -sx * 0.5;
+    });
     [-1, 1].forEach(function (sx) {
-      ball(auHair, sx * 0.04, 0.145, 0.082, 1, head).scale.set(0.05, 0.011, 0.034); head.children[head.children.length - 1].rotation.set(1.0, 0, sx * 0.4); /* flequillo pegado a la frente */
-      ball(auHair, sx * 0.078, 0.13, 0.052, 1, head).scale.set(0.024, 0.045, 0.034); head.children[head.children.length - 1].rotation.set(0.3, 0, sx * 0.3);
-      for (var li = 0; li < 6; li++) {
-        var lk = new THREE.Group(), sg, ns = 7 + (li % 3) * 2;
-        lk.position.set(sx * (0.088 + (li % 2) * 0.006), 0.09 - (li % 3) * 0.008, -0.06 + li * 0.025); head.add(lk);
-        for (sg = 0; sg < ns; sg++) { seg = bx(auHair, sx * (0.002 + 0.01 * Math.sin(sg * 0.9 + li * 1.7) + sg * 0.002), -0.027 * sg - 0.02, 0.006 * Math.cos(sg * 0.9 + li) - sg * 0.0012, 0.04 - sg * 0.0012, 0.034, 0.024, lk); seg.rotation.z = sx * 0.12 * Math.sin(sg * 0.9 + li * 1.7); }
+      fsph(auHairF, sx * 0.04, 0.145, 0.082, 0.05, 0.011, 0.034, head, 4, 2).rotation.set(1.0, 0, sx * 0.4); /* flequillo pegado a la frente */
+      fsph(auHairF, sx * 0.078, 0.13, 0.052, 0.024, 0.045, 0.034, head, 4, 2).rotation.set(0.3, 0, sx * 0.3);
+      for (var li = 0; li < 13; li++) {
+        var lk = new THREE.Group(), fz = li % 3 === 0 ? 0.05 : 0.0; /* los dos primeros caen por delante del hombro */
+        lk.position.set(sx * (0.082 + (li % 3) * 0.009), 0.1 - (li % 3) * 0.012, -0.095 + li * 0.0125); head.add(lk);
+        lk.add(auStrand(0.3 + (li % 3) * 0.07, 0.075 - li * 0.0015, 0.02, 0.012 + (li % 2) * 0.006, li * 1.7 + (sx > 0 ? 0 : 1.1), sx * (0.012 + li * 0.004), fz));
         locks.push({ g: lk, sx: sx, ph: li * 1.1 });
       }
     });
     var back = new THREE.Group(); back.position.set(0, 0.06, -0.105); head.add(back);
-    for (var bi = 0; bi < 9; bi++) { seg = bx(auHair, 0.012 * Math.sin(bi * 1.5), -0.04 - bi * 0.03, -0.012 * bi, 0.17 + bi * 0.006, 0.04, 0.036 + bi * 0.003, back); seg.rotation.z = 0.06 * Math.sin(bi * 1.7); seg.rotation.x = -0.12; } /* se abre hacia atrás al bajar, por fuera de la espalda */
+    for (var bi = 0; bi < 7; bi++) { var bs = auStrand(0.36 + (bi % 3) * 0.05, 0.06, 0.02, 0.016, bi * 1.3, (bi - 3) * 0.008, -0.012 * (bi % 2)); bs.position.set((bi - 3) * 0.024, 0.02, -0.004 * (bi % 3) - 0.01); back.add(bs); } /* cortina de mechones ondulados por la espalda */
     locks.push({ g: back, sx: 0, ph: 0.5, back: true });
     /* Auriculares-sensor con brazo hacia la mejilla */
     [-1, 1].forEach(function (sx) {
