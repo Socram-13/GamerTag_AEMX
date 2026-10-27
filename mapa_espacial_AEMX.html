@@ -1095,6 +1095,7 @@ window.startMap = function (RAW, AUTH) {
 
   var s13Mat = null, s13Geo = null, s13BB = [];
   function s13BBTick(t) {
+    if (window.__bgGlow) window.__bgGlow(t);
     var i, b, v;
     if (window.__junkTick) window.__junkTick(t);
     for (i = 0; i < s13BB.length; i++) { b = s13BB[i];
@@ -2179,7 +2180,7 @@ window.startMap = function (RAW, AUTH) {
         if (!d.list.length) return;
         d.extra.forEach(function (c) {
           var x = d.cx + c.x, z = d.cz + c.z, k = gk(Math.floor(x / CELL), Math.floor(z / CELL)), l = Math.hypot(c.x, c.z) || 1;
-          var h = { x: x, z: z, d: d, ox: c.x / l, oz: c.z / l, o: (x * 0.37 + z * 0.11) % 6.283, noVeg: d.storeHex === c || !!c.special };
+          var h = { x: x, z: z, d: d, ox: c.x / l, oz: c.z / l, o: (x * 0.37 + z * 0.11) % 6.283, noVeg: d.storeHex === c || !!c.special || !!c.bg };
           (invGrid[k] || (invGrid[k] = [])).push(h);
           invList.push(h);
         });
@@ -3772,10 +3773,11 @@ window.startMap = function (RAW, AUTH) {
     /* niebla ligera permanente sobre la isla (solo visual, sin fantasmas) */
     var fcv = cnv(128, 128), fx3 = fcv.getContext('2d'), fgr = fx3.createRadialGradient(64, 64, 4, 64, 64, 62), ftx, fogS = [];
     fgr.addColorStop(0, 'rgba(255,255,255,0.9)'); fgr.addColorStop(0.5, 'rgba(255,255,255,0.4)'); fgr.addColorStop(1, 'rgba(255,255,255,0)'); fx3.fillStyle = fgr; fx3.fillRect(0, 0, 128, 128); ftx = new THREE.CanvasTexture(fcv);
-    for (k = 0; k < 14; k++) {
-      var fa = rnd() * 6.2832, fr = Math.sqrt(rnd()) * 13, fsz = 14 + rnd() * 12, fsp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ftx, color: 0x9aa3ad, transparent: true, opacity: 0.18 + rnd() * 0.1, depthWrite: false, fog: false }));
+    for (k = 0; k < 22; k++) {
+      var fa = rnd() * 6.2832, fr = Math.sqrt(rnd()) * 13, fsz = 14 + rnd() * 12, fsp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ftx, color: 0x9aa3ad, transparent: true, opacity: 0.3 + rnd() * 0.12, depthWrite: false, fog: false }));
       fsp.scale.set(fsz, fsz * 0.45, 1); fsp.raycast = function () {}; G.add(fsp); fogS.push({ sp: fsp, x: cx + Math.cos(fa) * fr, z: cz + Math.sin(fa) * fr, y: 0.4 + rnd() * 1.6, ph: rnd() * 6.28, am: 1 + rnd() * 2.2, o: fsp.material.opacity });
     }
+    window.__junkIn = function (x, z) { return seen[Math.round(x) + ',' + Math.round(z)] === 1; };
     window.__junkTick = function (t) { fogS.forEach(function (f) { f.sp.position.set(f.x + Math.sin(t * 0.07 + f.ph) * f.am, f.y + Math.sin(t * 0.2 + f.ph) * 0.15, f.z + Math.cos(t * 0.06 + f.ph) * f.am); f.sp.material.opacity = f.o * (0.85 + 0.15 * Math.sin(t * 0.3 + f.ph)); }); };
     scene.add(G); window.__junk = { x: cx, z: cz, n: pts.length, piles: nP, cont: nC, loose: nL, sign: se, sa: sa, tx: tx, pp: pp0 };
   }
@@ -4370,6 +4372,111 @@ window.startMap = function (RAW, AUTH) {
       d.group.add(s);
       d.store = s;
       d.storeHex = best;
+    });
+
+    /* ---------- Corporativo S13 (CDMX) y sucursales S13 (un edificio por estado con jugadores), en la periferia ---------- */
+    var s13Cv = document.createElement('canvas'), s13Cx = s13Cv.getContext('2d'), s13Tx = new THREE.CanvasTexture(s13Cv), s13Im = new Image(), s13Src = document.querySelector('#s13-logo img');
+    s13Cv.width = s13Cv.height = 128; s13Tx.encoding = THREE.sRGBEncoding;
+    s13Im.onload = function () { s13Cx.clearRect(0, 0, 128, 128); var r2 = Math.min(124 / s13Im.naturalWidth, 124 / s13Im.naturalHeight); s13Cx.drawImage(s13Im, 64 - s13Im.naturalWidth * r2 / 2, 64 - s13Im.naturalHeight * r2 / 2, s13Im.naturalWidth * r2, s13Im.naturalHeight * r2); s13Tx.needsUpdate = true; };
+    var nvC = document.createElement('canvas'), nvX = nvC.getContext('2d'), nvT = new THREE.CanvasTexture(nvC);
+    nvC.width = nvC.height = 256; nvT.encoding = THREE.sRGBEncoding;
+    var s13Im2 = s13Im.onload; s13Im.onload = function () { s13Im2(); var r3 = Math.min(124 / s13Im.naturalWidth, 124 / s13Im.naturalHeight), w3 = s13Im.naturalWidth * r3, h3 = s13Im.naturalHeight * r3, q, sm = document.createElement('canvas'), sx2 = sm.getContext('2d'); /* holograma: logo con sus propios colores y un halo difuso de esos mismos colores */
+      sm.width = sm.height = 40; sx2.drawImage(s13Im, 20 - w3 / 12.4, 20 - h3 / 12.4, w3 / 6.2, h3 / 6.2); nvX.clearRect(0, 0, 256, 256); nvX.imageSmoothingEnabled = true; nvX.imageSmoothingQuality = 'high'; nvX.globalCompositeOperation = 'lighter';
+      nvX.drawImage(sm, 0, 0, 256, 256);
+      nvX.drawImage(s13Im, 128 - w3 / 2, 128 - h3 / 2, w3, h3); nvX.globalCompositeOperation = 'destination-out'; nvX.fillStyle = 'rgba(0,0,0,0.22)'; for (q = 0; q < 256; q += 5) nvX.fillRect(0, q, 256, 1.5); nvX.globalCompositeOperation = 'source-over'; nvT.needsUpdate = true; };
+    if (s13Src) s13Im.src = s13Src.src;
+    var bgLogo = new THREE.MeshBasicMaterial({ map: s13Tx, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    var bgGlass = new THREE.MeshLambertMaterial({ color: 0x2f78d6, emissive: 0x0a2d66 }), bgSlab = new THREE.MeshLambertMaterial({ color: 0xc3c9ce, emissive: 0x14171a }), bgWall = new THREE.MeshLambertMaterial({ color: 0xaab4b6, emissive: 0x0d1010 }), bgWall2 = new THREE.MeshLambertMaterial({ color: 0x9aa5a8, emissive: 0x0b0e0e }), bgWin = new THREE.MeshLambertMaterial({ color: 0x4aa8f0, emissive: 0x12456e }), bgDoor = new THREE.MeshLambertMaterial({ color: 0x5b6a72 }), bgRoofG = new THREE.MeshLambertMaterial({ color: 0x6cc4f2, emissive: 0x174e6e, transparent: true, opacity: 0.85 });
+    function bgMerge(root) { /* funde las piezas en una malla por material (pocas llamadas de dibujo) */
+      var by = new Map(), res = new THREE.Group();
+      root.updateMatrixWorld(true);
+      root.traverse(function (m) { if (!m.isMesh) return; var gg = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone(); gg.applyMatrix4(m.matrixWorld); if (!by.has(m.material)) by.set(m.material, []); by.get(m.material).push(gg); });
+      by.forEach(function (list, mt) {
+        var n = 0, o = 0, P, N, U, mg, me;
+        list.forEach(function (gg) { n += gg.attributes.position.count; });
+        P = new Float32Array(n * 3); N = new Float32Array(n * 3); U = new Float32Array(n * 2);
+        list.forEach(function (gg) { P.set(gg.attributes.position.array, o * 3); N.set(gg.attributes.normal.array, o * 3); if (gg.attributes.uv) U.set(gg.attributes.uv.array, o * 2); o += gg.attributes.position.count; gg.dispose(); });
+        mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(P, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(N, 3)); mg.setAttribute('uv', new THREE.BufferAttribute(U, 2));
+        me = new THREE.Mesh(mg, mt); me.castShadow = mt !== bgLogo && !mt.transparent; me.raycast = function () {}; res.add(me);
+      });
+      return res;
+    }
+    var bgNeon = new THREE.MeshBasicMaterial({ map: nvT, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
+    function logoAt(g, x, y, z, size, ry) { var n2 = new THREE.Mesh(uPlane, bgNeon); n2.scale.set(size * 2, size * 2, 1); n2.position.set(x + Math.sin(ry) * 0.12, y, z + Math.cos(ry) * 0.12); n2.rotation.y = ry; g.add(n2); var m = new THREE.Mesh(uPlane, bgLogo); m.scale.set(size, size, 1); m.position.set(x + Math.sin(ry) * 0.06, y, z + Math.cos(ry) * 0.06); m.rotation.y = ry; g.add(m); }
+    var bgHexM = new THREE.MeshBasicMaterial({ color: 0xaab1b8, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), bgRing1 = new THREE.MeshBasicMaterial({ color: 0x5ff3ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }), bgRing2 = new THREE.MeshBasicMaterial({ color: 0xff4fd8, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }), bgHexG = new THREE.CircleGeometry(1.42, 6), bgRingG1 = new THREE.RingGeometry(1.62, 1.74, 48), bgRingG2 = new THREE.RingGeometry(1.84, 1.89, 48);
+    function corpLogo(g, x, y, z, ry) { /* logo sobre hexágono blanco con aro holográfico */
+      var m = new THREE.Mesh(bgHexG, bgHexM); m.rotation.z = 0.5236; m.position.set(x - Math.sin(ry) * 0.04, y, z - Math.cos(ry) * 0.04); m.rotation.y = ry; m.rotation.order = 'YXZ'; g.add(m);
+      logoAt(g, x, y, z, 2.2, ry);
+    }
+    function buildCorp() { /* torre de oficinas rectangular: vidrio azul con losas gris claro (referencia 1) */
+      var g = new THREE.Group(), WX2 = 5.4, WZ2 = 3.0, TOP = 14.0, nF = 9, i, fh = (TOP - 0.7) / nF;
+      cyBox(g, bgSlab, WX2 + 0.9, 0.7, WZ2 + 0.9, 0, 0.35, 0);
+      cyBox(g, bgGlass, WX2, TOP - 0.7, WZ2, 0, 0.7 + (TOP - 0.7) / 2, 0);
+      for (i = 0; i <= nF; i++) cyBox(g, bgSlab, WX2 + 0.26, 0.55, WZ2 + 0.26, 0, 0.7 + i * fh, 0);
+      cyBox(g, bgSlab, 3.6, 1.3, 2.0, 0, TOP + 0.55, 0); cyBox(g, bgSlab, 2.4, 0.5, 1.4, 0, TOP + 1.45, 0); cyBox(g, bgSlab, 0.1, 2.2, 0.1, 0.8, TOP + 2.8, 0.2);
+      cyBox(g, bgDoor, 1.4, 1.5, 0.06, 0, 1.45, WZ2 / 2 + 0.03); cyBox(g, bgSlab, 2.2, 0.14, 0.9, 0, 2.3, WZ2 / 2 + 0.4);
+      corpLogo(g, -1.3, TOP - 2.7, WZ2 / 2 + 0.34, 0); corpLogo(g, 1.3, TOP - 2.7, -WZ2 / 2 - 0.34, Math.PI);
+      corpLogo(g, WX2 / 2 + 0.34, TOP - 2.7, 0, 1.5708); corpLogo(g, -WX2 / 2 - 0.34, TOP - 2.7, 0, -1.5708);
+      return g;
+    }
+    function buildBranch() { /* sucursal: dos volúmenes grises con ventanas azules e invernadero de vidrio en la azotea (referencia 2) */
+      var g = new THREE.Group(), s2, sx;
+      cyBox(g, bgSlab, 3.9, 0.18, 3.4, 0, 0.09, 0); /* zócalo */
+      cyBox(g, bgWall, 3.5, 2.7, 3.0, 0, 1.53, 0); cyBox(g, bgWall2, 2.1, 1.6, 2.2, -0.55, 3.68, -0.2);
+      cyBox(g, bgSlab, 3.64, 0.14, 3.14, 0, 2.95, 0); cyBox(g, bgSlab, 2.24, 0.12, 2.34, -0.55, 4.54, -0.2); /* remates */
+      cyBox(g, bgSlab, 0.14, 2.7, 0.14, -1.75, 1.53, 1.5); cyBox(g, bgSlab, 0.14, 2.7, 0.14, 1.75, 1.53, 1.5); /* pilastras */
+      cyBox(g, bgRoofG, 1.3, 0.6, 1.3, 0.85, 3.3, 0.7); cyBox(g, bgSlab, 1.38, 0.06, 1.38, 0.85, 3.62, 0.7);
+      cyBox(g, bgWall2, 0.5, 0.2, 0.5, -0.7, 4.7, 0.4); cyBox(g, bgDoor, 0.4, 0.3, 0.4, -1.25, 4.75, -0.8); cyBox(g, bgDoor, 0.3, 0.22, 0.3, -0.2, 4.71, -0.9);
+      for (sx = -1; sx <= 1; sx += 2) {
+        cyBox(g, bgWin, 0.9, 0.7, 0.05, sx * 1.1, 1.65, 1.53); cyBox(g, bgSlab, 0.98, 0.05, 0.07, sx * 1.1, 1.3, 1.54); cyBox(g, bgSlab, 0.98, 0.05, 0.07, sx * 1.1, 2.0, 1.54); cyBox(g, bgSlab, 0.04, 0.7, 0.07, sx * 1.1, 1.65, 1.54);
+        cyBox(g, bgWin, 0.9, 0.55, 0.05, -0.55 + sx * 0.5, 3.6, 0.93); cyBox(g, bgSlab, 0.04, 0.55, 0.07, -0.55 + sx * 0.5, 3.6, 0.94);
+      }
+      cyBox(g, bgDoor, 0.7, 1.1, 0.06, 0, 0.73, 1.53); cyBox(g, bgSlab, 1.3, 0.1, 0.55, 0, 1.3, 1.78); cyBox(g, bgSlab, 1.0, 0.08, 0.5, 0, 0.12, 1.8); /* puerta, toldo y escalón */
+      for (s2 = -1; s2 <= 1; s2 += 2) { cyBox(g, bgWin, 0.05, 0.7, 0.9, s2 * 1.78, 1.65, 0.2); cyBox(g, bgWin, 0.05, 0.7, 0.9, s2 * 1.78, 1.65, -0.85); cyBox(g, bgSlab, 0.07, 0.05, 2.1, s2 * 1.79, 1.3, -0.3); cyBox(g, bgSlab, 0.07, 0.05, 2.1, s2 * 1.79, 2.0, -0.3); }
+      logoAt(g, 0, 2.25, 1.56, 1.0, 0); logoAt(g, 0.52, 3.68, -0.2, 0.9, 1.5708);
+      return g;
+    }
+    var bgHexD = new THREE.Color(0x0b1220), bgGlowL = [], bgHot = new Map([[bgGlass, 0x5ff3ff], [bgWin, 0x5ff3ff], [bgRoofG, 0xbff0ff]]), bgGT = -9;
+    window.__bgGlowL = bgGlowL;
+    window.__bgGlow = function (t) { /* en la niebla las ventanas brillan (aditivo, sin niebla, como los letreros) y el aro del corporativo sube y baja */
+      var dt = t - bgGT, i, o, f, u;
+      if (dt < 0.03 && dt > -1) return; bgGT = t; if (dt < 0 || dt > 1) dt = 0.05;
+      for (i = 0; i < bgGlowL.length; i++) {
+        o = bgGlowL[i];
+        if (!o.ft || t - o.ft > 0.4 || t < o.ft) { o.ft = t; o.tg = (typeof WX !== 'undefined' && WX && WX.fogAt && WX.fogAt(o.x, o.z)) ? 1 : 0; }
+        o.k += (o.tg - o.k) * Math.min(1, dt * 1.5); f = o.k * (0.85 + 0.15 * Math.sin(t * 2.3 + i));
+        o.ms.forEach(function (m) { m.mat.opacity = f * m.a; m.vis.visible = f > 0.02; });
+        if (o.hx.length) o.ms.forEach(function (m) { if (m.neon) { m.mat.opacity = 0.92 + 0.08 * Math.sin(t * 2 + i); m.vis.visible = true; } }); /* corporativo: el logo holográfico sobre su hexágono oscuro es permanente */
+        if (o.ring) { o.ring.children[0].material.opacity = 0.88 + 0.12 * Math.sin(t * 1.6 + i); o.ring.rotation.y = t * 0.12; }
+      }
+    };
+    function placeBg(d, make, skip, topY) {
+      var best = null, i, c, s;
+      for (i = 0; i < d.extra.length; i++) { c = d.extra[i]; if (c.special || c === d.storeHex || skip.indexOf(c) > -1) continue; if (!best || c.d > best.d) best = c; }
+      if (!best) return null;
+      s = bgMerge(make()); s.position.set(d.cx + best.x, BASE, d.cz + best.z); s.rotation.y = Math.atan2(best.x, best.z); d.group.add(s);
+      (function () { var ms = [], mm = new Map(), ov = [], ring = null, hx = [];
+        var lgm = new THREE.MeshBasicMaterial({ map: s13Tx, transparent: true, alphaTest: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }), lov = [], hov = [], hgm = new THREE.MeshBasicMaterial({ color: 0xbfeaff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+        s.traverse(function (o) { if (o.isMesh && o.material === bgHexM) { o.material = bgHexM.clone(); hx.push(o.material); } if (o.isMesh && o.material === bgNeon) { o.material = bgNeon.clone(); o.raycast = function () {}; o.visible = false; ms.push({ mat: o.material, a: 1, vis: o, neon: true }); } if (o.isMesh && bgHot.has(o.material)) ov.push(o); else if (o.isMesh && o.material === bgLogo) lov.push(o); });
+        ov.forEach(function (o) { var gm = mm.get(o.material), w; if (!gm) { gm = new THREE.MeshBasicMaterial({ color: bgHot.get(o.material), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }); mm.set(o.material, gm); }
+          w = new THREE.Mesh(o.geometry, gm); w.raycast = function () {}; w.visible = false; o.parent.add(w); ms.push({ mat: gm, a: o.material === bgGlass ? 1 : 1, vis: w }); });
+        if (make === buildCorp) { /* aro de luz holográfico que recorre el edificio */
+          ring = new THREE.Group(); (function () { var cv2 = document.createElement('canvas'), x2 = cv2.getContext('2d'), tt = new THREE.CanvasTexture(cv2), rm, e;
+            cv2.width = 2048; cv2.height = 128; x2.fillStyle = 'rgba(95,243,255,0.2)'; x2.fillRect(0, 0, 2048, 128); x2.fillStyle = 'rgba(95,243,255,0.9)'; x2.fillRect(0, 0, 2048, 6); x2.fillRect(0, 122, 2048, 6);
+            x2.font = 'bold 50px Rajdhani, Arial, sans-serif'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.shadowColor = '#5ff3ff'; x2.shadowBlur = 14; x2.fillStyle = '#e6feff';
+            x2.fillText('AQUÍ LA INGENIERÍA ENCUENTRA NUEVAS POSIBILIDADES', 1024, 66); x2.fillText('AQUÍ LA INGENIERÍA ENCUENTRA NUEVAS POSIBILIDADES', 1024, 66);
+            tt.encoding = THREE.sRGBEncoding; tt.anisotropy = 4;
+            rm = new THREE.MeshBasicMaterial({ map: tt, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide });
+            e = new THREE.Mesh(new THREE.CylinderGeometry(4.0, 4.0, 1.5, 64, 1, true), rm); e.raycast = function () {}; ring.add(e); ring.position.y = 15.3; /* banda plana y ancha en la cima */
+          })(); s.add(ring); }
+        bgGlowL.push({ ms: ms, hx: hx, ring: ring, x: d.cx + best.x, z: d.cz + best.z, k: 0, tg: 0, ft: 0 }); })();
+      s._bp = { x: d.cx + best.x, z: d.cz + best.z, tier: 8, topY: topY, noRoof: true }; skip.push(best); best.bg = true; return s;
+    }
+    districts.forEach(function (d) {
+      var skip = [];
+      if (!d.list.length || !d.extra.length) return; /* solo estados con jugadores */
+      if (d.name === 'Ciudad de México') d.corp = placeBg(d, buildCorp, skip, 16.6);
+      if (d.name !== 'Ciudad de México') d.branch = placeBg(d, buildBranch, skip, 4.8);
     });
   })();
 
@@ -6998,6 +7105,7 @@ window.startMap = function (RAW, AUTH) {
     var items = [], wp = new THREE.Vector3();
     roots.forEach(function (b) { var p = b.userData.p; if (p && p.tier !== undefined) items.push([b, p]); });
     districts.forEach(function (d) {
+      [d.corp, d.branch].forEach(function (bq) { if (bq && bq._bp) { bq.getWorldPosition(wp); bq._bp.x = wp.x; bq._bp.z = wp.z; items.push([bq, bq._bp]); } });
       if (d.store) { if (!d.store._bp) { d.store.getWorldPosition(wp); d.store._bp = { x: wp.x, z: wp.z, tier: 7, topY: 1.8, isStore: true }; } items.push([d.store, d.store._bp]); }
     });
     camps.forEach(function (c) {
@@ -8204,6 +8312,11 @@ window.startMap = function (RAW, AUTH) {
         if (botFree(mx, mz) && botSetGoal(mx, mz, 'patrol')) { b.disMeet = now0(); b.jog = false; return; }
       }
     }
+    if (freeT && b.inJunk && window.__junk && window.__junk.pp && window.__junk.pp.length && !invLock && Math.random() < 0.9) { /* en la chatarrería: revisa los montículos uno por uno */
+      var jp = window.__junk.pp, jn = ((b.jpI === undefined ? -1 : b.jpI) + 1 + ((Math.random() * 2) | 0)) % jp.length, ja, jx, jz, jt;
+      b.jpI = jn;
+      for (jt = 0; jt < 8; jt++) { ja = Math.atan2(b.z - jp[jn][1], b.x - jp[jn][0]) + (jt ? (Math.random() - 0.5) * 2.4 : 0); jx = jp[jn][0] + Math.cos(ja) * 2.1; jz = jp[jn][1] + Math.sin(ja) * 2.1; if (botFree(jx, jz) && botSetGoal(jx, jz, 'patrol')) { b.jog = false; b.idle = 3 + Math.random() * 3; return; } }
+    }
     if (freeT && GM.mode === 'exp' && !DUEL && !VIS && aura && aura.mode === 'trail' && !invLock && now0() >= (b.visCD || 0)) {
       b.visCD = now0() + 25;
       var vdA = Math.hypot(aura.x - b.x, aura.z - b.z);
@@ -8494,7 +8607,7 @@ window.startMap = function (RAW, AUTH) {
     }
 
     if (WX && WX.fogAt && b.mode !== 'lift') {
-      b.inFog = !!WX.fogAt(b.x, b.z);
+      b.inFog = !!WX.fogAt(b.x, b.z); b.inJunk = !!(window.__junkIn && window.__junkIn(b.x, b.z));
       if (b.inFog) { b.fogT = (b.fogT || 0) + dt; b.fogOut = 0; } else { b.fogOut = (b.fogOut || 0) + dt; if (b.fogOut > 3) b.fogT = 0; }
     }
     if (botDrone && botDrone.g.visible) {
@@ -9067,7 +9180,7 @@ window.startMap = function (RAW, AUTH) {
       b.fxo.bulb.position.set(0, 0.19, 0.1); noRay(b.fxo.bulb); b.head.add(b.fxo.bulb);
     }
     var FXo = b.fxo, onGnd = (b.mode === 'walk' || b.mode === 'perch') && b.shell.visible, fxBase = onGnd ? b.y - (b.bh || 0) : 0, fxFl = onGnd ? Math.max(0, 1 - (b.bh || 0) / 1.5) * (1 - bk) : 0, fxI;
-    FXo.fk += ((b.inFog && onGnd ? 1 : 0) - FXo.fk) * Math.min(1, dt * 1.5);
+    FXo.fk += (((b.inFog || b.inJunk) && onGnd ? 1 : 0) - FXo.fk) * Math.min(1, dt * 1.5);
     FXo.beam.material.opacity = 0.55 * FXo.fk * (0.95 + 0.05 * Math.sin(t * 9)); FXo.beam.visible = FXo.fk > 0.02;
     FXo.blob.visible = onGnd; FXo.blob.position.set(b.x, fxBase + 0.03, b.z); FXo.blob.scale.setScalar(0.75 * (1 + (b.bh || 0) * 0.05)); FXo.blob.material.opacity = 0.5 / (1 + (b.bh || 0) * 0.3);
     b.head.rotation.x = -b.aimPitch - b.lean;
