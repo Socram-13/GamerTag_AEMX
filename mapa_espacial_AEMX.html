@@ -646,7 +646,7 @@ window.startMap = function (RAW, AUTH) {
     if (!estado || !ESTADO_COORDS[estado]) estado = 'Ciudad de México';
     var ua = Number(u.updatedAt); if (ua > 0 && ua < 1e11) ua *= 1000;
     var inactive = ua > 0 && (Date.now() - ua) > 30 * 86400000;
-    players.push({ uid: uid, name: String(u.username), city: estado, total: total, common: banned ? 0 : num(u.common), rare: banned ? 0 : num(u.rare), epic: banned ? 0 : num(u.epic), legendary: banned ? 0 : num(u.legendary), inactive: inactive && !banned, banned: banned });
+    players.push({ uid: uid, name: String(u.username), city: estado, total: total, common: banned ? 0 : num(u.common), rare: banned ? 0 : num(u.rare), epic: banned ? 0 : num(u.epic), legendary: banned ? 0 : num(u.legendary), inactive: inactive && !banned, banned: banned, clan: u.clanMember === true });
   });
   /* Un distrito por estado, ubicado en su capital */
   /* Todos los estados tienen distrito: con jugadores o con un hexágono vacío */
@@ -3795,6 +3795,7 @@ window.startMap = function (RAW, AUTH) {
       pl.x = wx; pl.z = wz;
       d.group.add(b);
       roots.push(b);
+      if (pl.clan && !pl.banned) clanWallMake(d, pl, wx, wz);
       if (b.userData.heli && !REDUCED) makeDrone(d, b, pl);
     });
   });
@@ -7621,6 +7622,41 @@ window.startMap = function (RAW, AUTH) {
     if (len > 0.01 && ((C.r < len && C.dir < 0) || (C.r > len && C.dir > 0))) { nl = len + (C.r - len) * Math.min(1, dt * 2.2); camera.position.copy(controls.target).addScaledVector(v, nl / len); }
     if (now > C.until) DUELCAM = null;
   }
+  /* Muro holográfico verde hexagonal (solo visual) sobre el borde del hexágono de los edificios de los miembros del clan AEMX */
+  var CLANW;
+  function clanWallMake(d, pl, wx, wz) {
+    var C = CLANW || (CLANW = { list: [], geo: {}, tex: {}, mat: {} }), R = HEX_PAD_R + 0.15, h = Math.max(4.5, Math.min(11, (pl.topY || 6) * 0.7 + 1)), hk = Math.round(h * 2) / 2, key = String(hk), m, cv, c2, q, a, x0, y0, T, hy, hx, PX = 104, WPX = 384, HPX, rad = 26, dx, dy, ty;
+    if (!C.mat[key]) {
+      HPX = Math.round(hk * PX); cv = document.createElement('canvas'); cv.width = WPX; cv.height = HPX; c2 = cv.getContext('2d');
+      c2.strokeStyle = 'rgba(120,255,170,0.85)'; c2.fillStyle = 'rgba(60,255,120,0.12)'; c2.lineWidth = 2.5;
+      dx = rad * 1.732; dy = rad * 1.5;
+      for (hy = -1; hy * dy < HPX + rad; hy++) for (hx = -1; hx * dx < WPX + dx; hx++) {
+        x0 = hx * dx + (hy % 2 ? dx / 2 : 0); y0 = hy * dy; c2.beginPath();
+        for (q = 0; q < 6; q++) { a = q * 1.0472 + 0.5236; c2[q ? 'lineTo' : 'moveTo'](x0 + Math.cos(a) * rad, y0 + Math.sin(a) * rad); }
+        c2.closePath(); c2.fill(); c2.stroke();
+      }
+      ty = HPX * 0.5; /* un AEMX por cara, centrado */
+      c2.font = '800 66px Arial, sans-serif'; c2.textAlign = 'center'; c2.textBaseline = 'middle'; c2.shadowColor = 'rgba(120,255,170,1)'; c2.shadowBlur = 14;
+      c2.fillStyle = 'rgba(2,24,14,0.8)'; c2.fillRect(WPX / 2 - 118, ty - 44, 236, 88); c2.fillStyle = 'rgba(200,255,220,1)'; c2.fillText('AEMX', WPX / 2, ty + 3);
+      T = new THREE.CanvasTexture(cv); T.wrapS = T.wrapT = THREE.RepeatWrapping; T.repeat.set(6, 1); T.minFilter = THREE.LinearFilter; T.generateMipmaps = false; T.anisotropy = 4;
+      C.tex[key] = T; C.mat[key] = new THREE.MeshBasicMaterial({ map: T, color: 0xaaffc4, transparent: true, opacity: 0.34, side: THREE.FrontSide, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    }
+    if (!C.geo[key]) C.geo[key] = new THREE.CylinderGeometry(R, R, hk, 6, 1, true);
+    m = new THREE.Mesh(C.geo[key], C.mat[key]); m.position.set(wx, BASE - 0.05 + hk / 2, wz); m.frustumCulled = false; m.renderOrder = 2; noRay(m); d.group.add(m);
+    C.list.push({ m: m, wp: null });
+  }
+  function clanWallsTick(dt) {
+    var C = CLANW, i, w, cp = camera.position, dx, dz, dy, vis, k, op;
+    if (!C || !C.list.length) return;
+    op = 0.32 + 0.07 * Math.sin(performance.now() / 700);
+    for (k in C.mat) { C.mat[k].opacity = op; }
+    for (i = 0; i < C.list.length; i++) {
+      w = C.list[i];
+      if (!w.wp) { w.m.updateWorldMatrix(true, false); w.wp = new THREE.Vector3().setFromMatrixPosition(w.m.matrixWorld); }
+      dx = w.wp.x - cp.x; dz = w.wp.z - cp.z; dy = w.wp.y - cp.y; vis = !DUEL && dx * dx + dz * dz + dy * dy < 22500;
+      if (w.m.visible !== vis) w.m.visible = vis;
+    }
+  }
   function duelDebrisTick(dt) { /* física sencilla de las piezas del robot que explotó */
     var i, p, gy;
     for (i = 0; i < DEB.length; i++) {
@@ -11376,7 +11412,7 @@ window.startMap = function (RAW, AUTH) {
     updateUfo(t, dt);
     ufoSpotStep(t, dt);
     updateCar(t, dt);
-    updateBot(t, dt); updateAstJoints(); if (DEB.length) duelDebrisTick(dt);
+    updateBot(t, dt); updateAstJoints(); if (DEB.length) duelDebrisTick(dt); clanWallsTick(dt);
     updateWanderer(t, dt);
     updateAura(t, dt);
     try { auraTalk(); } catch (eAT) { }
