@@ -8771,7 +8771,7 @@ window.startMap = function (RAW, AUTH) {
   }
   /* Mira al horizonte, hacia donde mira el robot, para ver lo que ve y no el mapa desde arriba */
   /* Seguimiento del robot igual que el de AURA: la cámara conserva un desplazamiento (distancia y ángulo) respecto al robot y el zoom es libre */
-  var botOff = new THREE.Vector3(), bcV1 = new THREE.Vector3(), bcV2 = new THREE.Vector3(), bcTilt = 0;
+  var botOff = new THREE.Vector3(), bcV1 = new THREE.Vector3(), bcV2 = new THREE.Vector3(), bcTilt = 0, bcAdj = new THREE.Vector3(), bcHold = 0, bcWant = new THREE.Vector3(), bcTmp = new THREE.Vector3();
   function botStartFollow(b) {
     var sp = new THREE.Spherical(6, 1.2, b.yaw + Math.PI);
     botOff.setFromSpherical(sp); botYawCam = b.yaw; botFollow = true; botCamFree = true; b._lx = undefined;
@@ -11300,6 +11300,7 @@ window.startMap = function (RAW, AUTH) {
       else if (A.ema < 0.017 && A.pr < A.max) { A.pr = Math.min(A.max, A.pr + 0.25); renderer.setPixelRatio(A.pr); resize(); A.hold = 6; A.ema = 0.02; }
     })();
 
+    camera.position.sub(bcAdj); /* deshace el desvío anti-obstáculos del frame anterior */
     if (fly) {
       fly.t = Math.min(1, fly.t + dt / fly.dur);
       k = fly.t * fly.t * (3 - 2 * fly.t);
@@ -11370,6 +11371,29 @@ window.startMap = function (RAW, AUTH) {
     controls.target.x = clamp(controls.target.x, -1750 * GK, 1750 * GK); /* los límites siguen la escala del país */
     controls.target.z = clamp(controls.target.z, -1300 * GK, 1300 * GK);
     controls.target.y = clamp(controls.target.y, 0, 200);
+    /* la cámara del robot no atraviesa edificios: si hay uno entre ella y el robot, sube/rodea y, si no hay hueco, se acerca */
+    (function () {
+      var on = botFollow && botCamFree && bot && !fly && !turretCam, tg = controls.target, cp = camera.position, tx = tg.x, ty = tg.y, tz = tg.z, ox, oy, oz, r, ang, cand, i, j, f, best = null, cx, cy, cz, bad;
+      if (!on || !botObs) { bcAdj.multiplyScalar(Math.max(0, 1 - dt * 5)); cp.add(bcAdj); return; }
+      function free(x, y, z) { return botLOS(tx, ty, tz, x, y, z, null); }
+      ox = cp.x - tx; oy = cp.y - ty; oz = cp.z - tz;
+      if (free(cp.x, cp.y, cp.z)) { bcWant.set(0, 0, 0); }
+      else if (now0() > bcHold || bcHold === 0) {
+        r = Math.hypot(ox, oz); ang = Math.atan2(ox, oz);
+        outer: for (i = 1; i <= 4; i++) for (j = 0; j < 5; j++) {
+          var da = [0, 0.26, -0.26, 0.52, -0.52][j] * i / 2, up = 2.5 * i;
+          cx = tx + Math.sin(ang + da) * r; cz = tz + Math.cos(ang + da) * r; cy = cp.y + up;
+          if (free(cx, cy, cz)) { best = [cx - cp.x, cy - cp.y, cz - cp.z]; break outer; }
+        }
+        if (!best) { /* sin hueco: acércala hasta antes del primer obstáculo */
+          for (f = 0.95; f > 0.1; f -= 0.1) { cx = tx + ox * f; cy = ty + oy * f; cz = tz + oz * f; if (free(cx, cy, cz)) break; }
+          best = [cx - cp.x, cy - cp.y, cz - cp.z];
+        }
+        bcWant.set(best[0], best[1], best[2]); bcHold = now0() + 0.5;
+      }
+      bcAdj.lerp(bcWant, Math.min(1, dt * 6));
+      cp.add(bcAdj);
+    })();
     /* cámara del robot: se inclina hacia arriba (en su sitio) igual que la cabeza del robot cuando apunta hacia arriba */
     var bcT = (botFollow && bot && !turretCam && !fly && bot.aiming && !botDrag && clock.elapsedTime - botCamUser > 4) ? clamp((bot.aimPitch || 0) * 0.4, 0, 0.28) : 0; /* máx. ~16°: el robot siempre queda a la vista, en el tercio inferior */
     bcTilt += (bcT - bcTilt) * Math.min(1, dt * 6);
