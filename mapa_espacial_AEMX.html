@@ -1709,23 +1709,39 @@ window.startMap = function (RAW, AUTH) {
   var seaTex = new THREE.DataTexture(seaData, SEA_TW, SEA_TH, THREE.LuminanceFormat, THREE.UnsignedByteType);
   seaTex.minFilter = seaTex.magFilter = THREE.LinearFilter; seaTex.generateMipmaps = false;
   seaTex.wrapS = seaTex.wrapT = THREE.ClampToEdgeWrapping;
-  function seaFillTex(polys) {
-    var segs = [], i, j, k, q, x, z, best, ax, az, dx, dz, l2, u, ex, ez, d2, a, b;
+  function seaFillTex(polys) { /* distancia a la costa por píxel, con cuadrícula de segmentos (mismo resultado, mucho más rápido) */
+    var segs = [], i, j, k, q, x, z, best, ax, az, dx, dz, l2, u, ex, ez, d2, a, b, C = 64, gw = Math.ceil(SEA_W / C) + 1, gh = Math.ceil(SEA_H / C) + 1, cells = new Array(gw * gh), c0x, c1x, c0z, c1z, gx, gz, r, lim, L, m, bd;
     polys.forEach(function (poly) {
       for (k = 0; k < poly.length; k++) { a = poly[k]; b = poly[(k + 1) % poly.length]; segs.push(a[0], a[1], b[0], b[1]); }
     });
+    for (q = 0; q < segs.length; q += 4) {
+      c0x = Math.max(0, Math.min(gw - 1, Math.floor((Math.min(segs[q], segs[q + 2]) - SEA_X0) / C))); c1x = Math.max(0, Math.min(gw - 1, Math.floor((Math.max(segs[q], segs[q + 2]) - SEA_X0) / C)));
+      c0z = Math.max(0, Math.min(gh - 1, Math.floor((Math.min(segs[q + 1], segs[q + 3]) - SEA_Z0) / C))); c1z = Math.max(0, Math.min(gh - 1, Math.floor((Math.max(segs[q + 1], segs[q + 3]) - SEA_Z0) / C)));
+      for (gz = c0z; gz <= c1z; gz++) for (gx = c0x; gx <= c1x; gx++) { k = gz * gw + gx; (cells[k] || (cells[k] = [])).push(q); }
+    }
+    lim = Math.ceil(SEA_MAXD / C) + 1;
     for (j = 0; j < SEA_TH; j++) {
-      z = SEA_Z0 + (j + 0.5) / SEA_TH * SEA_H;
+      z = SEA_Z0 + (j + 0.5) / SEA_TH * SEA_H; gz = Math.max(0, Math.min(gh - 1, Math.floor((z - SEA_Z0) / C)));
       for (i = 0; i < SEA_TW; i++) {
-        x = SEA_X0 + (i + 0.5) / SEA_TW * SEA_W;
+        x = SEA_X0 + (i + 0.5) / SEA_TW * SEA_W; gx = Math.max(0, Math.min(gw - 1, Math.floor((x - SEA_X0) / C)));
         best = 1e12;
-        for (q = 0; q < segs.length; q += 4) {
-          ax = segs[q]; az = segs[q + 1]; dx = segs[q + 2] - ax; dz = segs[q + 3] - az;
-          l2 = dx * dx + dz * dz || 1;
-          u = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1);
-          ex = x - (ax + dx * u); ez = z - (az + dz * u);
-          d2 = ex * ex + ez * ez;
-          if (d2 < best) best = d2;
+        for (r = 0; r <= lim; r++) {
+          if (r > 0 && best <= (r - 1) * C * (r - 1) * C) break;
+          for (dz = -r; dz <= r; dz++) {
+            k = gz + dz; if (k < 0 || k >= gh) continue;
+            bd = (dz === -r || dz === r) ? 1 : 2 * r;
+            for (dx = -r; dx <= r; dx += (bd === 1 ? 1 : (r ? 2 * r : 1))) {
+              m = gx + dx; if (m < 0 || m >= gw) continue;
+              L = cells[k * gw + m]; if (!L) continue;
+              for (u = 0; u < L.length; u++) {
+                q = L[u]; ax = segs[q]; az = segs[q + 1]; ex = segs[q + 2] - ax; ez = segs[q + 3] - az;
+                l2 = ex * ex + ez * ez || 1;
+                d2 = clamp(((x - ax) * ex + (z - az) * ez) / l2, 0, 1);
+                d2 = (x - (ax + ex * d2)) * (x - (ax + ex * d2)) + (z - (az + ez * d2)) * (z - (az + ez * d2));
+                if (d2 < best) best = d2;
+              }
+            }
+          }
         }
         seaData[j * SEA_TW + i] = Math.min(255, Math.round(Math.sqrt(best) / SEA_MAXD * 255));
       }
@@ -1926,8 +1942,7 @@ window.startMap = function (RAW, AUTH) {
       for (i = 0; i < names.length; i++) {
         nm = names[i]; b = boxes[nm];
         if (x < b[0] - 1 || x > b[2] + 1 || z < b[1] - 1 || z > b[3] + 1) continue;
-        probe(statePolys[nm], x, z);
-        if (PR.inside) return true;
+        if (probeIn(statePolys[nm], x, z)) return true;
       }
       for (i = 0; i < foreignRings.length; i++) if (ptInRing(x, z, foreignRings[i])) return true;
       return false;
@@ -2072,9 +2087,15 @@ window.startMap = function (RAW, AUTH) {
   }
   var PR = { inside: false, dist: 0, qx: 0, qz: 0 };
   function probe(rings, x, z) {
-    var inside = false, best = 1e18, qx = 0, qz = 0, r, i, ring, n, a, b, dx, dz, l2, t, px, pz, d2, xi;
+    var inside = false, best = 1e18, qx = 0, qz = 0, r, i, ring, n, a, b, dx, dz, l2, t, px, pz, d2, xi, bb, ddx, ddz;
     for (r = 0; r < rings.length; r++) {
       ring = rings[r]; n = ring.length;
+      bb = ring.__bb;
+      if (!bb || bb.n !== n) { bb = ring.__bb = { n: n, x0: 1e18, x1: -1e18, z0: 1e18, z1: -1e18 }; for (i = 0; i < n; i++) { a = ring[i]; if (a[0] < bb.x0) bb.x0 = a[0]; if (a[0] > bb.x1) bb.x1 = a[0]; if (a[1] < bb.z0) bb.z0 = a[1]; if (a[1] > bb.z1) bb.z1 = a[1]; } }
+      if (x < bb.x0 || x > bb.x1 || z < bb.z0 || z > bb.z1) { /* fuera de la caja: no cambia dentro/fuera; solo importa si puede ser el más cercano */
+        ddx = x < bb.x0 ? bb.x0 - x : x > bb.x1 ? x - bb.x1 : 0; ddz = z < bb.z0 ? bb.z0 - z : z > bb.z1 ? z - bb.z1 : 0;
+        if (ddx * ddx + ddz * ddz >= best) continue;
+      }
       for (i = 0; i < n; i++) {
         a = ring[i]; b = ring[(i + 1) % n];
         dz = b[1] - a[1]; dx = b[0] - a[0];
@@ -2088,6 +2109,19 @@ window.startMap = function (RAW, AUTH) {
       }
     }
     PR.inside = inside; PR.dist = Math.sqrt(best); PR.qx = qx; PR.qz = qz;
+  }
+  function probeIn(rings, x, z) { /* solo dentro/fuera (sin distancia): mucho más barato que probe */
+    var inside = false, r, i, ring, n, a, b, bb, xi;
+    for (r = 0; r < rings.length; r++) {
+      ring = rings[r]; n = ring.length; bb = ring.__bb;
+      if (!bb || bb.n !== n) { bb = ring.__bb = { n: n, x0: 1e18, x1: -1e18, z0: 1e18, z1: -1e18 }; for (i = 0; i < n; i++) { a = ring[i]; if (a[0] < bb.x0) bb.x0 = a[0]; if (a[0] > bb.x1) bb.x1 = a[0]; if (a[1] < bb.z0) bb.z0 = a[1]; if (a[1] > bb.z1) bb.z1 = a[1]; } }
+      if (x < bb.x0 || x > bb.x1 || z < bb.z0 || z > bb.z1) continue;
+      for (i = 0; i < n; i++) {
+        a = ring[i]; b = ring[(i + 1) % n];
+        if ((a[1] > z) !== (b[1] > z)) { xi = a[0] + (z - a[1]) * (b[0] - a[0]) / (b[1] - a[1]); if (x < xi) inside = !inside; }
+      }
+    }
+    return inside;
   }
   function shiftDistrict(d, dx, dz) {
     if (!dx && !dz) return;
@@ -2573,7 +2607,7 @@ window.startMap = function (RAW, AUTH) {
 
       function deepSea(x, z, an) { var rr = [5, 7], u; for (u = 0; u < rr.length; u++) if (onLand(x + Math.cos(an) * rr[u], z + Math.sin(an) * rr[u], 0)) return false; return true; }
       function stateOf(nm) { var n = statePolys[nm] ? nm : (typeof CITY2STATE !== 'undefined' ? CITY2STATE[nm] : null); return n && statePolys[n] ? statePolys[n] : null; }
-      function inState(polys, x, z) { if (!polys) return true; probe(polys, x, z); return !!PR.inside; }
+      function inState(polys, x, z) { if (!polys) return true; return probeIn(polys, x, z); }
       for (i = 0; i < sandSpots.length; i++) {
         sp = sandSpots[i]; bi = -1; bd = 1e9;
         for (k = 0; k < districts.length; k++) {
@@ -3200,8 +3234,7 @@ window.startMap = function (RAW, AUTH) {
       for (q = 0; q < names.length; q++) {
         nm = names[q]; b = boxes[nm];
         if (x < b[0] || x > b[2] || z < b[1] || z > b[3]) continue;
-        probe(statePolys[nm], x, z);
-        if (PR.inside) return true;
+        if (probeIn(statePolys[nm], x, z)) return true;
       }
       return false;
     }
@@ -5910,6 +5943,7 @@ window.startMap = function (RAW, AUTH) {
       d = Math.hypot(s[0] - fx, s[1] - fz);
       if (d > 30 && d < 220 && !ufoFog(s[0], s[1])) return s;
     }
+    for (i = 0; i < cowSpots.length; i++) { s = cowSpots[(Math.random() * cowSpots.length) | 0]; if (!ufoFog(s[0], s[1])) return s; }
     return cowSpots[(Math.random() * cowSpots.length) | 0];
   }
 
@@ -6410,16 +6444,17 @@ window.startMap = function (RAW, AUTH) {
       sp = (st === 'haul' && ufo.ph === 1) ? Math.min(180, 2 + d * 4) : Math.min(UFO_SPEED, 2 + d * 1.2);
       if (d > 0.15) {
         e = Math.min(d, sp * dt); var hA = Math.atan2(dx, dz), LA = Math.min(25, d), offs, oi, oo, okF = true, inF = ufoFog(ufo.x, ufo.z);
-        if (LA > 4) {
+        if (LA > 4 && t >= (ufo.fogOff || 0) && !ufoFog(ufo.tx, ufo.tz)) { /* si el destino está en niebla no se desvía; tras 5 s esquivando la cruza 8 s */
           if (ufoFog(ufo.x + Math.sin(hA) * LA, ufo.z + Math.cos(hA) * LA) || (!inF && ufoFog(ufo.x + Math.sin(hA) * LA * 0.5, ufo.z + Math.cos(hA) * LA * 0.5))) {
+            ufo.fogT = (ufo.fogT || 0) + dt; if (ufo.fogT > 5) { ufo.fogOff = t + 8; ufo.fogT = 0; }
             offs = [0.44, 0.87, 1.31, 1.57]; okF = false; if (!ufo.fsg) ufo.fsg = Math.random() < 0.5 ? 1 : -1;
             for (oi = 0; oi < offs.length && !okF; oi++) for (var sg = 0; sg < 2 && !okF; sg++) {
               oo = hA + offs[oi] * (sg ? -ufo.fsg : ufo.fsg);
               if (!ufoFog(ufo.x + Math.sin(oo) * LA, ufo.z + Math.cos(oo) * LA) && (inF || !ufoFog(ufo.x + Math.sin(oo) * LA * 0.5, ufo.z + Math.cos(oo) * LA * 0.5))) { hA = oo; okF = true; if (sg) ufo.fsg = -ufo.fsg; }
             }
             if (!okF) hA = Math.atan2(dx, dz);
-          } else ufo.fsg = 0;
-        }
+          } else { ufo.fsg = 0; ufo.fogT = Math.max(0, (ufo.fogT || 0) - dt * 2); }
+        } else if (ufo.fogT) ufo.fogT = 0;
         ufo.x += Math.sin(hA) * e; ufo.z += Math.cos(hA) * e;
       }
       ex = d > 0.15 ? dx / d * Math.min(2, sp / UFO_SPEED) * 0.16 : 0; ez = d > 0.15 ? dz / d * Math.min(2, sp / UFO_SPEED) * 0.16 : 0;
