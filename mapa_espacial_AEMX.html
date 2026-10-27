@@ -6274,7 +6274,7 @@ window.startMap = function (RAW, AUTH) {
   }
   /* En una ciudad: ruta más corta por los senderos hacia la ciudad más cercana al OVNI; si ya está en ella, rodea el anillo hasta el punto más cercano */
   function carPlan(c, pin) {
-    var U = ufo ? ufo.g.position : null, inc = [], ti, best = -1, ep, ds = districts, dj, g, x, d0, ra, aa, a1;
+    var U = (ufo && GM.mode !== 'exp') ? ufo.g.position : null, inc = [], ti, best = -1, ep, ds = districts, dj, g, x, d0, ra, aa, a1;
     if (U) {
       dj = carDij(c, -1); g = carGoal(dj, c, U);
       if (g !== c && Math.hypot(ds[g].cx - U.x, ds[g].cz - U.z) > Math.hypot(ds[c].cx - U.x, ds[c].cz - U.z) - 5) g = c;
@@ -6414,28 +6414,34 @@ window.startMap = function (RAW, AUTH) {
       car.path = edgePath(i, trails[i].a);
       car.x = car.path.pts[0][0]; car.z = car.path.pts[0][1];
     }
-    var down = ufoDown();
-    U = ufo && !down ? ufo.g.position : null;
+    var down = ufoDown(), calm = GM.mode === 'exp'; /* calm: Modo Explorador (paz): ronda de exploración */
+    U = ufo && !down && !calm ? ufo.g.position : null;
 
     if (car.state === 'wait') {
       car.v *= Math.max(0, 1 - dt * 5);
       car.T += dt;
-      if (car.T > 0.7) { car.T = 0; if (!down && carPlan(car.city, [car.x, car.z])) { car.state = 'drive'; car.v = 2; } }
-    } else if (down) {
+      if (car.T > (calm ? (car.wt || 7) : 0.7)) { car.T = 0; if ((!down || calm) && carPlan(car.city, [car.x, car.z])) { car.state = 'drive'; car.v = 2; if (calm) car.wt = 7 + Math.random() * 3; } }
+    } else if (car.state === 'survey') { /* parada de sondeo a mitad de camino */
+      car.v *= Math.max(0, 1 - dt * 4);
+      car.T += dt;
+      if (car.T > (car.wt || 8)) { car.T = 0; car.state = 'drive'; }
+    } else if (down && !calm) {
       car.v *= Math.max(0, 1 - dt * 5);
     } else {
-      car.v += ((car.path && car.path.kind === 'edge' ? CAR_SPEED * 2 : CAR_SPEED) - car.v) * Math.min(1, dt * 2);
+      car.v += (((car.path && car.path.kind === 'edge' ? CAR_SPEED * 2 : CAR_SPEED) * (calm ? 0.5 : 1)) - car.v) * Math.min(1, dt * 2);
       car.s += car.v * dt;
+      if (calm && car.sq !== undefined && car.path && car.path.kind === 'edge' && car.s >= car.sq) { car.sq = undefined; car.state = 'survey'; car.T = 0; car.wt = 8 + Math.random() * 3; }
       path = car.path;
       while (path && car.s >= path.len) {
         if (path.kind === 'arc') {
           car.s -= path.len;
-          if (car.next) { car.path = car.next; car.next = null; path = car.path; }
+          if (car.next) { car.path = car.next; car.next = null; path = car.path; car.sq = (calm && Math.random() < 0.4) ? path.len * (0.3 + Math.random() * 0.4) : undefined; }
           else { car.x = path.pts[path.pts.length - 1][0]; car.z = path.pts[path.pts.length - 1][1]; car.state = 'wait'; car.T = 0; car.path = null; path = null; }
         }
         else {
           car.city = path.end; car.s = 0;
-          if (!carPlan(car.city, [car.x, car.z])) { car.state = 'wait'; car.T = 0; car.path = null; path = null; }
+          if (calm) { car.state = 'wait'; car.T = 0; car.wt = 7 + Math.random() * 3; car.path = null; path = null; } /* llega a una ciudad o campamento: se estaciona un rato */
+          else if (!carPlan(car.city, [car.x, car.z])) { car.state = 'wait'; car.T = 0; car.path = null; path = null; }
           else path = car.path;
         }
       }
@@ -6473,7 +6479,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < car.wheels.length; i++) car.wheels[i].rotation.x += car.v * dt / 0.3 / 0.75;
     car.ast.parts.armL.rotation.x = -1.0 + 0.12 * Math.sin(t * 4); car.ast.parts.armR.rotation.x = -1.0 - 0.12 * Math.sin(t * 4);
     /* Torreta: apunta al OVNI */
-    var A = U || (ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck' || ufo.state === 'spawn') ? ufo.g.position : null);
+    var A = calm ? null : U || (ufo && (ufo.state === 'crash' || ufo.state === 'stuck' || ufo.state === 'wreck' || ufo.state === 'spawn') ? ufo.g.position : null);
     if (A) {
       hd = Math.hypot(A.x - car.x, A.z - car.z);
       car.tw += nAng(Math.atan2(A.x - car.x, A.z - car.z) - car.tw) * Math.min(1, dt * 5);
@@ -6490,7 +6496,12 @@ window.startMap = function (RAW, AUTH) {
     car.lamp.visible = Math.sin(t * 6) > 0;
     car.ring.rotation.y += dt * 1.2;
     car.cannons[0].position.z += (0 - car.cannons[0].position.z) * Math.min(1, dt * 14); car.cannons[1].position.z += (0 - car.cannons[1].position.z) * Math.min(1, dt * 14);
-    car.cam.rotation.y = 0.6 * Math.sin(t * 1.2);
+    var stopped = calm && (car.state === 'wait' || car.state === 'survey') && car.v < 1.5;
+    car.cam.rotation.y = stopped ? 1.1 * Math.sin(t * 2.4) : 0.6 * Math.sin(t * 1.2);
+    if (stopped) { car.ast.parts.armR.rotation.x = -2.5 + 0.35 * Math.sin(t * 7); } /* el astronauta saluda */
+    if (!car.scan) { car.scan = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 40), new THREE.MeshBasicMaterial({ color: 0x40e0ff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); car.scan.rotation.x = -Math.PI / 2; car.scan.position.y = 0.05; car.scan.renderOrder = 6; car.scan.raycast = function () {}; car.g.add(car.scan); car.sc = 0; }
+    if (stopped) { car.sc += dt; var sph = (car.sc % 2.2) / 2.2; car.scan.visible = true; car.scan.scale.setScalar(1 + sph * 5); car.scan.material.opacity = 0.55 * (1 - sph); }
+    else { car.sc = 0; car.scan.visible = false; } /* anillo de escaneo mientras sondea */
     car.flag.rotation.y = 0.25 * Math.sin(t * 3);
     /* Polvo: una nube cada DUST_STEP de distancia recorrida por llanta, para que la estela sea continua a cualquier velocidad */
     var DUST_STEP = 0.35, DUST_LIFE = 1.2, ddx = car.x - (car.lx === undefined ? car.x : car.lx), ddz = car.z - (car.lz === undefined ? car.z : car.lz), dmv = Math.hypot(ddx, ddz), emit = 0;
@@ -8663,7 +8674,7 @@ window.startMap = function (RAW, AUTH) {
     b.hangK = (b.hangK || 0) + (((b.mode === 'lift' && b.lift && b.lift.ph >= 2) ? 1 : 0) - (b.hangK || 0)) * Math.min(1, dt * 4);
     b.gk += ((moving ? 1 : 0) - b.gk) * Math.min(1, dt * 8);
     am = Math.min(0.9, 0.45 + b.v * 0.15); /* zancada más larga y cadencia ligada a la velocidad: el pie apoyado avanza hacia atrás tan rápido como el cuerpo (sin derrapar) */
-    if (moving) b.ph += dt * Math.max(3.0, Math.min(12, 3.1416 * b.v / (1.44 * am))) * (b.bwd ? -1 : 1); kf = Math.min(1.6, 0.25 + b.v * 0.14);
+    if (moving) b.ph += dt * Math.max(3.0, Math.min(12, 3.1416 * b.v / (1.44 * am))) * (b.bwd ? -1 : 1); kf = Math.min(1.6, 0.45 + b.v * 0.15);
     for (i = 0; i < 2; i++) {
       la = -am * Math.sin(b.ph + i * Math.PI) * b.gk;
       sg = kf * Math.max(0, Math.cos(b.ph + i * Math.PI)) * b.gk;
@@ -8675,8 +8686,15 @@ window.startMap = function (RAW, AUTH) {
       b.legs[i].th.rotation.x = b.legs[i].th.rotation.x * (1 - bk) - 2.0 * bk; b.legs[i].kn.rotation.x = b.legs[i].kn.rotation.x * (1 - bk) + 2.3 * bk; b.legs[i].ft.rotation.x = b.legs[i].ft.rotation.x * (1 - bk) + 0.6 * bk;
       b.legs[i].th.rotation.z = (i === 0 ? -0.4 : 0) * hk; /* colgado: una pierna abierta al lado, la otra recta bajo el brazo en alto */
     }
+    if (b.gk > 0.25 && b.flyK < 0.2 && (b.ballK || 0) < 0.1 && b.kneel < 0.1 && (b.hangK || 0) < 0.1) { /* el cuerpo baja lo justo para que el pie más bajo siempre toque el piso */
+      b.g.updateMatrixWorld(true); bkFb.setFromObject(b.legs[0].ft); var fy0 = bkFb.min.y; bkFb.setFromObject(b.legs[1].ft);
+      var fyM = Math.min(fy0, bkFb.min.y) - b.g.position.y, fdn = Math.max(0, Math.min(0.12, fyM + 0.01)) * b.gk;
+      b._bob = (b._bob || 0) + (fdn - (b._bob || 0)) * Math.min(1, dt * 18); b.g.position.y -= b._bob;
+    } else b._bob = 0;
     /* Puntería vertical: el cuello y los brazos suben o bajan el rifle; el torso solo gira en horizontal */
-    var stA = -0.85 * b.hold * Math.max(0, Math.min(1, 1 + nAng(b.aimYaw - b.yaw) / 0.9)) /* la postura de costado se quita si el objetivo está al otro lado: así el torso nunca queda de espaldas */, stC = Math.cos(stA), stS = Math.sin(stA), hq, pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.12, 0.45, 0.4], [0.12, 0.39, 0.35]];
+    var twT = 1 - (b.mode === 'walk' ? Math.max(0, Math.min(1, b.v / 1.5)) : 0) * Math.max(0, Math.min(1, 1 - Math.abs(nAng(b.aimYaw - b.yaw)) / 0.35)); /* caminando con el rifle hacia el frente: el torso va alineado con las piernas */
+    b._twK = (b._twK === undefined ? twT : b._twK) + (twT - (b._twK === undefined ? twT : b._twK)) * Math.min(1, dt * 6);
+    var stA = -0.85 * b.hold * b._twK * Math.max(0, Math.min(1, 1 + nAng(b.aimYaw - b.yaw) / 0.9)) /* la postura de costado se quita si el objetivo está al otro lado: así el torso nunca queda de espaldas */, stC = Math.cos(stA), stS = Math.sin(stA), hq, pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.12, 0.45, 0.4], [0.12, 0.39, 0.35]];
     if (b.hold > 0.01) {
       for (i = 0; i < 2; i++) {
         hy = hT[i][1] - 0.43; hz = hT[i][2];
@@ -8834,7 +8852,7 @@ window.startMap = function (RAW, AUTH) {
   }
   /* Mira al horizonte, hacia donde mira el robot, para ver lo que ve y no el mapa desde arriba */
   /* Seguimiento del robot igual que el de AURA: la cámara conserva un desplazamiento (distancia y ángulo) respecto al robot y el zoom es libre */
-  var botOff = new THREE.Vector3(), bcV1 = new THREE.Vector3(), bcV2 = new THREE.Vector3(), bcTilt = 0, bcAdj = new THREE.Vector3(), bcHold = 0, bcWant = new THREE.Vector3(), bcTmp = new THREE.Vector3();
+  var botOff = new THREE.Vector3(), bcV1 = new THREE.Vector3(), bcV2 = new THREE.Vector3(), bkFb = new THREE.Box3(), bcTilt = 0, bcAdj = new THREE.Vector3(), bcHold = 0, bcWant = new THREE.Vector3(), bcTmp = new THREE.Vector3();
   function botStartFollow(b) {
     var sp = new THREE.Spherical(6, 1.2, b.yaw + Math.PI);
     botOff.setFromSpherical(sp); botYawCam = b.yaw; botFollow = true; botCamFree = true; b._lx = undefined;
@@ -8961,7 +8979,7 @@ window.startMap = function (RAW, AUTH) {
       if (!W.dodge && dc < 14 && (car.v > 2 || dc < 6)) { W.dodge = true; W.side = Math.random() < 0.5 ? 1 : -1; W.hop = 0.55; }
       else if (W.dodge && dc > 17) W.dodge = false;
     } else W.dodge = false;
-    W.off += ((W.dodge ? W.side * 2.6 : 0) - W.off) * Math.min(1, dt * 8);
+    W.off += ((W.dodge ? W.side * 2.6 : (W.last === -1 ? 0 : AURA_LB)) - W.off) * Math.min(1, dt * 8); /* camina por el hombro derecho de la carretera (no en la aldea) */
     x = bx + nx * W.off; z = bz + nz * W.off;
     if (W.hop > 0) { W.hop -= dt; u = Math.min(1, Math.max(0, 1 - W.hop / 0.55)); hopY = Math.sin(Math.PI * u) * 0.55; }
     W.x = x; W.z = z;
