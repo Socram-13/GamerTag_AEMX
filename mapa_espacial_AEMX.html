@@ -2311,7 +2311,7 @@ window.startMap = function (RAW, AUTH) {
           if (sandy && (zone !== 'trop' || vr() > 0.12)) continue; /* en la arena solo quedan algunas palmeras tropicales */
           k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k] || (placed[k] = [])).push([x, z]);
-          plants.push({ type: sandy ? 'palm' : pickType(zone), x: x, z: z, y: (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) ? terrainH(x, z) + 0.02 : (ist === 1 ? 0.34 : 0), zone: zone, edge: lastEdge });
+          plants.push({ type: sandy ? 'palm' : pickType(zone), x: x, z: z, y: (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) ? terrainH(x, z) + 0.02 : (ist === 1 ? 0.14 : 0), zone: zone, edge: lastEdge });
         }
       }
     });
@@ -2539,7 +2539,7 @@ window.startMap = function (RAW, AUTH) {
             w = Math.max(0, Math.min(1, w)); w = w * w * (3 - 2 * w);
             c = gc.lerp(dc, w);
             if (h.sand) c = col(0.118 + 0.012 * n2, 0.5 + 0.1 * n1, 0.66 + 0.1 * n2);
-            items.push({ x: x, z: z, y: 0.345, r: r, c: c });
+            items.push({ x: x, z: z, y: 0.145, r: r, c: c }); /* a ras del pad de los hexágonos (0.14) */
           }
         }
       });
@@ -6533,7 +6533,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* ---------- Robot Scout: patrulla libre por el mapa (sin senderos), corre, usa hiperimpulso, sube a las azoteas con la propulsión de su mochila y dispara láseres verdes al OVNI ---------- */
   var vegObs = null, botVG = null, bot = null, botFollow = false, botCamFree = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
-  var BOT_RANGE = 35, BOT_HUNT_D = 6, BOT_WALK = 2.2, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
+  var BOT_RANGE = 35, BOT_HUNT_D = 6, BOT_WALK = 1.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
   var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
@@ -8673,7 +8673,7 @@ window.startMap = function (RAW, AUTH) {
     if (b.ball) b.spin += dt * Math.min(12, 2 + 0.22 * vyS); else b.spin += (Math.round(b.spin / 6.2832) * 6.2832 - b.spin) * Math.min(1, dt * 9);
     b.hangK = (b.hangK || 0) + (((b.mode === 'lift' && b.lift && b.lift.ph >= 2) ? 1 : 0) - (b.hangK || 0)) * Math.min(1, dt * 4);
     b.gk += ((moving ? 1 : 0) - b.gk) * Math.min(1, dt * 8);
-    am = Math.min(0.9, 0.45 + b.v * 0.15); /* zancada más larga y cadencia ligada a la velocidad: el pie apoyado avanza hacia atrás tan rápido como el cuerpo (sin derrapar) */
+    am = Math.min(0.9, 0.28 + b.v * 0.1); /* zancada más larga y cadencia ligada a la velocidad: el pie apoyado avanza hacia atrás tan rápido como el cuerpo (sin derrapar) */
     if (moving) b.ph += dt * Math.max(3.0, Math.min(12, 3.1416 * b.v / (1.44 * am))) * (b.bwd ? -1 : 1); kf = Math.min(1.6, 0.45 + b.v * 0.15);
     for (i = 0; i < 2; i++) {
       la = -am * Math.sin(b.ph + i * Math.PI) * b.gk;
@@ -8688,8 +8688,8 @@ window.startMap = function (RAW, AUTH) {
     }
     if (b.gk > 0.25 && b.flyK < 0.2 && (b.ballK || 0) < 0.1 && b.kneel < 0.1 && (b.hangK || 0) < 0.1) { /* el cuerpo baja lo justo para que el pie más bajo siempre toque el piso */
       b.g.updateMatrixWorld(true); bkFb.setFromObject(b.legs[0].ft); var fy0 = bkFb.min.y; bkFb.setFromObject(b.legs[1].ft);
-      var fyM = Math.min(fy0, bkFb.min.y) - b.g.position.y, fdn = Math.max(0, Math.min(0.12, fyM + 0.01)) * b.gk;
-      b._bob = (b._bob || 0) + (fdn - (b._bob || 0)) * Math.min(1, dt * 18); b.g.position.y -= b._bob;
+      var fyM = Math.min(fy0, bkFb.min.y) - b.g.position.y, fdn = Math.max(0, Math.min(0.06, fyM + 0.01)) * b.gk;
+      b._bob = (b._bob || 0) + (fdn - (b._bob || 0)) * Math.min(1, dt * 10); b.g.position.y -= b._bob;
     } else b._bob = 0;
     /* Puntería vertical: el cuello y los brazos suben o bajan el rifle; el torso solo gira en horizontal */
     var twT = 1 - (b.mode === 'walk' ? Math.max(0, Math.min(1, b.v / 1.5)) : 0) * Math.max(0, Math.min(1, 1 - Math.abs(nAng(b.aimYaw - b.yaw)) / 0.35)); /* caminando con el rifle hacia el frente: el torso va alineado con las piernas */
