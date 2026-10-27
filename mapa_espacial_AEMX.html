@@ -9439,10 +9439,10 @@ window.startMap = function (RAW, AUTH) {
     /* Cabeza: rostro detallado (cráneo liso con textura de alta resolución) */
     head.position.set(0, 0.612, 0); head.scale.setScalar(1.12); shell.add(head);
     function fsph(mat, px, py, pz, sx, sy, sz, par, ws, hs) { var q = new THREE.Mesh(new THREE.SphereGeometry(1, ws, hs), mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); par.add(q); return q; }
-    var sk = auFacetSkull(); head.add(sk); /* cráneo y rostro low-poly con los colores de su cara */
-    head.add(auNose()); /* nariz angulosa */
+    var sk = _auNoFace ? null : auFacetSkull(); if (sk) head.add(sk); /* cráneo y rostro low-poly con los colores de su cara */
+    if (!_auNoFace) head.add(auNose()); /* nariz angulosa */
     /* Cabello platino largo y ondulado, en placas alargadas */
-    head.add(auHairCap());
+    if (!_auNoFace) head.add(auHairCap());
     [-1, 1].forEach(function (sx) { /* pasadores blancos sobre la cabeza */
       bx(auPearl, sx * 0.05, 0.175, 0.02, 0.026, 0.006, 0.07, head).rotation.set(-0.15, sx * 0.25, -sx * 0.5); bx(auBlack, sx * 0.062, 0.162, 0.045, 0.01, 0.008, 0.02, head).rotation.z = -sx * 0.5;
     });
