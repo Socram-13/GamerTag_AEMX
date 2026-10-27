@@ -2303,7 +2303,7 @@ window.startMap = function (RAW, AUTH) {
           if (ist === 1) p = (0.3 + 0.55 * Math.min(1, lastCover)) * (0.45 + 0.55 * patch);
           if (vr() > p) continue;
           if (crowded(x, z)) continue;
-          if (trailNear(x, z, 1.5)) continue;
+          if (trailNear(x, z, 2.5)) continue;
           if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R && volcBump(x, z) > 0.34 * VOLC.H) continue; /* nada en la parte alta del volcán */
           if (!onLand(x, z)) continue;
           var sandy = coastal(x, z, lastEdge) || (ist === 1 && lastHexSand);
@@ -2333,7 +2333,7 @@ window.startMap = function (RAW, AUTH) {
             if (!ins) continue;
             if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 4) continue;
             if (nearestHex(x, z) < HEX_R + 3) continue;
-            if (crowded(x, z) || trailNear(x, z, 1.5)) continue;
+            if (crowded(x, z) || trailNear(x, z, 2.5)) continue;
             if (!onLand(x, z) || lastEdge < 1.2) continue;
             k2 = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
             (placed[k2] || (placed[k2] = [])).push([x, z]);
@@ -2360,7 +2360,7 @@ window.startMap = function (RAW, AUTH) {
           p = Math.pow(1 - fr / 0.34, 0.8) * (0.35 + 0.65 * patch) * 0.9;
           if (vr() > p) continue;
           if (crowded(x, z)) continue;
-          if (trailNear(x, z, 1.5)) continue;
+          if (trailNear(x, z, 2.5)) continue;
           if (!onLand(x, z)) continue;
           k2 = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k2] || (placed[k2] = [])).push([x, z]);
@@ -3028,7 +3028,7 @@ window.startMap = function (RAW, AUTH) {
     window.__vegCull = vegCull;
   }
   /* ---------- Senderos de tierra entre ciudades ---------- */
-  var trails = [], trailGrid = {}, trailsBuilt = false, TRAIL_W = 2.0;
+  var trails = [], trailGrid = {}, trailsBuilt = false, TRAIL_W = 3.8, ROAD_LANE = 0.75, AURA_LB = -1.7; /* carretera de doble vía: 3.8 de ancho, carriles a ±0.75, AURA por el hombro derecho */
   function trailAdd(x0, z0, x1, z1, ring) {
     var seg = [x0, z0, x1, z1, ring ? 1 : 0], /* ring: tramo del anillo que rodea la ciudad (no sirve para guiar al robot fuera de la niebla) */ pts = [[x0, z0], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2]], i, k;
     for (i = 0; i < pts.length; i++) {
@@ -3108,17 +3108,16 @@ window.startMap = function (RAW, AUTH) {
   function trailColor(kind, x, z) {
     var zone = trailZone(x, z), n2 = trailNz(x, z, 0.61, 0.7), c = new THREE.Color();
     if (emptyStateAt(x, z)) { /* estado sin jugadores: gris piedra, como el suelo */
-      if (kind === 'grass') c.setHSL(0.58, 0.04, 0.27 + 0.05 * n2); else c.setHSL(0.58, 0.04, 0.45 + 0.07 * n2);
+      if (kind === 'grass') c.setHSL(0.58, 0.04, 0.42 + 0.05 * n2); else c.setHSL(0.58, 0.04, 0.33 + 0.05 * n2);
       return c;
     }
+    /* 'grass' = hombro de grava, 'soil' = asfalto: gris claro desgastado en zona árida, negro donde hay verde */
     if (kind === 'grass') {
-      if (zone === 'arid') c.setHSL(0.075 + 0.015 * n2, 0.38, 0.24 + 0.07 * n2);
-      else if (zone === 'trop') c.setHSL(0.32 + 0.03 * n2, 0.5, 0.17 + 0.1 * n2);
-      else c.setHSL(0.28 + 0.05 * n2, 0.42, 0.16 + 0.1 * n2);
+      if (zone === 'arid') c.setHSL(0.1, 0.07, 0.62 + 0.06 * n2);
+      else c.setHSL(0.6, 0.05, 0.2 + 0.04 * n2);
     } else {
-      if (zone === 'arid') c.setHSL(0.09 + 0.02 * n2, 0.34, 0.3 + 0.1 * n2);
-      else if (zone === 'trop') c.setHSL(0.08, 0.35, 0.25 + 0.05 * n2);
-      else c.setHSL(0.08 + 0.02 * n2, 0.33, 0.24 + 0.06 * n2);
+      if (zone === 'arid') c.setHSL(0.1, 0.05, 0.5 + 0.06 * n2);
+      else c.setHSL(0.62, 0.08, 0.065 + 0.02 * n2);
     }
     return c;
   }
@@ -3146,6 +3145,40 @@ window.startMap = function (RAW, AUTH) {
     g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3));
     g.setIndex(idx);
     g.computeVertexNormals();
+    return g;
+  }
+  /* Marcas viales: cinta (continua o de guiones) desplazada 'off' del centro del sendero */
+  function trailMarks(list, off, width, y, dash) {
+    var pos = [], idx = [], n = 0, li, pts, i, p, q, r0, tx, tz, l, nx, nz, xa, za, xb, zb, ha, hb, d0, d1, dx, dz, seg, sx, sz, ex, ez, ps;
+    function hy(x, z) { var h = terrainH(x, z); return y + h + Math.min(0.08, h * 0.8); }
+    for (li = 0; li < list.length; li++) {
+      pts = list[li];
+      if (!dash) {
+        for (i = 0; i < pts.length; i++) {
+          q = pts[Math.max(0, i - 1)]; r0 = pts[Math.min(pts.length - 1, i + 1)]; p = pts[i];
+          tx = r0[0] - q[0]; tz = r0[1] - q[1]; l = Math.hypot(tx, tz) || 1; nx = -tz / l; nz = tx / l;
+          xa = p[0] + nx * (off + width / 2); za = p[1] + nz * (off + width / 2); xb = p[0] + nx * (off - width / 2); zb = p[1] + nz * (off - width / 2);
+          pos.push(xa, hy(xa, za), za, xb, hy(xb, zb), zb);
+          if (i > 0) idx.push(n - 2, n - 1, n, n - 1, n + 1, n);
+          n += 2;
+        }
+      } else {
+        for (i = 0; i < pts.length - 1; i++) {
+          dx = pts[i + 1][0] - pts[i][0]; dz = pts[i + 1][1] - pts[i][1]; seg = Math.hypot(dx, dz);
+          if (seg < 1.9) continue;
+          dx /= seg; dz /= seg; nx = -dz; nz = dx;
+          for (d0 = 0.25; d0 + 1.2 <= seg - 0.1; d0 += 3) { /* guion de 1.2 cada 3 */
+            d1 = d0 + 1.2; sx = pts[i][0] + dx * d0; sz = pts[i][1] + dz * d0; ex = pts[i][0] + dx * d1; ez = pts[i][1] + dz * d1;
+            ps = [[sx + nx * (off + width / 2), sz + nz * (off + width / 2)], [sx + nx * (off - width / 2), sz + nz * (off - width / 2)], [ex + nx * (off + width / 2), ez + nz * (off + width / 2)], [ex + nx * (off - width / 2), ez + nz * (off - width / 2)]];
+            ps.forEach(function (v) { pos.push(v[0], hy(v[0], v[1]), v[1]); });
+            idx.push(n, n + 1, n + 2, n + 1, n + 3, n + 2); n += 4;
+          }
+        }
+      }
+    }
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx); g.computeVertexNormals();
     return g;
   }
   function buildTrails() {
@@ -3350,9 +3383,14 @@ window.startMap = function (RAW, AUTH) {
     });
     var bMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -0.8, polygonOffsetUnits: -0.8 });
     var tMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1.2, polygonOffsetUnits: -1.2 });
-    var bm = new THREE.Mesh(trailRibbon(lines, TRAIL_W + 0.8, 0.008, 'grass', 0.05, rg), bMat);
-    var tm = new THREE.Mesh(trailRibbon(lines, TRAIL_W, 0.012, 'soil', 0.08, rg), tMat);
-    [bm, tm].forEach(function (mm) { mm.raycast = function () {}; mm.frustumCulled = false; scene.add(mm); });
+    var bm = new THREE.Mesh(trailRibbon(lines, TRAIL_W + 0.6, 0.008, 'grass', 0.05, rg), bMat);
+    var tm = new THREE.Mesh(trailRibbon(lines, TRAIL_W, 0.012, 'soil', 0.05, rg), tMat);
+    var mkM = function (col, f) { return new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.28, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: f, polygonOffsetUnits: f }); };
+    var mw = TRAIL_W / 2 - 0.32; /* líneas de borde */
+    var m1 = new THREE.Mesh(trailMarks(lines, mw, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
+    var m2 = new THREE.Mesh(trailMarks(lines, -mw, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
+    var m3 = new THREE.Mesh(trailMarks(lines, 0, 0.13, 0.016, true), mkM(0xf2d04a, -2.4)); /* guiones centrales: separan los dos sentidos */
+    [bm, tm, m1, m2, m3].forEach(function (mm) { mm.raycast = function () {}; mm.frustumCulled = false; scene.add(mm); });
   }
 
   function fitDistricts() {
@@ -3662,7 +3700,7 @@ window.startMap = function (RAW, AUTH) {
   scene.add(rock);
 
   /* ---------- Distritos en su posición real ---------- */
-  var S = 7.2, PADW = 6.2, BASE = 0.34, PLAZA = 9.5;
+  var S = 7.2, PADW = 6.2, BASE = 0.14, PLAZA = 9.5;
   var cityXY = {};
   CITIES.forEach(function (c) { cityXY[c[0]] = geo(c[2], c[3]); });
   var presPos = cityXY['Ciudad de México'];
@@ -3744,10 +3782,10 @@ window.startMap = function (RAW, AUTH) {
 
   var HEX_R = S / Math.sqrt(3), HEX_PAD_R = (S - 0.8) / Math.sqrt(3);
   var slabGeo = new THREE.CylinderGeometry(HEX_R, HEX_R, 0.14, 6);
-  var padGeo = new THREE.CylinderGeometry(HEX_PAD_R, HEX_PAD_R, 0.2, 6);
+  var padGeo = new THREE.CylinderGeometry(HEX_PAD_R, HEX_PAD_R, 0.02, 6); /* capa de color a ras del piso (sin escalón) */
   var slabMat = new THREE.MeshLambertMaterial({ color: 0x182a4a });
-  var padMat = new THREE.MeshLambertMaterial({ color: 0x23375a });
-  var padMatCenter = new THREE.MeshLambertMaterial({ color: 0x2d4a7a });
+  var padMat = new THREE.MeshLambertMaterial({ color: 0x23375a, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+  var padMatCenter = new THREE.MeshLambertMaterial({ color: 0x2d4a7a, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
   var hexLineMat = new THREE.LineBasicMaterial({ color: 0x3a6cb0 });
   var hexGoldMat = new THREE.LineBasicMaterial({ color: 0xfacc15 });
   function hexLoopGeo(R) {
@@ -3769,17 +3807,17 @@ window.startMap = function (RAW, AUTH) {
       d.group.add(slab);
 
       var pad = new THREE.Mesh(padGeo, idx === 0 ? padMatCenter : padMat);
-      pad.position.set(wx, 0.24, wz);
+      pad.position.set(wx, 0.131, wz);
       pad.receiveShadow = true;
       d.group.add(pad);
 
       var outline = new THREE.LineLoop(hexOutlineGeo, hexLineMat);
-      outline.position.set(wx, 0.36, wz);
+      outline.position.set(wx, 0.16, wz);
       d.group.add(outline);
 
       if (idx === 0) {
         var gold = new THREE.LineLoop(hexGoldGeo, hexGoldMat);
-        gold.position.set(wx, 0.37, wz);
+        gold.position.set(wx, 0.17, wz);
         d.group.add(gold);
       }
 
@@ -3876,8 +3914,8 @@ window.startMap = function (RAW, AUTH) {
     var VV = victory(A, 1.15); VV.position.set(0, y, 0); VV.rotation.y = Math.PI; /* mira hacia el Palacio (-z) */
     A.traverse(function (o) { if (o.isMesh) { o.receiveShadow = true; o.raycast = function () {}; } });
     var ax = pres.x, az = pres.z + 2 * S / Math.sqrt(3); /* hexágono propio, justo frente al balcón */
-    var hp = new THREE.Mesh(padGeo, padMatCenter); hp.position.set(ax, 0.245, az); hp.receiveShadow = true;
-    var hg = new THREE.LineLoop(hexGoldGeo, hexGoldMat); hg.position.set(ax, 0.37, az);
+    var hp = new THREE.Mesh(padGeo, padMatCenter); hp.position.set(ax, 0.131, az); hp.receiveShadow = true;
+    var hg = new THREE.LineLoop(hexGoldGeo, hexGoldMat); hg.position.set(ax, 0.17, az);
     var dC = districts.filter(function (dd) { return dd.list.indexOf(pres) >= 0; })[0];
     A.position.set(ax, BASE, az); A.userData.angel = true; (dC ? dC.group : scene).add(A); (dC ? dC.group : scene).add(hp); (dC ? dC.group : scene).add(hg); /* dentro del grupo del distrito: se mueve con él si se reacomoda */
     var mk = { x: ax, z: az, r: 2.2 }; monBlk.push(mk); if (dC) dC.mon = mk;
@@ -3886,7 +3924,7 @@ window.startMap = function (RAW, AUTH) {
 
   /* Hexágonos vacíos alrededor de las ciudades: losa y base tenues + borde, instanciados (uno por distrito, dentro de su grupo) */
   (function () {
-    var padMatEmpty = new THREE.MeshLambertMaterial({ color: 0x1b2d4e });
+    var padMatEmpty = new THREE.MeshLambertMaterial({ color: 0x1b2d4e, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
     var lineMatEmpty = new THREE.LineBasicMaterial({ color: 0x2a4f84 });
     districts.forEach(function (d) {
       var n = d.extra.length;
@@ -3899,11 +3937,11 @@ window.startMap = function (RAW, AUTH) {
       for (q = 0; q < n; q++) {
         var ex = d.cx + d.extra[q].x, ez = d.cz + d.extra[q].z;
         o.position.set(ex, 0.07, ez); o.updateMatrix(); slabs.setMatrixAt(q, o.matrix);
-        o.position.set(ex, 0.24, ez); o.updateMatrix(); pads.setMatrixAt(q, o.matrix);
+        o.position.set(ex, 0.131, ez); o.updateMatrix(); pads.setMatrixAt(q, o.matrix);
         for (k = 0; k < 6; k++) {
           var a1 = k * Math.PI / 3, a2 = (k + 1) * Math.PI / 3;
-          segs[w++] = ex + R * Math.sin(a1); segs[w++] = 0.36; segs[w++] = ez + R * Math.cos(a1);
-          segs[w++] = ex + R * Math.sin(a2); segs[w++] = 0.36; segs[w++] = ez + R * Math.cos(a2);
+          segs[w++] = ex + R * Math.sin(a1); segs[w++] = 0.16; segs[w++] = ez + R * Math.cos(a1);
+          segs[w++] = ex + R * Math.sin(a2); segs[w++] = 0.16; segs[w++] = ez + R * Math.cos(a2);
         }
       }
       slabs.instanceMatrix.needsUpdate = true;
@@ -4533,7 +4571,7 @@ window.startMap = function (RAW, AUTH) {
             /* Sube el escalón: la losa de la calle está a 0.14 y la base del hexágono a 0.34 (borde a ~3.2 del centro) */
             shC.set(0, 0, 0); d.store.localToWorld(shC);
             var hx = Math.abs(w.bx - shC.x), hz = Math.abs(w.bz - shC.z), ha = Math.max(hx, hx * 0.5 + hz * 0.8660254);
-            w.g.position.y = 0.14 + 0.2 * clamp((3.3 - ha) / 0.3, 0, 1);
+            w.g.position.y = 0.14;
             if (tl < 0.06) {
               if (w.sp === 'in') {
                 w.sp = 'inside'; w.stT = 3 + Math.random() * 3; w.inside = true; w.g.visible = false; poseReset(w);
@@ -6244,7 +6282,7 @@ window.startMap = function (RAW, AUTH) {
         d0 = ds[c]; ra = Math.hypot(pin[0] - d0.cx, pin[1] - d0.cz);
         aa = Math.atan2(U.z - d0.cz, U.x - d0.cx); a1 = Math.atan2(pin[1] - d0.cz, pin[0] - d0.cx);
         if (ra < 1 || Math.abs(nAng(aa - a1)) * ra < 2) return false;
-        car.path = arcPath(c, pin, [d0.cx + Math.cos(aa) * ra, d0.cz + Math.sin(aa) * ra]); car.next = null; car.s = 0;
+        car.path = arcPath(c, pin, [d0.cx + Math.cos(aa) * ra, d0.cz + Math.sin(aa) * ra]); car.next = null; car.s = 0; car.lo = 0;
         return true;
       }
       x = g;
@@ -6256,7 +6294,7 @@ window.startMap = function (RAW, AUTH) {
       best = inc[(Math.random() * inc.length) | 0];
     }
     ep = edgePath(best, c);
-    car.path = arcPath(c, pin, ep.pts[0]); car.next = ep; car.s = 0;
+    car.path = arcPath(c, pin, ep.pts[0]); car.next = ep; car.s = 0; car.lo = 0;
     return true;
   }
 
@@ -6409,7 +6447,7 @@ window.startMap = function (RAW, AUTH) {
           var djF = carDij(path.end, -1), djB = carDij(path.from, path.ti), T = carGoal(djF, path.end, U);
           if (djB.dist[T] < 1e17 && car.s + djB.dist[T] + 10 < path.len - car.s + djF.dist[T]) {
             pts = [[car.x, car.z]].concat(path.pts.slice(0, path.idx + 1).reverse());
-            car.path = mkPath(pts, path.end, path.from, 'edge'); car.path.ti = path.ti; car.s = 0; path = car.path;
+            car.path = mkPath(pts, path.end, path.from, 'edge'); car.path.ti = path.ti; car.s = 0; car.lo = 0; path = car.path;
           }
         }
       }
@@ -6420,6 +6458,8 @@ window.startMap = function (RAW, AUTH) {
         x = path.pts[path.idx][0]; z = path.pts[path.idx][1];
         tx = path.pts[path.idx + 1][0] - x; tz = path.pts[path.idx + 1][1] - z;
         car.x = x + tx * f; car.z = z + tz * f;
+        var cl = Math.hypot(tx, tz) || 1; car.lo = (car.lo || 0) + (((path.kind === 'edge') ? -ROAD_LANE : 0) - (car.lo || 0)) * Math.min(1, dt * 3); /* carril derecho en carretera */
+        car.x += tz / cl * car.lo; car.z += -tx / cl * car.lo;
         if (Math.abs(tx) + Math.abs(tz) > 1e-6) car.yaw += nAng(Math.atan2(tx, tz) - car.yaw) * Math.min(1, dt * 6);
       }
     }
@@ -6643,7 +6683,7 @@ window.startMap = function (RAW, AUTH) {
     });
     items.forEach(function (it) {
       var b = it[0], p = it[1], W, bb = new THREE.Box3(), mb = new THREE.Box3(), a, c, k, x0, x1, z0, z1, lim;
-      W = TIER_W[p.tier] || 3.4; lim = W / 2 + 4;
+      W = TIER_W[p.tier] || 3.4; lim = W / 2 + 1.0; /* tope: adornos que sobresalen no cierran las calles */
       b.updateMatrixWorld(true);
       b.traverse(function (o) {
         if (!o.isMesh || !o.geometry) return;
@@ -6651,8 +6691,8 @@ window.startMap = function (RAW, AUTH) {
         if (mb.isEmpty() || mb.min.y > BASE + 2.0 || mb.max.y < BASE + 0.1) return;
         bb.union(mb);
       });
-      p._x0 = Math.max(p.x - lim, Math.min(bb.min.x, p.x - W / 2)) - 0.55; p._x1 = Math.min(p.x + lim, Math.max(bb.max.x, p.x + W / 2)) + 0.55;
-      p._z0 = Math.max(p.z - lim, Math.min(bb.min.z, p.z - W / 2)) - 0.55; p._z1 = Math.min(p.z + lim, Math.max(bb.max.z, p.z + W / 2)) + 0.55;
+      p._x0 = Math.max(p.x - lim, Math.min(bb.min.x, p.x - W / 2)) - 0.3; p._x1 = Math.min(p.x + lim, Math.max(bb.max.x, p.x + W / 2)) + 0.3;
+      p._z0 = Math.max(p.z - lim, Math.min(bb.min.z, p.z - W / 2)) - 0.3; p._z1 = Math.min(p.z + lim, Math.max(bb.max.z, p.z + W / 2)) + 0.3;
       p._broot = b; botList.push(p);
       x0 = Math.floor((p._x0 - 1) / BOT_CELL); x1 = Math.floor((p._x1 + 1) / BOT_CELL);
       z0 = Math.floor((p._z0 - 1) / BOT_CELL); z1 = Math.floor((p._z1 + 1) / BOT_CELL);
@@ -6732,10 +6772,10 @@ window.startMap = function (RAW, AUTH) {
       if (!d._bh) d._bh = d.cells.concat(d.extra);
       for (j = 0; j < d._bh.length; j++) {
         c = d._bh[j]; dx = x - d.cx - c.x; dz = z - d.cz - c.z;
-        if (botHexIn(dx, dz, 3.6)) return Math.max(h, botHexIn(dx, dz, 3.2) ? 0.34 : 0.14);
+        if (botHexIn(dx, dz, 3.6)) return Math.max(h, 0.14); /* ciudad: un solo plano */
       }
     }
-    if (trailNear(x, z, 1.1)) { c = terrainH(x, z); h = Math.max(h, 0.012 + c + Math.min(0.08, c * 0.8) + 0.04); } /* sobre la cinta del sendero (misma altura que AURA): no la atraviesa */
+    if (trailNear(x, z, 1.9)) { c = terrainH(x, z); h = Math.max(h, 0.012 + c + Math.min(0.08, c * 0.8) + 0.04); } /* sobre la cinta del sendero (misma altura que AURA): no la atraviesa */
     return h;
   }
   /* Libre = tierra (nunca agua), fuera de edificios */
@@ -9581,10 +9621,10 @@ window.startMap = function (RAW, AUTH) {
       if (car) { dd = Math.hypot(car.x - bx, car.z - bz); if (!A.dodge && dd < 14 && (car.v > 2 || dd < 6)) { A.dodge = true; A.side = Math.random() < 0.5 ? 1 : -1; A.hop = 0.55; } else if (A.dodge && dd > 17) A.dodge = false; } else A.dodge = false;
       A.obT = (A.obT || 0) - dt;
       if (A.obT <= 0 && l > 1e-6) { /* obstáculos adelante (edificios y árboles): se desplaza al lado libre más cercano, hasta 3 */
-        A.obT = 0.12; var oo = [0, 1, -1, 2, -2, 3, -3], oi, ov, ax2 = bx + tx / l * 1.5, az2 = bz + tz / l * 1.5, mx2 = bx + tx / l * 0.7, mz2 = bz + tz / l * 0.7, ob = 0;
+        A.obT = 0.12; var oo = [0, 1, -1, 2, -2, 3, -3], oi, ov, ax2 = bx + tx / l * 1.5, az2 = bz + tz / l * 1.5, mx2 = bx + tx / l * 0.7, mz2 = bz + tz / l * 0.7, ob = 0, LB = AURA_LB; /* LB: va por el hombro derecho de la carretera */
         if (A.obS) { oo[1] = A.obS; oo[2] = -A.obS; }
-        for (oi = 0; oi < oo.length; oi++) { ov = oo[oi]; if (botFree(bx + nx * ov, bz + nz * ov) && botFree(mx2 + nx * ov, mz2 + nz * ov) && botFree(ax2 + nx * ov, az2 + nz * ov)) { ob = ov; break; } }
-        if (oi < oo.length && ob !== 0) A.obS = ob > 0 ? 1 : -1;
+        for (oi = 0; oi < oo.length; oi++) { ov = oo[oi] + LB; if (botFree(bx + nx * ov, bz + nz * ov) && botFree(mx2 + nx * ov, mz2 + nz * ov) && botFree(ax2 + nx * ov, az2 + nz * ov)) { ob = ov; break; } }
+        if (oi < oo.length && oo[oi] !== 0) A.obS = oo[oi] > 0 ? 1 : -1;
         A.offT = oi < oo.length ? ob : 0; /* si todo el tramo está bloqueado, sigue el sendero */
       }
       A.off += ((A.dodge ? A.side * 2.6 : (A.offT || 0)) - A.off) * Math.min(1, dt * 6);
