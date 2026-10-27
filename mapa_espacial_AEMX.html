@@ -1113,21 +1113,20 @@ window.startMap = function (RAW, AUTH) {
   var s13Mat = null, s13Geo = null, s13BB = []; /* s13BB: espectaculares holográficos (parpadeo en el bucle) */
   function s13BBTick(t) {
     var i, b, v;
-    for (i = 0; i < s13BB.length; i++) { b = s13BB[i]; v = 0.86 + 0.07 * Math.sin(t * 2.3 + b.ph); if (Math.sin(t * 13 + b.ph * 5) > 0.992) v *= 0.55; b.m.opacity = v; }
+    for (i = 0; i < s13BB.length; i++) { b = s13BB[i]; v = 0.93 + 0.07 * Math.sin(t * 2.3 + b.ph); if (Math.sin(t * 13 + b.ph * 5) > 0.992) v *= 0.55; b.m.opacity = v; }
   }
   function s13Decal(sd, size, x, y) {
     if (!s13Mat) {
       var cv = document.createElement('canvas'), cx = cv.getContext('2d'), tx, im = new Image(), src = document.querySelector('#s13-logo img');
       cv.width = cv.height = 128;
       var paint = function () {
-        cx.clearRect(0, 0, 128, 128); cx.fillStyle = '#10131a'; cx.beginPath(); cx.moveTo(14, 4); cx.arcTo(124, 4, 124, 124, 16); cx.arcTo(124, 124, 4, 124, 16); cx.arcTo(4, 124, 4, 4, 16); cx.arcTo(4, 4, 124, 4, 16); cx.closePath(); cx.fill();
-        cx.strokeStyle = '#e0243a'; cx.lineWidth = 6; cx.stroke();
-        if (im.complete && im.naturalWidth) { var r = Math.min(88 / im.naturalWidth, 88 / im.naturalHeight); cx.drawImage(im, 64 - im.naturalWidth * r / 2, 64 - im.naturalHeight * r / 2, im.naturalWidth * r, im.naturalHeight * r); }
+        cx.clearRect(0, 0, 128, 128);
+        if (im.complete && im.naturalWidth) { var r = Math.min(124 / im.naturalWidth, 124 / im.naturalHeight); cx.drawImage(im, 64 - im.naturalWidth * r / 2, 64 - im.naturalHeight * r / 2, im.naturalWidth * r, im.naturalHeight * r); }
         tx.needsUpdate = true;
       };
       tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding;
       im.onload = paint; if (src && src.src) im.src = src.src; paint();
-      s13Mat = new THREE.MeshBasicMaterial({ map: tx, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); s13Geo = new THREE.PlaneGeometry(1, 1);
+      s13Mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.08, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); s13Geo = new THREE.PlaneGeometry(1, 1);
     }
     var m = new THREE.Mesh(s13Geo, s13Mat); m.scale.set(size, size, 1); m.position.set(x, y, 0); m.rotation.y = sd < 0 ? -Math.PI / 2 : Math.PI / 2; m.raycast = function () {};
     return m;
@@ -3486,72 +3485,105 @@ window.startMap = function (RAW, AUTH) {
       });
       window.__gantries = gnt.length; window.__gantPos = gnt;
 
-      /* Espectaculares holográficos S13: pocos, junto a las carreteras más largas, lejos de ciudades, cruces y pórticos */
+      /* Espectaculares holográficos S13: al menos uno por estado con carretera, lejos de ciudades, cruces y pórticos */
       (function () {
         var PH = ['Conectados. Siempre.', 'Sistemas Autónomos. Futuro en marcha.', 'Más inteligencia, menos fricción.', 'Hoy construimos lo que vendrá.', 'Actualización disponible: el mañana v2.0', 'Piensa en grande. Piensa en S13.', 'Tecnología que piensa por ti.', 'Sin cables. Sin límites.', 'La red que te cuida.', 'Descarga el futuro.', 'Tu mundo, siempre en línea.', 'Innovación en cada kilómetro.', 'Autonomía que se nota.', 'Hecho por máquinas, pensado para ti.'];
-        var logo = new Image(), srcEl = document.querySelector('#s13-logo img'), ents = [], taken = [], list = [], k, q, ord = [];
+        var logo = new Image(), srcEl = document.querySelector('#s13-logo img'), ents = [], taken = [], k, q, ord = [], missing = [], nBB = 0;
         function paint(en) {
-          var c2 = en.cv.getContext('2d'), W = 1024, H = 428, ph = en.txt, fs = 88, lines, y;
+          var c2 = en.cv.getContext('2d'), W = 1024, H = 428, ph = en.txt, fs = 88, y, hf = 74, gr;
           c2.clearRect(0, 0, W, H);
-          var gr = c2.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(8,24,52,0.62)'); gr.addColorStop(1, 'rgba(4,12,32,0.72)'); c2.fillStyle = gr; c2.fillRect(0, 0, W, H);
-          c2.strokeStyle = 'rgba(80,230,255,0.95)'; c2.lineWidth = 6; c2.strokeRect(8, 8, W - 16, H - 16);
-          c2.strokeStyle = 'rgba(80,230,255,0.10)'; c2.lineWidth = 2; for (y = 20; y < H; y += 8) { c2.beginPath(); c2.moveTo(14, y); c2.lineTo(W - 14, y); c2.stroke(); } /* líneas de escaneo */
-          if (logo.complete && logo.naturalWidth) { var r = Math.min(150 / logo.naturalWidth, 150 / logo.naturalHeight); c2.drawImage(logo, 48, 40, logo.naturalWidth * r, logo.naturalHeight * r); }
-          c2.fillStyle = 'rgba(190,245,255,0.95)'; c2.font = '600 34px Inter, Arial, sans-serif'; c2.textAlign = 'left'; c2.textBaseline = 'middle'; c2.fillText('S13 · SISTEMAS AUTÓNOMOS', 230, 90);
-          c2.textAlign = 'center'; c2.fillStyle = '#ffffff'; c2.shadowColor = 'rgba(80,230,255,0.9)'; c2.shadowBlur = 18;
-          var words = ph.split(' '), l1 = '', l2 = '', w2;
-          do { c2.font = '700 ' + fs + 'px Inter, Arial, sans-serif'; l1 = ''; l2 = ''; words.forEach(function (w) { w2 = (l1 ? l1 + ' ' : '') + w; if (!l2 && c2.measureText(w2).width < 930) l1 = w2; else l2 = (l2 ? l2 + ' ' : '') + w; }); fs -= 4; } while ((c2.measureText(l1).width > 930 || c2.measureText(l2).width > 930) && fs > 36);
-          if (l2) { c2.fillText(l1, W / 2, 240); c2.fillText(l2, W / 2, 330); } else c2.fillText(l1, W / 2, 288);
+          gr = c2.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(70,230,255,0.36)'); gr.addColorStop(1, 'rgba(40,140,255,0.24)'); c2.fillStyle = gr; c2.fillRect(0, 0, W, H); /* panel luminoso, sin fondo oscuro */
+          c2.fillStyle = 'rgba(130,250,255,0.22)'; c2.fillRect(8, 8, W - 16, 132);
+          c2.strokeStyle = 'rgba(160,252,255,1)'; c2.lineWidth = 9; c2.strokeRect(10, 10, W - 20, H - 20);
+          c2.lineWidth = 4; c2.beginPath(); c2.moveTo(40, 146); c2.lineTo(W - 40, 146); c2.stroke();
+          c2.strokeStyle = 'rgba(150,250,255,0.14)'; c2.lineWidth = 2; for (y = 24; y < H; y += 8) { c2.beginPath(); c2.moveTo(16, y); c2.lineTo(W - 16, y); c2.stroke(); } /* líneas de escaneo */
+          var lw = 0; if (logo.complete && logo.naturalWidth) { var r = Math.min(400 / logo.naturalWidth, 392 / logo.naturalHeight); lw = logo.naturalWidth * r; c2.drawImage(logo, 28, 18 + (392 - logo.naturalHeight * r) / 2, lw, logo.naturalHeight * r); }
+          var tx0 = Math.max(300, 28 + lw + 28), tw = W - 26 - tx0;
+          c2.textAlign = 'left'; c2.textBaseline = 'middle'; c2.fillStyle = '#f2ffff'; c2.shadowColor = 'rgba(80,230,255,1)'; c2.shadowBlur = 16;
+          do { c2.font = '800 ' + hf + 'px Inter, Arial, sans-serif'; hf -= 2; } while (c2.measureText('SISTEMAS AUTÓNOMOS').width > tw && hf > 20);
+          c2.fillText('SISTEMAS AUTÓNOMOS', tx0, 80);
+          c2.textAlign = 'center'; c2.fillStyle = '#ffffff'; c2.shadowBlur = 20;
+          var words = ph.split(' '), lns, fs2 = 76, lh, y0, ci, bi, bc, cs, sa, sb, wa, wb, mw2, pun;
+          do {
+            c2.font = '800 ' + fs2 + 'px Inter, Arial, sans-serif';
+            if (c2.measureText(ph).width <= tw) lns = [ph];
+            else { /* siempre 2 líneas: prefiere cortar tras un punto o dos puntos, si no, equilibra el ancho */
+              bc = 1e9; bi = 1;
+              for (ci = 1; ci < words.length; ci++) {
+                sa = words.slice(0, ci).join(' '); sb = words.slice(ci).join(' '); mw2 = Math.max(c2.measureText(sa).width, c2.measureText(sb).width); pun = /[.:;,!?]$/.test(sa);
+                cs = mw2 * (pun ? 0.78 : 1); if (cs < bc) { bc = cs; bi = ci; }
+              }
+              lns = [words.slice(0, bi).join(' '), words.slice(bi).join(' ')];
+            }
+            fs2 -= 4;
+          } while (lns.some(function (l) { return c2.measureText(l).width > tw; }) && fs2 > 24);
+          lh = (fs2 + 4) * 1.18; y0 = 150 + (H - 150) / 2 - (lns.length - 1) * lh / 2; c2.textAlign = 'center';
+          for (ci = 0; ci < lns.length; ci++) c2.fillText(lns[ci], tx0 + tw / 2, y0 + ci * lh);
           c2.shadowBlur = 0; en.tx.needsUpdate = true;
         }
-        for (k = 0; k < PH.length; k++) ord.push(k);
+        /* una textura y un material por frase (se reutilizan en todos los carteles) */
+        for (k = 0; k < PH.length; k++) {
+          var cv = document.createElement('canvas'); cv.width = 1024; cv.height = 428;
+          var tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding; tx.anisotropy = 4;
+          var en = { cv: cv, tx: tx, txt: PH[k] }; ents.push(en); paint(en);
+          en.mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.FrontSide });
+          s13BB.push({ m: en.mat, ph: rg() * 6.28 }); ord.push(k);
+        }
         for (k = ord.length - 1; k > 0; k--) { q = Math.floor(rg() * (k + 1)); var tmp = ord[k]; ord[k] = ord[q]; ord[q] = tmp; }
+        var postG = new THREE.CylinderGeometry(0.08, 0.1, 5.8, 8), glowM = new THREE.MeshBasicMaterial({ color: 0x77f0ff, fog: false }), bbPlane = new THREE.PlaneGeometry(7.2, 3.0);
+        /* candidatos: puntos junto a cada carretera, a la derecha del sentido de avance, dentro del mismo estado */
+        var cand = {}, cand2 = {}, sid, STEP = 12;
+        function genCand(rf, cand) {
         chosen.forEach(function (e) {
-          var L2 = 0, i2; for (i2 = 1; i2 < e.pts.length; i2++) L2 += Math.hypot(e.pts[i2][0] - e.pts[i2 - 1][0], e.pts[i2][1] - e.pts[i2 - 1][1]);
-          list.push({ e: e, L: L2 });
-        });
-        list.sort(function (m, o) { return o.L - m.L; });
-        var postG = new THREE.CylinderGeometry(0.08, 0.1, 5.8, 8), glowM = new THREE.MeshBasicMaterial({ color: 0x55e6ff }), bbPlane = new THREE.PlaneGeometry(7.2, 3.0), nBB = 0;
-        list.forEach(function (it) {
-          if (nBB >= 10 || it.L < 140) return;
-          var pts = it.e.pts, acc = 0, half = it.L * (0.45 + 0.1 * rg()), i3, seg, f, px, pz, dx, dz, dl, nx, nz, ok = true, ox, oz, en, cv, tx, mat, g, m5, yawN, fx, fz, y0;
-          for (i3 = 1; i3 < pts.length; i3++) { seg = Math.hypot(pts[i3][0] - pts[i3 - 1][0], pts[i3][1] - pts[i3 - 1][1]); if (acc + seg >= half) break; acc += seg; }
-          if (i3 >= pts.length) return;
-          f = seg > 0 ? (half - acc) / seg : 0; px = pts[i3 - 1][0] + (pts[i3][0] - pts[i3 - 1][0]) * f; pz = pts[i3 - 1][1] + (pts[i3][1] - pts[i3 - 1][1]) * f;
-          dx = pts[i3][0] - pts[i3 - 1][0]; dz = pts[i3][1] - pts[i3 - 1][1]; dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl; nx = dz; nz = -dx; /* nx,nz: izquierda del sentido de avance */
-          ox = px - nx * 8.5; oz = pz - nz * 8.5; /* a la derecha del sentido de avance, fuera del asfalto */
-          if (!stateAt(px, pz) || !stateAt(ox, oz)) return;
-          gnt.forEach(function (gp) { if (Math.hypot(gp[0] - px, gp[1] - pz) < 40) ok = false; });
-          taken.forEach(function (tp) { if (Math.hypot(tp[0] - px, tp[1] - pz) < 120) ok = false; });
-          ds.forEach(function (dd) { if (Math.hypot(dd.cx - px, dd.cz - pz) < dd.r + 30) ok = false; });
-          chosen.forEach(function (o) {
-            var oi, ax, az, bx, bz, ex2, ez2, ll, tt, qx, qz;
-            if (!ok || o === it.e) return;
-            for (oi = 1; oi < o.pts.length; oi++) {
-              ax = o.pts[oi - 1][0]; az = o.pts[oi - 1][1]; bx = o.pts[oi][0]; bz = o.pts[oi][1]; ex2 = bx - ax; ez2 = bz - az; ll = ex2 * ex2 + ez2 * ez2;
-              tt = ll > 0 ? Math.max(0, Math.min(1, ((px - ax) * ex2 + (pz - az) * ez2) / ll)) : 0; qx = ax + ex2 * tt; qz = az + ez2 * tt;
-              if (Math.hypot(px - qx, pz - qz) < 30) { ok = false; return; }
+          var i3, ax, az, bx, bz, sl, ux, uz, t, px, pz, nx, nz, ox, oz, s1, s2, ok, oi, gg, dd, acc0 = 0, nxt = STEP / 2;
+          for (i3 = 1; i3 < e.pts.length; i3++) {
+            ax = e.pts[i3 - 1][0]; az = e.pts[i3 - 1][1]; bx = e.pts[i3][0]; bz = e.pts[i3][1]; sl = Math.hypot(bx - ax, bz - az); if (sl < 0.01) continue; ux = (bx - ax) / sl; uz = (bz - az) / sl;
+            for (; nxt < acc0 + sl; nxt += STEP) {
+              t = nxt - acc0;
+              px = ax + ux * t; pz = az + uz * t; nx = uz; nz = -ux; ox = px - nx * 8.5; oz = pz - nz * 8.5;
+              s1 = stateAt(px, pz); if (!s1 || s1 !== stateAt(ox, oz)) continue;
+              ok = true;
+              if (Math.hypot(px - e.pts[0][0], pz - e.pts[0][1]) < 30 * rf || Math.hypot(px - e.pts[e.pts.length - 1][0], pz - e.pts[e.pts.length - 1][1]) < 30 * rf) ok = false;
+              for (gg = 0; ok && gg < gnt.length; gg++) if (Math.hypot(gnt[gg][0] - px, gnt[gg][1] - pz) < 40 * rf) ok = false;
+              for (dd = 0; ok && dd < ds.length; dd++) if (Math.hypot(ds[dd].cx - px, ds[dd].cz - pz) < ds[dd].r + 30 * rf) ok = false;
+              chosen.forEach(function (o) {
+                var ax2, az2, bx2, bz2, ex2, ez2, ll, tt, qx, qz;
+                if (!ok || o === e) return;
+                for (oi = 1; oi < o.pts.length; oi++) {
+                  ax2 = o.pts[oi - 1][0]; az2 = o.pts[oi - 1][1]; bx2 = o.pts[oi][0]; bz2 = o.pts[oi][1]; ex2 = bx2 - ax2; ez2 = bz2 - az2; ll = ex2 * ex2 + ez2 * ez2;
+                  tt = ll > 0 ? Math.max(0, Math.min(1, ((px - ax2) * ex2 + (pz - az2) * ez2) / ll)) : 0; qx = ax2 + ex2 * tt; qz = az2 + ez2 * tt;
+                  if (Math.hypot(px - qx, pz - qz) < 30 * rf) { ok = false; return; }
+                }
+              });
+              if (!ok) continue;
+              (cand[s1] = cand[s1] || []).push({ px: px, pz: pz, ox: ox, oz: oz, dx: ux, dz: uz, nx: nx, nz: nz });
             }
-          });
-          if (!ok) return;
-          taken.push([px, pz]); nBB++;
-          cv = document.createElement('canvas'); cv.width = 1024; cv.height = 428; tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding; tx.anisotropy = 4;
-          en = { cv: cv, tx: tx, txt: PH[ord[(nBB - 1) % PH.length]] }; ents.push(en); paint(en);
-          mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.88, depthWrite: false, side: THREE.FrontSide });
-          s13BB.push({ m: mat, ph: rg() * 6.28 });
-          fx = -dx * 0.8 + nx * 0.6; fz = -dz * 0.8 + nz * 0.6; yawN = Math.atan2(fx, fz); /* de cara al tráfico que viene y un poco hacia la vía */
-          y0 = Math.max(0, terrainH(ox, oz));
-          g = new THREE.Group(); g.position.set(ox, y0, oz); g.rotation.y = yawN;
-          [-3.5, 3.5].forEach(function (lx) { m5 = new THREE.Mesh(postG, gPostMat); m5.position.set(lx, 2.9, 0); g.add(m5); m5 = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.34), glowM); m5.position.set(lx, 5.85, 0); g.add(m5); });
-          m5 = new THREE.Mesh(bbPlane, mat); m5.position.set(0, 7.5, 0.03); m5.renderOrder = 7; g.add(m5);
-          m5 = new THREE.Mesh(bbPlane, mat); m5.position.set(0, 7.5, -0.03); m5.rotation.y = Math.PI; m5.renderOrder = 7; g.add(m5);
-          m5 = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.07, 0.07), glowM); m5.position.set(0, 5.95, 0); g.add(m5);
-          g.traverse(function (o) { o.raycast = function () {}; });
-          scene.add(g);
+            acc0 += sl;
+          }
         });
+        }
+        genCand(1, cand); genCand(0.4, cand2);
+        for (sid = 1; sid <= names.length; sid++) {
+          var L3 = (cand[sid] && cand[sid].length ? cand[sid] : cand2[sid]), cxs = 0, czs = 0, best = null, bd = 1e9, c3, ci, tt2, dist2;
+          if (!L3 || !L3.length) { missing.push(names[sid - 1]); continue; }
+          L3.forEach(function (c4) { cxs += c4.px / L3.length; czs += c4.pz / L3.length; });
+          for (ci = 0; ci < L3.length; ci++) { c3 = L3[ci]; dist2 = Math.hypot(c3.px - cxs, c3.pz - czs); tt2 = true; taken.forEach(function (tp) { if (Math.hypot(tp[0] - c3.px, tp[1] - c3.pz) < 60) tt2 = false; }); if (tt2 && dist2 < bd) { bd = dist2; best = c3; } }
+          if (!best) { missing.push(names[sid - 1]); continue; }
+          (function (c5) {
+            var fx = -c5.dx * 0.8 + c5.nx * 0.6, fz = -c5.dz * 0.8 + c5.nz * 0.6, yawN = Math.atan2(fx, fz), y0 = Math.max(0, terrainH(c5.ox, c5.oz)), g = new THREE.Group(), m5, mt = ents[ord[nBB % PH.length]].mat;
+            taken.push([c5.px, c5.pz]); nBB++;
+            g.position.set(c5.ox, y0, c5.oz); g.rotation.y = yawN;
+            [-3.5, 3.5].forEach(function (lx) { m5 = new THREE.Mesh(postG, gPostMat); m5.position.set(lx, 2.9, 0); g.add(m5); m5 = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.34), glowM); m5.position.set(lx, 5.85, 0); g.add(m5); });
+            m5 = new THREE.Mesh(bbPlane, mt); m5.position.set(0, 7.5, 0.03); m5.renderOrder = 7; g.add(m5);
+            m5 = new THREE.Mesh(bbPlane, mt); m5.position.set(0, 7.5, -0.03); m5.rotation.y = Math.PI; m5.renderOrder = 7; g.add(m5);
+            m5 = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.07, 0.07), glowM); m5.position.set(0, 5.95, 0); g.add(m5);
+            g.traverse(function (o) { o.raycast = function () {}; });
+            scene.add(g);
+          })(best);
+        }
         logo.onload = function () { ents.forEach(paint); };
         if (srcEl && srcEl.src) logo.src = srcEl.src;
-        window.__billboards = nBB; window.__bbPos = taken;
+        window.__billboards = nBB; window.__bbPos = taken; window.__bbMissing = missing;
       })();
     } catch (ex) { console.warn('No se pudieron crear los pórticos', ex); }
   }
@@ -11621,6 +11653,15 @@ window.startMap = function (RAW, AUTH) {
   })();
   window.__aemxAlien = ALN; /* prueba manual: __aemxAlien.start('Puebla') */
 
+  (function () { /* diagnóstico: muestra en pantalla errores del bucle o pérdida de WebGL */
+    var bar = document.createElement('div'), n = 0;
+    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:rgba(170,0,0,0.92);color:#fff;font:11px/1.3 monospace;padding:4px 8px;display:none;white-space:pre-wrap;max-height:30vh;overflow:auto;pointer-events:none';
+    document.body.appendChild(bar);
+    function show(m) { n++; bar.style.display = 'block'; bar.textContent = '[' + n + '] ' + String(m).slice(0, 600); }
+    window.addEventListener('error', function (e) { show('ERR ' + e.message + ' @' + (e.lineno || '?') + ':' + (e.colno || '?') + (e.error && e.error.stack ? '\n' + e.error.stack.split('\n').slice(0, 3).join('\n') : '')); });
+    window.addEventListener('unhandledrejection', function (e) { show('PROMESA ' + (e.reason && e.reason.message || e.reason)); });
+    renderer.domElement.addEventListener('webglcontextlost', function () { show('WEBGL PERDIDO (context lost)'); }, false);
+  })();
   function frame() {
     requestAnimationFrame(frame);
     var dtRaw = clock.getDelta(), dt = Math.min(dtRaw, 0.05), t = clock.elapsedTime, k, n;
