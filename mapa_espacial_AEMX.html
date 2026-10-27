@@ -5120,7 +5120,7 @@ window.startMap = function (RAW, AUTH) {
   document.getElementById('x-fight').addEventListener('click', botXsFight);
   document.getElementById('x-fb').addEventListener('click', botXsFight);
   document.getElementById('x-back').addEventListener('click', botXsBack);
-  document.getElementById('b-align').addEventListener('click', function () { if (bot && GM.mode === 'inv') { botCamUser = -99; botStartFollow(bot); } }); /* vuelve a la vista por defecto detrás del robot */
+  document.getElementById('b-align').addEventListener('click', function () { if (bot && GM.mode) { botCamUser = -99; botStartFollow(bot); } }); /* vuelve a la vista por defecto detrás del robot */
 
   /* Tocar o arrastrar el mapa desactiva el seguimiento del OVNI para ajustar la cámara */
   var botCamUser = -99, botDrag = false; /* última vez que el jugador movió la cámara del robot */
@@ -8276,7 +8276,7 @@ window.startMap = function (RAW, AUTH) {
       if (!trails.length || !roots.length || (!landAt && now < 30)) return;
       botInit(); b = bot;
     }
-    if (GM.mode && !GM.rel && now >= GM.go) { GM.rel = true; if (GM.mode === 'inv') { ufoHold = 0; deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botCamUser = -99; botStartFollow(b); } } /* tras la espera, en Modo Invasión vuelven los OVNIs y la cámara sigue al robot */
+    if (GM.mode && !GM.rel && now >= GM.go) { GM.rel = true; if (GM.mode === 'inv') { ufoHold = 0; deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botCamUser = -99; botStartFollow(b); } else if (GM.mode === 'exp') { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botCamUser = -99; botStartFollow(b); } } /* tras la espera, en Modo Invasión vuelven los OVNIs y la cámara sigue al robot */
     if (!GM.mode || now < GM.go) { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.v = 0; b.boostT = 0; b.hopGoal = null; b.fogT = 0; } /* de pie frente al edificio hasta que empiece */
     if (DUEL) duelTick(dt, now);
     if (DUELCAM) duelCamTick(dt, now);
@@ -12050,7 +12050,7 @@ window.startMap = function (RAW, AUTH) {
     }
   }
   if (typeof ALN !== 'undefined' && ALN.hold) ALN.hold(); /* ninguna invasión empieza hasta que haya OVNI (solo en Modo Invasión) */
-  window.__aemxMode = function (m) { if (GM.mode || (m !== 'inv' && m !== 'exp')) return; GM.mode = m; if (m === 'exp') stage.classList.add('gm-exp'); GM.go = clock.elapsedTime + 6; window.__gmode = m; if (m === 'inv') { stage.classList.add('gm-inv'); document.getElementById('b-align').hidden = false; deselect(); } }; /* lo llama la pantalla de carga: el robot espera ~6 s (incluye el desvanecido) */
+  window.__aemxMode = function (m) { if (GM.mode || (m !== 'inv' && m !== 'exp')) return; GM.mode = m; if (m === 'exp') { stage.classList.add('gm-exp'); document.getElementById('b-align').hidden = false; } GM.go = clock.elapsedTime + 6; window.__gmode = m; if (m === 'inv') { stage.classList.add('gm-inv'); document.getElementById('b-align').hidden = false; deselect(); } }; /* lo llama la pantalla de carga: el robot espera ~6 s (incluye el desvanecido) */
   if (window.__aemxPendingMode) window.__aemxMode(window.__aemxPendingMode);
   frame();
 };
