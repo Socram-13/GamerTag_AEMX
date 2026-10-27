@@ -5672,12 +5672,13 @@ window.startMap = function (RAW, AUTH) {
     }
     return g;
   }
+  function ufoFog(x, z) { return !!(WX && WX.fogAt && WX.fogAt(x, z)); } /* ¿hay niebla ahí? el OVNI la evita */
   function ufoPick(fx, fz) {
     var i, s, d;
-    for (i = 0; i < 12; i++) {
+    for (i = 0; i < 24; i++) {
       s = cowSpots[(Math.random() * cowSpots.length) | 0];
       d = Math.hypot(s[0] - fx, s[1] - fz);
-      if (d > 30 && d < 220) return s;
+      if (d > 30 && d < 220 && !ufoFog(s[0], s[1])) return s;
     }
     return cowSpots[(Math.random() * cowSpots.length) | 0];
   }
@@ -6180,7 +6181,20 @@ window.startMap = function (RAW, AUTH) {
     st = ufo.state;
     if (st !== 'abduct' && st !== 'rest') {
       sp = (st === 'haul' && ufo.ph === 1) ? Math.min(180, 2 + d * 4) : Math.min(UFO_SPEED, 2 + d * 1.2); /* rumbo al volcán con la vaca: muy rápido */
-      if (d > 0.15) { e = Math.min(d, sp * dt); ufo.x += dx / d * e; ufo.z += dz / d * e; }
+      if (d > 0.15) {
+        e = Math.min(d, sp * dt); var hA = Math.atan2(dx, dz), LA = Math.min(25, d), offs, oi, oo, okF = true, inF = ufoFog(ufo.x, ufo.z);
+        if (LA > 4) { /* rodea la niebla: mira adelante y gira hacia el lado libre, sin bajar la velocidad */
+          if (ufoFog(ufo.x + Math.sin(hA) * LA, ufo.z + Math.cos(hA) * LA) || (!inF && ufoFog(ufo.x + Math.sin(hA) * LA * 0.5, ufo.z + Math.cos(hA) * LA * 0.5))) {
+            offs = [0.44, 0.87, 1.31, 1.57]; okF = false; if (!ufo.fsg) ufo.fsg = Math.random() < 0.5 ? 1 : -1;
+            for (oi = 0; oi < offs.length && !okF; oi++) for (var sg = 0; sg < 2 && !okF; sg++) {
+              oo = hA + offs[oi] * (sg ? -ufo.fsg : ufo.fsg);
+              if (!ufoFog(ufo.x + Math.sin(oo) * LA, ufo.z + Math.cos(oo) * LA) && (inF || !ufoFog(ufo.x + Math.sin(oo) * LA * 0.5, ufo.z + Math.cos(oo) * LA * 0.5))) { hA = oo; okF = true; if (sg) ufo.fsg = -ufo.fsg; }
+            }
+            if (!okF) hA = Math.atan2(dx, dz); /* rodeado: sigue recto */
+          } else ufo.fsg = 0;
+        }
+        ufo.x += Math.sin(hA) * e; ufo.z += Math.cos(hA) * e;
+      }
       ex = d > 0.15 ? dx / d * Math.min(2, sp / UFO_SPEED) * 0.16 : 0; ez = d > 0.15 ? dz / d * Math.min(2, sp / UFO_SPEED) * 0.16 : 0;
     } else { ex = 0; ez = 0; }
     ufo.rx += (ez - ufo.rx) * Math.min(1, dt * 4);
@@ -6220,7 +6234,7 @@ window.startMap = function (RAW, AUTH) {
         if (ufo.legs <= 0) {
           for (i = 0; i < cows.length; i++) {
             c = cows[i];
-            if (c.state !== 'idle' || t - c.born < 1) continue;
+            if (c.state !== 'idle' || t - c.born < 1 || ufoFog(c.x, c.z)) continue;
             u = Math.hypot(c.x - ufo.x, c.z - ufo.z);
             if (u < bd) { bd = u; best = c; }
           }
