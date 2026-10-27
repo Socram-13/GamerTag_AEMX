@@ -1096,7 +1096,14 @@ window.startMap = function (RAW, AUTH) {
   var s13Mat = null, s13Geo = null, s13BB = [];
   function s13BBTick(t) {
     var i, b, v;
-    for (i = 0; i < s13BB.length; i++) { b = s13BB[i]; v = 0.93 + 0.07 * Math.sin(t * 2.3 + b.ph); if (Math.sin(t * 13 + b.ph * 5) > 0.992) v *= 0.55; b.m.opacity = v; }
+    for (i = 0; i < s13BB.length; i++) { b = s13BB[i];
+      if (b.gl) { /* averiado: ráfagas de parpadeo y desplazamiento, con calma entre ráfagas */
+        var cyc = (t * 0.9 + b.ph) % 3.4, burst = cyc < 0.55 || (cyc > 1.5 && cyc < 1.62);
+        if (burst) { v = Math.sin(t * 61 + b.ph) > -0.2 ? 1 : 0.06; b.tx.offset.x = Math.sin(t * 143) > 0.2 ? 0.05 * Math.sin(t * 97) : 0; b.tx.offset.y = Math.sin(t * 77) > 0.6 ? 0.04 : 0; }
+        else { v = 0.78 + 0.12 * Math.sin(t * 5 + b.ph); b.tx.offset.x = 0; b.tx.offset.y = 0; if (Math.sin(t * 29 + b.ph * 3) > 0.985) v = 0.12; }
+        b.m.opacity = v; continue;
+      }
+      v = 0.93 + 0.07 * Math.sin(t * 2.3 + b.ph); if (Math.sin(t * 13 + b.ph * 5) > 0.992) v *= 0.55; b.m.opacity = v; }
   }
   function s13Decal(sd, size, x, y) {
     if (!s13Mat) {
@@ -3586,7 +3593,7 @@ window.startMap = function (RAW, AUTH) {
 
   var VOLC_LL = [-98.622, 19.023], VOLC_BASE = 22;
   var VOLC = null;
-  var terrainH = function () { return 0; }, reliefBuilt = false, landAt = null;
+  var terrainH = function () { return 0; }, reliefBuilt = false, landAt = null, polyLandAt = null;
 
   function volcBump(x, z) {
     var v = VOLC, r, b, m, k, d, dd, t;
@@ -3595,6 +3602,163 @@ window.startMap = function (RAW, AUTH) {
     if (r >= v.R) return 0;
     b = r >= v.rr ? v.H * Math.pow(1 - r / v.R, 1.6) : v.H * Math.pow(1 - v.rr / v.R, 1.6) - v.D * (1 - (r / v.rr) * (r / v.rr));
     return b;
+  }
+  /* ---------- Chatarrería de robots (isla mayor de las Islas Marías): montones con piezas del robot y de su clon rojo ---------- */
+  var JUNK_LL = [-106.58, 21.62], JUNKC = null;
+  function buildJunkyard() {
+    var g0 = geo(JUNK_LL[0], JUNK_LL[1]), i, j, k, r, an, x, z, sx = null, sz = null, seen = {}, q, cur, nb, pts = [], inner = [], seed = 7, key;
+    if (!landAt) return;
+    for (r = 0; r <= 40 && sx === null; r += 1) for (k = 0; k < Math.max(1, r * 8) && sx === null; k++) { an = k / Math.max(1, r * 8) * 6.2832; x = g0.x + Math.cos(an) * r; z = g0.z + Math.sin(an) * r; if (landAt(x, z)) { sx = Math.round(x); sz = Math.round(z); } }
+    if (sx === null) { console.warn('Chatarrería: no hay isla'); return; }
+    q = [[sx, sz]]; seen[sx + ',' + sz] = 1;
+    while (q.length && pts.length < 4000) { /* la isla completa: relleno por cuadrícula de 1 */
+      cur = q.pop(); pts.push(cur);
+      for (j = -1; j <= 1; j++) for (i = -1; i <= 1; i++) { if (!i && !j) continue; nb = [cur[0] + i, cur[1] + j]; key = nb[0] + ',' + nb[1]; if (!seen[key] && landAt(nb[0], nb[1])) { seen[key] = 1; q.push(nb); } }
+    }
+    function rnd() { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+    function dry(px, pz, R) { var a, L2 = polyLandAt || landAt; for (a = 0; a < 16; a++) if (!L2(px + Math.cos(a * 0.3927) * R, pz + Math.sin(a * 0.3927) * R)) return false; return L2(px, pz); } /* todo el círculo está sobre tierra: nada llega al agua */
+    var cx = 0, cz = 0; pts.forEach(function (p) { cx += p[0]; cz += p[1]; }); cx /= pts.length; cz /= pts.length;
+    JUNKC = { x: cx, z: cz, n: pts.length };
+    var G = new THREE.Group(), y0 = function (px, pz) { return Math.max(0, terrainH(px, pz)) + 0.02; };
+    /* ---- piezas del robot (y de su clon rojo) tomadas del modelo real, a su escala real ---- */
+    function inG(m, grp) { for (var o = m; o; o = o.parent) if (o === grp) return true; return false; }
+    function bake(root, pred, mapMat, center) { /* funde las mallas en una por material */
+      var by = new Map(), res = new THREE.Group(), bb = new THREE.Box3(), tmpV = new THREE.Vector3(), it;
+      root.updateMatrixWorld(true);
+      root.traverse(function (m) { if (!m.isMesh || !m.geometry || (m.material && (m.material.transparent || m.material.blending === THREE.AdditiveBlending)) || (pred && !pred(m))) return; var gg = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone(); gg.applyMatrix4(m.matrixWorld); var mt = mapMat ? mapMat(m.material) : m.material; if (!by.has(mt)) by.set(mt, []); by.get(mt).push(gg); });
+      by.forEach(function (list) { list.forEach(function (gg) { gg.computeBoundingBox(); bb.union(gg.boundingBox); }); });
+      bb.getCenter(tmpV);
+      by.forEach(function (list, mt) {
+        var n2 = 0, o2 = 0, P, N, mg;
+        list.forEach(function (gg) { n2 += gg.attributes.position.count; });
+        P = new Float32Array(n2 * 3); N = new Float32Array(n2 * 3);
+        list.forEach(function (gg) { var pa = gg.attributes.position.array, na = gg.attributes.normal.array, t2; for (t2 = 0; t2 < pa.length; t2 += 3) { P[o2 * 3 + t2] = pa[t2] - (center ? tmpV.x : 0); P[o2 * 3 + t2 + 1] = pa[t2 + 1] - (center ? tmpV.y : 0); P[o2 * 3 + t2 + 2] = pa[t2 + 2] - (center ? tmpV.z : 0); N[o2 * 3 + t2] = na[t2]; N[o2 * 3 + t2 + 1] = na[t2 + 1]; N[o2 * 3 + t2 + 2] = na[t2 + 2]; } o2 += gg.attributes.position.count; gg.dispose(); });
+        mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(P, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+        it = new THREE.Mesh(mg, mt); it.raycast = function () {}; res.add(it);
+      });
+      return res;
+    }
+    var red = new THREE.Color(0xff2a2a), redMats = new Map();
+    function redMat(mt) { if (!redMats.has(mt)) { var c = mt.clone(); if (c.color) { if (mt.isMeshBasicMaterial) c.color.setHex(0xff2a2a); else c.color.lerp(red, 0.55); } redMats.set(mt, c); } return redMats.get(mt); }
+    var T = {};
+    (function () {
+      var F = makeBot(), i2;
+      for (i2 = 0; i2 < 2; i2++) { F.arms[i2].sh.quaternion.copy(F.arms[i2].hs); F.arms[i2].el.quaternion.copy(F.arms[i2].he); }
+      F.g.updateMatrixWorld(true);
+      var defs = { head: function (m) { return inG(m, F.head); }, torso: function (m) { return inG(m, F.shell) && !inG(m, F.head) && !inG(m, F.arms[0].sh) && !inG(m, F.arms[1].sh); }, legs: function (m) { return !inG(m, F.upper); }, arm: function (m) { return inG(m, F.arms[0].sh); }, arm2: function (m) { return inG(m, F.arms[1].sh); }, rifle: function (m) { return inG(m, F.rifle); }, whole: function (m) { return !inG(m, F.rifle); } };
+      Object.keys(defs).forEach(function (nm) { T[nm] = bake(F.g, defs[nm], null, true); T[nm + 'R'] = bake(F.g, defs[nm], redMat, true); });
+      F.g.traverse(function (m) { if (m.isMesh && m.geometry && !m.geometry.userData.shared) { /* la plantilla ya está fundida; el robot de origen se descarta */ } });
+    })();
+    var keys = ['head', 'torso', 'legs', 'arm', 'arm2', 'rifle'];
+    function part(kind, clone) { var src = T[kind + (clone ? 'R' : '')], g2 = new THREE.Group(), cp; src.children.forEach(function (m) { cp = new THREE.Mesh(m.geometry, m.material); cp.raycast = function () {}; g2.add(cp); }); return g2; }
+    var used = [], pickIn = function (R) { var t, c, p, ok; for (t = 0; t < 600; t++) { p = pts[(rnd() * pts.length) | 0]; if (!dry(p[0], p[1], R + 0.9)) continue; ok = true; for (c = 0; c < used.length; c++) if (Math.hypot(p[0] - used[c][0], p[1] - used[c][1]) < R + used[c][2] + 0.4) { ok = false; break; } if (ok) return p; } return null; }, p0;
+    var mD = new THREE.MeshLambertMaterial({ color: 0x2a2d34 }), cm = [new THREE.MeshLambertMaterial({ color: 0xa8452a, emissive: 0x180a05 }), new THREE.MeshLambertMaterial({ color: 0x2f5f8a, emissive: 0x060d14 }), new THREE.MeshLambertMaterial({ color: 0x7b8a3a, emissive: 0x0c0f06 })], nC = 0;
+    function box(par, mat, px, py, pz, sx2, sy2, sz2, ry) { var m = new THREE.Mesh(uBox, mat); m.position.set(px, py, pz); m.scale.set(sx2, sy2, sz2); if (ry) m.rotation.y = ry; m.raycast = function () {}; par.add(m); return m; }
+    /* ---- suelo de óxido, malla ciclónica perimetral y reja dañada ---- */
+    var ring = null, ringA = 1e18, se = null, sa = 0, half = 1.6, pA = null, pB = null, fenceBlk = [];
+    Object.keys(statePolys).forEach(function (nm) { statePolys[nm].forEach(function (rg) {
+      var a3, b3, ins = false, ar = 0, mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9;
+      rg.forEach(function (c) { mnx = Math.min(mnx, c[0]); mxx = Math.max(mxx, c[0]); mnz = Math.min(mnz, c[1]); mxz = Math.max(mxz, c[1]); });
+      if (cx < mnx || cx > mxx || cz < mnz || cz > mxz) return;
+      for (a3 = 0, b3 = rg.length - 1; a3 < rg.length; b3 = a3++) if ((rg[a3][1] > cz) !== (rg[b3][1] > cz) && cx < (rg[b3][0] - rg[a3][0]) * (cz - rg[a3][1]) / (rg[b3][1] - rg[a3][1]) + rg[a3][0]) ins = !ins;
+      ar = (mxx - mnx) * (mxz - mnz); if (ins && ar < ringA) { ringA = ar; ring = rg; }
+    }); });
+    function cnv(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+    function mergeG(list) { var n3 = 0, o3 = 0, P3, N3, g3 = new THREE.BufferGeometry(), U3, hasU = !!list[0].attributes.uv; list = list.map(function (gg) { return gg.index ? gg.toNonIndexed() : gg; }); list.forEach(function (gg) { n3 += gg.attributes.position.count; }); P3 = new Float32Array(n3 * 3); N3 = new Float32Array(n3 * 3); U3 = hasU ? new Float32Array(n3 * 2) : null; list.forEach(function (gg) { P3.set(gg.attributes.position.array, o3 * 3); N3.set(gg.attributes.normal.array, o3 * 3); if (hasU) U3.set(gg.attributes.uv.array, o3 * 2); o3 += gg.attributes.position.count; }); g3.setAttribute('position', new THREE.BufferAttribute(P3, 3)); g3.setAttribute('normal', new THREE.BufferAttribute(N3, 3)); if (hasU) g3.setAttribute('uv', new THREE.BufferAttribute(U3, 2)); return g3; }
+    var tLink = (function () { var c = cnv(64, 64), x3 = c.getContext('2d'), t3; x3.strokeStyle = '#b4bcc4'; x3.lineWidth = 3.2; for (var q3 = -64; q3 <= 128; q3 += 32) { x3.beginPath(); x3.moveTo(q3, 0); x3.lineTo(q3 + 64, 64); x3.moveTo(q3 + 64, 0); x3.lineTo(q3, 64); x3.stroke(); } t3 = new THREE.CanvasTexture(c); t3.wrapS = t3.wrapT = THREE.RepeatWrapping; return t3; })();
+    var tTorn = (function () { var c = cnv(256, 256), x3 = c.getContext('2d'), t3, h3, q3; x3.strokeStyle = '#b4bcc4'; x3.lineWidth = 3.2; for (q3 = -256; q3 <= 512; q3 += 32) { x3.beginPath(); x3.moveTo(q3, 0); x3.lineTo(q3 + 256, 256); x3.moveTo(q3 + 256, 0); x3.lineTo(q3, 256); x3.stroke(); } x3.globalCompositeOperation = 'destination-out'; [[70, 80, 46], [175, 150, 56], [90, 200, 30], [210, 50, 26]].forEach(function (hh) { x3.beginPath(); for (h3 = 0; h3 < 9; h3++) { var an4 = h3 / 9 * 6.2832, rr4 = hh[2] * (0.6 + rnd() * 0.6); x3[h3 ? 'lineTo' : 'moveTo'](hh[0] + Math.cos(an4) * rr4, hh[1] + Math.sin(an4) * rr4); } x3.closePath(); x3.fill(); }); t3 = new THREE.CanvasTexture(c); return t3; })();
+    var mLink = new THREE.MeshLambertMaterial({ map: tLink, alphaTest: 0.35, side: THREE.DoubleSide, color: 0xd8dde2 }), mTorn = new THREE.MeshLambertMaterial({ map: tTorn, alphaTest: 0.35, side: THREE.DoubleSide, color: 0xc7ccd1 }), mPost = new THREE.MeshLambertMaterial({ color: 0x7d848c });
+    if (ring) {
+      /* suelo de óxido sobre el contorno exacto de la isla */
+      var shp = new THREE.Shape(ring.map(function (c) { return new THREE.Vector2(c[0], -c[1]); })), tR = (function () { var c = cnv(256, 256), x3 = c.getContext('2d'), t3, q3; x3.fillStyle = '#6e3b20'; x3.fillRect(0, 0, 256, 256); for (q3 = 0; q3 < 700; q3++) { x3.fillStyle = ['rgba(150,75,35,0.35)', 'rgba(90,45,24,0.4)', 'rgba(185,110,55,0.25)', 'rgba(50,28,16,0.35)'][q3 % 4]; x3.fillRect(rnd() * 256, rnd() * 256, 2 + rnd() * 14, 1 + rnd() * 6); } for (q3 = 0; q3 < 30; q3++) { x3.fillStyle = 'rgba(40,22,12,0.18)'; x3.fillRect(rnd() * 256, rnd() * 256, 1 + rnd() * 3, 20 + rnd() * 60); } t3 = new THREE.CanvasTexture(c); t3.wrapS = t3.wrapT = THREE.RepeatWrapping; t3.repeat.set(1 / 7, 1 / 7); return t3; })();
+      var fl = new THREE.Mesh(new THREE.ShapeGeometry(shp), new THREE.MeshLambertMaterial({ map: tR, color: 0xffffff, emissive: 0x120904 })); fl.rotation.x = -1.5708; fl.position.y = 0.045; fl.receiveShadow = true; fl.raycast = function () {}; G.add(fl);
+      /* perímetro: remuestreado cada 0.4, desplazado hacia adentro */
+      var per = [], tot = 0, sg2, sp, rl = ring.length, area2 = 0, i4, ax, az, bx2, bz, L4, nS, pathP = [];
+      for (i4 = 0; i4 < rl; i4++) { var c1 = ring[i4], c2b = ring[(i4 + 1) % rl]; area2 += c1[0] * c2b[1] - c2b[0] * c1[1]; }
+      for (i4 = 0; i4 < rl; i4++) { ax = ring[i4][0]; az = ring[i4][1]; bx2 = ring[(i4 + 1) % rl][0]; bz = ring[(i4 + 1) % rl][1]; L4 = Math.hypot(bx2 - ax, bz - az); nS = Math.max(1, Math.round(L4 / 0.4)); for (k = 0; k < nS; k++) per.push([ax + (bx2 - ax) * k / nS, az + (bz - az) * k / nS]); }
+      var NP = per.length;
+      for (i4 = 0; i4 < NP; i4++) { var p1 = per[(i4 + NP - 3) % NP], p2 = per[(i4 + 3) % NP], tx3 = p2[0] - p1[0], tz3 = p2[1] - p1[1], tl = Math.hypot(tx3, tz3) || 1; tx3 /= tl; tz3 /= tl; var nx3 = -tz3 * (area2 > 0 ? -1 : 1) * -1, nz3 = tx3 * (area2 > 0 ? -1 : 1) * -1; nx3 = (area2 > 0 ? -tz3 : tz3); nz3 = (area2 > 0 ? tx3 : -tx3); pathP.push({ x: per[i4][0] + nx3 * 0.9, z: per[i4][1] + nz3 * 0.9, ox: -nx3, oz: -nz3 }); }
+      var scx = 0, scz = 0; per.forEach(function (p) { scx += p[0]; scz += p[1]; }); scx /= NP; scz /= NP;
+      if (!polyLandAt(pathP[0].x, pathP[0].z) && polyLandAt(per[0][0] - pathP[0].ox * 0.9, per[0][1] - pathP[0].oz * 0.9)) { /* orientación al revés: se invierte */ pathP.forEach(function (p, ix) { p.x = per[ix][0] - p.ox * 0.9; p.z = per[ix][1] - p.oz * 0.9; p.ox = -p.ox; p.oz = -p.oz; }); }
+      var i0 = -1, bst = -1e9; for (i4 = 0; i4 < NP; i4++) { var pc = pathP[i4], pa2 = pathP[(i4 + NP - 4) % NP], pb2 = pathP[(i4 + 4) % NP]; if (pc.ox > 0.5 && pc.x > bst && polyLandAt(pc.x, pc.z) && polyLandAt(pa2.x, pa2.z) && polyLandAt(pb2.x, pb2.z)) { bst = pc.x; i0 = i4; } }
+      if (i0 >= 0) {
+        pA = pathP[(i0 + NP - 4) % NP]; pB = pathP[(i0 + 4) % NP]; se = [(pA.x + pB.x) / 2, (pA.z + pB.z) / 2]; half = Math.hypot(pB.x - pA.x, pB.z - pA.z) / 2;
+        var dxs = pB.x - pA.x, dzs = pB.z - pA.z, nxs = dzs, nzs = -dxs; if (nxs * (se[0] - scx) + nzs * (se[1] - scz) < 0) { nxs = -nxs; nzs = -nzs; } sa = Math.atan2(nxs, nzs);
+        /* malla: de un poste del letrero, por todo el contorno, al otro poste */
+        var segs = [], posts = [], rails = [], hF = 1.55, gy = y0(se[0], se[1]), sAcc = 0, lastPost = -99, pl2 = [];
+        for (i4 = 4; i4 <= NP - 4; i4++) pl2.push(pathP[(i0 + i4) % NP]);
+        for (i4 = 0; i4 < pl2.length - 1; i4++) {
+          var s0 = pl2[i4], s1 = pl2[i4 + 1], sl = Math.hypot(s1.x - s0.x, s1.z - s0.z), qg = new THREE.PlaneGeometry(1, 1), ua = qg.attributes.uv.array;
+          if (sl < 1e-4) continue;
+          qg = new THREE.BufferGeometry(); qg.setAttribute('position', new THREE.BufferAttribute(new Float32Array([s0.x, gy + 0.1, s0.z, s1.x, gy + 0.1, s1.z, s1.x, gy + 0.1 + hF, s1.z, s0.x, gy + 0.1, s0.z, s1.x, gy + 0.1 + hF, s1.z, s0.x, gy + 0.1 + hF, s0.z]), 3));
+          qg.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+          qg.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([sAcc / 0.4, 0, (sAcc + sl) / 0.4, 0, (sAcc + sl) / 0.4, hF / 0.4, sAcc / 0.4, 0, (sAcc + sl) / 0.4, hF / 0.4, sAcc / 0.4, hF / 0.4]), 2)); segs.push(qg);
+          if (sAcc - lastPost >= 2.4 || i4 === 0) { lastPost = sAcc; posts.push([s0.x, s0.z]); if (sAcc - 0 > 0 && (i4 % 6 === 0)) fenceBlk.push([s0.x, s0.z]); }
+          sAcc += sl;
+        }
+        posts.push([pl2[pl2.length - 1].x, pl2[pl2.length - 1].z]);
+        var pgs = [], bt;
+        posts.forEach(function (pp2, ix) { bt = new THREE.BoxGeometry(0.1, 1.8, 0.1); bt.translate(pp2[0], gy + 0.9, pp2[1]); pgs.push(bt); if (ix) { var q5 = posts[ix - 1], dd5 = Math.hypot(pp2[0] - q5[0], pp2[1] - q5[1]), rb; [1.62, 0.12].forEach(function (hy) { rb = new THREE.BoxGeometry(dd5, 0.05, 0.05); rb.rotateY(-Math.atan2(pp2[1] - q5[1], pp2[0] - q5[0])); rb.translate((pp2[0] + q5[0]) / 2, gy + hy + 0.05, (pp2[1] + q5[1]) / 2); pgs.push(rb); }); } });
+        var fm = new THREE.Mesh(mergeG(segs), mLink); fm.raycast = function () {}; G.add(fm); var pm = new THREE.Mesh(mergeG(pgs), mPost); pm.raycast = function () {}; G.add(pm);
+        fenceBlk.forEach(function (b2) { monBlk.push({ x: b2[0], z: b2[1], r: 0.9 }); });
+        used.push([se[0], se[1], 2.4]);
+      }
+    }
+    /* reja dañada dentro de la isla: misma malla, con paneles rotos, caídos y postes chuecos */
+    p0 = pickIn(3.2);
+    if (p0) {
+      used.push([p0[0], p0[1], 3.2]); var da = rnd() * 3.1416, dgy = y0(p0[0], p0[1]), dG = new THREE.Group(), pw = 1.25, ph2 = 1.45;
+      dG.position.set(p0[0], dgy, p0[1]); dG.rotation.y = -da;
+      var mkPanel = function (x0, mat, lean) {
+        var g5 = new THREE.PlaneGeometry(pw, ph2), uv5 = g5.attributes.uv, q5;
+        for (q5 = 0; q5 < uv5.count; q5++) { if (mat === mTorn) uv5.setXY(q5, uv5.getX(q5) * pw / 1.6, uv5.getY(q5) * ph2 / 1.6); else uv5.setXY(q5, uv5.getX(q5) * pw / 0.4, uv5.getY(q5) * ph2 / 0.4); }
+        var m5 = new THREE.Mesh(g5, mat), inn = new THREE.Group(); m5.position.y = ph2 / 2 + 0.1; m5.raycast = function () {}; inn.add(m5); inn.position.set(x0, 0, 0); inn.rotation.x = lean; dG.add(inn);
+      };
+      mkPanel(-1.875, mTorn, 0); mkPanel(-0.625, mLink, 0.5); mkPanel(0.625, mLink, -1.45); mkPanel(1.875, mTorn, 0);
+      [[-2.5, 0, 0], [-1.25, 0, 0], [0, 0.32, 0.9], [1.25, -0.25, 0.8], [2.5, 0, 0]].forEach(function (pp3) { var po3 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.8 * (pp3[2] || 1), 0.1), mPost); po3.position.set(pp3[0], 0.9 * (pp3[2] || 1), 0); po3.rotation.x = pp3[1]; po3.raycast = function () {}; dG.add(po3); });
+      G.add(dG); monBlk.push({ x: p0[0] + Math.cos(da) * -2, z: p0[1] + Math.sin(da) * -2, r: 0.8 }); monBlk.push({ x: p0[0] + Math.cos(da) * 2, z: p0[1] + Math.sin(da) * 2, r: 0.8 });
+    }
+    /* contenedores oxidados (alejados del agua) */
+    for (k = 0; k < 3; k++) { p0 = pickIn(2.0); if (!p0) break; used.push([p0[0], p0[1], 2.0]); an = rnd() * 3.1416;
+      var ct = new THREE.Group(); box(ct, cm[k % 3], 0, 0.55, 0, 2.6, 1.1, 1.05); box(ct, mD, 1.31, 0.55, 0, 0.04, 0.95, 0.9); for (j = -1; j <= 1; j++) box(ct, mD, j * 0.8, 0.56, 0.53, 0.05, 1.0, 0.04);
+      if (k === 0) box(ct, cm[1], 0.1, 1.65, 0, 2.6, 1.1, 1.05, 0.15);
+      ct.position.set(p0[0], y0(p0[0], p0[1]), p0[1]); ct.rotation.y = an; G.add(ct); monBlk.push({ x: p0[0], z: p0[1], r: 1.9 }); nC++; }
+    /* montones de piezas del robot y de su clon */
+    function pile(px, pz, R, nParts) {
+      var pg = new THREE.Group(), c, a2, d2, kd, pp, hh;
+      for (c = 0; c < nParts; c++) {
+        a2 = rnd() * 6.2832; d2 = Math.sqrt(rnd()) * R * 0.7; hh = Math.max(0, (1 - d2 / R)) * 1.25 + (c / nParts) * 0.35;
+        pp = part(c % 7 === 0 ? 'rifle' : keys[(rnd() * 5) | 0], rnd() < 0.4);
+        pp.position.set(Math.cos(a2) * d2, 0.12 + hh, Math.sin(a2) * d2); pp.rotation.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28); pg.add(pp);
+      }
+      if (rnd() < 0.8) { pp = part('whole', rnd() < 0.5); pp.position.set((rnd() - 0.5) * R * 0.5, 0.75, (rnd() - 0.5) * R * 0.5); pp.rotation.set(1.3 + rnd() * 0.5, rnd() * 6.28, rnd() * 0.5); pg.add(pp); } /* un robot entero tirado encima */
+      var patch = new THREE.Mesh(new THREE.CircleGeometry(R * 1.5, 9), new THREE.MeshLambertMaterial({ color: 0x2b1a10, emissive: 0x070403 })); patch.rotation.x = -1.5708; patch.position.y = 0.07; patch.raycast = function () {}; pg.add(patch); /* mancha de óxido y aceite bajo el montón */
+      pg.updateMatrixWorld(true); var fused = bake(pg, null, null, false); fused.position.set(px, y0(px, pz), pz); G.add(fused);
+      monBlk.push({ x: px, z: pz, r: R + 0.3 });
+    }
+    var nP = 0, pp0 = []; for (k = 0; k < 10; k++) { var Rr = 0.75 + rnd() * 0.35; p0 = pickIn(Rr * 1.5); if (!p0) break; used.push([p0[0], p0[1], Rr * 1.5]); pile(p0[0], p0[1], Rr, 30 + ((rnd() * 10) | 0)); pp0.push([p0[0], p0[1]]); nP++; }
+    /* piezas sueltas por el suelo */
+    var lg = new THREE.Group(), nL = 0; for (k = 0; k < 14; k++) { p0 = pickIn(0.6); if (!p0) break; used.push([p0[0], p0[1], 0.3]); var lp = part(keys[(rnd() * 6) | 0], rnd() < 0.4); lp.position.set(p0[0], y0(p0[0], p0[1]) + 0.12, p0[1]); lp.rotation.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28); lg.add(lp); nL++; }
+    lg.updateMatrixWorld(true); G.add(bake(lg, null, null, false));
+    /* letrero holográfico: en el borde, con los dos postes sobre tierra */
+    var cv = document.createElement('canvas'), c2 = cv.getContext('2d'), W = 512, H = 336, tx = new THREE.CanvasTexture(cv), sm;
+    cv.width = W; cv.height = H; tx.encoding = THREE.sRGBEncoding; tx.generateMipmaps = false; tx.minFilter = THREE.LinearFilter;
+    (function () {
+      var im = new Image(), src = document.querySelector('#s13-logo img'), paint = function () {
+        c2.clearRect(0, 0, W, H);
+        c2.strokeStyle = '#7ff3ff'; c2.lineWidth = 6; c2.strokeRect(22, 22, W - 44, H - 44);
+        if (im.complete && im.naturalWidth) { var s3 = Math.min((H - 80) / im.naturalHeight, (W - 80) / im.naturalWidth); c2.drawImage(im, (W - im.naturalWidth * s3) / 2, (H - im.naturalHeight * s3) / 2, im.naturalWidth * s3, im.naturalHeight * s3); }
+        tx.needsUpdate = true;
+      };
+      paint(); if (src) { im.onload = paint; im.src = src.src; }
+    })();
+    if (se) {
+      sm = new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide });
+      var sg = new THREE.Group(), pl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.23), sm), mPo = new THREE.MeshLambertMaterial({ color: 0x3a3f49 }); pl.position.y = 3.3; pl.raycast = function () {}; sg.add(pl);
+      [-half, half].forEach(function (ox) { var po = new THREE.Mesh(uCyl, mPo); po.scale.set(0.1, 3.0, 0.1); po.position.set(ox, 1.5, 0); po.raycast = function () {}; sg.add(po); });
+      sg.position.set(se[0], y0(se[0], se[1]), se[1]); sg.rotation.y = sa; G.add(sg); s13BB.push({ m: sm, ph: 1.7, gl: true, tx: tx }); /* letrero averiado: glitch intermitente */ monBlk.push({ x: se[0], z: se[1], r: 0.8 });
+    }
+    scene.add(G); window.__junk = { x: cx, z: cz, n: pts.length, piles: nP, cont: nC, loose: nL, sign: se, sa: sa, tx: tx, pp: pp0 };
   }
   function buildChichen() {
     var g0 = geo(CHI_LL[0], CHI_LL[1]), G = new THREE.Group(), y0 = Math.max(0, terrainH(g0.x, g0.z)) + 0.03, i, k, o,
@@ -3755,6 +3919,7 @@ window.startMap = function (RAW, AUTH) {
       return 0;
     }
     if (!names.length) return;
+    polyLandAt = function (qx, qz) { return stateAt(qx, qz) > 0; }; /* tierra exacta (polígono), sin el redondeo de la cuadrícula */
     reliefBuilt = true;
     var N = NX * NZ, st = new Uint8Array(N);
     for (j = 0; j < NZ; j++) for (i = 0; i < NX; i++) st[j * NX + i] = stateAt(X0 + i * STEP, Z0 + j * STEP);
@@ -3835,6 +4000,7 @@ window.startMap = function (RAW, AUTH) {
     statesGroup.add(mesh);
     try { buildVolcano(); } catch (e) { console.warn('No se pudo crear el volcán', e); }
     try { buildChichen(); } catch (e) { console.warn('No se pudo crear Chichén Itzá', e); }
+    try { buildJunkyard(); } catch (e) { console.warn('No se pudo crear la chatarrería', e); }
   }
   fetch('https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json')
     .then(function (r) { return r.json(); })
@@ -5011,7 +5177,7 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('input', function () {
     var v = q.value.trim().replace(/^@/, '').toLowerCase();
     resEl.textContent = '';
-    if (!v || v === 'sombrero' || v === 'invasion' || v === 'aldea' || v === 'socorro' || v === 'fps') { resEl.hidden = true; matches = []; return; }
+    if (!v || v === 'sombrero' || v === 'invasion' || v === 'aldea' || v === 'socorro' || v === 'chatarra' || v === 'fps') { resEl.hidden = true; matches = []; return; }
     matches = [];
     if (ufo && v.length >= 2 && ('ovni'.indexOf(v) === 0 || 'ufo'.indexOf(v) === 0)) matches.push({ kind: 'u', label: '🛸 OVNI', sub: 'seguir' });
     if (car && v.length >= 2) {
@@ -5053,6 +5219,7 @@ window.startMap = function (RAW, AUTH) {
   q.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'sombrero') { q.value = ''; resEl.hidden = true; matches = []; botCallDis(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'fps') { q.value = ''; resEl.hidden = true; matches = []; window.__fpsOn = !window.__fpsOn; var fe = document.getElementById('fpsBox'); if (fe) fe.style.display = window.__fpsOn ? 'block' : 'none'; return; }
+    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'chatarra') { q.value = ''; resEl.hidden = true; matches = []; botCallIsland(true); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'socorro') { q.value = ''; resEl.hidden = true; matches = []; botCallIsland(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'aldea') { q.value = ''; resEl.hidden = true; matches = []; botCallVillage(); auraVilCall(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'inv') { window.__botSayQ = 'La invasión solo existe en el Modo Invasión.'; return; } if (typeof ALN !== 'undefined') ALN.startHere(); return; }
@@ -7991,14 +8158,15 @@ window.startMap = function (RAW, AUTH) {
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     return true;
   }
-  function botCallIsland() {
-    var b = bot, g = geo(-110.97, 18.78), sp, sp2, an;
+  function botCallIsland(jk) { /* jk: ir a la chatarrería de las Islas Marías en vez de Socorro */
+    var b = bot, g = (jk && JUNKC) ? JUNKC : geo(-110.97, 18.78), sp, sp2, an;
+    if (jk && !JUNKC) return false;
     if (!b) return false;
     if (DUEL || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI, una invasión o un duelo.'; return false; }
     sp = botFreeSpot(g.x, g.z); if (!sp) return false;
     an = Math.random() * 6.283; sp2 = botFreeSpot(sp[0] + Math.cos(an) * 8, sp[1] + Math.sin(an) * 8) || sp;
     b.tour = null; b.vilTour = null; b.vilWatch = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
-    window.__botSayQ = 'Voy a visitar la isla Socorro.';
+    window.__botSayQ = jk ? 'Voy a revisar la chatarrería de robots.' : 'Voy a visitar la isla Socorro.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     if (b.mode !== 'walk') botForceLand(b);
     b.ball = false; b.ballK = 0; b.glr = 0; b.glr0 = 0; b.bh = 0; b.bvy = 0; b.v = 0; b.rec = 0; b.scan = false; b.circ = false;
