@@ -4543,6 +4543,7 @@ window.startMap = function (RAW, AUTH) {
       cyBox(g, bgSlab, 3.5, 0.06, 0.16, 0, 1.7, 1.45); cyBox(g, bgSlab, 3.5, 0.06, 0.16, 0, 0.21, 1.45);
       cyBox(g, bgSlab, 0.04, 1.5, 0.08, -1.15, 0.95, 1.45); cyBox(g, bgSlab, 0.04, 1.5, 0.08, 1.15, 0.95, 1.45); cyBox(g, bgDoor, 0.07, 1.5, 0.1, -0.4, 0.95, 1.46); cyBox(g, bgDoor, 0.07, 1.5, 0.1, 0.4, 0.95, 1.46);
       cyBox(g, bgSlab, 3.62, 0.08, 0.2, 0, 2.92, 1.44); cyBox(g, bgSlab, 3.62, 0.08, 0.2, 0, 2.92, -1.44); cyBox(g, bgSlab, 0.2, 0.08, 3.1, -1.69, 2.92, 0); cyBox(g, bgSlab, 0.2, 0.08, 3.1, 1.69, 2.92, 0); /* remates */
+      cyBox(g, bgSlab, 3.5, 0.1, 2.92, 0, 2.93, 0); /* techo */
       cyBox(g, bgSlab, 1.0, 0.08, 0.5, 0, 0.12, 1.8); /* escalón */
       (function () { var pr = new THREE.Group(), k = 0.816; buildPress(pr); pr.scale.set(k, 0.66, k); pr.position.set(0.5 * (1 - k), 0.215 * (1 - 0.66), -1.38 * (1 - k)); g.add(pr); })(); /* Versant a escala 0.816, anclada al piso y a la pared del fondo */
       (function () { var mg = new THREE.Group(); mg.position.set(-0.9, 0.615, -0.5); mg.rotation.y = -0.7854; g.add(mg); /* pantalla plana sobre la parte trasera del mostrador, a 45° hacia el lado del empleado */
@@ -6984,7 +6985,7 @@ window.startMap = function (RAW, AUTH) {
     var items = [], wp = new THREE.Vector3();
     roots.forEach(function (b) { var p = b.userData.p; if (p && p.tier !== undefined) items.push([b, p]); });
     districts.forEach(function (d) {
-      [d.corp, d.branch].forEach(function (bq) { if (bq && bq._bp) { bq.getWorldPosition(wp); bq._bp.x = wp.x; bq._bp.z = wp.z; items.push([bq, bq._bp]); } });
+      [d.corp, d.branch, d.print].forEach(function (bq) { if (bq && bq._bp) { bq.getWorldPosition(wp); bq._bp.x = wp.x; bq._bp.z = wp.z; items.push([bq, bq._bp]); } });
       if (d.store) { if (!d.store._bp) { d.store.getWorldPosition(wp); d.store._bp = { x: wp.x, z: wp.z, tier: 7, topY: 1.8, isStore: true }; } items.push([d.store, d.store._bp]); }
     });
     camps.forEach(function (c) {
@@ -8204,7 +8205,7 @@ window.startMap = function (RAW, AUTH) {
     AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
     return true;
   }
-  var UVX_IN = [[0, 2.1], [0, 1.2], [-0.15, 0.5], [-0.15, 0.15]], UVX_OUT = [[-0.15, 0.5], [0, 1.2], [0, 2.1], [0, 3.6]];
+  var UVX_IN = [[0, 2.1], [0, 1.2], [-0.15, 0.5], [-0.15, 0.15]], UVX_OUT = [[-0.15, 0.5], [0, 1.2], [0, 2.1], [0, 4.4]];
   var uvxO = new THREE.Vector3(), uvxW = new THREE.Vector3();
   function uvxCam(dt, on, pb) { /* acerca la cámara a la escena dentro de UVXpress y la devuelve al terminar */
     var C = window.__uvxC || (window.__uvxC = { on: 0, save: new THREE.Vector3() }), th, k;
@@ -8237,7 +8238,7 @@ window.startMap = function (RAW, AUTH) {
       else if (U.ph === 's1' && U.t - U.t0 > 4.2) { U.ph = 's2'; U.t0 = U.t; if (push) push('r', 'Buenos días, qué amable señorita', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); }
       else if (U.ph === 's2' && U.t - U.t0 > 3.4) { U.ph = 's3'; U.t0 = U.t; if (push) push('k', 'ekole kua', true); }
       else if (U.ph === 's3' && U.t - U.t0 > 3.6) { U.ph = 'lk'; U.t0 = U.t; }
-      else if (U.ph === 'lk') { if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5) yw = Math.atan2(0.12 - U.x, -1.0 - U.z); if (U.t - U.t0 > 19) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; } }
+      else if (U.ph === 'lk') { if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5 && yw !== null) yw += nAng(Math.atan2(0.12 - U.x, -1.0 - U.z) - yw) * 0.5; if (U.t - U.t0 > 19) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; } }
     }
     if (yw !== null) U.yl += nAng(yw - U.yl) * Math.min(1, dt * 7);
     fl = Math.max(0, Math.min(1, (2.1 - U.z) / 0.7));
