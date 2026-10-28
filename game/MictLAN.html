@@ -5000,7 +5000,7 @@ window.startMap = function (RAW, AUTH) {
         if (w.tauntCd > 0) w.tauntCd -= dt;
         if (w.fleeT > 0) w.fleeT -= dt;
         if (w.rvT > 0) w.rvT -= dt;
-        if (w.state !== 'walk' && w.state !== 'shop') {
+        if (w.state !== 'walk' && w.state !== 'shop' && w.state !== 'print') {
           w.stT -= dt;
           if (w.stT <= 0) {
             w.state = 'walk'; w.partner = null; w.wait = 0;
@@ -5049,6 +5049,22 @@ window.startMap = function (RAW, AUTH) {
         }
       }
 
+      if (d.print) { /* los astronautas pueden entrar a UVXpress; Kass los saluda */
+        d.print.updateMatrixWorld(true); d.print.localToWorld(shDoor.set(0, 0, 3.4));
+        for (wi = 0; wi < ws.length; wi++) {
+          w = ws[wi]; w.prCd = (w.prCd === undefined ? 4 : w.prCd - dt);
+          if (w.state !== 'walk' || w.role || w.prCd > 0 || w.tauntT > 0 || w.fleeT > 0) continue;
+          if (Math.hypot(w.bx - shDoor.x, w.bz - shDoor.z) > 6) continue;
+          w.prCd = 40;
+          if (Math.random() < 0.6) {
+            var psx = 0.25 + Math.random() * 0.45, psz = 0.2 + Math.random() * 0.5, pP = d.print;
+            w.uid = w.uid || ((window.__wuid = (window.__wuid || 0) + 1));
+            w.state = 'print'; w.pp = 'in'; w.pi = 0; w.sx = w.bx; w.sz = w.bz;
+            var pa = pP.localToWorld(new THREE.Vector3(0, 0, 2.4)), pb3 = pP.localToWorld(new THREE.Vector3(0, 0, 1.3)), pc = pP.localToWorld(new THREE.Vector3(psx, 0, psz));
+            w.pw = [[pa.x, pa.z], [pb3.x, pb3.z], [pc.x, pc.z]]; w.pwo = [[pb3.x, pb3.z], [pa.x, pa.z], [w.sx, w.sz]];
+          }
+        }
+      }
       for (wi = 0; wi < ws.length; wi++) {
         w = ws[wi];
         offT = 0; leanT = 0;
@@ -5116,6 +5132,30 @@ window.startMap = function (RAW, AUTH) {
             w.g.position.y = 0.14 + Math.abs(Math.sin(t * 7 * (spd / 2) + w.phase)) * 0.04;
           }
           turnToward(w, w.to.x - w.from.x, w.to.z - w.from.z, dt);
+        } else if (w.state === 'print') {
+          var pP2 = d.print, pk2, ptg, pdx, pdz, pl2, pL2, pfl, pky = window.__kassK;
+          pL2 = pP2.worldToLocal(shLoc.set(w.bx, 0, w.bz)); pfl = Math.max(0, Math.min(1, (2.1 - pL2.z) / 0.7));
+          if (!window.__uvxCl) window.__uvxCl = {};
+          if (pL2.z < 1.5) window.__uvxCl['w' + w.uid] = { x: pL2.x, z: pL2.z }; else delete window.__uvxCl['w' + w.uid];
+          w.g.position.y = 0.14 + 0.215 * pfl;
+          if (w.pp === 'wait') {
+            if (pky) { pk2 = pP2.localToWorld(shC.set(pky.x, 0, pky.z)); turnToward(w, pk2.x - w.bx, pk2.z - w.bz, dt); }
+            poseReset(w); w.pt -= dt;
+            if (w.pt <= 0) { w.pp = 'out'; w.pw = w.pwo; w.pi = 0; }
+          } else {
+            ptg = w.pw[w.pi]; pdx = ptg[0] - w.bx; pdz = ptg[1] - w.bz; pl2 = Math.hypot(pdx, pdz);
+            turnToward(w, pdx, pdz, dt);
+            if (pl2 > 0.001) { var pm2 = Math.min(pl2, 1.6 * dt); w.bx += pdx / pl2 * pm2; w.bz += pdz / pl2 * pm2; }
+            sw = Math.sin(t * 6.3 + w.phase) * 0.7;
+            w.parts.legL.rotation.x = sw; w.parts.legR.rotation.x = -sw; w.parts.armL.rotation.x = -sw * 0.8; w.parts.armR.rotation.x = sw * 0.8;
+            if (pl2 < 0.06) {
+              w.pi++;
+              if (w.pi >= w.pw.length) {
+                if (w.pp === 'in') { w.pp = 'wait'; w.pt = 5 + Math.random() * 3; poseReset(w); }
+                else { w.state = 'walk'; poseReset(w); delete window.__uvxCl['w' + w.uid]; w.g.position.y = 0.14; }
+              }
+            }
+          }
         } else if (w.state === 'shop') {
           var tdx, tdz, tl, mv;
           if (w.sp === 'inside') {
@@ -8164,10 +8204,22 @@ window.startMap = function (RAW, AUTH) {
     return true;
   }
   var UVX_IN = [[0, 2.1], [0, 1.2], [-0.15, 0.5], [-0.15, 0.15]], UVX_OUT = [[-0.15, 0.5], [0, 1.2], [0, 2.1], [0, 3.6]];
+  var uvxO = new THREE.Vector3(), uvxW = new THREE.Vector3();
+  function uvxCam(dt, on, pb) { /* acerca la cámara a la escena dentro de UVXpress y la devuelve al terminar */
+    var C = window.__uvxC || (window.__uvxC = { on: 0, save: new THREE.Vector3() }), th, k;
+    if (!botFollow || fly || !pb) { C.on = 0; window.__uvxCam = 0; return; }
+    if (on && !C.on) { C.on = 1; C.save.copy(camera.position).sub(controls.target); }
+    if (!C.on) return;
+    window.__uvxCam = 1; botCamUser = clock.elapsedTime;
+    th = pb.rotation.y; if (on) uvxW.set(0.9 * Math.cos(th) + 2.9 * Math.sin(th), 1.1, -0.9 * Math.sin(th) + 2.9 * Math.cos(th)); else uvxW.copy(C.save);
+    uvxO.copy(camera.position).sub(controls.target); k = Math.min(1, dt * 2.2); uvxO.lerp(uvxW, k);
+    camera.position.copy(controls.target).add(uvxO);
+    if (!on && uvxO.distanceTo(C.save) < 0.15) { C.on = 0; window.__uvxCam = 0; }
+  }
   function uvxEnd() { var b = bot; if (window.__uvxCl) delete window.__uvxCl.bot; window.__uvx = null; if (b) b.idle = 0; }
   window.__uvxD = function (b, t, dt) { /* guion del robot dentro de UVXpress: entra, espera a Kass, diálogo y sale */
     var U = window.__uvx, pb, tg, dx, dz, d, st, W, K = window.__kassK, push = window.__dFeedPush, yw, fl;
-    if (!U) return;
+    if (!U) { uvxCam(dt, false, window.__uvxPb); return; }
     if (DUEL || b.mode === 'lift' || (b.mode !== 'walk' && !b.tpj)) { uvxEnd(); return; }
     pb = U.pb; U.t += dt;
     b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0; b.hopGoal = null; b.tour = null;
@@ -8188,6 +8240,7 @@ window.startMap = function (RAW, AUTH) {
     if (yw !== null) U.yl += nAng(yw - U.yl) * Math.min(1, dt * 7);
     fl = Math.max(0, Math.min(1, (2.1 - U.z) / 0.7));
     W = pb.localToWorld(new THREE.Vector3(U.x, 0, U.z));
+    window.__uvxPb = pb; uvxCam(dt, (U.ph !== 'out' && U.z < 2.7) || (U.ph === 'out' && U.z < 1.6), pb);
     b.x = W.x; b.z = W.z; b.y = pb.position.y + 0.215 * fl; b.yaw = U.yl + pb.rotation.y; b.v = st;
     if (!window.__uvxCl) window.__uvxCl = {};
     if (U.z < 1.5) window.__uvxCl.bot = { x: U.x, z: U.z }; else delete window.__uvxCl.bot;
@@ -8935,7 +8988,7 @@ window.startMap = function (RAW, AUTH) {
 
     if (DUEL && (DUEL.ph === 'fight' || (DUEL.ph === 'end' && DUEL.insp))) duelRobotStep(dt);
 
-    if (window.__uvxD && window.__uvx) { try { window.__uvxD(b, t, dt); } catch (eUv) { window.__uvx = null; } }
+    if (window.__uvxD && (window.__uvx || (window.__uvxC && window.__uvxC.on))) { try { window.__uvxD(b, t, dt); } catch (eUv) { window.__uvx = null; if (window.__uvxC) window.__uvxC.on = 0; window.__uvxCam = 0; } }
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
     var swz = (b.mode === 'lift' && b.lift && b.lift.ph === 2) ? 0.09 * Math.sin(t * 1.7) : 0, swx = 0, swy = 0;
@@ -11957,7 +12010,7 @@ window.startMap = function (RAW, AUTH) {
     (function () {
       var on = botFollow && botCamFree && bot && !fly && !turretCam, tg = controls.target, cp = camera.position, tx = tg.x, ty = tg.y, tz = tg.z, ox, oy, oz, r, ang, cand, i, j, f, best = null, cx, cy, cz, bad;
       if (!on || !botObs) { bcAdj.multiplyScalar(Math.max(0, 1 - dt * 5)); cp.add(bcAdj); return; }
-      function free(x, y, z) { return botLOS(tx, ty, tz, x, y, z, null); }
+      function free(x, y, z) { return window.__uvxCam ? true : botLOS(tx, ty, tz, x, y, z, null); }
       ox = cp.x - tx; oy = cp.y - ty; oz = cp.z - tz;
       if (free(cp.x, cp.y, cp.z)) { bcWant.set(0, 0, 0); }
       else if (now0() > bcHold || bcHold === 0) {
