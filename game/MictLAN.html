@@ -301,7 +301,7 @@
   #gate .gt-by span { font: 700 13px var(--f-body); letter-spacing: 0.08em; color: #ffe44d; opacity: 0.9; }
   @keyframes gtByIn { 0% { opacity: 0; } 12% { opacity: 1; transform: translateX(-5px); } 20% { opacity: 0.2; transform: translateX(4px); } 30% { opacity: 1; transform: none; } 100% { opacity: 0.95; transform: none; } }
   #s13-logo { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: max(10px, env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 8px; pointer-events: none; z-index: 6; opacity: 0.9; text-shadow: 0 1px 4px rgba(0,0,0,0.85); }
-  @media (max-width: 700px), (max-height: 500px) { #bTags { left: calc(max(10px, env(safe-area-inset-left, 0px)) + 54px); bottom: 6px; } }
+  @media (max-width: 700px), (max-height: 500px) { #bTags { left: calc(max(10px, env(safe-area-inset-left, 0px)) + 98px); bottom: 6px; } #b-chat { left: calc(max(10px, env(safe-area-inset-left, 0px)) + 46px); bottom: 5px; } }
   @media (max-width: 700px), (max-height: 500px) { #s13-logo { left: max(10px, env(safe-area-inset-left, 0px)); bottom: 8px; } #s13-logo img { height: 24px; } }
   #s13-logo img { height: 28px; width: auto; filter: drop-shadow(0 0 4px rgba(0,0,0,0.7)); }
   #gate .gt-load { width: 100%; }
@@ -4568,6 +4568,18 @@ window.startMap = function (RAW, AUTH) {
         cyBox(g, prD, 0.022, 0.03, 0.05, bx - 0.1, T + 0.095, bz + 0.2); /* mango */
         cyBox(g, prW, 0.14, 0.003, 0.2, bx + 0.02, T + 0.044, bz - 0.02); /* papel */
       })();
+      (function () { /* puerta fija abierta hacia adentro (bisagra derecha): mitad roja y mitad blanca en diagonal, como sus cristales */
+        var cv = document.createElement('canvas'), cx = cv.getContext('2d'), tx = new THREE.CanvasTexture(cv), dm, hg = new THREE.Group(), lf;
+        cv.width = 160; cv.height = 300;
+        cx.fillStyle = 'rgba(255,90,90,0.6)'; cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(160, 0); cx.lineTo(0, 300); cx.closePath(); cx.fill(); /* arriba-izquierda: rojo */
+        cx.fillStyle = 'rgba(255,255,255,0.55)'; cx.beginPath(); cx.moveTo(160, 0); cx.lineTo(160, 300); cx.lineTo(0, 300); cx.closePath(); cx.fill(); /* abajo-derecha: blanco */
+        tx.encoding = THREE.sRGBEncoding;
+        dm = new THREE.MeshLambertMaterial({ map: tx, transparent: true, side: THREE.DoubleSide, emissive: 0x202020, depthWrite: false });
+        lf = new THREE.Mesh(uPlane, dm); lf.scale.set(0.8, 1.5, 1); lf.position.set(-0.4, 0, 0); hg.add(lf);
+        cyBox(hg, bgDoor, 0.8, 0.04, 0.04, -0.4, 0.73, 0); cyBox(hg, bgDoor, 0.8, 0.04, 0.04, -0.4, -0.73, 0); cyBox(hg, bgDoor, 0.04, 1.5, 0.04, -0.78, 0, 0); cyBox(hg, bgDoor, 0.04, 1.5, 0.04, -0.02, 0, 0);
+        cyBox(hg, prW, 0.03, 0.16, 0.03, -0.7, -0.05, 0.04);
+        hg.position.set(0.4, 0.95, 1.44); hg.rotation.y = -Math.PI / 2; g.add(hg);
+      })();
       cyBox(g, bgSlab, 3.5, 0.1, 2.92, 0, 2.93, 0); /* techo */
       cyBox(g, bgSlab, 1.0, 0.08, 0.5, 0, 0.12, 1.8); /* escalón */
       (function () { var pr = new THREE.Group(), k = 0.816; buildPress(pr); pr.scale.set(k, 0.66, k); pr.position.set(0.5 * (1 - k), 0.215 * (1 - 0.66), -1.38 * (1 - k)); g.add(pr); })(); /* Versant a escala 0.816, anclada al piso y a la pared del fondo */
@@ -5095,7 +5107,7 @@ window.startMap = function (RAW, AUTH) {
           if (Math.hypot(w.bx - shDoor.x, w.bz - shDoor.z) > 6) continue;
           w.prCd = 40;
           if (Math.random() < 0.6) {
-            var psx = 0.25 + Math.random() * 0.45, psz = 0.2 + Math.random() * 0.5, pP = d.print;
+            var psx = 0.25 + Math.random() * 0.45, psz = -0.05 + Math.random() * 0.45, pP = d.print;
             w.uid = w.uid || ((window.__wuid = (window.__wuid || 0) + 1));
             w.state = 'print'; w.pp = 'in'; w.pi = 0; w.sx = w.bx; w.sz = w.bz;
             var pa = pP.localToWorld(new THREE.Vector3(0, 0, 2.4)), pb3 = pP.localToWorld(new THREE.Vector3(0, 0, 1.3)), pc = pP.localToWorld(new THREE.Vector3(psx, 0, psz));
@@ -8285,15 +8297,16 @@ window.startMap = function (RAW, AUTH) {
     b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0; b.hopGoal = null; b.tour = null; b.xs = null;
     if (b.tpj && U.ph !== 'tp') { b.tpj = null; b.g.visible = true; } /* durante la visita no se permite ningún teletransporte */
     if (b.tpj) { b.v = 0; return; }
-    if (U.ph === 'tp') { pb.updateMatrixWorld(true); W = pb.worldToLocal(new THREE.Vector3(b.x, 0, b.z)); U.x = W.x; U.z = W.z; U.ph = 'in'; U.wp = UVX_IN; U.wi = 0; }
+    if (U.ph === 'tp') { pb.updateMatrixWorld(true); W = pb.worldToLocal(new THREE.Vector3(b.x, 0, b.z)); U.x = W.x; U.z = W.z; U.ph = 'obsw'; U.wp = [[0, 2.7]]; U.wi = 0; }
     yw = null; st = 0;
     if (U.kb && U.t >= U.kb) { U.kb = 0; if (push) push('k', 'Hasta luego, bonito día', true); }
-    if (U.ph === 'in' || U.ph === 'out') {
+    if (U.ph === 'in' || U.ph === 'out' || U.ph === 'obsw') {
       tg = U.wp[U.wi]; dx = tg[0] - U.x; dz = tg[1] - U.z; d = Math.hypot(dx, dz);
-      if (d < 0.06) { U.wi++; if (U.wi >= U.wp.length) { if (U.ph === 'in') { U.ph = 'stand'; U.t0 = U.t; } else { uvxEnd(); return; } } }
+      if (d < 0.06) { U.wi++; if (U.wi >= U.wp.length) { if (U.ph === 'obsw') { U.ph = 'obs'; U.t0 = U.t; } else if (U.ph === 'in') { U.ph = 'stand'; U.t0 = U.t; } else { uvxEnd(); return; } } }
       else { st = Math.min(d, 1.3 * dt); U.x += dx / d * st; U.z += dz / d * st; yw = Math.atan2(dx, dz); st = 1.3; }
     } else {
       if (K) yw = Math.atan2(K.x - U.x, K.z - U.z);
+      if (U.ph === 'obs') { yw = Math.PI + 0.5 * Math.sin((U.t - U.t0) * 1.7); if (U.t - U.t0 > 4.5) { U.ph = 'in'; U.wp = UVX_IN; U.wi = 0; } } /* mira el local desde afuera antes de entrar */
       if (U.ph === 'stand' && ((K && K.st === 'greet' && K.tm > 0.8) || U.t - U.t0 > 22)) { U.ph = 'dlg'; U.di = 0; U.t0 = U.t; if (push) push(UVX_DLG[0][0] === 'k' ? 'k' : 'r', UVX_DLG[0][1], true); }
       else if (U.ph === 'dlg' && U.t - U.t0 > UVX_DLG[U.di][2]) { U.di++; U.t0 = U.t; if (U.di >= UVX_DLG.length) U.ph = 'lk'; else { if (push) push(UVX_DLG[U.di][0], UVX_DLG[U.di][1], true); if (UVX_DLG[U.di][0] === 'r') AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); } }
       else if (U.ph === 'lk') { if (U.t - U.t0 > 11.5 && !U.sp) { U.sp = 1; if (push) push('r', 'Ese técnico parece tabloide atascado', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); } if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5 && yw !== null) yw += nAng(Math.atan2(0.12 - U.x, -1.0 - U.z) - yw) * 0.5; if (U.t - U.t0 > 16.5) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; if (push) push('r', 'Regreso más tarde', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); U.kb = U.t + 2.5; } }
@@ -8301,7 +8314,7 @@ window.startMap = function (RAW, AUTH) {
     if (yw !== null) U.yl += nAng(yw - U.yl) * Math.min(1, dt * 7);
     fl = Math.max(0, Math.min(1, (2.1 - U.z) / 0.7));
     W = pb.localToWorld(new THREE.Vector3(U.x, 0, U.z));
-    window.__uvxPb = pb; uvxCam(dt, (U.ph !== 'out' && U.z < 2.7) || (U.ph === 'out' && U.z < 1.6), pb);
+    window.__uvxPb = pb; uvxCam(dt, (U.ph !== 'out' && U.ph !== 'obsw' && U.ph !== 'obs' && U.z < 1.7) || (U.ph === 'out' && U.z < 1.6), pb);
     b.x = W.x; b.z = W.z; b.y = pb.position.y + 0.215 * fl; b.yaw = U.yl + pb.rotation.y; b.v = st;
     if (!window.__uvxCl) window.__uvxCl = {};
     if (U.z < 1.5) window.__uvxCl.bot = { x: U.x, z: U.z }; else delete window.__uvxCl.bot;
