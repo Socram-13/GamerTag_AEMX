@@ -103,8 +103,7 @@
   @keyframes dmSweep { from { background-position: 0 0, 160% 0; } to { background-position: 0 0, -60% 0; } }
   @keyframes dmFlick { 0%, 91%, 95%, 100% { opacity: 1; } 93%, 97% { opacity: 0.7; } }
   .dm .dt { padding: 6px 10px; border-radius: 6px; background: rgba(8,12,22,0.5); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); min-width: 0; overflow-wrap: anywhere; white-space: normal; font: 600 16px/1.28 var(--f-body); color: var(--t); text-shadow: 0 0 6px color-mix(in srgb, var(--t) 45%, transparent), 0 1px 2px #000; }
-  .stage.hudOn #card { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 250px; z-index: 6; max-height: calc(100% - 390px); overflow: auto; }
-  @media (max-width: 700px) { .stage.hudOn #card { bottom: 184px; } }
+  #card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 8; width: min(280px, 92vw); max-height: calc(100% - 24px); overflow: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.55); } /* consulta de jugador (propia o ajena) al centro de la pantalla */
   #aSay b { font-style: normal; font-size: 10px; letter-spacing: 1px; color: #5fd8ff; }
   #bDir.red { color: #ffd0d0; border-color: rgba(255,110,110,0.8); }
   #invCd { position: absolute; z-index: 5; top: 8px; left: 50%; transform: translateX(-50%); padding: 1px 9px; font: 700 15px var(--f-body); letter-spacing: 0.08em; color: #fff; background: rgba(150,20,20,0.72); border: 1px solid rgba(255,120,120,0.8); border-radius: 10px; display: none; text-shadow: 0 0 5px rgba(0,0,0,0.8); pointer-events: none; }
