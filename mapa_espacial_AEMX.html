@@ -87,6 +87,24 @@
   #bSay.on { opacity: 0.92; }
   #aSay { min-height: 15px; padding: 5px 11px; font: italic 600 12.5px var(--f-body); color: #9eeeff; background: rgba(8,20,34,0.78); border: 1px solid rgba(95,216,255,0.4); border-radius: 10px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); text-shadow: 0 1px 2px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.5s; }
   #aSay.on { opacity: 0.95; }
+  #bSay, #aSay { display: none; }
+  #dFeed { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 230px; width: 40vw; height: min(430px, calc(100vh - 340px)); display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 12px; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%); mask-image: linear-gradient(to bottom, transparent 0, #000 22%); }
+  .dm { display: block; max-width: 100%; opacity: 0; transform: translateY(14px); transition: opacity 0.4s, transform 0.4s; --c: #ff5a5a; --t: #ff9d9d; }
+  .dm.in { opacity: 1; transform: none; }
+  .dm.out { opacity: 0; transform: translateY(-6px); }
+  .dm.r { --c: #4dff88; --t: #a9ffc6; align-self: flex-end; text-align: right; }
+  .dm .dn { font: 700 15px var(--f-display, var(--f-body)); letter-spacing: 0.04em; color: var(--c); text-shadow: 0 0 8px var(--c), 0 1px 2px #000; margin: 0 2px 3px; }
+  .dm .dr { display: flex; align-items: center; gap: 10px; }
+  .dm.r .dr { flex-direction: row-reverse; }
+  .dm .db { position: relative; flex: 0 0 auto; width: 48px; height: 48px; overflow: hidden; border: 2px solid var(--c); border-radius: 4px; background: color-mix(in srgb, var(--c) 20%, rgba(8,12,20,0.78)); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 60%, transparent), inset 0 0 12px color-mix(in srgb, var(--c) 35%, transparent); display: flex; align-items: center; justify-content: center; font: 800 16px var(--f-display, var(--f-body)); color: var(--c); text-shadow: 0 0 6px var(--c); animation: dmFlick 3.4s steps(1) infinite; }
+  .dm .db::before { content: ''; position: absolute; inset: 6px; border: 3px solid transparent; border-top-color: var(--c); border-right-color: var(--c); border-radius: 50%; transform: rotate(-35deg); opacity: 0.85; }
+  .dm .db::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.13) 0 1px, transparent 1px 3px), linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.45) 50%, transparent 62%); background-size: 100% 100%, 260% 100%; animation: dmSweep 2.6s linear infinite; mix-blend-mode: screen; }
+  .dm .db svg { position: relative; z-index: 1; width: 24px; height: 24px; stroke: var(--c); fill: none; stroke-width: 1.8; filter: drop-shadow(0 0 4px var(--c)); }
+  @keyframes dmSweep { from { background-position: 0 0, 160% 0; } to { background-position: 0 0, -60% 0; } }
+  @keyframes dmFlick { 0%, 91%, 95%, 100% { opacity: 1; } 93%, 97% { opacity: 0.7; } }
+  .dm .dt { padding: 6px 10px; border-radius: 6px; background: rgba(8,12,22,0.5); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); min-width: 0; overflow-wrap: anywhere; white-space: normal; font: 600 16px/1.28 var(--f-body); color: var(--t); text-shadow: 0 0 6px color-mix(in srgb, var(--t) 45%, transparent), 0 1px 2px #000; }
+  .stage:has(#botHud.on) #card { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 262px; z-index: 6; max-height: calc(100% - 400px); overflow: auto; }
+  @media (max-width: 700px) { .stage:has(#botHud.on) #card { bottom: 196px; } }
   #aSay b { font-style: normal; font-size: 10px; letter-spacing: 1px; color: #5fd8ff; }
   #bDir.red { color: #ffd0d0; border-color: rgba(255,110,110,0.8); }
   #invCd { position: absolute; z-index: 5; top: 8px; left: 50%; transform: translateX(-50%); padding: 1px 9px; font: 700 15px var(--f-body); letter-spacing: 0.08em; color: #fff; background: rgba(150,20,20,0.72); border: 1px solid rgba(255,120,120,0.8); border-radius: 10px; display: none; text-shadow: 0 0 5px rgba(0,0,0,0.8); pointer-events: none; }
@@ -318,6 +336,7 @@
   <div id="botHud" aria-hidden="true">
     <div id="invAl"><span>⚠</span><span><small>ALERTA</small>INVASIÓN EN <b id="invNm"></b></span><span>⚠</span></div>
     <div id="bInfo"><div id="bDir"></div><div id="bAct"></div><div id="aSay"><b>AURA</b> <span></span></div><div id="bSay"></div></div>
+    <div id="dFeed"></div>
     <div id="bMini"><div id="invCd"></div><div id="peaceCd"></div><div class="rw"><canvas id="bMiniC" width="336" height="336"></canvas><svg id="bRing" viewBox="0 0 100 100" aria-hidden="true"><circle class="rt" cx="50" cy="50" r="48.3" pathLength="100"/><circle class="rf" id="bFill" cx="50" cy="50" r="48.3" pathLength="100" stroke-dasharray="100 100" transform="rotate(-90 50 50)"/></svg></div><span class="ct" id="bMiniT"></span></div>
   </div>
   <div class="hud">
@@ -10064,6 +10083,28 @@ window.startMap = function (RAW, AUTH) {
     hud._sayGate = ms + 8000; AT.rep = pr[1]; AT.repWho = 1; AT.repT = n + 2.3;
     AT.gap = n + (ev === 'in' || ev === 'count' || ev === 'win' || ev === 'lose' ? 3.3 : 6.2);
   }
+  (function () { /* pila de globos de diálogo: Aura y el robot, el más nuevo abajo */
+    var feed = document.getElementById('dFeed'), aS = document.querySelector('#aSay span'), bS = document.getElementById('bSay'), last = { k: '', t: 0 }, MAX = 4;
+    if (!feed || !aS || !bS || window.__dFeedInit) return; window.__dFeedInit = 1;
+    function drop(el) { if (!el.parentNode) return; el.classList.remove('in'); el.classList.add('out'); setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 450); }
+    function push(who, txt) {
+      var now = performance.now(), kids, i, prev = [], el, n, r, bx, tt, dy;
+      txt = (txt || '').trim(); if (!txt) return;
+      if (last.k === who + txt && now - last.t < 8000) return; last.k = who + txt; last.t = now;
+      kids = feed.children; for (i = 0; i < kids.length; i++) prev.push([kids[i], kids[i].getBoundingClientRect().top]);
+      el = document.createElement('div'); el.className = 'dm ' + who;
+      n = document.createElement('div'); n.className = 'dn'; n.textContent = who === 'a' ? 'AURA' : ((typeof MYP !== 'undefined' && MYP && MYP.name) ? String(MYP.name) : 'ROBOT');
+      r = document.createElement('div'); r.className = 'dr'; bx = document.createElement('div'); bx.className = 'db'; if (who === 'a') bx.textContent = 'A'; else bx.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M10 4h4"/><circle cx="9.2" cy="13" r="1.2"/><circle cx="14.8" cy="13" r="1.2"/><path d="M9 16.5h6"/></svg>';
+      tt = document.createElement('div'); tt.className = 'dt'; tt.textContent = txt; r.appendChild(bx); r.appendChild(tt); el.appendChild(n); el.appendChild(r);
+      feed.appendChild(el);
+      prev.forEach(function (q) { dy = q[1] - q[0].getBoundingClientRect().top; if (Math.abs(dy) > 1) { q[0].style.transition = 'none'; q[0].style.transform = 'translateY(' + dy + 'px)'; q[0].getBoundingClientRect(); q[0].style.transition = 'opacity 0.4s, transform 0.4s'; q[0].style.transform = ''; } });
+      el.getBoundingClientRect(); el.classList.add('in');
+      while (feed.querySelectorAll('.dm:not(.out)').length > MAX) drop(feed.querySelector('.dm:not(.out)'));
+      setTimeout(function () { drop(el); }, 13000);
+    }
+    new MutationObserver(function () { push('a', aS.textContent); }).observe(aS, { childList: true, characterData: true, subtree: true });
+    new MutationObserver(function () { push('r', bS.textContent); }).observe(bS, { childList: true, characterData: true, subtree: true });
+  })();
   function auraTalk() {
     var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN;
     if (!el || !bot || !hud || !bs) return;
