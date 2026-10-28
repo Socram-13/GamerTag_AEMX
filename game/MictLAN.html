@@ -8233,10 +8233,11 @@ window.startMap = function (RAW, AUTH) {
       else { st = Math.min(d, 1.3 * dt); U.x += dx / d * st; U.z += dz / d * st; yw = Math.atan2(dx, dz); st = 1.3; }
     } else {
       if (K) yw = Math.atan2(K.x - U.x, K.z - U.z);
-      if (U.ph === 'stand' && ((K && K.st === 'greet' && K.tm > 0.8) || U.t - U.t0 > 22)) { U.ph = 's1'; U.t0 = U.t; if (push) push('k', 'Buenos días, bienvenido a UVXpress, en un momentito lo atiendo'); }
-      else if (U.ph === 's1' && U.t - U.t0 > 4.2) { U.ph = 's2'; U.t0 = U.t; if (push) push('r', 'Buenos días, qué amable señorita'); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); }
-      else if (U.ph === 's2' && U.t - U.t0 > 3.4) { U.ph = 's3'; U.t0 = U.t; if (push) push('k', 'ekole kua'); }
-      else if (U.ph === 's3' && U.t - U.t0 > 3.6) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; }
+      if (U.ph === 'stand' && ((K && K.st === 'greet' && K.tm > 0.8) || U.t - U.t0 > 22)) { U.ph = 's1'; U.t0 = U.t; if (push) push('k', 'Buenos días, bienvenido a UVXpress, en un momentito lo atiendo', true); }
+      else if (U.ph === 's1' && U.t - U.t0 > 4.2) { U.ph = 's2'; U.t0 = U.t; if (push) push('r', 'Buenos días, qué amable señorita', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); }
+      else if (U.ph === 's2' && U.t - U.t0 > 3.4) { U.ph = 's3'; U.t0 = U.t; if (push) push('k', 'ekole kua', true); }
+      else if (U.ph === 's3' && U.t - U.t0 > 3.6) { U.ph = 'lk'; U.t0 = U.t; }
+      else if (U.ph === 'lk') { if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5) yw = Math.atan2(0.12 - U.x, -1.0 - U.z); if (U.t - U.t0 > 19) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; } }
     }
     if (yw !== null) U.yl += nAng(yw - U.yl) * Math.min(1, dt * 7);
     fl = Math.max(0, Math.min(1, (2.1 - U.z) / 0.7));
@@ -9703,9 +9704,9 @@ window.startMap = function (RAW, AUTH) {
       o.material = dk ? black : blackD;
     });
     rm.forEach(function (o) { if (o.parent) o.parent.remove(o); });
-    if (window.__uvxTx) { /* gafete con el logo UVXpress en el lado derecho del pecho (su derecha = -x) */
-      var tgm = new THREE.MeshBasicMaterial({ color: 0xe8ecef, side: THREE.DoubleSide }), tgl = new THREE.MeshBasicMaterial({ map: window.__uvxTx, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }), tg1 = new THREE.Mesh(uPlane, tgm), tg2 = new THREE.Mesh(uPlane, tgl), tgG = new THREE.Group();
-      tg1.scale.set(0.108, 0.046, 1); tg2.scale.set(0.1, 0.0385, 1); tg2.position.z = 0.002; tgG.add(tg1); tgG.add(tg2); tgG.position.set(-0.075, 0.3, 0.17); tgG.rotation.set(-0.12, -0.25, 0); tgG.name = 'gafete'; a.shell.add(tgG); tgG.traverse(function (o) { o.raycast = function () { }; });
+    if (window.__uvxTx) { /* logo UVXpress en el pecho, lado izquierdo */
+      var tgl = new THREE.MeshBasicMaterial({ map: window.__uvxTx, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }), tg2 = new THREE.Mesh(uPlane, tgl);
+      tg2.scale.set(0.1, 0.0385, 1); tg2.position.set(0.075, 0.3, 0.17); tg2.rotation.set(-0.12, 0.25, 0); tg2.name = 'gafete'; tg2.raycast = function () { }; a.shell.add(tg2);
     }
     g.name = 'Kass'; g.scale.setScalar(0.37); g.position.set(-1.2, 0.215, -0.22); g.rotation.y = 2.3;
     window.__kassK = { a: a, g: g, st: 'type', x: -1.2, z: -0.22, yaw: 2.3, ph: 0, gk: 0, tk: 0, wk: 0, wait: 8, tm: 0, wp: [], wi: 0 };
@@ -10055,7 +10056,8 @@ window.startMap = function (RAW, AUTH) {
     var feed = document.getElementById('dFeed'), aS = document.querySelector('#aSay span'), bS = document.getElementById('bSay'), last = { k: '', t: 0 }, MAX = 4;
     if (!feed || !aS || !bS || window.__dFeedInit) return; window.__dFeedInit = 1;
     function drop(el) { if (!el.parentNode) return; el.classList.remove('in'); el.classList.add('out'); setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 450); }
-    function push(who, txt) {
+    function push(who, txt, force) {
+      if (!force && window.__uvx && (who === 'a' || who === 'r')) return; /* durante la visita a UVXpress, Aura y el robot guardan silencio */
       var now = performance.now(), kids, i, prev = [], el, n, r, bx, tt, dy, ty1, ty2, pos = 0, stp, iv;
       txt = (txt || '').trim(); if (!txt) return;
       if (last.k === who + txt && now - last.t < 8000) return; last.k = who + txt; last.t = now;
