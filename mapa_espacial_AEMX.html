@@ -5718,10 +5718,87 @@ window.startMap = function (RAW, AUTH) {
         tm += 0.04 + Math.random() * 0.06; n++;
       }
     }
+    /* ===== Música de fondo por región (WebAudio, sin archivos) ===== */
+    var MS = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10], lydian: [0, 2, 4, 6, 7, 9, 11], phryg: [0, 1, 3, 5, 7, 8, 10], mixo: [0, 2, 4, 5, 7, 9, 10] };
+    var MREG = {
+      noroeste: { root: 45, sc: 'minor', bpm: 70, prog: [0, 5, 3, 4], arp: 'triangle', pad: 'sawtooth', lp: 900 },
+      norte: { root: 38, sc: 'minor', bpm: 90, prog: [0, 3, 5, 4], arp: 'square', pad: 'sawtooth', lp: 650 },
+      occidente: { root: 50, sc: 'major', bpm: 100, prog: [0, 4, 5, 3], arp: 'triangle', pad: 'triangle', lp: 2200 },
+      centro: { root: 43, sc: 'dorian', bpm: 110, prog: [0, 3, 0, 4], arp: 'sawtooth', pad: 'sawtooth', lp: 1300, pulse: 1 },
+      golfo: { root: 41, sc: 'mixo', bpm: 95, prog: [0, 6, 3, 4], arp: 'triangle', pad: 'triangle', lp: 1500, drops: 1 },
+      sur: { root: 36, sc: 'phryg', bpm: 80, prog: [0, 1, 0, 6], arp: 'sine', pad: 'sawtooth', lp: 700 },
+      peninsula: { root: 48, sc: 'lydian', bpm: 85, prog: [0, 1, 4, 0], arp: 'sine', pad: 'triangle', lp: 2600, bells: 1 }
+    };
+    var MSTATE = { 'Baja California': 'noroeste', 'Baja California Sur': 'noroeste', 'Sonora': 'noroeste', 'Sinaloa': 'noroeste',
+      'Chihuahua': 'norte', 'Coahuila': 'norte', 'Nuevo León': 'norte', 'Tamaulipas': 'norte', 'Durango': 'norte',
+      'Jalisco': 'occidente', 'Nayarit': 'occidente', 'Colima': 'occidente', 'Michoacán': 'occidente', 'Zacatecas': 'occidente', 'Aguascalientes': 'occidente', 'San Luis Potosí': 'occidente', 'Guanajuato': 'occidente',
+      'Veracruz': 'golfo', 'Tabasco': 'golfo', 'Guerrero': 'sur', 'Oaxaca': 'sur', 'Chiapas': 'sur',
+      'Yucatán': 'peninsula', 'Campeche': 'peninsula', 'Quintana Roo': 'peninsula' };
+    var M = null, mSes = null, mKey = null, mNext = 0, mStep = 0, mCheck = -9;
+    function mFreq(R, deg) { var sc = MS[R.sc], o = Math.floor(deg / 7); return 440 * Math.pow(2, (R.root + 12 * o + sc[((deg % 7) + 7) % 7] - 69) / 12); }
+    function mNote(type, f, t0, dur, v, att, dest, lp) {
+      var o = ctx.createOscillator(), g = ctx.createGain(), out = g, fl;
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(v, t0 + att);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g);
+      if (lp) { fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; g.connect(fl); out = fl; }
+      out.connect(dest); o.start(t0); o.stop(t0 + dur + 0.05);
+    }
+    function mInit() {
+      M = {};
+      M.out = ctx.createGain(); M.out.gain.value = 0.5;
+      M.lp = ctx.createBiquadFilter(); M.lp.type = 'lowpass'; M.lp.frequency.value = 14000;
+      M.dly = ctx.createDelay(1); M.dly.delayTime.value = 0.36;
+      M.fb = ctx.createGain(); M.fb.gain.value = 0.38; M.dg = ctx.createGain(); M.dg.gain.value = 0.3;
+      M.out.connect(M.lp); M.lp.connect(master); M.lp.connect(M.dly); M.dly.connect(M.fb); M.fb.connect(M.dly); M.dly.connect(M.dg); M.dg.connect(master);
+    }
+    function mRegion() {
+      var x = camera.position.x, z = camera.position.z, best = null, bd = 1e12, i, d, dd, st;
+      for (i = 0; i < districts.length; i++) { d = districts[i]; dd = (d.cx - x) * (d.cx - x) + (d.cz - z) * (d.cz - z); if (dd < bd) { bd = dd; best = d; } }
+      if (!best) return 'centro';
+      st = CITY2STATE[best.name] || best.name;
+      return MSTATE[st] || 'centro';
+    }
+    function mSched(R, tNow) {
+      var sd = 30 / R.bpm, bar = Math.floor(mStep / 8), st = mStep % 8, base = R.prog[bar % R.prog.length], ch = [base, base + 2, base + 4], t0 = mNext, k, f;
+      if (st === 0) {
+        for (k = 0; k < 3; k++) { f = mFreq(R, ch[k] + 7); mNote(R.pad, f, t0, sd * 9, 0.045, 1.3, mSes.g, R.lp); mNote(R.pad, f * 1.004, t0, sd * 9, 0.03, 1.5, mSes.g, R.lp); }
+      }
+      if (st === 0 || st === 4) mNote('sine', mFreq(R, base), t0, sd * 3.5, 0.13, 0.03, mSes.g, 400);
+      if (Math.random() < 0.72) { f = mFreq(R, ch[[0, 1, 2, 1, 2, 1, 0, 1][st]] + (st % 2 ? 14 : 7)); mNote(R.arp, f, t0, sd * 1.8, 0.04, 0.01, mSes.g, R.lp * 1.6); }
+      if (R.pulse && st % 2 === 0) mNote('sine', 52, t0, 0.18, 0.2, 0.005, mSes.g, 200);
+      if (R.drops && Math.random() < 0.2) mNote('sine', 1700 + Math.random() * 900, t0, 0.35, 0.03, 0.005, mSes.g);
+      if (R.bells && (st === 0 || st === 5)) mNote('sine', mFreq(R, ch[2] + 21), t0, 2.2, 0.035, 0.005, mSes.g);
+      mNext += sd; mStep++;
+    }
+    function musicStep(t) {
+      var now = ctx.currentTime, key, R, old, inJ;
+      if (!on || ctx.state !== 'running') return;
+      if (!M) mInit();
+      if (t - mCheck > 0.6) {
+        mCheck = t; key = mRegion();
+        if (key !== mKey || !mSes) {
+          old = mSes; mKey = key;
+          mSes = { g: ctx.createGain() }; mSes.g.gain.value = 0.0001; mSes.g.connect(M.out); mSes.g.gain.setTargetAtTime(1, now, 1.2);
+          if (old) { old.g.gain.setTargetAtTime(0.0001, now, 1.2); setTimeout(function () { try { old.g.disconnect(); } catch (e) { } }, 9000); }
+          mNext = now + 0.1; mStep = 0;
+        }
+        inJ = !!(window.__junkIn && window.__junkIn(camera.position.x, camera.position.z));
+        M.lp.frequency.setTargetAtTime(inJ ? 380 : 14000, now, 0.8);
+        M.fb.gain.setTargetAtTime(inJ ? 0.6 : 0.38, now, 0.8);
+      }
+      if (!mSes) return;
+      R = MREG[mKey];
+      if (mNext < now - 0.5) mNext = now + 0.05;
+      while (mNext < now + 0.35) mSched(R, now);
+    }
     function update(t) {
       var tc, u, s, r, act, p, g;
       if (!ctx) return;
       tc = ctx.currentTime;
+      try { musicStep(t); } catch (eM) { }
 
       r = Math.min(1, Math.max(0, (camera.position.y - 150) / 1350));
       r = 1 - r * r * (3 - 2 * r);
