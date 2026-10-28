@@ -90,20 +90,23 @@
   #aSay { min-height: 15px; padding: 5px 11px; font: italic 600 12.5px var(--f-body); color: #9eeeff; background: rgba(8,20,34,0.78); border: 1px solid rgba(95,216,255,0.4); border-radius: 10px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); text-shadow: 0 1px 2px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.5s; }
   #aSay.on { opacity: 0.95; }
   #bSay, #aSay { display: none; }
-  #dFeed { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 230px; width: max(25vw, 210px); height: min(430px, calc(100vh - 340px)); display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 12px; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%); mask-image: linear-gradient(to bottom, transparent 0, #000 22%); }
-  .dm { display: block; max-width: 100%; opacity: 0; transform: translateY(14px); transition: opacity 0.4s, transform 0.4s; --c: #ff5a5a; --t: #ff9d9d; }
+  #dFeed { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 230px; width: max(30vw, 290px); height: min(430px, calc(100vh - 340px)); display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 12px; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%); mask-image: linear-gradient(to bottom, transparent 0, #000 22%); }
+  .dm { display: block; width: 100%; max-width: 100%; opacity: 0; transform: translateY(14px); transition: opacity 0.4s, transform 0.4s; --c: #ff5a5a; --t: #ff9d9d; }
   .dm.in { opacity: 1; transform: none; }
   .dm.out { opacity: 0; transform: translateY(-6px); }
-  .dm.r { --c: #4dff88; --t: #a9ffc6; align-self: flex-end; text-align: right; }
+  .dm.r { --c: #4dff88; --t: #a9ffc6; text-align: right; }
   .dm .dn { font: 700 15px var(--f-display, var(--f-body)); letter-spacing: 0.04em; color: var(--c); text-shadow: 0 0 8px var(--c), 0 1px 2px #000; margin: 0 2px 3px; }
-  .dm .dr { display: flex; align-items: center; gap: 10px; }
-  .dm.r .dr { flex-direction: row-reverse; }
-  .dm .db { position: relative; flex: 0 0 auto; width: 48px; height: 48px; overflow: hidden; border: 2px solid var(--c); border-radius: 2px; background: color-mix(in srgb, var(--c) 20%, rgba(8,12,20,0.78)); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 60%, transparent), inset 0 0 12px color-mix(in srgb, var(--c) 35%, transparent); display: flex; align-items: center; justify-content: center; font: 800 16px var(--f-display, var(--f-body)); color: var(--c); text-shadow: 0 0 6px var(--c); animation: dmFlick 3.4s steps(1) infinite; }
-  .dm .db::before { content: ''; position: absolute; inset: 4px; border: 3px solid transparent; border-top-color: var(--c); border-bottom-color: var(--c); border-radius: 50%; transform: rotate(-35deg); opacity: 0.9; }
+  .dm .dr { display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; align-items: center; gap: 7px; } /* íconos en los extremos; los globos de texto solo usan el espacio entre ellos */
+  .dm .db { grid-row: 1; grid-column: 1; }
+  .dm .dt { grid-row: 1; grid-column: 2; justify-self: start; }
+  .dm.r .db { grid-column: 3; }
+  .dm.r .dt { justify-self: end; text-align: right; }
+  .dm .db { position: relative; flex: 0 0 auto; width: 34px; height: 34px; overflow: hidden; border: 2px solid var(--c); border-radius: 2px; background: color-mix(in srgb, var(--c) 20%, rgba(8,12,20,0.78)); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 60%, transparent), inset 0 0 12px color-mix(in srgb, var(--c) 35%, transparent); display: flex; align-items: center; justify-content: center; font: 800 16px var(--f-display, var(--f-body)); color: var(--c); text-shadow: 0 0 6px var(--c); animation: dmFlick 3.4s steps(1) infinite; }
+  .dm .db::before { content: ''; position: absolute; inset: 3px; border: 2px solid transparent; border-top-color: var(--c); border-bottom-color: var(--c); border-radius: 50%; transform: rotate(-35deg); opacity: 0.9; }
   .dm.typing .db::before { animation: dmSpin 0.9s linear infinite; }
   @keyframes dmSpin { to { transform: rotate(325deg); } }
   .dm .db::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.13) 0 1px, transparent 1px 3px), linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.45) 50%, transparent 62%); background-size: 100% 100%, 260% 100%; animation: dmSweep 2.6s linear infinite; mix-blend-mode: screen; }
-  .dm .db svg { position: relative; z-index: 1; width: 22px; height: 22px; fill: var(--c); stroke: none; filter: drop-shadow(0 0 4px var(--c)); }
+  .dm .db svg { position: relative; z-index: 1; width: 15px; height: 15px; fill: var(--c); stroke: none; filter: drop-shadow(0 0 4px var(--c)); }
   @keyframes dmSweep { from { background-position: 0 0, 160% 0; } to { background-position: 0 0, -60% 0; } }
   @keyframes dmFlick { 0%, 91%, 95%, 100% { opacity: 1; } 93%, 97% { opacity: 0.7; } }
   .dm .dt { padding: 6px 10px; border-radius: 2px; background: rgba(8,12,22,0.5); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); min-width: 0; overflow-wrap: anywhere; white-space: normal; font: 600 16px/1.28 var(--f-body); color: var(--t); text-shadow: 0 0 6px color-mix(in srgb, var(--t) 45%, transparent), 0 1px 2px #000; }
