@@ -8251,9 +8251,11 @@ window.startMap = function (RAW, AUTH) {
   function uvxEnd() { var b = bot; if (window.__uvxCl) delete window.__uvxCl.bot; window.__uvx = null; if (b) b.idle = 0; }
   window.__uvxD = function (b, t, dt) { /* guion del robot dentro de UVXpress: entra, espera a Kass, diálogo y sale */
     var U = window.__uvx, pb, tg, dx, dz, d, st, W, K = window.__kassK, push = window.__dFeedPush, yw, fl;
-    if (!U) { uvxCam(dt, false, window.__uvxPb); return; }
+    if (!U) { b._sp = 0; window.__uvxSpk = null; uvxCam(dt, false, window.__uvxPb); return; }
     if (DUEL || b.mode === 'lift' || (b.mode !== 'walk' && !b.tpj)) { uvxEnd(); return; }
     pb = U.pb; U.t += dt;
+    var p0 = push; push = p0 && function (w, t2, f) { window.__uvxSpk = { w: w, until: performance.now() + 700 + t2.length * 55 }; p0(w, t2, f); }; /* quien habla gesticula mientras dura su globo */
+    fl = window.__uvxSpk; b._sp = (b._sp || 0) + (((fl && fl.w === 'r' && performance.now() < fl.until) ? 1 : 0) - (b._sp || 0)) * Math.min(1, dt * 6);
     b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0; b.hopGoal = null; b.tour = null; b.xs = null;
     if (b.tpj && U.ph !== 'tp') { b.tpj = null; b.g.visible = true; } /* durante la visita no se permite ningún teletransporte */
     if (b.tpj) { b.v = 0; return; }
@@ -9157,7 +9159,8 @@ window.startMap = function (RAW, AUTH) {
     var swA = (0.044 + 0.061 * b.runK) * (1 - b.hold) * b.gk * (1 - fK) * (1 - bk) * (1 - kq);
     b.upper.rotation.y = nAng(b.aimYaw - b.yaw) + stA + swA * 0.8 * Math.sin(b.ph + 1.0);
     b.upper.rotation.z = swA * Math.sin(b.ph);
-    b.upper.rotation.x = 0.9 * bk;
+    b.upper.rotation.x = 0.9 * bk + (b._sp || 0) * (0.05 + 0.05 * Math.sin(t * 6.1));
+    if (b._sp) b.upper.rotation.y += b._sp * 0.12 * Math.sin(t * 2.7);
     b.head.rotation.z = -0.6 * b.upper.rotation.z;
 
     if (!b.fxo) {
@@ -9183,6 +9186,7 @@ window.startMap = function (RAW, AUTH) {
     FXo.blob.visible = onGnd; FXo.blob.position.set(b.x, fxBase + 0.03, b.z); FXo.blob.scale.setScalar(0.75 * (1 + (b.bh || 0) * 0.05)); FXo.blob.material.opacity = 0.5 / (1 + (b.bh || 0) * 0.3);
     b.head.rotation.x = -b.aimPitch - b.lean;
     b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6) - stA;
+    if (b._sp) { b.head.rotation.x += b._sp * 0.12 * Math.sin(t * 7.3); b.head.rotation.y += b._sp * 0.22 * Math.sin(t * 3.1); }
 
     if (b.scanK > 0.3 && b.wk && !liftOn) {
 
@@ -9780,6 +9784,8 @@ window.startMap = function (RAW, AUTH) {
       tgt = K.st === 'work' ? Math.PI : (K.st === 'greet' && C.length ? Math.atan2(C[0].x - K.x, C[0].z - K.z) : KASS_HOME[2]); dy = tgt - K.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); K.yaw += Math.max(-4 * dt, Math.min(4 * dt, dy));
     }
     K.gk += (wk - K.gk) * Math.min(1, dt * 7); K.tk += (((K.st === 'type') ? 1 : 0) - K.tk) * Math.min(1, dt * 5); K.wk += (((K.st === 'work') ? 1 : 0) - K.wk) * Math.min(1, dt * 5);
+    var sk = window.__uvxSpk; K.sp = (K.sp || 0) + (((sk && sk.w === 'k' && performance.now() < sk.until) ? 1 : 0) - (K.sp || 0)) * Math.min(1, dt * 6);
+    a.head.rotation.x = 0.07 * K.sp * Math.sin(t * 6.5); a.head.rotation.y = 0.12 * K.sp * Math.sin(t * 3.3);
     K.gr = (K.gr || 0) + (((K.st === 'greet' && K.tm < 3.2) ? 1 : 0) - (K.gr || 0)) * Math.min(1, dt * 6);
     K.ph += dt * 6.4 * K.gk;
     for (i = 0; i < 2; i++) {
@@ -9787,8 +9793,8 @@ window.startMap = function (RAW, AUTH) {
       a.legs[i].th.rotation.x = la; a.legs[i].kn.rotation.x = sg; a.legs[i].ft.rotation.x = -(la + sg) * 0.5 + sg * 0.3;
       sw = Math.sin(K.ph + i * Math.PI) * 0.55 * K.gk;
       tw = 1 - Math.max(K.tk, K.wk, K.gr);
-      a.arms[i].sh.rotation.x = sw * tw + K.tk * (-0.5 + 0.05 * Math.sin(t * 17 + i * 2)) + (i === 1 ? K.wk * (-1.62 + 0.06 * Math.sin(t * 6)) + K.gr * (-2.6 + 0.05 * Math.sin(t * 5)) : 0);
-      a.arms[i].el.rotation.x = (-0.18 - 0.25 * K.gk * Math.max(0, -Math.sin(K.ph + i * Math.PI))) * tw + K.tk * (-1.0 + 0.14 * Math.sin(t * 13 + i * 1.7)) + (i === 1 ? K.wk * (-0.25 + 0.12 * Math.sin(t * 9)) + K.gr * (-0.35 + 0.4 * Math.sin(t * 8)) : 0) + (i === 0 ? K.wk * -0.18 + K.gr * -0.18 : 0);
+      a.arms[i].sh.rotation.x = K.sp * (i === 0 ? -0.55 + 0.2 * Math.sin(t * 4.7) : (1 - K.gr) * (-0.4 + 0.15 * Math.sin(t * 4.1))) + sw * tw + K.tk * (-0.5 + 0.05 * Math.sin(t * 17 + i * 2)) + (i === 1 ? K.wk * (-1.62 + 0.06 * Math.sin(t * 6)) + K.gr * (-2.6 + 0.05 * Math.sin(t * 5)) : 0);
+      a.arms[i].el.rotation.x = (-0.18 - 0.25 * K.gk * Math.max(0, -Math.sin(K.ph + i * Math.PI))) * tw + K.tk * (-1.0 + 0.14 * Math.sin(t * 13 + i * 1.7)) + (i === 1 ? K.wk * (-0.25 + 0.12 * Math.sin(t * 9)) + K.gr * (-0.35 + 0.4 * Math.sin(t * 8)) : 0) + (i === 0 ? K.wk * -0.18 + K.gr * -0.18 : 0) + K.sp * (i === 0 ? (-0.5 + 0.28 * Math.sin(t * 6.1)) : (1 - K.gr) * (-0.35 + 0.22 * Math.sin(t * 5.3 + 1)));
     }
     K.g.position.set(K.x, 0.215, K.z); K.g.rotation.y = K.yaw;
   }
