@@ -154,6 +154,7 @@ window.MictlanAudio = function (E) {
       centro: { hats: 1, lead: 0.75, root: 43, sc: 'dorian', bpm: 110, prog: [0, 3, 0, 4], arp: 'sawtooth', pad: 'sawtooth', lp: 1300, pulse: 1 },
       golfo: { root: 41, sc: 'mixo', bpm: 95, prog: [0, 6, 3, 4], arp: 'triangle', pad: 'triangle', lp: 1500, drops: 1 },
       sur: { open: 0.6, lead: 0.45, root: 36, sc: 'phryg', bpm: 80, prog: [0, 1, 0, 6], arp: 'sine', pad: 'sawtooth', lp: 700 },
+      uvx: { open: 0.8, lead: 0.5, hats: 1, root: 48, sc: 'major', bpm: 84, prog: [0, 5, 3, 4], arp: 'triangle', pad: 'triangle', lp: 1900 }, /* ambiente de oficina: tranquilo y suave, solo durante la visita a UVXpress */
       niebla: { root: 34, sc: 'phryg', bpm: 48, prog: [0, 0, 1, 0], pad: 'sine', lp: 600, ghost: 1 },
       peninsula: { open: 1.4, lead: 0.7, root: 48, sc: 'lydian', bpm: 85, prog: [0, 1, 4, 0], arp: 'sine', pad: 'triangle', lp: 2600, bells: 1 }
     };
@@ -217,7 +218,7 @@ window.MictlanAudio = function (E) {
       if (!on || ctx.state !== 'running') return;
       if (!M) mInit();
       if (t - mCheck > 0.6) {
-        mCheck = t; key = ((typeof E.WX !== "undefined" && E.WX && E.WX.fogAt && E.WX.fogAt(E.camera.position.x, E.camera.position.z)) && !(window.__junkIn && window.__junkIn(E.camera.position.x, E.camera.position.z))) ? 'niebla' : mRegion();
+        mCheck = t; key = window.__uvx ? 'uvx' : ((typeof E.WX !== "undefined" && E.WX && E.WX.fogAt && E.WX.fogAt(E.camera.position.x, E.camera.position.z)) && !(window.__junkIn && window.__junkIn(E.camera.position.x, E.camera.position.z))) ? 'niebla' : mRegion();
         if (key !== mKey || !mSes) {
           old = mSes; mKey = key;
           mSes = { g: ctx.createGain() }; mSes.g.gain.value = 0.0001; mSes.g.connect(M.out); mSes.g.gain.setTargetAtTime(1, now, 1.2);
