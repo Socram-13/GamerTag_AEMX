@@ -81,7 +81,7 @@
   #bMini canvas { width: 168px; height: 168px; border-radius: 50%; border: 2px solid rgba(255,90,90,0.75); background: rgba(10,8,16,0.55); backdrop-filter: blur(3px); box-shadow: 0 0 16px rgba(255,40,40,0.35); }
   #bInfo { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 160px; max-width: min(340px, 46vw); display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; }
   #bDir, #bAct { padding: 3px 12px; font: 700 12px var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; color: #fff3d6; background: rgba(16,9,30,0.66); border: 1px solid rgba(255,228,77,0.5); border-radius: 12px; backdrop-filter: blur(3px); text-shadow: 0 0 6px rgba(0,0,0,0.8); }
-  #bTags { position: absolute; left: calc(max(16px, env(safe-area-inset-left, 0px)) + 48px); bottom: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: min(300px, 62vw); pointer-events: none; }
+  #bTags { position: absolute; left: calc(max(16px, env(safe-area-inset-left, 0px)) + 102px); bottom: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: min(300px, 62vw); pointer-events: none; }
   #bTags #bDir, #bTags #bAct { border-radius: 2px; letter-spacing: 0.08em; }
   #bDir { font-size: 9px; padding: 1px 7px; }
   #bAct { font-size: 9px; padding: 1px 7px; color: #ffe9a0; border-color: rgba(255,228,77,0.3); background: rgba(16,9,30,0.55); }
@@ -114,7 +114,7 @@
   .dm .db svg { position: relative; z-index: 1; width: 15px; height: 15px; fill: var(--c); stroke: none; filter: drop-shadow(0 0 4px var(--c)); }
   @keyframes dmSweep { from { background-position: 0 0, 160% 0; } to { background-position: 0 0, -60% 0; } }
   @keyframes dmFlick { 0%, 91%, 95%, 100% { opacity: 1; } 93%, 97% { opacity: 0.7; } }
-  .dm .dt { padding: 6px 10px; border-radius: 2px; background: rgba(8,12,22,0.5); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); min-width: 0; overflow-wrap: anywhere; white-space: normal; font: 600 14px/1.25 var(--f-body); color: var(--t); text-shadow: 0 0 6px color-mix(in srgb, var(--t) 45%, transparent), 0 1px 2px #000; }
+  .dm .dt { padding: 3px 5px; border-radius: 2px; background: rgba(8,12,22,0.5); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); min-width: 0; overflow-wrap: anywhere; white-space: normal; font: 600 14px/1.25 var(--f-body); color: var(--t); text-shadow: 0 0 6px color-mix(in srgb, var(--t) 45%, transparent), 0 1px 2px #000; }
   #card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 8; width: min(280px, 92vw); max-height: calc(100% - 24px); overflow: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.55); } /* consulta de jugador (propia o ajena) al centro de la pantalla */
   #aSay b { font-style: normal; font-size: 10px; letter-spacing: 1px; color: #5fd8ff; }
   #bDir.red { color: #ffd0d0; border-color: rgba(255,110,110,0.8); }
@@ -129,7 +129,7 @@
   .stage.ui-off #botHud { display: none !important; }
   .stage.top-off .me, .stage.top-off .tools button:not(#b-top) { display: none !important; } /* barra superior oculta: solo quedan la búsqueda y su botón */
   .stage.chat-off #dFeed { display: none !important; }
-  #b-chat { position: absolute; left: calc(max(16px, env(safe-area-inset-left, 0px)) + max(23vw, 220px) - 44px); bottom: 12px; height: 34px; min-width: 44px; padding: 0 12px; border-radius: 4px 14px 4px 14px; border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(6px); color: var(--ink); font: 600 14px var(--f-body); cursor: pointer; pointer-events: auto; }
+  #b-chat { position: absolute; left: calc(max(16px, env(safe-area-inset-left, 0px)) + 50px); bottom: 8px; height: 34px; min-width: 44px; padding: 0 12px; border-radius: 4px 14px 4px 14px; border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(6px); color: var(--ink); font: 600 14px var(--f-body); cursor: pointer; pointer-events: auto; }
   #b-chat:hover { border-color: var(--cyan); }
   .stage.gm-inv .search, .stage.gm-inv #b-over, .stage.gm-inv #b-pal, .stage.gm-inv .me { display: none !important; } /* Modo Invasión: solo la cámara del robot (la búsqueda aparece con la tecla / para los códigos) */
   .stage.gm-inv.q-on .search { display: block !important; }
@@ -376,6 +376,7 @@
         <button type="button" id="b-pal">Palacio</button>
         <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
         <button type="button" id="b-snd" aria-pressed="true" aria-label="Activar o desactivar el sonido" title="Activar o desactivar el sonido">🔊</button>
+        <button type="button" id="b-fs" aria-pressed="false" aria-label="Pantalla completa" title="Pantalla completa" hidden>⛶</button>
         <button type="button" id="b-ui" aria-pressed="false" title="Mostrar u ocultar la interfaz">Ocultar</button>
         <button type="button" id="b-top" aria-pressed="false" aria-label="Ocultar la barra superior" title="Ocultar la barra superior (queda la búsqueda)">▲</button>
       </div>
@@ -5455,6 +5456,14 @@ window.startMap = function (RAW, AUTH) {
     resEl.hidden = true;
   });
 
+  (function () { /* pantalla completa (si el navegador la permite) */
+    var fb = document.getElementById('b-fs'), de = document.documentElement, req = de.requestFullscreen || de.webkitRequestFullscreen, ex = document.exitFullscreen || document.webkitExitFullscreen;
+    if (!fb || !req) return; fb.hidden = false;
+    function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+    fb.addEventListener('click', function () { try { if (isFs()) ex.call(document); else req.call(de); } catch (eF) { } });
+    function sync() { var on = isFs(); fb.setAttribute('aria-pressed', on ? 'true' : 'false'); fb.textContent = on ? '⛶' : '⛶'; fb.title = on ? 'Salir de pantalla completa' : 'Pantalla completa'; }
+    document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync);
+  })();
   document.getElementById('b-top').addEventListener('click', function () { /* oculta/muestra la barra superior (menos la búsqueda) */
     var off = stage.classList.toggle('top-off');
     this.textContent = off ? '▼' : '▲';
