@@ -4504,7 +4504,7 @@ window.startMap = function (RAW, AUTH) {
     }
     var bgPane = new THREE.MeshLambertMaterial({ color: 0xbfe9ff, emissive: 0x0a2a3a, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }), bgCounter = new THREE.MeshLambertMaterial({ color: 0x0b0d10, emissive: 0x050607 });
     var uvxC1 = document.createElement('canvas'), uvxX1 = uvxC1.getContext('2d'), uvxT1 = new THREE.CanvasTexture(uvxC1), uvxC2 = document.createElement('canvas'), uvxX2 = uvxC2.getContext('2d'), uvxT2 = new THREE.CanvasTexture(uvxC2), uvxIm = new Image();
-    uvxC1.width = 520; uvxC1.height = 200; uvxC2.width = 1040; uvxC2.height = 400; uvxT1.encoding = uvxT2.encoding = THREE.sRGBEncoding; uvxT1.anisotropy = 4;
+    window.__uvxTx = uvxT1; uvxC1.width = 520; uvxC1.height = 200; uvxC2.width = 1040; uvxC2.height = 400; uvxT1.encoding = uvxT2.encoding = THREE.sRGBEncoding; uvxT1.anisotropy = 4;
     uvxIm.onload = function () { /* logo UVXpress: base con sus colores + holograma neón (halo de sus propios colores; lo oscuro se aclara para que brille) */
       var br = document.createElement('canvas'), bx2 = br.getContext('2d'), sm = document.createElement('canvas'), sx3 = sm.getContext('2d'), d, i, l, t, q;
       uvxX1.clearRect(0, 0, 520, 200); uvxX1.drawImage(uvxIm, 0, 0, 520, 200); uvxT1.needsUpdate = true;
@@ -4526,6 +4526,7 @@ window.startMap = function (RAW, AUTH) {
       cyBox(g, prW, W(208, 260), H, 0.4, X(208, 260), y0 + H / 2, zc); /* conector */
       cyBox(g, prW, W(262, 440), H, 0.44, X(262, 440), y0 + H / 2, zc); /* motor */
       cyBox(g, prN, W(262, 440), H * 0.5, 0.03, X(262, 440), y0 + H * 0.75, zc + 0.225); cyBox(g, prW, 0.07, 0.025, 0.005, X(340, 350), y0 + H * 0.7, zc + 0.243); /* bloque azul al frente del motor, con placa del logo */
+      (function () { var lg = new THREE.Mesh(uPlane, bgLogo); lg.scale.set(0.11, 0.11, 1); lg.position.set(0.686 - 0.07, 0.865 - 0.07, zc + 0.2405); g.add(lg); })(); /* logo S13 en la esquina superior derecha del módulo azul */
       cyBox(g, prN, W(270, 432), 0.06, 0.4, X(270, 432), y0 + H + 0.03, zc); /* tapa azul oscura, plana y baja */
       cyBox(g, prG, W(268, 432), 0.14, 0.01, X(268, 432), y0 + H * 0.18, zf + 0.01); cyBox(g, prD, W(268, 432), 0.01, 0.01, X(268, 432), y0 + H * 0.26, zf + 0.012); cyBox(g, prD, W(268, 432), 0.01, 0.01, X(268, 432), y0 + H * 0.12, zf + 0.012); /* 3 bandejas */
       cyBox(g, prW, W(440, 518), H, 0.4, X(440, 518), y0 + H / 2, zc); cyBox(g, prW, W(518, 572), H, 0.4, X(518, 572), y0 + H / 2, zc); /* módulos */
@@ -9702,6 +9703,10 @@ window.startMap = function (RAW, AUTH) {
       o.material = dk ? black : blackD;
     });
     rm.forEach(function (o) { if (o.parent) o.parent.remove(o); });
+    if (window.__uvxTx) { /* gafete con el logo UVXpress en el lado derecho del pecho (su derecha = -x) */
+      var tgm = new THREE.MeshBasicMaterial({ color: 0xe8ecef, side: THREE.DoubleSide }), tgl = new THREE.MeshBasicMaterial({ map: window.__uvxTx, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }), tg1 = new THREE.Mesh(uPlane, tgm), tg2 = new THREE.Mesh(uPlane, tgl), tgG = new THREE.Group();
+      tg1.scale.set(0.108, 0.046, 1); tg2.scale.set(0.1, 0.0385, 1); tg2.position.z = 0.002; tgG.add(tg1); tgG.add(tg2); tgG.position.set(-0.075, 0.3, 0.17); tgG.rotation.set(-0.12, -0.25, 0); tgG.name = 'gafete'; a.shell.add(tgG); tgG.traverse(function (o) { o.raycast = function () { }; });
+    }
     g.name = 'Kass'; g.scale.setScalar(0.37); g.position.set(-1.2, 0.215, -0.22); g.rotation.y = 2.3;
     window.__kassK = { a: a, g: g, st: 'type', x: -1.2, z: -0.22, yaw: 2.3, ph: 0, gk: 0, tk: 0, wk: 0, wait: 8, tm: 0, wp: [], wi: 0 };
     return g;
