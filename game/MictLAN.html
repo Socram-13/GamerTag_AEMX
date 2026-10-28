@@ -4579,7 +4579,7 @@ window.startMap = function (RAW, AUTH) {
           cx.fillStyle = '#7a0f2a'; cx.font = 'bold 34px Arial, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('K', 46, 58); cx.fillText('M', 82, 58);
           tx.encoding = THREE.sRGBEncoding; tx.anisotropy = 4;
           hm = new THREE.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-          hp = new THREE.Mesh(uPlane, hm); hp.scale.set(0.075, 0.075, 1); hp.rotation.x = -Math.PI / 2; hp.position.set(0, 0, -0.04); hg.add(hp);
+          hp = new THREE.Mesh(uPlane, hm); hp.scale.set(0.115, 0.115, 1); hp.rotation.x = -Math.PI / 2; hp.position.set(0, 0, -0.04); hg.add(hp);
           hg.position.set(-0.84, T + 0.0045, 0.12); hg.rotation.y = 0.2; g.add(hg);
         })();
         m = cyBox(g, prM, 0.3, 0.014, 0.1, -0.94, T + 0.007, -0.27); m.rotation.y = -0.7854; /* teclado */
@@ -8267,7 +8267,9 @@ window.startMap = function (RAW, AUTH) {
       if (K) yw = Math.atan2(K.x - U.x, K.z - U.z);
       if (U.ph === 'stand' && ((K && K.st === 'greet' && K.tm > 0.8) || U.t - U.t0 > 22)) { U.ph = 'dlg'; U.di = 0; U.t0 = U.t; if (push) push(UVX_DLG[0][0] === 'k' ? 'k' : 'r', UVX_DLG[0][1], true); }
       else if (U.ph === 'dlg' && U.t - U.t0 > UVX_DLG[U.di][2]) { U.di++; U.t0 = U.t; if (U.di >= UVX_DLG.length) U.ph = 'lk'; else { if (push) push(UVX_DLG[U.di][0], UVX_DLG[U.di][1], true); if (UVX_DLG[U.di][0] === 'r') AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); } }
-      else if (U.ph === 'lk') { if (U.t - U.t0 > 11.5 && !U.sp) { U.sp = 1; if (push) push('r', 'Ese técnico parece tabloide atascado, regreso más tarde', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); } if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5 && yw !== null) yw += nAng(Math.atan2(0.12 - U.x, -1.0 - U.z) - yw) * 0.5; if (U.t - U.t0 > 18) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; } }
+      else if (U.ph === 'lk') { if (U.t - U.t0 > 11.5 && !U.sp) { U.sp = 1; if (push) push('r', 'Ese técnico parece tabloide atascado', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); }
+      if (U.t - U.t0 > 15.5 && !U.sp2) { U.sp2 = 1; if (push) push('r', 'Regreso más tarde', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); }
+      if (U.t - U.t0 > 19 && !U.sp3) { U.sp3 = 1; if (push) push('k', 'Hasta luego, bonito día', true); } if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5 && yw !== null) yw += nAng(Math.atan2(0.12 - U.x, -1.0 - U.z) - yw) * 0.5; if (U.t - U.t0 > 22.5) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; } }
     }
     if (yw !== null) U.yl += nAng(yw - U.yl) * Math.min(1, dt * 7);
     fl = Math.max(0, Math.min(1, (2.1 - U.z) / 0.7));
