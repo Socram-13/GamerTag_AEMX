@@ -8215,7 +8215,7 @@ window.startMap = function (RAW, AUTH) {
     return true;
   }
 
-  function botCallPrint() { /* el robot va a la imprenta UVXpress, entra y Kass lo atiende */
+  function botCallPrint(auto) { /* el robot va a la imprenta UVXpress, entra y Kass lo atiende */
     var b = bot, pb = null, i, wp, sp, an;
     for (i = 0; i < districts.length; i++) if (districts[i].print) pb = districts[i].print;
     if (!pb) { window.__botSayQ = 'No hay imprenta en el mapa.'; return false; }
@@ -8225,7 +8225,7 @@ window.startMap = function (RAW, AUTH) {
     sp = botFree(wp.x, wp.z) ? [wp.x, wp.z] : botFreeSpot(wp.x, wp.z);
     if (!sp) return false;
     b.tour = null; b.vilTour = null; b.vilWatch = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
-    if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
+    if (!botFollow && !auto) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     if (b.mode !== 'walk') botForceLand(b);
     window.__botSayQ = 'Voy a la imprenta UVXpress.';
     b.ball = false; b.ballK = 0; b.glr = 0; b.glr0 = 0; b.bh = 0; b.bvy = 0; b.v = 0; b.rec = 0; b.scan = false; b.circ = false;
@@ -8259,6 +8259,7 @@ window.startMap = function (RAW, AUTH) {
     if (b.tpj) { b.v = 0; return; }
     if (U.ph === 'tp') { pb.updateMatrixWorld(true); W = pb.worldToLocal(new THREE.Vector3(b.x, 0, b.z)); U.x = W.x; U.z = W.z; U.ph = 'in'; U.wp = UVX_IN; U.wi = 0; }
     yw = null; st = 0;
+    if (U.kb && U.t >= U.kb) { U.kb = 0; if (push) push('k', 'Hasta luego, bonito día', true); }
     if (U.ph === 'in' || U.ph === 'out') {
       tg = U.wp[U.wi]; dx = tg[0] - U.x; dz = tg[1] - U.z; d = Math.hypot(dx, dz);
       if (d < 0.06) { U.wi++; if (U.wi >= U.wp.length) { if (U.ph === 'in') { U.ph = 'stand'; U.t0 = U.t; } else { uvxEnd(); return; } } }
@@ -8267,9 +8268,7 @@ window.startMap = function (RAW, AUTH) {
       if (K) yw = Math.atan2(K.x - U.x, K.z - U.z);
       if (U.ph === 'stand' && ((K && K.st === 'greet' && K.tm > 0.8) || U.t - U.t0 > 22)) { U.ph = 'dlg'; U.di = 0; U.t0 = U.t; if (push) push(UVX_DLG[0][0] === 'k' ? 'k' : 'r', UVX_DLG[0][1], true); }
       else if (U.ph === 'dlg' && U.t - U.t0 > UVX_DLG[U.di][2]) { U.di++; U.t0 = U.t; if (U.di >= UVX_DLG.length) U.ph = 'lk'; else { if (push) push(UVX_DLG[U.di][0], UVX_DLG[U.di][1], true); if (UVX_DLG[U.di][0] === 'r') AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); } }
-      else if (U.ph === 'lk') { if (U.t - U.t0 > 11.5 && !U.sp) { U.sp = 1; if (push) push('r', 'Ese técnico parece tabloide atascado', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); }
-      if (U.t - U.t0 > 15.5 && !U.sp2) { U.sp2 = 1; if (push) push('r', 'Regreso más tarde', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); }
-      if (U.t - U.t0 > 19 && !U.sp3) { U.sp3 = 1; if (push) push('k', 'Hasta luego, bonito día', true); } if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5 && yw !== null) yw += nAng(Math.atan2(0.12 - U.x, -1.0 - U.z) - yw) * 0.5; if (U.t - U.t0 > 22.5) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; } }
+      else if (U.ph === 'lk') { if (U.t - U.t0 > 11.5 && !U.sp) { U.sp = 1; if (push) push('r', 'Ese técnico parece tabloide atascado', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); } if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5 && yw !== null) yw += nAng(Math.atan2(0.12 - U.x, -1.0 - U.z) - yw) * 0.5; if (U.t - U.t0 > 16.5) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; if (push) push('r', 'Regreso más tarde', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); U.kb = U.t + 2.5; } }
     }
     if (yw !== null) U.yl += nAng(yw - U.yl) * Math.min(1, dt * 7);
     fl = Math.max(0, Math.min(1, (2.1 - U.z) / 0.7));
@@ -9023,6 +9022,10 @@ window.startMap = function (RAW, AUTH) {
     if (DUEL && (DUEL.ph === 'fight' || (DUEL.ph === 'end' && DUEL.insp))) duelRobotStep(dt);
 
     if (window.__uvxD && (window.__uvx || (window.__uvxC && window.__uvxC.on))) { try { window.__uvxD(b, t, dt); } catch (eUv) { window.__uvx = null; if (window.__uvxC) window.__uvxC.on = 0; window.__uvxCam = 0; } }
+    if (!window.__uvx && GM.mode === 'exp' && GM.rel && now >= GM.go) { /* de vez en cuando el robot decide ir solo a UVXpress */
+      if (window.__uvxNext === undefined) window.__uvxNext = now + 90 + Math.random() * 90;
+      else if (now >= window.__uvxNext && !b.tpj && !b.xs && b.mode === 'walk') { window.__uvxNext = now + 240 + Math.random() * 120; if (Math.random() < 0.5) botCallPrint(true); }
+    }
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
     var swz = (b.mode === 'lift' && b.lift && b.lift.ph === 2) ? 0.09 * Math.sin(t * 1.7) : 0, swx = 0, swy = 0;
