@@ -6870,7 +6870,7 @@ window.startMap = function (RAW, AUTH) {
 
   var vegObs = null, botVG = null, bot = null, botFollow = false, botCamFree = false, turretMode = 'car', botYawCam = 0, botObs = null, botList = [], botLas = [], botLasI = 0, botRC = null;
   var BOT_RANGE = 35, BOT_HUNT_D = 6, BOT_WALK = 1.6, BOT_RUN = 10, BOT_BOOST = 30, BOT_CELL = 8, BOT_LASER_V = 110, BOT_BOLT_MAX = 95, BOT_BOOST_CD = 7, BOT_CHASE_R = 400;
-  var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion();
+  var bkE = new THREE.Euler(), bkQ1 = new THREE.Quaternion(), bkQ2 = new THREE.Quaternion(), bkSpE = new THREE.Euler(), bkSpQ = new THREE.Quaternion();
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
   var bkLaserR = new THREE.MeshBasicMaterial({ color: 0xff7d7d, transparent: true, opacity: 0.98, blending: THREE.AdditiveBlending, depthWrite: false }), bkLaserGlowR = new THREE.MeshBasicMaterial({ color: 0xff1f1f, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -9139,6 +9139,7 @@ window.startMap = function (RAW, AUTH) {
       bkQ1.setFromEuler(bkE).slerp(b.arms[i].hs, b.hold);
       bkE.set(-(elf + 0.5 * Math.max(0, f)) * (1 - bk) - 1.8 * bk, 0, 0);
       bkQ2.setFromEuler(bkE).slerp(b.arms[i].he, b.hold);
+      if (b._sp > 0.02) { bkSpE.set(-0.55 * b._sp * (0.6 + 0.4 * Math.sin(t * 4.6 + i * 1.9)), 0, (i === 0 ? -1 : 1) * 0.12 * b._sp); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set(-0.7 * b._sp * (0.5 + 0.5 * Math.sin(t * 5.7 + i)), 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* gesticula al hablar */
       if (i === 1 && b.scanK > 0.01) { bkQ1.slerp(b.scQs, b.scanK); bkQ2.slerp(b.scQe, b.scanK); }
       b.arms[i].sh.quaternion.copy(bkQ1); b.arms[i].el.quaternion.copy(bkQ2);
     }
