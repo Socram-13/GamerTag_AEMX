@@ -5727,6 +5727,7 @@ window.startMap = function (RAW, AUTH) {
       centro: { root: 43, sc: 'dorian', bpm: 110, prog: [0, 3, 0, 4], arp: 'sawtooth', pad: 'sawtooth', lp: 1300, pulse: 1 },
       golfo: { root: 41, sc: 'mixo', bpm: 95, prog: [0, 6, 3, 4], arp: 'triangle', pad: 'triangle', lp: 1500, drops: 1 },
       sur: { root: 36, sc: 'phryg', bpm: 80, prog: [0, 1, 0, 6], arp: 'sine', pad: 'sawtooth', lp: 700 },
+      niebla: { root: 34, sc: 'phryg', bpm: 48, prog: [0, 0, 1, 0], pad: 'sine', lp: 600, ghost: 1 },
       peninsula: { root: 48, sc: 'lydian', bpm: 85, prog: [0, 1, 4, 0], arp: 'sine', pad: 'triangle', lp: 2600, bells: 1 }
     };
     var MSTATE = { 'Baja California': 'noroeste', 'Baja California Sur': 'noroeste', 'Sonora': 'noroeste', 'Sinaloa': 'noroeste',
@@ -5748,7 +5749,7 @@ window.startMap = function (RAW, AUTH) {
     }
     function mInit() {
       M = {};
-      M.out = ctx.createGain(); M.out.gain.value = 0.5;
+      M.out = ctx.createGain(); M.out.gain.value = 0.14;
       M.lp = ctx.createBiquadFilter(); M.lp.type = 'lowpass'; M.lp.frequency.value = 14000;
       M.dly = ctx.createDelay(1); M.dly.delayTime.value = 0.36;
       M.fb = ctx.createGain(); M.fb.gain.value = 0.38; M.dg = ctx.createGain(); M.dg.gain.value = 0.3;
@@ -5762,6 +5763,16 @@ window.startMap = function (RAW, AUTH) {
       return MSTATE[st] || 'centro';
     }
     function mSched(R, tNow) {
+      if (R.ghost) {
+        var gs = 30 / R.bpm, gt = mNext, gn = !!(ghostPos && (ghostPos.x - camera.position.x) * (ghostPos.x - camera.position.x) + (ghostPos.z - camera.position.z) * (ghostPos.z - camera.position.z) < 6400), gf;
+        if (mStep % 8 === 0) {
+          gf = mFreq(R, 7);
+          mNote('sine', gf, gt, gs * 10, 0.07, 2.5, mSes.g, 500); mNote('sine', gf * 1.4142, gt, gs * 10, 0.045, 3, mSes.g, 500); mNote('sine', gf * 1.4985, gt, gs * 10, 0.03, 3, mSes.g, 500); mNote('sine', gf * 1.006, gt, gs * 10, 0.04, 2.8, mSes.g, 500);
+        }
+        if (Math.random() < (gn ? 0.3 : 0.1)) mNote('sine', mFreq(R, [0, 2, 4, 6][Math.floor(Math.random() * 4)] + 21) * (1 + (Math.random() - 0.5) * 0.035) * (gn ? 1.06 : 1), gt, 3, gn ? 0.06 : 0.04, 0.01, mSes.g);
+        mNext += gs; mStep++;
+        return;
+      }
       var sd = 30 / R.bpm, bar = Math.floor(mStep / 8), st = mStep % 8, base = R.prog[bar % R.prog.length], ch = [base, base + 2, base + 4], t0 = mNext, k, f;
       if (st === 0) {
         for (k = 0; k < 3; k++) { f = mFreq(R, ch[k] + 7); mNote(R.pad, f, t0, sd * 9, 0.045, 1.3, mSes.g, R.lp); mNote(R.pad, f * 1.004, t0, sd * 9, 0.03, 1.5, mSes.g, R.lp); }
@@ -5778,11 +5789,13 @@ window.startMap = function (RAW, AUTH) {
       if (!on || ctx.state !== 'running') return;
       if (!M) mInit();
       if (t - mCheck > 0.6) {
-        mCheck = t; key = mRegion();
+        mCheck = t; key = ((typeof WX !== "undefined" && WX && WX.fogAt && WX.fogAt(camera.position.x, camera.position.z)) && !(window.__junkIn && window.__junkIn(camera.position.x, camera.position.z))) ? 'niebla' : mRegion();
         if (key !== mKey || !mSes) {
           old = mSes; mKey = key;
           mSes = { g: ctx.createGain() }; mSes.g.gain.value = 0.0001; mSes.g.connect(M.out); mSes.g.gain.setTargetAtTime(1, now, 1.2);
           if (old) { old.g.gain.setTargetAtTime(0.0001, now, 1.2); setTimeout(function () { try { old.g.disconnect(); } catch (e) { } }, 9000); }
+          if (key === 'niebla') { mSes.ns = ctx.createBufferSource(); mSes.ns.buffer = noiseBuf; mSes.ns.loop = true; var wf = ctx.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 420; wf.Q.value = 3; var wg = ctx.createGain(); wg.gain.value = 0.05; mSes.ns.connect(wf); wf.connect(wg); wg.connect(mSes.g); mSes.ns.start(); }
+          if (old && old.ns) setTimeout(function () { try { old.ns.stop(); } catch (e) { } }, 9000);
           mNext = now + 0.1; mStep = 0;
         }
         inJ = !!(window.__junkIn && window.__junkIn(camera.position.x, camera.position.z));
