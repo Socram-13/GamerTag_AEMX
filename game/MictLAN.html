@@ -8211,7 +8211,7 @@ window.startMap = function (RAW, AUTH) {
     if (on && !C.on) { C.on = 1; C.save.copy(camera.position).sub(controls.target); }
     if (!C.on) return;
     window.__uvxCam = 1; botCamUser = clock.elapsedTime;
-    th = pb.rotation.y; if (on) uvxW.set(0.9 * Math.cos(th) + 2.9 * Math.sin(th), 1.1, -0.9 * Math.sin(th) + 2.9 * Math.cos(th)); else uvxW.copy(C.save);
+    th = pb.rotation.y; if (on) uvxW.set(0.55 * Math.cos(th) + 1.9 * Math.sin(th), 0.85, -0.55 * Math.sin(th) + 1.9 * Math.cos(th)); else uvxW.copy(C.save);
     uvxO.copy(camera.position).sub(controls.target); k = Math.min(1, dt * 2.2); uvxO.lerp(uvxW, k);
     camera.position.copy(controls.target).add(uvxO);
     if (!on && uvxO.distanceTo(C.save) < 0.15) { C.on = 0; window.__uvxCam = 0; }
