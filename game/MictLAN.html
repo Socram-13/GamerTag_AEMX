@@ -12475,7 +12475,12 @@ onAuthStateChanged(auth, async (user) => {
   if (started) return;
   btn.hidden = true; gtModeShown = false; gtModes.hidden = true; msg.textContent = 'Cargando jugadores…'; gtShow(); cancelAnimationFrame(gtRaf); gtDone = false; gtT0 = 0; gtP = 0; gtI = 0; gtLog.innerHTML = ''; gtRaf = requestAnimationFrame(gtTick);
   try {
-    const snap = await get(ref(db, 'users'));
+    /* Lista diaria publicada por GitHub Action (ahorra descargas de Firebase); solo se lee el registro propio, fresco */
+    let ALL = null;
+    try { const rs = await fetch('mictlan/users.json', { cache: 'no-cache' }); if (rs.ok) { ALL = await rs.json(); if (!ALL || typeof ALL !== 'object' || Array.isArray(ALL) || !Object.keys(ALL).length) ALL = null; } } catch (eU) { ALL = null; }
+    if (ALL) { try { const me = await get(ref(db, 'users/' + user.uid)); if (me.exists()) ALL[user.uid] = me.val(); } catch (eM) {} }
+    else ALL = (await get(ref(db, 'users'))).val() || {};
+    const snap = { val: () => ALL };
     started = true;
     { const u = (snap.val() || {})[user.uid], n = (x) => (typeof x === 'number' && isFinite(x) ? x : parseInt(x, 10) || 0); gtTot = u ? n(u.common) + n(u.rare) + n(u.epic) + n(u.legendary) : 0; }
     msg.textContent = 'Cargando mapa…';
