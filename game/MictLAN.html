@@ -93,6 +93,7 @@
   #dFeed { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 54px; width: max(23vw, 220px); height: min(430px, calc(100vh - 200px)); display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 5px; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%); mask-image: linear-gradient(to bottom, transparent 0, #000 22%); }
   .dm { display: block; width: 100%; max-width: 100%; opacity: 0; transform: translateY(14px); transition: opacity 0.4s, transform 0.4s; --c: #ff5a5a; --t: #ff9d9d; }
   .dm.in { opacity: 1; transform: none; }
+  @media (min-width: 901px) and (hover: hover) and (pointer: fine) { #dFeed { width: max(27vw, 340px); } #dFeed .dm .dt { font-size: 18px; padding: 4px 7px; } #dFeed .dm .dn { font-size: 13px; } }
   .dm.out { opacity: 0; transform: translateY(-6px); }
   .dm.k { --c: #4da6ff; --t: #b3d7ff; }
   .dm.r { --c: #4dff88; --t: #a9ffc6; text-align: right; }
