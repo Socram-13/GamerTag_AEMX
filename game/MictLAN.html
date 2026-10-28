@@ -11679,15 +11679,6 @@ window.startMap = function (RAW, AUTH) {
   })();
   window.__aemxAlien = ALN;
 
-  (function () {
-    var bar = document.createElement('div'), n = 0;
-    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:rgba(170,0,0,0.92);color:#fff;font:11px/1.3 monospace;padding:4px 8px;display:none;white-space:pre-wrap;max-height:30vh;overflow:auto;pointer-events:none';
-    document.body.appendChild(bar);
-    function show(m) { n++; bar.style.display = 'block'; bar.textContent = '[' + n + '] ' + String(m).slice(0, 600); }
-    window.addEventListener('error', function (e) { show('ERR ' + e.message + ' @' + (e.lineno || '?') + ':' + (e.colno || '?') + (e.error && e.error.stack ? '\n' + e.error.stack.split('\n').slice(0, 3).join('\n') : '')); });
-    window.addEventListener('unhandledrejection', function (e) { show('PROMESA ' + (e.reason && e.reason.message || e.reason)); });
-    renderer.domElement.addEventListener('webglcontextlost', function () { show('WEBGL PERDIDO (context lost)'); }, false);
-  })();
   function frame() {
     requestAnimationFrame(frame);
     var dtRaw = clock.getDelta(), dt = Math.min(dtRaw, 0.05), t = clock.elapsedTime, k, n;
