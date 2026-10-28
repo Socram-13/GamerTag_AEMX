@@ -127,6 +127,10 @@
   @keyframes invPulse { 50% { transform: translateX(-50%) scale(1.18); box-shadow: 0 0 14px rgba(255,40,40,0.9); } }
   #bMini .ct { font: 700 12px var(--f-body); letter-spacing: 0.14em; color: #ffd0d0; text-shadow: 0 0 6px rgba(0,0,0,0.8); text-transform: uppercase; }
   .stage.ui-off #botHud { display: none !important; }
+  .stage.top-off .me, .stage.top-off .tools button:not(#b-top) { display: none !important; } /* barra superior oculta: solo quedan la búsqueda y su botón */
+  .stage.chat-off #dFeed { display: none !important; }
+  #b-chat { position: absolute; left: calc(max(16px, env(safe-area-inset-left, 0px)) + max(23vw, 220px) - 44px); bottom: 12px; height: 34px; min-width: 44px; padding: 0 12px; border-radius: 4px 14px 4px 14px; border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(6px); color: var(--ink); font: 600 14px var(--f-body); cursor: pointer; pointer-events: auto; }
+  #b-chat:hover { border-color: var(--cyan); }
   .stage.gm-inv .search, .stage.gm-inv #b-over, .stage.gm-inv #b-pal, .stage.gm-inv .me { display: none !important; } /* Modo Invasión: solo la cámara del robot (la búsqueda aparece con la tecla / para los códigos) */
   .stage.gm-inv.q-on .search { display: block !important; }
   .stage.ui-off .me, .stage.ui-off .search, .stage.ui-off #card, .stage.ui-off .tools button:not(#b-ui) { display: none !important; }
@@ -350,6 +354,7 @@
     <div id="bTags"><div id="bDir"></div><div id="bAct"></div></div>
     <div id="bInfo"><div id="aSay"><b>AURA</b> <span></span></div><div id="bSay"></div></div>
     <div id="dFeed"></div>
+    <button type="button" id="b-chat" aria-pressed="false" aria-label="Ocultar el chat" title="Ocultar el chat">◀</button>
     <div id="bMini"><div id="invCd"></div><div id="peaceCd"></div><div class="rw"><canvas id="bMiniC" width="336" height="336"></canvas><svg id="bRing" viewBox="0 0 100 100" aria-hidden="true"><circle class="rt" cx="50" cy="50" r="48.3" pathLength="100"/><circle class="rf" id="bFill" cx="50" cy="50" r="48.3" pathLength="100" stroke-dasharray="100 100" transform="rotate(-90 50 50)"/></svg></div><span class="ct" id="bMiniT"></span></div>
   </div>
   <div class="hud">
@@ -372,6 +377,7 @@
         <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
         <button type="button" id="b-snd" aria-pressed="true" aria-label="Activar o desactivar el sonido" title="Activar o desactivar el sonido">🔊</button>
         <button type="button" id="b-ui" aria-pressed="false" title="Mostrar u ocultar la interfaz">Ocultar</button>
+        <button type="button" id="b-top" aria-pressed="false" aria-label="Ocultar la barra superior" title="Ocultar la barra superior (queda la búsqueda)">▲</button>
       </div>
       <!-- Controles anteriores: ocultos (se conservan por si se quieren recuperar) -->
       <div class="old-top" hidden>
@@ -5447,6 +5453,17 @@ window.startMap = function (RAW, AUTH) {
     this.textContent = off ? 'Mostrar' : 'Ocultar';
     this.setAttribute('aria-pressed', off ? 'true' : 'false');
     resEl.hidden = true;
+  });
+
+  document.getElementById('b-top').addEventListener('click', function () { /* oculta/muestra la barra superior (menos la búsqueda) */
+    var off = stage.classList.toggle('top-off');
+    this.textContent = off ? '▼' : '▲';
+    this.setAttribute('aria-pressed', off ? 'true' : 'false'); this.setAttribute('aria-label', off ? 'Mostrar la barra superior' : 'Ocultar la barra superior');
+  });
+  document.getElementById('b-chat').addEventListener('click', function () { /* oculta/muestra solo el chat */
+    var off = stage.classList.toggle('chat-off');
+    this.textContent = off ? '▶' : '◀';
+    this.setAttribute('aria-pressed', off ? 'true' : 'false'); this.setAttribute('aria-label', off ? 'Mostrar el chat' : 'Ocultar el chat');
   });
 
   var q = document.getElementById('q'), resEl = document.getElementById('res'), matches = [];
