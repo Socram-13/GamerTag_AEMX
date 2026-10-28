@@ -5749,7 +5749,7 @@ window.startMap = function (RAW, AUTH) {
     }
     function mInit() {
       M = {};
-      M.out = ctx.createGain(); M.out.gain.value = 0.14;
+      M.out = ctx.createGain(); M.out.gain.value = 0.05;
       M.lp = ctx.createBiquadFilter(); M.lp.type = 'lowpass'; M.lp.frequency.value = 14000;
       M.dly = ctx.createDelay(1); M.dly.delayTime.value = 0.36;
       M.fb = ctx.createGain(); M.fb.gain.value = 0.38; M.dg = ctx.createGain(); M.dg.gain.value = 0.3;
