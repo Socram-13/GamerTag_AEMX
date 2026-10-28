@@ -1,0 +1,28 @@
+name: Exportar jugadores
+
+on:
+  schedule:
+    - cron: '0 9 * * *'   # 1 vez al día (09:00 UTC = 03:00 CDMX)
+  workflow_dispatch:       # también manual desde la pestaña Actions
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save firebase-admin@12
+      - run: node .github/scripts/export-users.mjs
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+      - name: Guardar si cambió
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/mictlan/users.json
+          git diff --staged --quiet || (git commit -m "Actualizar lista de jugadores" && git push)
