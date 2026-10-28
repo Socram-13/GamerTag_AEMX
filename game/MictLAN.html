@@ -4545,12 +4545,12 @@ window.startMap = function (RAW, AUTH) {
       cyBox(g, bgWall, 3.5, 2.7, 0.12, 0, 1.53, -1.44); cyBox(g, bgWall, 0.12, 2.7, 3.0, -1.69, 1.53, 0); cyBox(g, bgWall, 0.12, 2.7, 3.0, 1.69, 1.53, 0); /* fondo y laterales */
       cyBox(g, bgPaneR, 1.33, 1.5, 0.04, -1.065, 0.95, 1.44); cyBox(g, bgPaneW, 1.33, 1.5, 0.04, 1.065, 0.95, 1.44);
       cyBox(g, bgRedW, 0.012, 2.5, 2.88, -1.624, 1.47, 0); /* cara interior roja de la pared del mostrador */
-      cyBox(g, bgCounter, 0.01, 0.8, 0.8, -1.612, 1.55, -0.1); /* cuadro negro en la pared roja */ cyBox(g, bgWall2, 3.5, 1.18, 0.12, 0, 2.29, 1.44); /* vidrio abajo, franja de concreto hasta el nivel 1 */
+      cyBox(g, bgCounter, 0.01, 0.8, 0.8, -1.612, 1.1, -0.1); /* cuadro negro en la pared roja */ cyBox(g, bgWall2, 3.5, 1.18, 0.12, 0, 2.29, 1.44); /* vidrio abajo, franja de concreto hasta el nivel 1 */
       cyBox(g, bgSlab, 3.5, 0.06, 0.16, 0, 1.7, 1.45); cyBox(g, bgSlab, 3.5, 0.06, 0.16, 0, 0.21, 1.45);
       cyBox(g, bgSlab, 0.04, 1.5, 0.08, -1.15, 0.95, 1.45); cyBox(g, bgSlab, 0.04, 1.5, 0.08, 1.15, 0.95, 1.45); cyBox(g, bgDoor, 0.07, 1.5, 0.1, -0.4, 0.95, 1.46); cyBox(g, bgDoor, 0.07, 1.5, 0.1, 0.4, 0.95, 1.46);
       cyBox(g, bgSlab, 3.62, 0.08, 0.2, 0, 2.92, 1.44); cyBox(g, bgSlab, 3.62, 0.08, 0.2, 0, 2.92, -1.44); cyBox(g, bgSlab, 0.2, 0.08, 3.1, -1.69, 2.92, 0); cyBox(g, bgSlab, 0.2, 0.08, 3.1, 1.69, 2.92, 0); /* remates */
       (function () { /* mesita junto a la pared derecha con una guillotina de papel pequeña */
-        var wd = new THREE.MeshLambertMaterial({ color: 0xa87f52, emissive: 0x1a1008 }), mt = new THREE.MeshLambertMaterial({ color: 0x9aa3ab, emissive: 0x15181a }), bx = 1.45, bz = 0.62, T = 0.53, m, i, j;
+        var wd = new THREE.MeshLambertMaterial({ color: 0xa87f52, emissive: 0x1a1008 }), mt = new THREE.MeshLambertMaterial({ color: 0x9aa3ab, emissive: 0x15181a }), bx = 1.45, bz = 0.15, T = 0.53, m, i, j;
         cyBox(g, wd, 0.32, 0.03, 0.72, bx, 0.515, bz);
         for (i = -1; i <= 1; i += 2) for (j = -1; j <= 1; j += 2) cyBox(g, wd, 0.025, 0.285, 0.025, bx + i * 0.13, 0.3575, bz + j * 0.32);
         cyBox(g, prW, 0.22, 0.035, 0.3, bx, T + 0.0175, bz); /* base de la guillotina */
@@ -4571,6 +4571,17 @@ window.startMap = function (RAW, AUTH) {
         var pp = new THREE.MeshLambertMaterial({ color: 0xf3f1ea, emissive: 0x1a1a18 }), pb = new THREE.MeshLambertMaterial({ color: 0xcfe3f5, emissive: 0x10161a }), pk = new THREE.MeshLambertMaterial({ color: 0xf2d3da, emissive: 0x1a1214 }), T = 0.615, m, i, ks = [[-0.84, 0.12, 0.2], [-0.78, 0.42, -0.35], [-0.9, 0.62, 0.5], [-0.72, -0.1, 0.12], [-0.95, 0.3, -0.15]];
         for (i = 0; i < 6; i++) { m = cyBox(g, i === 2 ? pb : (i === 4 ? pk : pp), 0.15, 0.003, 0.21, -0.82 + i * 0.002, T + 0.002 + i * 0.0032, 0.25 + i * 0.002); m.rotation.y = 0.12 + i * 0.05; } /* pila de hojas */
         ks.forEach(function (q, j) { m = cyBox(g, j === 1 ? pb : pp, 0.14, 0.003, 0.2, q[0], T + 0.002, q[1]); m.rotation.y = q[2]; }); /* hojas sueltas */
+        (function () { /* corazoncito con K y M dibujado en una de las hojas sueltas */
+          var cv = document.createElement('canvas'), cx = cv.getContext('2d'), tx = new THREE.CanvasTexture(cv), hg = new THREE.Group(), hp, hm;
+          cv.width = cv.height = 128;
+          cx.beginPath(); cx.moveTo(64, 112); cx.bezierCurveTo(8, 72, 8, 24, 38, 20); cx.bezierCurveTo(54, 18, 62, 28, 64, 36); cx.bezierCurveTo(66, 28, 74, 18, 90, 20); cx.bezierCurveTo(120, 24, 120, 72, 64, 112); cx.closePath();
+          cx.fillStyle = '#ffd1dc'; cx.fill(); cx.lineWidth = 6; cx.strokeStyle = '#d6244b'; cx.stroke();
+          cx.fillStyle = '#7a0f2a'; cx.font = 'bold 34px Arial, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('K', 46, 58); cx.fillText('M', 82, 58);
+          tx.encoding = THREE.sRGBEncoding; tx.anisotropy = 4;
+          hm = new THREE.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+          hp = new THREE.Mesh(uPlane, hm); hp.scale.set(0.075, 0.075, 1); hp.rotation.x = -Math.PI / 2; hp.position.set(0, 0, -0.04); hg.add(hp);
+          hg.position.set(-0.84, T + 0.0045, 0.12); hg.rotation.y = 0.2; g.add(hg);
+        })();
         m = cyBox(g, prM, 0.3, 0.014, 0.1, -0.94, T + 0.007, -0.27); m.rotation.y = -0.7854; /* teclado */
         m = cyBox(g, prD, 0.275, 0.004, 0.078, -0.94, T + 0.016, -0.27); m.rotation.y = -0.7854;
         [-0.026, -0.009, 0.008, 0.025].forEach(function (zz) { var q = cyBox(g, prG, 0.26, 0.002, 0.009, -0.94 - zz * 0.7071, T + 0.019, -0.27 + zz * 0.7071); q.rotation.y = -0.7854; });
@@ -8223,7 +8234,7 @@ window.startMap = function (RAW, AUTH) {
     AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
     return true;
   }
-  var UVX_DLG = [['k', 'Buenos días, bienvenido a UVXpress, en un momentito lo atiendo', 4.2], ['r', 'Buenos días, qué amable señorita', 3.4], ['r', 'Me dijeron que aquí la calidad UV es excelente', 4.4], ['k', 'Por supuesto, le tendremos sus impresiones listas en un momento', 4.8], ['k', '¿Gusta esperar o lleva prisa?', 3.6], ['r', 'Llevo prisa', 3], ['k', 'ekole kua', 3.6]];
+  var UVX_DLG = [['k', 'Buenos días, bienvenido a UVXpress, en un momentito lo atiendo', 4.2], ['r', 'Buenos días, qué amable señorita', 3.4], ['r', 'Me dijeron que aquí la calidad UV es excelente', 4.4], ['k', 'Por supuesto, le tendremos sus impresiones listas en un momento', 4.8], ['k', '¿Gusta esperar o lleva prisa?', 3.6], ['r', 'Llevo prisa', 3], ['k', 'No se preocupe, le llamamos en cuanto estén listas', 4.4], ['r', 'Excelente, yo regreso por las impresiones entonces', 4.4], ['k', '¡École cuá!', 3.6]];
   var UVX_IN = [[0, 2.1], [0, 1.2], [-0.15, 0.5], [-0.15, 0.15]], UVX_OUT = [[-0.15, 0.5], [0, 1.2], [0, 2.1], [0, 4.4]];
   var uvxO = new THREE.Vector3(), uvxW = new THREE.Vector3();
   function uvxCam(dt, on, pb) { /* acerca la cámara a la escena dentro de UVXpress y la devuelve al terminar */
@@ -8243,7 +8254,8 @@ window.startMap = function (RAW, AUTH) {
     if (!U) { uvxCam(dt, false, window.__uvxPb); return; }
     if (DUEL || b.mode === 'lift' || (b.mode !== 'walk' && !b.tpj)) { uvxEnd(); return; }
     pb = U.pb; U.t += dt;
-    b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0; b.hopGoal = null; b.tour = null;
+    b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0; b.hopGoal = null; b.tour = null; b.xs = null;
+    if (b.tpj && U.ph !== 'tp') { b.tpj = null; b.g.visible = true; } /* durante la visita no se permite ningún teletransporte */
     if (b.tpj) { b.v = 0; return; }
     if (U.ph === 'tp') { pb.updateMatrixWorld(true); W = pb.worldToLocal(new THREE.Vector3(b.x, 0, b.z)); U.x = W.x; U.z = W.z; U.ph = 'in'; U.wp = UVX_IN; U.wi = 0; }
     yw = null; st = 0;
@@ -8255,7 +8267,7 @@ window.startMap = function (RAW, AUTH) {
       if (K) yw = Math.atan2(K.x - U.x, K.z - U.z);
       if (U.ph === 'stand' && ((K && K.st === 'greet' && K.tm > 0.8) || U.t - U.t0 > 22)) { U.ph = 'dlg'; U.di = 0; U.t0 = U.t; if (push) push(UVX_DLG[0][0] === 'k' ? 'k' : 'r', UVX_DLG[0][1], true); }
       else if (U.ph === 'dlg' && U.t - U.t0 > UVX_DLG[U.di][2]) { U.di++; U.t0 = U.t; if (U.di >= UVX_DLG.length) U.ph = 'lk'; else { if (push) push(UVX_DLG[U.di][0], UVX_DLG[U.di][1], true); if (UVX_DLG[U.di][0] === 'r') AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); } }
-      else if (U.ph === 'lk') { if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5 && yw !== null) yw += nAng(Math.atan2(0.12 - U.x, -1.0 - U.z) - yw) * 0.5; if (U.t - U.t0 > 19) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; } }
+      else if (U.ph === 'lk') { if (U.t - U.t0 > 11.5 && !U.sp) { U.sp = 1; if (push) push('r', 'Ese técnico parece tabloide atascado, regreso más tarde', true); AUD.talk(bkMuz.set(b.x, b.y + 1.4, b.z)); } if (U.t - U.t0 > 11) yw = Math.atan2(1.15 - U.x, -0.64 - U.z); else if (U.t - U.t0 > 5 && yw !== null) yw += nAng(Math.atan2(0.12 - U.x, -1.0 - U.z) - yw) * 0.5; if (U.t - U.t0 > 18) { U.ph = 'out'; U.wp = UVX_OUT; U.wi = 0; } }
     }
     if (yw !== null) U.yl += nAng(yw - U.yl) * Math.min(1, dt * 7);
     fl = Math.max(0, Math.min(1, (2.1 - U.z) / 0.7));
