@@ -96,11 +96,11 @@
   .dm.out { opacity: 0; transform: translateY(-6px); }
   .dm.r { --c: #4dff88; --t: #a9ffc6; text-align: right; }
   .dm .dn { font: 700 15px var(--f-display, var(--f-body)); letter-spacing: 0.04em; color: var(--c); text-shadow: 0 0 8px var(--c), 0 1px 2px #000; margin: 0 2px 3px; }
-  .dm .dr { display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; align-items: center; gap: 7px; } /* íconos en los extremos; los globos de texto solo usan el espacio entre ellos */
+  .dm .dr { display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; align-items: start; gap: 7px; } /* íconos en los extremos; los globos de texto solo usan el espacio entre ellos */
   .dm .db { grid-row: 1; grid-column: 1; }
   .dm .dt { grid-row: 1; grid-column: 2; justify-self: start; }
   .dm.r .db { grid-column: 3; }
-  .dm.r .dt { justify-self: end; text-align: right; }
+  .dm.r .dt { justify-self: end; text-align: left; }
   .dm .dr { width: 100%; overflow: hidden; }
   .dm .dt { box-sizing: border-box; max-width: 100%; }
   .dm.a .dt { opacity: 0; transform: translateX(-10px); transform-origin: left center; transition: opacity 0.3s, transform 0.3s; }
