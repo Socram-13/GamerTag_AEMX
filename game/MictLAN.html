@@ -8322,6 +8322,7 @@ window.startMap = function (RAW, AUTH) {
     if (!window.__uvxCl) window.__uvxCl = {};
     if (U.z < 1.5) window.__uvxCl.bot = { x: U.x, z: U.z }; else delete window.__uvxCl.bot;
   };
+  var JK_DLG = [["¡Encontré el tornillo que me hacía falta!", "Por fin. Llevabas semanas rechinando."], ["Aquí está mi dedo meñique… ¡todavía responde!", "Pónselo antes de que lo pierdas otra vez."], ["Esta antena es de mi modelo. Sirve.", "Con eso tu señal dejará de sonar a radio de taxi."], ["Una batería con carga al 12 %. Es un tesoro.", "Para ti eso es un banquete."], ["¡Mi ojo izquierdo! Por eso veía todo menos nítido.", "Yo creía que era tu personalidad."], ["Estas piezas rojas no son mías. Son de mi clon.", "Mejor no las toques. Ya tuvimos suficiente con él."], ["Nada útil aquí. Solo óxido.", "Sigue buscando. La chatarra no se acaba."]];
   function botCallIsland(jk) { /* jk: ir a la chatarrería de las Islas Marías en vez de Socorro */
     var b = bot, g = (jk && JUNKC) ? JUNKC : geo(-110.97, 18.78), sp, sp2, an;
     if (jk && !JUNKC) return false;
@@ -8349,10 +8350,22 @@ window.startMap = function (RAW, AUTH) {
         if (botFree(mx, mz) && botSetGoal(mx, mz, 'patrol')) { b.disMeet = now0(); b.jog = false; return; }
       }
     }
-    if (freeT && b.inJunk && window.__junk && window.__junk.pp && window.__junk.pp.length && !invLock && Math.random() < 0.9) { /* en la chatarrería: revisa los montículos uno por uno */
-      var jp = window.__junk.pp, jn = ((b.jpI === undefined ? -1 : b.jpI) + 1 + ((Math.random() * 2) | 0)) % jp.length, ja, jx, jz, jt;
-      b.jpI = jn;
-      for (jt = 0; jt < 8; jt++) { ja = Math.atan2(b.z - jp[jn][1], b.x - jp[jn][0]) + (jt ? (Math.random() - 0.5) * 2.4 : 0); jx = jp[jn][0] + Math.cos(ja) * 2.1; jz = jp[jn][1] + Math.sin(ja) * 2.1; if (botFree(jx, jz) && botSetGoal(jx, jz, 'patrol')) { b.jog = false; b.idle = 3 + Math.random() * 3; return; } }
+    if (!b.inJunk) { b.jRt = null; b.jTalk = false; }
+    if (freeT && b.inJunk && window.__junk && window.__junk.pp && window.__junk.pp.length && !invLock && Math.random() < 0.9) { /* en la chatarrería: recorrido fijo por los montículos; en cada uno charla con Aura */
+      var jp = window.__junk.pp, ja, jx, jz, jt, jc, jl, jk2, jq, jd;
+      if (!b.jRt) { /* ruta: siempre al montículo más cercano que falte, así rodea la isla sin ir y venir */
+        jl = jp.map(function (q, k) { return k; }); b.jRt = []; jx = b.x; jz = b.z;
+        while (jl.length) { jq = 0; jd = 1e9; for (jk2 = 0; jk2 < jl.length; jk2++) { jc = Math.hypot(jp[jl[jk2]][0] - jx, jp[jl[jk2]][1] - jz); if (jc < jd) { jd = jc; jq = jk2; } } jx = jp[jl[jq]][0]; jz = jp[jl[jq]][1]; b.jRt.push(jl[jq]); jl.splice(jq, 1); }
+        b.jRi = -1; b.jTalk = false;
+      }
+      if (b.jTalk) { b.jTalk = false; }
+      else if (b.jRi >= 0 && window.__dFeedPush && Math.hypot(b.x - jp[b.jRt[b.jRi]][0], b.z - jp[b.jRt[b.jRi]][1]) < 6) {
+        if (!b.jBag || !b.jBag.length) { b.jBag = JK_DLG.map(function (q, k) { return k; }).sort(function () { return Math.random() - 0.5; }); }
+        jq = JK_DLG[b.jBag.pop()]; window.__dFeedPush('r', jq[0]); setTimeout(function () { if (window.__dFeedPush) window.__dFeedPush('a', jq[1]); }, 2800);
+        b.jTalk = true; b.idle = 7; return;
+      }
+      b.jRi = (b.jRi + 1) % b.jRt.length; jc = b.jRt[b.jRi];
+      for (jt = 0; jt < 8; jt++) { ja = Math.atan2(b.z - jp[jc][1], b.x - jp[jc][0]) + (jt ? (Math.random() - 0.5) * 2.4 : 0); jx = jp[jc][0] + Math.cos(ja) * 2.1; jz = jp[jc][1] + Math.sin(ja) * 2.1; if (botFree(jx, jz) && botSetGoal(jx, jz, 'patrol')) { b.jog = false; b.idle = 3 + Math.random() * 3; return; } }
     }
     if (freeT && GM.mode === 'exp' && !DUEL && !VIS && aura && aura.mode === 'trail' && !invLock && now0() >= (b.visCD || 0)) {
       b.visCD = now0() + 25;
