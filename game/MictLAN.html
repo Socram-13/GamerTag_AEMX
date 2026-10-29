@@ -9287,7 +9287,7 @@ window.startMap = function (RAW, AUTH) {
       bkQw.setFromRotationMatrix(bkM); b.arms[1].el.getWorldQuaternion(bkQe); b.beam.quaternion.copy(bkQe.invert()).multiply(bkQw);
       wa = dl * 1.45 / 0.33;
       b.beam.visible = true; b.beam.scale.set(1, 1, 1); b.beam.material.opacity = (0.55 + 0.05 * Math.sin(t * 28)) * b.scanK;
-      b.spot.visible = true; b.spot.position.set(b.wk.x, wk2 + 0.12, b.wk.z); b.spot.material.opacity = (0.28 + 0.12 * Math.sin(t * 9)) * b.scanK;
+      b.spot.visible = false; b.spot.position.set(b.wk.x, wk2 + 0.12, b.wk.z); /* el círculo verde del suelo se quitó: queda solo el haz de luz */ b.spot.material.opacity = (0.28 + 0.12 * Math.sin(t * 9)) * b.scanK;
       b.wkFx -= dt;
       if (b.wkFx <= 0) { b.wkFx = 0.2; fxSpawn(b.wk.x + (Math.random() - 0.5) * 3, terrainH(b.wk.x, b.wk.z) + 0.4, b.wk.z + (Math.random() - 0.5) * 3, 0, 0.8, 0, 0.7, 0.1, 0.03, 0x7dffa0, 0.7, true); }
     } else { b.beam.visible = false; b.spot.visible = false; }
@@ -11240,9 +11240,9 @@ window.startMap = function (RAW, AUTH) {
       for (i = 0; i < 26; i++) { an = i / 26 * 6.2832; sp = rnd(12, 26); spawnP(m.x, m.y + 1, m.z, Math.sin(an) * sp, rnd(0.2, 1.5), Math.cos(an) * sp, rnd(1.6, 2.6), 5, 16, 0x6a5a48, 0.6, false); }
       for (i = 0; i < 44; i++) { an = rnd(0, 6.2832); sp = rnd(6, 24); spawnP(m.x, m.y + 1.5, m.z, Math.sin(an) * sp, rnd(10, 34), Math.cos(an) * sp, rnd(1.0, 2.2), rnd(0.8, 1.8), 0.2, 0xffa030, 1, true, 24); }
       for (i = 0; i < 10; i++) spawnP(m.x + rnd(-2, 2), m.y + 1, m.z + rnd(-2, 2), rnd(-3, 3), rnd(3, 9), rnd(-3, 3), rnd(1.5, 2.6), 4, 11, 0xff6a1a, 0.9, true);
-      cr = conformDisc(m.x, m.z, 0, 6.5, 8, 32, new THREE.MeshBasicMaterial({ color: 0x120a06, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }), 0.05);
+      cr = conformDisc(m.x, m.z, 0, 6.5, 8, 32, new THREE.MeshBasicMaterial({ color: 0x120a06, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 0.018);
       grp.add(cr); m.crater = cr;
-      var cg = conformDisc(m.x, m.z, 3.2, 6.5, 4, 32, new THREE.MeshBasicMaterial({ color: 0xff5a14, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), 0.065);
+      var cg = conformDisc(m.x, m.z, 3.2, 6.5, 4, 32, new THREE.MeshBasicMaterial({ color: 0xff5a14, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }), 0.028);
       grp.add(cg); m.craterG = cg;
       for (i = 0; i < 24; i++) { var cs2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x2c2a2a, transparent: true, opacity: 0, depthWrite: false, fog: false })); cs2.renderOrder = 5; noRay(cs2); grp.add(cs2); m.col.push({ s: cs2, ph: i / 24, wob: rnd(0, 6.28) }); }
       AUD.mImpact({ x: m.x, y: m.y + 1, z: m.z });
