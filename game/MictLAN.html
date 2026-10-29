@@ -5612,6 +5612,7 @@ window.startMap = function (RAW, AUTH) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'socorro') { q.value = ''; resEl.hidden = true; matches = []; botCallIsland(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'aldea') { q.value = ''; resEl.hidden = true; matches = []; botCallVillage(); auraVilCall(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'inv') { window.__botSayQ = 'La invasión solo existe en el Modo Invasión.'; return; } if (typeof ALN !== 'undefined') ALN.startHere(); return; }
+    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'llorona') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'exp') { window.__botSayQ = 'Solo puedo ir a verla en el Modo Exploración.'; return; } if (!window.__llGo || !window.__llGo(true)) window.__botSayQ = 'No la encuentro todavía…'; return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
   });
   q.addEventListener('keydown', function (e) { if (GM.mode === 'inv' && (e.key === 'Enter' || e.key === 'Escape')) setTimeout(function () { q.blur(); }, 0); });
@@ -10504,6 +10505,194 @@ window.startMap = function (RAW, AUTH) {
     A.g.rotation.y = A.yaw; A.g.position.set(A.x, A.y + hopY + (A.mode === 'trail' ? Math.abs(Math.sin(A.ph)) * 0.0 : 0), A.z); A.g.scale.setScalar(0.37 * Math.max(0.001, A.k));
     auraHoloStep(A, t, dt);
   }
+  /* ===== La Llorona: copia de Aura, blanca y translúcida, cabello negro largo, ojos rojos, bata larga y niebla; camina por las veredas como Aura ===== */
+  var LL = null, LL_DLG = [
+    ['¿Oíste ese lamento? Se me heló el sistema…', 'Es la Llorona. Yo no me quedo a averiguarlo.'],
+    ['Dime que ese bulto blanco no es lo que creo…', 'Es la Llorona, sí. Nos apareció la Llorona.'],
+    ['¡Ay no! Se me apareció la Llorona.', 'A mí también. Camina despacio y no la mires.'],
+    ['Tengo miedo… ¿y si nos pide a los hijos?', 'Nosotros no tenemos hijos. Creo. No corras.'],
+    ['Esa niebla no es normal. ¿La ves?', 'La veo. Es la Llorona, vámonos con calma.'],
+    ['Mejor nos alejamos antes de que nos lamente.', 'Ni lo menciones, que me dan escalofríos.'],
+    ['Mis sensores dicen que no hay nadie… pero la veo.', 'Porque es la Llorona. Ni los sensores la entienden.']
+  ];
+  function llWhiteFace(src) { /* textura de la cara: sin color, más clara y con iris rojos brillantes */
+    var cv = document.createElement('canvas'), c, em = document.createElement('canvas'), e, W = src.width, H = src.height, side, cx, cy, gr, tx, tE;
+    cv.width = W; cv.height = H; c = cv.getContext('2d'); c.drawImage(src, 0, 0);
+    c.globalCompositeOperation = 'destination-over'; c.fillStyle = '#e4e8f2'; c.fillRect(0, 0, W, H);
+    c.globalCompositeOperation = 'saturation'; c.fillStyle = '#808080'; c.fillRect(0, 0, W, H);
+    c.globalCompositeOperation = 'screen'; c.fillStyle = 'rgba(255,255,255,0.42)'; c.fillRect(0, 0, W, H);
+    c.globalCompositeOperation = 'source-over';
+    em.width = W; em.height = H; e = em.getContext('2d'); e.fillStyle = '#3a3d4a'; e.fillRect(0, 0, W, H);
+    [c, e].forEach(function (q, qi) {
+      for (side = -1; side <= 1; side += 2) {
+        cx = 256 + side * 110; cy = 252;
+        q.save(); q.scale(W / 512, H / 640); q.translate(cx, cy); q.scale(1.3, 1.3); q.translate(-cx, -cy);
+        q.beginPath(); q.moveTo(cx - 50, cy + 6); q.bezierCurveTo(cx - 28, cy - 30, cx + 28, cy - 30, cx + 50, cy + 4); q.bezierCurveTo(cx + 26, cy + 24, cx - 26, cy + 24, cx - 50, cy + 6); q.closePath(); q.clip();
+        gr = q.createRadialGradient(cx, cy - 2, 2, cx, cy - 2, 27); gr.addColorStop(0, '#ffe0d0'); gr.addColorStop(0.3, '#ff3b2b'); gr.addColorStop(0.8, '#d40a0a'); gr.addColorStop(1, '#7a0000');
+        q.fillStyle = gr; q.beginPath(); q.arc(cx, cy - 2, 26, 0, 6.2832); q.fill();
+        q.fillStyle = qi ? '#ff9a80' : '#2a0000'; q.beginPath(); q.arc(cx, cy - 2, 9, 0, 6.2832); q.fill();
+        q.restore();
+      }
+    });
+    tx = new THREE.CanvasTexture(cv); tx.anisotropy = 4; tE = new THREE.CanvasTexture(em);
+    return new THREE.MeshLambertMaterial({ map: tx, emissive: 0xffffff, emissiveMap: tE, emissiveIntensity: 0.9, transparent: true, opacity: 0.62, depthWrite: false, flatShading: true });
+  }
+  function buildLlorona() {
+    var a = makeAura(), g = a.g, i, j, m, ang, fg, fp, fl2, cv, cx, gr;
+    var wm = new THREE.MeshLambertMaterial({ color: 0xf2f5ff, emissive: 0x6c7592, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
+    var hm = new THREE.MeshLambertMaterial({ color: 0x07070a, emissive: 0x010102, transparent: true, opacity: 0.66, depthWrite: false, side: THREE.DoubleSide });
+    var rm = [];
+    a.shell.remove(a.tab);
+    g.traverse(function (o) {
+      var mt = o.material;
+      if (!o.isMesh) return;
+      o.raycast = function () { };
+      if (mt === auHairV || mt === auHairF || mt === auHair) o.material = hm;
+      else if (mt && mt.map) o.material = llWhiteFace(mt.map.image);
+      else o.material = wm;
+    });
+    for (i = 0; i < a.locks.length; i++) a.locks[i].g.scale.y = a.locks[i].back ? 3.0 : 2.4; /* cabello más largo */
+    /* bata: falda cónica abierta + capa trasera */
+    fg = new THREE.CylinderGeometry(0.17, 0.4, 1.0, 22, 7, true);
+    m = new THREE.Mesh(fg, wm); m.position.y = 0.5; m.raycast = function () { }; g.add(m);
+    fp = fg.attributes.position; fl2 = { m: m, base: Float32Array.from(fp.array) };
+    var cg = new THREE.PlaneGeometry(0.5, 1.5, 8, 10);
+    for (i = 0; i < cg.attributes.position.count; i++) { j = cg.attributes.position; var yy = j.getY(i), tt = (0.75 - yy) / 1.5; j.setX(i, j.getX(i) * (1 + 1.1 * tt)); }
+    cg.attributes.position.needsUpdate = true;
+    var cape = new THREE.Mesh(cg, wm); cape.position.set(0, 0.86, -0.17); cape.rotation.x = 0.1; cape.raycast = function () { }; g.add(cape);
+    var capeBase = Float32Array.from(cg.attributes.position.array);
+    /* niebla que la rodea */
+    var fogG = new THREE.Group(), puffs = [];
+    cv = document.createElement('canvas'); cv.width = cv.height = 128; cx = cv.getContext('2d');
+    gr = cx.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, 'rgba(235,240,255,0.65)'); gr.addColorStop(0.5, 'rgba(215,224,245,0.3)'); gr.addColorStop(1, 'rgba(200,210,235,0)');
+    cx.fillStyle = gr; cx.fillRect(0, 0, 128, 128);
+    var ft = new THREE.CanvasTexture(cv);
+    for (i = 0; i < 16; i++) {
+      var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ft, color: 0xdfe6f7, transparent: true, opacity: 0.3, depthWrite: false, fog: false, rotation: Math.random() * 6.28 }));
+      sp.raycast = function () { };
+      puffs.push({ s: sp, a: i / 16 * 6.2832 + Math.random() * 0.4, r: 0.45 + Math.random() * 0.75, y: 0.03 + Math.random() * 0.45, sz: 0.8 + Math.random() * 0.7, sp: (Math.random() < 0.5 ? -1 : 1) * (0.12 + Math.random() * 0.2), ph: Math.random() * 6.28 });
+      fogG.add(sp);
+    }
+    fogG.visible = false; scene.add(fogG);
+    g.scale.setScalar(0.37);
+    return { a: a, g: g, fog: fogG, puffs: puffs, fl: fl2, cape: cape, capeBase: capeBase, ph: 0, gk: 0, x: 0, z: 0, y: 0, yaw: 0, s: 0, off: 0, last: -1, path: null, next: null, wailT: 8, talkT: 25, obT: 0, offT: 0 };
+  }
+  window.__llGo = function (on) { /* comando "llorona": el robot va hasta ella y la acompaña un rato */
+    if (!LL || !bot) return false; if (on) { LL.goUntil = clock.elapsedTime + 60; LL.goT = 0; window.__botSayQ = 'Voy a ver a la Llorona…'; if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(bot); } } return true;
+  };
+  function updateLlorona(t, dt) {
+    var L = LL, a, path, seg, f, x, z, tx, tz, l, nx, nz, i, bx, bz, u, c, cand, ti, nxt, lp, vis, dd, sph, am, kf, la, sg, sw, arr, vtx, ang, dB, dA, first, p2, k;
+    if (!trails.length || !districts.length || !BN) return;
+    if (!L) {
+      L = LL = buildLlorona(); a = L.a; i = (Math.random() * trails.length) | 0; L.path = edgePath(i, trails[i].b); L.last = i; L.s = Math.random() * L.path.len * 0.5;
+    }
+    a = L.a; path = L.path; if (!path) return;
+    L.s += 0.55 * dt;
+    while (path && L.s >= path.len) {
+      L.s -= path.len;
+      if (path.kind === 'arc') { L.path = L.next; L.next = null; path = L.path; L.s = 0; }
+      else {
+        c = path.end; cand = [];
+        for (ti = 0; ti < trails.length; ti++) if (trails[ti].a === c || trails[ti].b === c) cand.push(ti);
+        if (cand.length > 1) cand = cand.filter(function (q) { return q !== L.last; });
+        ti = cand[(Math.random() * cand.length) | 0]; L.last = ti;
+        nxt = edgePath(ti, c); lp = path.pts[path.pts.length - 1];
+        L.next = nxt; L.path = arcPath(c, lp, nxt.pts[0]); path = L.path; L.s = 0;
+      }
+    }
+    if (!path) return;
+    while (path.idx < path.pts.length - 2 && path.cum[path.idx + 1] <= L.s) path.idx++;
+    seg = path.cum[path.idx + 1] - path.cum[path.idx];
+    f = seg > 0 ? Math.min(1, Math.max(0, (L.s - path.cum[path.idx]) / seg)) : 0;
+    x = path.pts[path.idx][0]; z = path.pts[path.idx][1]; tx = path.pts[path.idx + 1][0] - x; tz = path.pts[path.idx + 1][1] - z;
+    bx = x + tx * f; bz = z + tz * f; l = Math.hypot(tx, tz);
+    if (l > 1e-6) { L.yaw += nAng(Math.atan2(tx, tz) - L.yaw) * Math.min(1, dt * 4); nx = tz / l; nz = -tx / l; } else { nx = 0; nz = 0; }
+    L.obT -= dt;
+    if (L.obT <= 0 && l > 1e-6) {
+      var oo = [0, 1, -1, 2, -2, 3, -3], oi, ov, ax2 = bx + tx / l * 1.5, az2 = bz + tz / l * 1.5, ob = 0;
+      L.obT = 0.2;
+      for (oi = 0; oi < oo.length; oi++) { ov = oo[oi] + AURA_LB; if (botFree(bx + nx * ov, bz + nz * ov) && botFree(ax2 + nx * ov, az2 + nz * ov)) { ob = ov; break; } }
+      L.offT = oi < oo.length ? ob : 0;
+    }
+    L.off += (L.offT - L.off) * Math.min(1, dt * 5);
+    L.x = bx + nx * L.off; L.z = bz + nz * L.off;
+    u = terrainH(L.x, L.z); L.y = Math.max(0, u) + 0.06; u = 0.012 + u + Math.min(0.08, u * 0.8) + 0.04; if (u > L.y) L.y = u;
+
+    vis = Math.hypot(camera.position.x - L.x, camera.position.z - L.z) < 420;
+    if (a.g.visible !== vis) a.g.visible = vis;
+    L.fog.visible = vis;
+    if (!vis) return;
+    /* caminata de Aura, brazos adelantados como en lamento */
+    L.gk += (1 - L.gk) * Math.min(1, dt * 7); L.ph += dt * 4.4;
+    sph = Math.sin(L.ph); am = 0.22 * L.gk; kf = 0.38 * L.gk;
+    for (i = 0; i < 2; i++) {
+      la = -am * Math.sin(L.ph + i * Math.PI); sg = kf * Math.max(0, Math.cos(L.ph + i * Math.PI));
+      a.legs[i].th.rotation.x = la; a.legs[i].kn.rotation.x = sg; a.legs[i].ft.rotation.x = -(la + sg) * 0.5 + sg * 0.3;
+      a.legs[i].th.rotation.z = (i ? -1 : 1) * 0.045; a.legs[i].ft.rotation.z = -a.legs[i].th.rotation.z;
+      sw = Math.sin(L.ph + i * Math.PI) * 0.12;
+      a.arms[i].sh.rotation.x = -0.85 + sw; a.arms[i].sh.rotation.z = (i ? 1 : -1) * 0.16;
+      a.arms[i].el.rotation.x = -0.75 - 0.1 * Math.sin(t * 1.3 + i);
+    }
+    a.body.position.y = 0.86 + Math.abs(sph) * 0.02 + 0.012 * Math.sin(t * 1.4);
+    a.pelvis.rotation.y = 0.05 * sph; a.pelvis.rotation.z = 0.03 * sph;
+    a.upper.rotation.x = 0.1; a.upper.rotation.y = -0.05 * sph;
+    a.head.rotation.x = 0.22 + 0.03 * Math.sin(t * 0.9); a.head.rotation.y = 0.12 * Math.sin(t * 0.5);
+    for (i = 0; i < a.locks.length; i++) { k = a.locks[i]; k.g.rotation.x = (k.back ? 0.14 : 0.06) * Math.sin(t * 1.6 + k.ph) + 0.05; if (!k.back) k.g.rotation.z = k.sx * 0.05 * Math.sin(t * 1.3 + k.ph); }
+    /* ondeo de la bata y la capa */
+    arr = L.fl.m.geometry.attributes.position; vtx = L.fl.base;
+    for (i = 0; i < arr.count; i++) {
+      var ry = vtx[i * 3 + 1], tt = (0.5 - ry) / 1.0, w = 1 + 0.07 * tt * Math.sin(Math.atan2(vtx[i * 3 + 2], vtx[i * 3]) * 4 + t * 2.2 + tt * 3);
+      arr.setX(i, vtx[i * 3] * w); arr.setZ(i, vtx[i * 3 + 2] * w);
+    }
+    arr.needsUpdate = true;
+    arr = L.cape.geometry.attributes.position; vtx = L.capeBase;
+    for (i = 0; i < arr.count; i++) { var cy2 = vtx[i * 3 + 1], ct = (0.75 - cy2) / 1.5; arr.setZ(i, vtx[i * 3 + 2] - ct * ct * (0.18 + 0.1 * Math.sin(t * 1.9 + ct * 4 + vtx[i * 3] * 5)) - ct * 0.1 * L.gk); }
+    arr.needsUpdate = true;
+    L.cape.geometry.computeVertexNormals();
+    var hov = 0.05 + 0.012 * Math.sin(t * 1.5);
+    a.g.rotation.y = L.yaw; a.g.position.set(L.x, L.y + hov, L.z);
+    /* niebla: anillo de bocanadas que gira alrededor de ella y la sigue */
+    L.fog.position.set(L.x, L.y, L.z);
+    for (i = 0; i < L.puffs.length; i++) {
+      p2 = L.puffs[i]; p2.a += p2.sp * dt;
+      p2.s.position.set(Math.cos(p2.a) * p2.r, p2.y + 0.05 * Math.sin(t * 0.8 + p2.ph), Math.sin(p2.a) * p2.r);
+      p2.s.scale.set(p2.sz * (1 + 0.08 * Math.sin(t * 0.7 + p2.ph)), p2.sz * 0.75, 1);
+      p2.s.material.opacity = 0.24 + 0.08 * Math.sin(t * 0.9 + p2.ph);
+      p2.s.material.rotation += dt * 0.05 * p2.sp;
+    }
+    if (L.goUntil && t < L.goUntil && bot) {
+      L.goT -= dt;
+      if (L.goT <= 0) {
+        L.goT = 3; dd = Math.hypot(bot.x - L.x, bot.z - L.z);
+        if (dd > 7) {
+          var gs = botFreeSpot(L.x + Math.sin(L.yaw) * 4.5, L.z + Math.cos(L.yaw) * 4.5) || botFreeSpot(L.x + 4, L.z + 4);
+          if (gs) { bot.tour = null; bot.xs = null; bot.idle = 0; if (dd > 120 || !botSetGoal(gs[0], gs[1], 'patrol')) { bot.tpj = { x: gs[0], z: gs[1], gx: gs[0], gz: gs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: bot.x, y: bot.y + 0.4, z: bot.z }); } }
+        } else if (bot.goal) { bot.idle = Math.max(bot.idle || 0, 3); }
+      }
+    }
+    /* lamento largo */
+    L.wailT -= dt;
+    if (L.wailT <= 0) {
+      dd = Math.hypot(camera.position.x - L.x, camera.position.z - L.z);
+      L.wailT = 24 + Math.random() * 18;
+      if (dd < 110) { var wp = { x: L.x, y: L.y + 0.5, z: L.z }; if (AUD.llorona) AUD.llorona(wp); else AUD.wail(wp); L.wailLast = t; }
+    }
+    /* Aura y el robot, al tenerla cerca, hablan entre ellos */
+    L.talkT -= dt;
+    if (L.talkT <= 0 && window.__dFeedPush && !window.__uvx) {
+      dB = (bot && GM.mode) ? Math.hypot(bot.x - L.x, bot.z - L.z) : 1e9;
+      dA = (aura && aura.k > 0.5) ? Math.hypot(aura.x - L.x, aura.z - L.z) : 1e9;
+      if (Math.min(dB, dA) < 11) {
+        var pr = LL_DLG[(Math.random() * LL_DLG.length) | 0];
+        if (pr === L.lastD) pr = LL_DLG[(Math.random() * LL_DLG.length) | 0]; L.lastD = pr;
+        first = dB <= dA ? 'r' : 'a';
+        L.talkT = 75 + Math.random() * 30;
+        window.__dFeedPush(first, pr[0], true); setTimeout(function () { if (window.__dFeedPush) window.__dFeedPush(first === 'r' ? 'a' : 'r', pr[1], true); }, 3000);
+        if (!L.wailLast || t - L.wailLast > 12) { L.wailT = 1.5; }
+      } else L.talkT = 2;
+    }
+  }
+
   function auraWalk(A, dt, sp) {
     var wp = A.wp, tx, tz, dd, want, k, ang, nx, nz, moved = false, offs = [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8], g, q;
     while (A.pi < wp.length && Math.hypot(wp[A.pi][0] - A.x, wp[A.pi][1] - A.z) < 1.5) A.pi++;
@@ -12278,6 +12467,7 @@ window.startMap = function (RAW, AUTH) {
     updateAura(t, dt);
     try { if (window.__kassTick) window.__kassTick(t, dt); } catch (eKt) { }
     try { auraTalk(); } catch (eAT) { }
+    try { updateLlorona(t, dt); } catch (eLl) { updateLlorona = function () { }; console.warn('Llorona desactivada:', eLl); }
     updatePresident(t, dt);
     updateBullets(dt);
     updateFx(dt);
