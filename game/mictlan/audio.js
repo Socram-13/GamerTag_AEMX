@@ -6,7 +6,7 @@ window.MictlanAudio = function (E) {
     var RNG = {
       shot: [25, 350], hit: [30, 500], crash: [40, 900], explode: [60, 1800], moo: [20, 300],
       mfall: [80, 1500], mimp: [80, 2500], mhit: [30, 400], mburn: [25, 300], alspawn: [14, 160], alcry: [10, 140], alhit: [10, 140], aldie: [10, 140],
-      glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55], wail: [10, 75], scare: [14, 90], drone: [10, 120], beep: [10, 90], ali: [8, 80], step: [7, 90], servo: [5, 60], bfly: [16, 260], talk: [6, 60]
+      glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55], wail: [10, 75], llorona: [14, 110], scare: [14, 90], drone: [10, 120], beep: [10, 90], ali: [8, 80], step: [7, 90], servo: [5, 60], bfly: [16, 260], talk: [6, 60]
     };
     try { on = localStorage.getItem('aemx-sound') !== '0'; } catch (e) {}
 
@@ -347,6 +347,33 @@ window.MictlanAudio = function (E) {
         o.connect(fl); o2.connect(fl); fl.connect(g); g.connect(b);
         o.start(t0); o2.start(t0); lf.start(t0); o.stop(t0 + 2.8); o2.stop(t0 + 2.8); lf.stop(t0 + 2.8);
         noise(2.4, 0.07, 1800, 600, 'bandpass', 0.1, b);
+      },
+      llorona: function (pos) { /* "Aaaaaay, mis hijooooos": sierra con formantes de vocal (a, i, m, o), vibrato creciente y eco */
+        var b = shotBus(pos, 'llorona'), t0, o, o2, vib, vg, mx, ev, dl, fb, dg, i, V, P, F, E, fl = [], Q = [7, 9, 11], G = [1, 0.5, 0.28];
+        if (!b) return;
+        t0 = ctx.currentTime + 0.05;
+        V = { a: [850, 1220, 2810], i: [310, 2790, 3310], o: [500, 900, 2830], m: [270, 1100, 2500] };
+        P = [[0, 300], [0.5, 335], [1.1, 560], [2.0, 520], [2.7, 390], [3.2, 340], [3.9, 410], [4.8, 365], [5.8, 450], [6.8, 580], [7.6, 430], [8.6, 250]];
+        F = [[0, 'a'], [2.55, 'a'], [3.2, 'i'], [3.6, 'm'], [4.1, 'm'], [4.3, 'i'], [5.1, 'i'], [5.8, 'i'], [6.3, 'o'], [8.0, 'o'], [8.6, 'o']];
+        E = [[0, 0.0001], [0.25, 0.5], [2.9, 0.45], [3.3, 0.25], [3.55, 0.02], [3.8, 0.22], [4.3, 0.42], [4.95, 0.35], [5.1, 0.02], [5.55, 0.02], [5.8, 0.4], [6.4, 0.5], [8.2, 0.38], [8.6, 0.0001]];
+        o = ctx.createOscillator(); o.type = 'sawtooth'; o2 = ctx.createOscillator(); o2.type = 'triangle';
+        o.frequency.setValueAtTime(P[0][1], t0); o2.frequency.setValueAtTime(P[0][1] * 1.006, t0);
+        for (i = 1; i < P.length; i++) { o.frequency.linearRampToValueAtTime(P[i][1], t0 + P[i][0]); o2.frequency.linearRampToValueAtTime(P[i][1] * 1.006, t0 + P[i][0]); }
+        vib = ctx.createOscillator(); vib.frequency.value = 5.3; vg = ctx.createGain(); vg.gain.setValueAtTime(1, t0); vg.gain.linearRampToValueAtTime(14, t0 + 2.2); vg.gain.linearRampToValueAtTime(5, t0 + 4); vg.gain.linearRampToValueAtTime(16, t0 + 7);
+        vib.connect(vg); vg.connect(o.frequency); vg.connect(o2.frequency);
+        mx = ctx.createGain(); mx.gain.value = 1; o.connect(mx); o2.connect(mx);
+        ev = ctx.createGain(); ev.gain.setValueAtTime(E[0][1], t0); for (i = 1; i < E.length; i++) ev.gain.linearRampToValueAtTime(E[i][1] * 0.8, t0 + E[i][0]);
+        for (i = 0; i < 3; i++) {
+          fl[i] = ctx.createBiquadFilter(); fl[i].type = 'bandpass'; fl[i].Q.value = Q[i]; fl[i].frequency.setValueAtTime(V[F[0][1]][i], t0);
+          for (var k = 1; k < F.length; k++) fl[i].frequency.linearRampToValueAtTime(V[F[k][1]][i], t0 + F[k][0]);
+          var gg = ctx.createGain(); gg.gain.value = G[i]; mx.connect(fl[i]); fl[i].connect(gg); gg.connect(ev);
+        }
+        ev.connect(b);
+        dl = ctx.createDelay(1); dl.delayTime.value = 0.32; fb = ctx.createGain(); fb.gain.value = 0.38; dg = ctx.createGain(); dg.gain.value = 0.45;
+        ev.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(dg); dg.connect(b);
+        o.start(t0); o2.start(t0); vib.start(t0); o.stop(t0 + 8.8); o2.stop(t0 + 8.8); vib.stop(t0 + 8.8);
+        noise(0.9, 0.04, 1400, 900, 'bandpass', 0.05, b);
+        noise(0.3, 0.1, 6500, 6500, 'highpass', 4.95, b); noise(0.22, 0.06, 2500, 2500, 'bandpass', 5.5, b); noise(0.45, 0.12, 6500, 6500, 'highpass', 8.3, b);
       },
       scare: function (pos) {
 
