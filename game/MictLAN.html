@@ -9136,8 +9136,8 @@ window.startMap = function (RAW, AUTH) {
 
     if (window.__uvxD && (window.__uvx || (window.__uvxC && window.__uvxC.on))) { try { window.__uvxD(b, t, dt); } catch (eUv) { window.__uvx = null; if (window.__uvxC) window.__uvxC.on = 0; window.__uvxCam = 0; } }
     if (!window.__uvx && GM.mode === 'exp' && GM.rel && now >= GM.go) { /* de vez en cuando el robot decide ir solo a UVXpress */
-      if (window.__uvxNext === undefined) window.__uvxNext = now + 90 + Math.random() * 90;
-      else if (now >= window.__uvxNext && !b.tpj && !b.xs && b.mode === 'walk') { window.__uvxNext = now + 240 + Math.random() * 120; if (Math.random() < 0.5) botCallPrint(true); }
+      if (window.__uvxNext === undefined) window.__uvxNext = now + 240 + Math.random() * 180;
+      else if (now >= window.__uvxNext && !b.tpj && !b.xs && b.mode === 'walk') { window.__uvxNext = now + 480 + Math.random() * 240; if (Math.random() < 0.4) botCallPrint(true); }
     }
     var pred = null, yT, pT, errY = 9, errP = 9;
     b.aiming = false;
