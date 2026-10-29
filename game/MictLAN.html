@@ -12163,7 +12163,7 @@ window.startMap = function (RAW, AUTH) {
         }
       }
     }
-    if (botFollow && bot && !fly) cityCam(dt);
+    /* cityCam desactivada: la cámara del robot queda siempre alineada, sin acercamientos */
     controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !auraFollow && !botFollow && !turretCam;
     controls.update();
     controls.target.x = clamp(controls.target.x, -1750 * GK, 1750 * GK);
