@@ -4579,7 +4579,7 @@ window.startMap = function (RAW, AUTH) {
         lf = new THREE.Mesh(uPlane, dm); lf.scale.set(0.8, 1.5, 1); lf.position.set(-0.4, 0, 0); hg.add(lf);
         cyBox(hg, bgDoor, 0.8, 0.04, 0.04, -0.4, 0.73, 0); cyBox(hg, bgDoor, 0.8, 0.04, 0.04, -0.4, -0.73, 0); cyBox(hg, bgDoor, 0.04, 1.5, 0.04, -0.78, 0, 0); cyBox(hg, bgDoor, 0.04, 1.5, 0.04, -0.02, 0, 0);
         cyBox(hg, prW, 0.03, 0.16, 0.03, -0.7, -0.05, 0.04);
-        hg.position.set(0.4, 0.95, 1.44); hg.rotation.y = -Math.PI / 2; g.add(hg);
+        hg.position.set(0.4, 0.95, 1.44); hg.rotation.y = -Math.PI * 0.75; g.add(hg);
       })();
       cyBox(g, bgSlab, 3.5, 0.1, 2.92, 0, 2.93, 0); /* techo */
       cyBox(g, bgSlab, 1.0, 0.08, 0.5, 0, 0.12, 1.8); /* escalón */
@@ -5106,6 +5106,8 @@ window.startMap = function (RAW, AUTH) {
           w = ws[wi]; w.prCd = (w.prCd === undefined ? 4 : w.prCd - dt);
           if (w.state !== 'walk' || w.role || w.prCd > 0 || w.tauntT > 0 || w.fleeT > 0) continue;
           if (Math.hypot(w.bx - shDoor.x, w.bz - shDoor.z) > 6) continue;
+          d.print.worldToLocal(shLoc.set(w.bx, 0, w.bz)); /* solo entran desde el frente: así su camino a la puerta (y de regreso a la calle) nunca cruza las paredes */
+          if (shLoc.z < 2.1 || Math.abs(shLoc.x) > 4.5) continue;
           w.prCd = 40;
           if (Math.random() < 0.6) {
             var psx = 0.25 + Math.random() * 0.45, psz = -0.05 + Math.random() * 0.45, pP = d.print;
