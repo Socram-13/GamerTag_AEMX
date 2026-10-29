@@ -8290,10 +8290,12 @@ window.startMap = function (RAW, AUTH) {
     if (!on && uvxO.distanceTo(C.save) < 0.15) { C.on = 0; window.__uvxCam = 0; }
   }
   function cityCam(dt) { /* dentro de una ciudad la cámara se acerca al robot como en UVXpress (sin girar); al salir vuelve a su distancia */
-    var C = window.__cityC || (window.__cityC = { on: 0, save: new THREE.Vector3(), o: new THREE.Vector3(), w: new THREE.Vector3() }), b = bot, inC = false, i, d, hl, k;
-    if (!botFollow || !b || fly || turretCam || window.__uvxCam || window.__uvx || botDrag || DUEL || b.mode !== 'walk' || b.tpj) { C.on = 0; return; }
-    for (i = 0; i < districts.length && !inC; i++) { d = districts[i]; if (d.list.length && Math.hypot(b.x - d.cx, b.z - d.cz) < d.r + 4) inC = true; }
+    var C = window.__cityC || (window.__cityC = { on: 0, save: new THREE.Vector3(), o: new THREE.Vector3(), w: new THREE.Vector3() }), b = bot, inC = false, i, d, hl, k, mg;
+    if (!botFollow || !b || fly || turretCam || window.__uvxCam || window.__uvx) { C.on = 0; return; }
+    if (b.mode !== 'walk' || b.tpj || botDrag || DUEL) return; /* pausa momentánea: no cambia nada */
     if (C.on && clock.elapsedTime - botCamUser < 1.5) { C.on = 0; return; } /* el usuario movió la cámara: se respeta */
+    mg = C.on ? 10 : 4;
+    for (i = 0; i < districts.length && !inC; i++) { d = districts[i]; if (d.list.length && Math.hypot(b.x - d.cx, b.z - d.cz) < d.r + mg) inC = true; }
     if (inC && !C.on) { if (clock.elapsedTime - botCamUser < 3) return; C.on = 1; C.save.copy(camera.position).sub(controls.target); }
     if (!C.on) return;
     C.o.copy(camera.position).sub(controls.target);
