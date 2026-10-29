@@ -9255,7 +9255,7 @@ window.startMap = function (RAW, AUTH) {
       bkQ2.setFromEuler(bkE).slerp(b.arms[i].he, b.hold);
       if (b._sp > 0.02) { bkSpE.set(-0.55 * b._sp * (0.6 + 0.4 * Math.sin(t * 4.6 + i * 1.9)), 0, (i === 0 ? -1 : 1) * 0.12 * b._sp); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set(-0.7 * b._sp * (0.5 + 0.5 * Math.sin(t * 5.7 + i)), 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* gesticula al hablar */
       if (b.jk > 0.02) { bkSpE.set((i === 1 ? -1.15 * (0.7 + 0.3 * Math.sin(t * 2.6)) : -0.35 * (0.6 + 0.4 * Math.sin(t * 1.9 + 1))) * b.jk, 0, (i === 0 ? -1 : 1) * 0.1 * b.jk); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set((i === 1 ? -0.55 * (0.5 + 0.5 * Math.sin(t * 3.1)) : -0.2) * b.jk, 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* extiende el brazo y remueve las piezas */
-      if (b.fr > 0.02) { bkSpE.set(-0.85 * b.fr, 0, (i === 0 ? -1 : 1) * 0.28 * b.fr); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set(-1.25 * b.fr + 0.05 * b.fr * Math.sin(t * 31 + i), 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* manos al pecho, encogido */
+      if (b.fr > 0.02) { bkSpE.set(-0.85 * b.fr, 0, (i === 0 ? -1 : 1) * 0.28 * b.fr); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set(-1.25 * b.fr, 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* manos al pecho, encogido */
       if (i === 1 && b.scanK > 0.01) { bkQ1.slerp(b.scQs, b.scanK); bkQ2.slerp(b.scQe, b.scanK); }
       b.arms[i].sh.quaternion.copy(bkQ1); b.arms[i].el.quaternion.copy(bkQ2);
     }
@@ -9270,7 +9270,7 @@ window.startMap = function (RAW, AUTH) {
     b.lean = (b.lean || 0) + (lean - (b.lean || 0)) * Math.min(1, dt * 6);
     var yrR = b.pyaw === undefined ? 0 : nAng(b.yaw - b.pyaw) / Math.max(dt, 0.001); b.pyaw = b.yaw; b.yr = (b.yr || 0) + (yrR - (b.yr || 0)) * Math.min(1, dt * 8);
     b.sideK = (b.sideK || 0) + ((((b.boostT > 0 || ((b.glr || 0) > 0 && (b.bh || 0) > 0.3)) && Math.abs(b.yr) > 0.3) ? clamp(b.yr / 2.5, -1, 1) : 0) - (b.sideK || 0)) * Math.min(1, dt * 10);
-    b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin + 0.34 * (b.jk || 0) - 0.2 * (b.fr || 0); b.body.rotation.z = 0.18 * b.hangK - 0.22 * b.sideK + 0.025 * (b.fr || 0) * Math.sin(t * 29);
+    b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin + 0.34 * (b.jk || 0) - 0.2 * (b.fr || 0); b.body.rotation.z = 0.18 * b.hangK - 0.22 * b.sideK;
     b.body.position.y = -0.38 * bk + (0.84 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.595 * kq - 0.07 * (b.fr || 0);
 
     var swA = (0.044 + 0.061 * b.runK) * (1 - b.hold) * b.gk * (1 - fK) * (1 - bk) * (1 - kq);
@@ -9303,7 +9303,7 @@ window.startMap = function (RAW, AUTH) {
     FXo.blob.visible = onGnd; FXo.blob.position.set(b.x, fxBase + 0.03, b.z); FXo.blob.scale.setScalar(0.75 * (1 + (b.bh || 0) * 0.05)); FXo.blob.material.opacity = 0.5 / (1 + (b.bh || 0) * 0.3);
     b.head.rotation.x = -b.aimPitch - b.lean;
     b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6) * (1 - (b.fr || 0)) - stA; /* con miedo: la mirada queda fija en ella */
-    if (b.fr > 0.02) b.head.rotation.x += 0.12 * b.fr + 0.02 * b.fr * Math.sin(t * 33);
+    if (b.fr > 0.02) b.head.rotation.x += 0.12 * b.fr;
     if (b.jk > 0.02) { b.head.rotation.x += 0.2 * b.jk; b.head.rotation.y += 0.4 * b.jk * Math.sin(t * 1.5); } /* mira el montón y barre con la vista */
     if (b._sp) { b.head.rotation.x += b._sp * 0.12 * Math.sin(t * 7.3); b.head.rotation.y += b._sp * 0.22 * Math.sin(t * 3.1); }
 
@@ -10645,7 +10645,7 @@ window.startMap = function (RAW, AUTH) {
     }
     if (L.watch && t < L.watch && bot && !bot.tpj && bot.mode === 'walk') { /* el robot la sigue con la mirada y la cámara con él */
       bot.goal = null; bot.path = null; bot.v = 0; bot.idle = Math.max(bot.idle || 0, 2);
-      bot.yaw += nAng(Math.atan2(L.x - bot.x, L.z - bot.z) - bot.yaw) * Math.min(1, dt * 4);
+      var wdy = nAng(Math.atan2(L.x - bot.x, L.z - bot.z) - bot.yaw); if (Math.abs(wdy) > 0.05) bot.yaw += wdy * Math.min(1, dt * 2.2);
     } else if (L.watch && t >= L.watch) L.watch = 0;
     window.__llFear = !!(bot && GM.mode && !bot.tpj && ((L.watch && t < L.watch) || Math.hypot(bot.x - L.x, bot.z - L.z) < 12));
     if (bot && GM.mode && (L.watch || Math.hypot(bot.x - L.x, bot.z - L.z) < 14)) window.__llTalk = Math.max(window.__llTalk || 0, performance.now() + 1500); /* los demás diálogos callan mientras el robot esté con ella */
