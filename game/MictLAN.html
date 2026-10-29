@@ -6959,7 +6959,7 @@ window.startMap = function (RAW, AUTH) {
     bx(eyeMat, 0, 0.35, 0.16, 0.06, 0.06, 0.012, shell);
     cy(bkJoint, 0, 0.54, 0, 0.06, 0.08, 0, 0, shell);
     [-1, 1].forEach(function (sx) {
-      bx(bkGray, sx * 0.3, 0.5, 0, 0.13, 0.07, 0.22, shell).rotation.z = -sx * 0.2;
+      bx(bkGray, sx * 0.255, 0.5, 0, 0.12, 0.07, 0.22, shell).rotation.z = -sx * 0.1; /* hombrera pegada al cuerpo: no sobresale del brazo */
       bx(bkBlack, sx * 0.33, 0.44, 0, 0.05, 0.1, 0.2, shell);
     });
 
@@ -8288,6 +8288,19 @@ window.startMap = function (RAW, AUTH) {
     uvxO.copy(camera.position).sub(controls.target); k = Math.min(1, dt * 2.2); uvxO.lerp(uvxW, k);
     camera.position.copy(controls.target).add(uvxO);
     if (!on && uvxO.distanceTo(C.save) < 0.15) { C.on = 0; window.__uvxCam = 0; }
+  }
+  function cityCam(dt) { /* dentro de una ciudad la cámara se acerca al robot como en UVXpress (sin girar); al salir vuelve a su distancia */
+    var C = window.__cityC || (window.__cityC = { on: 0, save: new THREE.Vector3(), o: new THREE.Vector3(), w: new THREE.Vector3() }), b = bot, inC = false, i, d, hl, k;
+    if (!botFollow || !b || fly || turretCam || window.__uvxCam || window.__uvx || botDrag || DUEL || b.mode !== 'walk' || b.tpj) { C.on = 0; return; }
+    for (i = 0; i < districts.length && !inC; i++) { d = districts[i]; if (d.list.length && Math.hypot(b.x - d.cx, b.z - d.cz) < d.r + 4) inC = true; }
+    if (C.on && clock.elapsedTime - botCamUser < 1.5) { C.on = 0; return; } /* el usuario movió la cámara: se respeta */
+    if (inC && !C.on) { if (clock.elapsedTime - botCamUser < 3) return; C.on = 1; C.save.copy(camera.position).sub(controls.target); }
+    if (!C.on) return;
+    C.o.copy(camera.position).sub(controls.target);
+    if (inC) { hl = Math.hypot(C.o.x, C.o.z); if (hl < 0.01) { C.w.set(Math.sin(botYawCam + Math.PI), 0, Math.cos(botYawCam + Math.PI)); } else C.w.set(C.o.x / hl, 0, C.o.z / hl); C.w.multiplyScalar(1.4); C.w.y = 0.8; }
+    else C.w.copy(C.save);
+    k = Math.min(1, dt * 1.8); C.o.lerp(C.w, k); camera.position.copy(controls.target).add(C.o);
+    if (!inC && C.o.distanceTo(C.save) < 0.15) C.on = 0;
   }
   function uvxEnd() { var b = bot; if (window.__uvxCl) delete window.__uvxCl.bot; window.__uvx = null; if (b) b.idle = 0; }
   window.__uvxD = function (b, t, dt) { /* guion del robot dentro de UVXpress: entra, espera a Kass, diálogo y sale */
@@ -12124,12 +12137,13 @@ window.startMap = function (RAW, AUTH) {
         controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
 
         if (botDrag) botCamUser = clock.elapsedTime;
-        if (!turretCam && clock.elapsedTime - botCamUser > 4) {
+        if (!turretCam && clock.elapsedTime - botCamUser > 4 && !(window.__cityC && window.__cityC.on)) {
           var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng((bot.aiming ? bot.aimYaw : bot.yaw) + Math.PI - bcur) * Math.min(1, dt * 4);
           if (brr > 0.01) { camera.position.x = controls.target.x + Math.sin(bnew) * brr; camera.position.z = controls.target.z + Math.cos(bnew) * brr; }
         }
       }
     }
+    if (botFollow && bot && !fly) cityCam(dt);
     controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !auraFollow && !botFollow && !turretCam;
     controls.update();
     controls.target.x = clamp(controls.target.x, -1750 * GK, 1750 * GK);
@@ -12150,7 +12164,7 @@ window.startMap = function (RAW, AUTH) {
           if (free(cx, cy, cz)) { best = [cx - cp.x, cy - cp.y, cz - cp.z]; break outer; }
         }
         if (!best) {
-          for (f = 0.95; f > 0.1; f -= 0.1) { cx = tx + ox * f; cy = ty + oy * f; cz = tz + oz * f; if (free(cx, cy, cz)) break; }
+          for (f = 0.95; f > (window.__cityC && window.__cityC.on ? 0.5 : 0.1); f -= 0.1) { cx = tx + ox * f; cy = ty + oy * f; cz = tz + oz * f; if (free(cx, cy, cz)) break; }
           best = [cx - cp.x, cy - cp.y, cz - cp.z];
         }
         bcWant.set(best[0], best[1], best[2]); bcHold = now0() + 0.5;
