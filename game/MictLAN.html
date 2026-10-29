@@ -11222,6 +11222,16 @@ window.startMap = function (RAW, AUTH) {
       var rm = new THREE.Mesh(new THREE.RingGeometry(0.88, 1, 48), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
       rm.rotation.x = -Math.PI / 2; rm.position.set(m.x, m.y + 0.35, m.z); noRay(rm); grp.add(rm); m.rings.push({ m: rm, t: -(delay || 0), dur: dur, R: maxR });
     }
+    function conformDisc(cx, cz, r0, r1, nR, nA, mat, off) { /* disco/anillo que sigue el relieve del suelo (como el cráter del OVNI) */
+      var g = new THREE.BufferGeometry(), pos = new Float32Array((nR + 1) * nA * 3), idx = [], i, j, a, rr, px, pz, o, q, w;
+      for (i = 0; i <= nR; i++) for (j = 0; j < nA; j++) {
+        a = j / nA * 6.2832; rr = r0 + (r1 - r0) * i / nR; px = cx + Math.cos(a) * rr; pz = cz + Math.sin(a) * rr; o = (i * nA + j) * 3;
+        pos[o] = px; pos[o + 1] = Math.max(botGround(px, pz), 0.046) + off; pos[o + 2] = pz;
+      }
+      for (i = 0; i < nR; i++) for (j = 0; j < nA; j++) { q = i * nA + j; w = i * nA + (j + 1) % nA; idx.push(q, q + nA, w, w, q + nA, w + nA); }
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx);
+      var mesh = new THREE.Mesh(g, mat); mesh.frustumCulled = false; noRay(mesh); return mesh;
+    }
     function metImpact(m) {
       var i, an, sp, cr;
       m.state = 'rest'; metBlock = { x: m.x, z: m.z, r: 3.4 }; m.g.position.set(m.x, m.y + 0.5, m.z); m.rock.scale.set(2.5, 2.2, 2.5); m.rock.rotation.set(0.3, m.ang, 0.2); m.glow.scale.set(11, 11, 1); m.glow.position.set(0, 1.2, 0);
@@ -11230,10 +11240,10 @@ window.startMap = function (RAW, AUTH) {
       for (i = 0; i < 26; i++) { an = i / 26 * 6.2832; sp = rnd(12, 26); spawnP(m.x, m.y + 1, m.z, Math.sin(an) * sp, rnd(0.2, 1.5), Math.cos(an) * sp, rnd(1.6, 2.6), 5, 16, 0x6a5a48, 0.6, false); }
       for (i = 0; i < 44; i++) { an = rnd(0, 6.2832); sp = rnd(6, 24); spawnP(m.x, m.y + 1.5, m.z, Math.sin(an) * sp, rnd(10, 34), Math.cos(an) * sp, rnd(1.0, 2.2), rnd(0.8, 1.8), 0.2, 0xffa030, 1, true, 24); }
       for (i = 0; i < 10; i++) spawnP(m.x + rnd(-2, 2), m.y + 1, m.z + rnd(-2, 2), rnd(-3, 3), rnd(3, 9), rnd(-3, 3), rnd(1.5, 2.6), 4, 11, 0xff6a1a, 0.9, true);
-      cr = new THREE.Mesh(new THREE.CircleGeometry(6.5, 28), new THREE.MeshBasicMaterial({ color: 0x120a06, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
-      cr.rotation.x = -Math.PI / 2; cr.position.set(m.x, m.y + 0.18, m.z); noRay(cr); grp.add(cr); m.crater = cr;
-      var cg = new THREE.Mesh(new THREE.RingGeometry(3.2, 6.5, 28), new THREE.MeshBasicMaterial({ color: 0xff5a14, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-      cg.rotation.x = -Math.PI / 2; cg.position.set(m.x, m.y + 0.2, m.z); noRay(cg); grp.add(cg); m.craterG = cg;
+      cr = conformDisc(m.x, m.z, 0, 6.5, 8, 32, new THREE.MeshBasicMaterial({ color: 0x120a06, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }), 0.05);
+      grp.add(cr); m.crater = cr;
+      var cg = conformDisc(m.x, m.z, 3.2, 6.5, 4, 32, new THREE.MeshBasicMaterial({ color: 0xff5a14, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), 0.065);
+      grp.add(cg); m.craterG = cg;
       for (i = 0; i < 24; i++) { var cs2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x2c2a2a, transparent: true, opacity: 0, depthWrite: false, fog: false })); cs2.renderOrder = 5; noRay(cs2); grp.add(cs2); m.col.push({ s: cs2, ph: i / 24, wob: rnd(0, 6.28) }); }
       AUD.mImpact({ x: m.x, y: m.y + 1, z: m.z });
     }
