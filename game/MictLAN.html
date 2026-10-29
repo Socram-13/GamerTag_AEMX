@@ -729,7 +729,9 @@ window.startMap = function (RAW, AUTH) {
   function fmt(n) { return n.toLocaleString('es-MX'); }
 
   var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, logarithmicDepthBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  var MOB = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+  window.__MOB = MOB; /* móvil: menos resolución y 30 FPS para ahorrar batería */
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MOB ? 1.25 : 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0x050a18, 1);
@@ -12107,14 +12109,16 @@ window.startMap = function (RAW, AUTH) {
 
   function frame() {
     requestAnimationFrame(frame);
+    if (document.hidden) return;
+    if (MOB) { var nowF = performance.now(); if (nowF - (window.__lastF || 0) < 30) return; window.__lastF = nowF; }
     var dtRaw = clock.getDelta(), dt = Math.min(dtRaw, 0.05), t = clock.elapsedTime, k, n;
     (function () {
-      var A = window.__adp || (window.__adp = { ema: 0.016, pr: renderer.getPixelRatio(), max: Math.min(window.devicePixelRatio || 1, 2), hold: 0, lo: 0, hi: 0 });
+      var A = window.__adp || (window.__adp = { ema: 0.016, pr: renderer.getPixelRatio(), max: Math.min(window.devicePixelRatio || 1, MOB ? 1.25 : 2), hold: 0, lo: 0, hi: 0 });
       if (dtRaw > 0.25 || dtRaw <= 0) return;
       A.ema += (dtRaw - A.ema) * 0.05; A.hold = Math.max(0, A.hold - dtRaw);
       if (A.hold > 0) return;
-      if (A.ema > 0.026 && A.pr > 0.75) { A.pr = Math.max(0.75, A.pr - 0.25); renderer.setPixelRatio(A.pr); resize(); A.hold = 2.5; A.ema = 0.02; }
-      else if (A.ema < 0.017 && A.pr < A.max) { A.pr = Math.min(A.max, A.pr + 0.25); renderer.setPixelRatio(A.pr); resize(); A.hold = 6; A.ema = 0.02; }
+      if (A.ema > (MOB ? 0.052 : 0.026) && A.pr > 0.75) { A.pr = Math.max(0.75, A.pr - 0.25); renderer.setPixelRatio(A.pr); resize(); A.hold = 2.5; A.ema = 0.02; }
+      else if (A.ema < (MOB ? 0.036 : 0.017) && A.pr < A.max) { A.pr = Math.min(A.max, A.pr + 0.25); renderer.setPixelRatio(A.pr); resize(); A.hold = 6; A.ema = 0.02; }
     })();
 
     camera.position.sub(bcAdj);
