@@ -10628,16 +10628,20 @@ window.startMap = function (RAW, AUTH) {
 
     if (L.goUntil && t < L.goUntil && bot && !bot.tpj) {
       dd = Math.hypot(bot.x - L.x, bot.z - L.z);
-      if (dd <= 9) { L.goUntil = 0; bot.goal = null; bot.gtype = ''; bot.path = null; bot.idle = Math.max(bot.idle || 0, 9); bot.v = 0; } /* ya llegó: se acaba la orden, la observa y luego retoma su ronda */
+      if (dd <= 9) { L.goUntil = 0; bot.goal = null; bot.gtype = ''; bot.path = null; bot.idle = Math.max(bot.idle || 0, 28); bot.v = 0; L.watch = t + 28; } /* ya llegó: se acaba la orden, la observa y luego retoma su ronda */
       else {
         L.goT -= dt;
         if (L.goT <= 0) {
           L.goT = 3;
           var gs = botFreeSpot(L.x + Math.sin(L.yaw) * 4.5, L.z + Math.cos(L.yaw) * 4.5) || botFreeSpot(L.x + 4, L.z + 4);
-          if (gs) { bot.tour = null; bot.xs = null; bot.idle = 0; if (dd > 60 || !botSetGoal(gs[0], gs[1], 'patrol')) { bot.goal = null; bot.gtype = ''; bot.path = null; bot.idle = 9; bot.tpj = { x: gs[0], z: gs[1], gx: gs[0], gz: gs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: bot.x, y: bot.y + 0.4, z: bot.z }); } }
+          if (gs) { bot.tour = null; bot.xs = null; bot.idle = 0; if (dd > 60 || !botSetGoal(gs[0], gs[1], 'patrol')) { bot.goal = null; bot.gtype = ''; bot.path = null; bot.idle = 28; bot.tpj = { x: gs[0], z: gs[1], gx: gs[0], gz: gs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: bot.x, y: bot.y + 0.4, z: bot.z }); } }
         }
       }
     }
+    if (L.watch && t < L.watch && bot && !bot.tpj && bot.mode === 'walk') { /* el robot la sigue con la mirada y la cámara con él */
+      bot.goal = null; bot.path = null; bot.v = 0; bot.idle = Math.max(bot.idle || 0, 2);
+      bot.yaw += nAng(Math.atan2(L.x - bot.x, L.z - bot.z) - bot.yaw) * Math.min(1, dt * 4);
+    } else if (L.watch && t >= L.watch) L.watch = 0;
     vis = Math.hypot(camera.position.x - L.x, camera.position.z - L.z) < 420;
     if (a.g.visible !== vis) a.g.visible = vis;
     L.fog.visible = vis;
