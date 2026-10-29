@@ -10224,6 +10224,7 @@ window.startMap = function (RAW, AUTH) {
     if (!feed || !aS || !bS || window.__dFeedInit) return; window.__dFeedInit = 1;
     function drop(el) { if (!el.parentNode) return; el.classList.remove('in'); el.classList.add('out'); setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 450); }
     function push(who, txt, force) {
+      if (force !== 2 && performance.now() < (window.__llTalk || 0)) return; /* mientras hablan de la Llorona se pausan los demás diálogos */
       if (!force && window.__uvx && (who === 'a' || who === 'r')) return; /* durante la visita a UVXpress, Aura y el robot guardan silencio */
       var now = performance.now(), kids, i, prev = [], el, n, r, bx, tt, dy, ty1, ty2, pos = 0, stp, iv;
       txt = (txt || '').trim(); if (!txt) return;
@@ -10252,6 +10253,7 @@ window.startMap = function (RAW, AUTH) {
     var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN;
     if (!el || !bot || !hud || !bs) return;
     if (DUEL) { duelTalk(); return; }
+    if (performance.now() < (window.__llTalk || 0)) return; /* pausa: hablan de la Llorona */
     if (bot.inJunk || (bot.jIsl && bot.isl)) return; /* en la chatarrería solo hablan las frases propias del recorrido */
     if (!botFollow) { if (AT.hide) { AT.hide = 0; el.classList.remove('on'); } AT.rep = null; if (VIS) VIS.say = null; return; }
     sp = el.querySelector('span');
@@ -10581,10 +10583,10 @@ window.startMap = function (RAW, AUTH) {
     }
     fogG.visible = false; scene.add(fogG);
     g.scale.setScalar(0.37);
-    return { a: a, g: g, fog: fogG, puffs: puffs, fl: fl2, cape: cape, capeBase: capeBase, ph: 0, gk: 0, x: 0, z: 0, y: 0, yaw: 0, s: 0, off: 0, last: -1, path: null, next: null, wailT: 8, talkT: 25, obT: 0, offT: 0 };
+    return { a: a, g: g, fog: fogG, puffs: puffs, fl: fl2, cape: cape, capeBase: capeBase, ph: 0, gk: 0, x: 0, z: 0, y: 0, yaw: 0, s: 0, off: 0, last: -1, path: null, next: null, wailT: 8, talkT: 3, obT: 0, offT: 0 };
   }
   window.__llGo = function (on) { /* comando "llorona": el robot va hasta ella y la acompaña un rato */
-    if (!LL || !bot) return false; if (on) { LL.goUntil = clock.elapsedTime + 60; LL.goT = 0; window.__botSayQ = 'Voy a ver a la Llorona…'; if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(bot); } } return true;
+    if (!LL || !bot) return false; if (on) { LL.goUntil = clock.elapsedTime + 60; LL.goT = 0; window.__botSayQ = 'Voy a ver a la Llorona…'; LL.talkT = 0; if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(bot); } } return true;
   };
   function updateLlorona(t, dt) {
     var L = LL, a, path, seg, f, x, z, tx, tz, l, nx, nz, i, bx, bz, u, c, cand, ti, nxt, lp, vis, dd, sph, am, kf, la, sg, sw, arr, vtx, ang, dB, dA, first, p2, k;
@@ -10687,13 +10689,14 @@ window.startMap = function (RAW, AUTH) {
     L.talkT -= dt;
     if (L.talkT <= 0 && window.__dFeedPush && !window.__uvx) {
       dB = (bot && GM.mode) ? Math.hypot(bot.x - L.x, bot.z - L.z) : 1e9;
-      dA = (aura && aura.k > 0.5) ? Math.hypot(aura.x - L.x, aura.z - L.z) : 1e9;
-      if (Math.min(dB, dA) < 11) {
+      dA = (aura && aura.k > 0.3 && aura.mode !== 'jump') ? Math.hypot(aura.x - L.x, aura.z - L.z) : 1e9;
+      if (Math.min(dB, dA) < 14) {
         var pr = LL_DLG[(Math.random() * LL_DLG.length) | 0];
         if (pr === L.lastD) pr = LL_DLG[(Math.random() * LL_DLG.length) | 0]; L.lastD = pr;
         first = dB <= dA ? 'r' : 'a';
-        L.talkT = 75 + Math.random() * 30;
-        window.__dFeedPush(first, pr[0], true); setTimeout(function () { if (window.__dFeedPush) window.__dFeedPush(first === 'r' ? 'a' : 'r', pr[1], true); }, 3000);
+        L.talkT = 75 + Math.random() * 30; window.__llTalk = performance.now() + 9500;
+        window.__botSayQ = null;
+        window.__dFeedPush(first, pr[0], 2); setTimeout(function () { if (window.__dFeedPush) window.__dFeedPush(first === 'r' ? 'a' : 'r', pr[1], 2); }, 3200);
         if (!L.wailLast || t - L.wailLast > 12) { L.wailT = 1.5; }
       } else L.talkT = 2;
     }
@@ -12541,7 +12544,7 @@ window.startMap = function (RAW, AUTH) {
           (function () {
             var say = document.getElementById('bSay'), nowMs = performance.now(), base = tx2.indexOf('Explorando') === 0 ? 'city' : tx2.indexOf('Cazando') === 0 ? 'ufo' : tx2.indexOf('Exterminando') === 0 ? 'al' : tx2.indexOf('Destruyendo') === 0 ? 'rock' : tx2.indexOf('Revisando') === 0 ? 'wreck' : tx2.indexOf('Vigilando') === 0 ? 'fall' : tx2.indexOf('Viajando a ') === 0 && S && !S.end ? 'inv' : tx2.indexOf('Saliendo') === 0 ? 'fog' : tx2.indexOf('dron') > 0 ? 'drone' : tx2 === 'Patrullando' ? 'chat' : '', sit = '', cat, L2, ph2, q2, k2, n1, n2, nm2, wk3, REP = { city: 11000, chat: 15000, ghost: 9000, rain: 14000, snow: 14000, dense: 12000, fog2: 14000, volc: 14000, angel: 12000, sea: 16000, ufo: 20000, al: 18000, rock: 16000, inv: 20000, wreck: 14000, t60: 9000, dis: 30000 }, cd2;
             if (hud._sayT && nowMs > hud._sayT) { hud._sayT = 0; say.classList.remove('on'); }
-            if (window.__botSayQ) { say.textContent = window.__botSayQ; say.classList.add('on'); hud._sayT = nowMs + 4200; hud._sayGate = nowMs + 5000; hud._lastSay = window.__botSayQ; window.__botSayQ = null; AUD.talk(bkMuz.set(b2.x, b2.y + 1.4, b2.z)); return; }
+            if (window.__botSayQ && performance.now() >= (window.__llTalk || 0)) { say.textContent = window.__botSayQ; say.classList.add('on'); hud._sayT = nowMs + 4200; hud._sayGate = nowMs + 5000; hud._lastSay = window.__botSayQ; window.__botSayQ = null; AUD.talk(bkMuz.set(b2.x, b2.y + 1.4, b2.z)); return; }
             if (nowMs <= (hud._sayGate || 0) || b2.inJunk || (b2.jIsl && b2.isl)) return;
             if (WX && WX.ghostNear && WX.ghostNear(b2.x, b2.z, 45)) sit = 'ghost';
             else if (S && !S.end && S.entered && S.left <= 60) sit = 't60';
