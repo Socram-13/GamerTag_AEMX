@@ -2024,7 +2024,7 @@ window.startMap = function (RAW, AUTH) {
               sx = sx / sl * kk * SWASH_W; sz = sz / sl * kk * SWASH_W;
               pos.push(pts[j][0], SWASH_Y, pts[j][1], pts[j][0] + sx, SWASH_Y, pts[j][1] + sz);
               au.push(0, 1); nv += 2;
-              rpos.push(pts[j][0], 0.03, pts[j][1], pts[j][0] - sx * RAMP_W / SWASH_W, -0.52, pts[j][1] - sz * RAMP_W / SWASH_W); /* rampa: del borde de la costa hacia el mar, bajando bajo el agua */
+              rpos.push(pts[j][0], 0.03, pts[j][1], pts[j][0] + sx * RAMP_W / SWASH_W, -0.52, pts[j][1] + sz * RAMP_W / SWASH_W); /* rampa: del borde de la costa hacia el mar, bajando bajo el agua */
               rcol.push(cT.r, cT.g, cT.b, cB.r, cB.g, cB.b); rnv += 2;
               if (j > 0) { c = rnv - 4; ridx.push(c, c + 1, c + 2, c + 1, c + 3, c + 2); }
               if (j > 0) { c = v0 + (j - 1) * 2; idx.push(c, c + 1, c + 2, c + 1, c + 3, c + 2); }
