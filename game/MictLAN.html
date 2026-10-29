@@ -3820,9 +3820,9 @@ window.startMap = function (RAW, AUTH) {
       if (rnd() < 0.8) { pp = part('whole', rnd() < 0.5); pp.position.set((rnd() - 0.5) * R * 0.5, 0.35, (rnd() - 0.5) * R * 0.5); pp.rotation.set(1.3 + rnd() * 0.5, rnd() * 6.28, rnd() * 0.5); pg.add(pp); } /* un robot entero tirado encima */
       var patch = new THREE.Mesh(new THREE.CircleGeometry(R * 1.5, 9), new THREE.MeshLambertMaterial({ color: 0x2b1a10, emissive: 0x070403 })); patch.rotation.x = -1.5708; patch.position.y = 0.07; patch.raycast = function () {}; pg.add(patch); /* mancha de óxido y aceite bajo el montón */
       pg.updateMatrixWorld(true); var fused = bake(pg, null, null, false); fused.position.set(px, y0(px, pz), pz); G.add(fused);
-      monBlk.push({ x: px, z: pz, r: R + 0.3 });
+      monBlk.push({ x: px, z: pz, r: R + 0.15 });
     }
-    var nP = 0, pp0 = []; for (k = 0; k < 10; k++) { var Rr = 0.75 + rnd() * 0.35; p0 = pickIn(Rr * 1.5); if (!p0) break; used.push([p0[0], p0[1], Rr * 1.5]); pile(p0[0], p0[1], Rr, 30 + ((rnd() * 10) | 0)); pp0.push([p0[0], p0[1]]); nP++; }
+    var nP = 0, pp0 = []; for (k = 0; k < 10; k++) { var Rr = 0.75 + rnd() * 0.35; p0 = pickIn(Rr * 1.5); if (!p0) break; used.push([p0[0], p0[1], Rr * 1.5]); pile(p0[0], p0[1], Rr, 30 + ((rnd() * 10) | 0)); pp0.push([p0[0], p0[1], Rr]); nP++; }
     /* piezas sueltas por el suelo */
     var lg = new THREE.Group(), nL = 0; for (k = 0; k < 14; k++) { p0 = pickIn(0.6); if (!p0) break; used.push([p0[0], p0[1], 0.3]); var lp = part(keys[(rnd() * 6) | 0], rnd() < 0.4); lp.position.set(p0[0], y0(p0[0], p0[1]) + 0.12, p0[1]); lp.rotation.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28); lg.add(lp); nL++; }
     lg.updateMatrixWorld(true); G.add(bake(lg, null, null, false));
@@ -8357,8 +8357,9 @@ window.startMap = function (RAW, AUTH) {
         if (botFree(mx, mz) && botSetGoal(mx, mz, 'patrol')) { b.disMeet = now0(); b.jog = false; return; }
       }
     }
-    if (!b.inJunk) { b.jRt = null; b.jTalk = false; b.jTgt = null; }
-    if (freeT && b.inJunk && window.__junk && window.__junk.pp && window.__junk.pp.length && !invLock) { /* en la chatarrería: recorrido fijo por los montículos; en cada uno charla con Aura */
+    var jIn = b.inJunk || !!(b.jIsl && b.isl);
+    if (!jIn) { b.jRt = null; b.jTalk = false; b.jTgt = null; }
+    if (freeT && jIn && window.__junk && window.__junk.pp && window.__junk.pp.length && !invLock) { /* en la chatarrería: recorrido fijo por los montículos; en cada uno charla con Aura */
       var jp = window.__junk.pp, ja, jx, jz, jt, jc, jl, jk2, jq, jd;
       if (!b.jRt) { /* ruta: siempre al montículo más cercano que falte, así rodea la isla sin ir y venir */
         jl = jp.map(function (q, k) { return k; }); b.jRt = []; jx = b.x; jz = b.z;
@@ -8373,7 +8374,7 @@ window.startMap = function (RAW, AUTH) {
       }
       if (b.jRi >= b.jRt.length - 1) { b.jDone = true; b.jRt = null; return; } /* terminó la vuelta: ya puede volver */
       b.jRi = b.jRi + 1; jc = b.jRt[b.jRi];
-      for (jt = 0; jt < 14; jt++) { ja = Math.atan2(b.z - jp[jc][1], b.x - jp[jc][0]) + (jt ? (jt % 2 ? 1 : -1) * Math.ceil(jt / 2) * 0.45 : 0); jx = jp[jc][0] + Math.cos(ja) * (jt < 5 ? 1.6 : jt < 10 ? 2.0 : 2.5); jz = jp[jc][1] + Math.sin(ja) * (jt < 5 ? 1.6 : jt < 10 ? 2.0 : 2.5); if (botCellFree(jx, jz) && botJunkGo(jx, jz)) { b.jog = false; b.jTgt = jp[jc]; b.idle = 3 + Math.random() * 3; return; } }
+      for (jt = 0; jt < 14; jt++) { ja = Math.atan2(b.z - jp[jc][1], b.x - jp[jc][0]) + (jt ? (jt % 2 ? 1 : -1) * Math.ceil(jt / 2) * 0.45 : 0); jx = jp[jc][0] + Math.cos(ja) * (jp[jc][2] || 1) + (jt < 5 ? 0.5 : jt < 10 ? 0.9 : 1.4); jz = jp[jc][1] + Math.sin(ja) * ((jp[jc][2] || 1) + (jt < 5 ? 0.5 : jt < 10 ? 0.9 : 1.4)); if (botCellFree(jx, jz) && botJunkGo(jx, jz)) { b.jog = false; b.jTgt = jp[jc]; b.idle = 3 + Math.random() * 3; return; } }
       b.idle = 0.4; return; /* ese montículo no tiene acceso libre: pasa al siguiente */
     }
     if (freeT && GM.mode === 'exp' && !DUEL && !VIS && aura && aura.mode === 'trail' && !invLock && now0() >= (b.visCD || 0)) {
@@ -8596,10 +8597,10 @@ window.startMap = function (RAW, AUTH) {
       if (Tp.done && Tp.t >= 0.6) {
         b.g.visible = true; if (b.fxg) b.fxg.g.visible = false; b.tpj = null; b.idle = 0.5;
         if (Tp.back) { b.isl = null; b.liftCD = 0; }
-        else { b.isl = { t0: now }; b.liftCD = now + 90; b.jDone = false; b.jRt = null; if (JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80) b.idle = 0; else if (botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0; }
+        else { b.isl = { t0: now }; b.liftCD = now + 90; b.jDone = false; b.jRt = null; b.jIsl = !!(JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80); if (JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80) b.idle = 0; else if (botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0; }
       }
     }
-    if (b.isl && !b.tpj && b.mode === 'walk' && (now - b.isl.t0 > (b.inJunk && !b.jDone ? 360 : 40) || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()))) {
+    if (b.isl && !b.tpj && b.mode === 'walk' && (now - b.isl.t0 > (b.jIsl && !b.jDone ? 360 : 40) || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()))) {
       var rs = MYP && isFinite(MYP.x) ? botFreeSpot(MYP.x, MYP.z + 9) : null, rd;
       if (!rs) { rd = districts.filter(function (q) { return q.list.length; })[0]; rs = rd ? botFreeSpot(rd.cx + rd.r + 8, rd.cz) : null; }
       if (rs) { b.tpj = { x: rs[0], z: rs[1], gx: rs[0], gz: rs[1], t: 0, done: false, back: true }; b.isl = null; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
@@ -8811,7 +8812,7 @@ window.startMap = function (RAW, AUTH) {
 
       if (b.goal) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
-        if (gd < (b.gtype === 'roof' ? 0.55 : b.gtype === 'junk' ? 0.4 : (GM.mode === 'exp' && b.gtype === 'patrol') ? 2.5 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
+        if (gd < (b.gtype === 'roof' ? 0.55 : b.gtype === 'junk' ? 0.2 : (GM.mode === 'exp' && b.gtype === 'patrol') ? 2.5 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
           if (b.gtype === 'roof') { b.ball = false; b.ballK = 0; b.spin = Math.round((b.spin || 0) / 6.2832) * 6.2832; b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
           else { if (b.gtype === 'wreck') { b.scan = true; b.scanT = 0; } if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; } else if (b.gtype === 'hunt') b.huntHold = now + 0.6; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
         } else {
@@ -9196,7 +9197,7 @@ window.startMap = function (RAW, AUTH) {
       else botIK(1, 0.3, 0.43 + 0.55 * sp, 0.55 * cp, b.scQs, b.scQe);
     }
 
-    b.jk = (b.jk || 0) + (((b.inJunk && b.jTgt && b.mode === 'walk' && !b.goal && b.v < 0.6) ? 1 : 0) - (b.jk || 0)) * Math.min(1, dt * 3);
+    b.jk = (b.jk || 0) + ((((b.inJunk || (b.jIsl && b.isl)) && b.jTgt && b.mode === 'walk' && !b.goal && b.v < 0.6) ? 1 : 0) - (b.jk || 0)) * Math.min(1, dt * 3);
     if (b.jk > 0.02 && b.jTgt) { var jyw = Math.atan2(b.jTgt[0] - b.x, b.jTgt[1] - b.z); b.yaw += nAng(jyw - b.yaw) * Math.min(1, dt * 3); } /* revisando un montículo: se gira hacia él */
     for (i = 0; i < 2; i++) {
       f = (i === 0 ? -1 : 1) * Math.sin(b.ph) * Math.min(0.85, 0.1 + b.v * 0.1) * b.gk * (1 - fK);
@@ -10205,7 +10206,7 @@ window.startMap = function (RAW, AUTH) {
     var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN;
     if (!el || !bot || !hud || !bs) return;
     if (DUEL) { duelTalk(); return; }
-    if (bot.inJunk) return; /* en la chatarrería solo hablan las frases propias del recorrido */
+    if (bot.inJunk || (bot.jIsl && bot.isl)) return; /* en la chatarrería solo hablan las frases propias del recorrido */
     if (!botFollow) { if (AT.hide) { AT.hide = 0; el.classList.remove('on'); } AT.rep = null; if (VIS) VIS.say = null; return; }
     sp = el.querySelector('span');
     if (AT.hide && n > AT.hide) { AT.hide = 0; el.classList.remove('on'); }
@@ -12282,7 +12283,7 @@ window.startMap = function (RAW, AUTH) {
             var say = document.getElementById('bSay'), nowMs = performance.now(), base = tx2.indexOf('Explorando') === 0 ? 'city' : tx2.indexOf('Cazando') === 0 ? 'ufo' : tx2.indexOf('Exterminando') === 0 ? 'al' : tx2.indexOf('Destruyendo') === 0 ? 'rock' : tx2.indexOf('Revisando') === 0 ? 'wreck' : tx2.indexOf('Vigilando') === 0 ? 'fall' : tx2.indexOf('Viajando a ') === 0 && S && !S.end ? 'inv' : tx2.indexOf('Saliendo') === 0 ? 'fog' : tx2.indexOf('dron') > 0 ? 'drone' : tx2 === 'Patrullando' ? 'chat' : '', sit = '', cat, L2, ph2, q2, k2, n1, n2, nm2, wk3, REP = { city: 11000, chat: 15000, ghost: 9000, rain: 14000, snow: 14000, dense: 12000, fog2: 14000, volc: 14000, angel: 12000, sea: 16000, ufo: 20000, al: 18000, rock: 16000, inv: 20000, wreck: 14000, t60: 9000, dis: 30000 }, cd2;
             if (hud._sayT && nowMs > hud._sayT) { hud._sayT = 0; say.classList.remove('on'); }
             if (window.__botSayQ) { say.textContent = window.__botSayQ; say.classList.add('on'); hud._sayT = nowMs + 4200; hud._sayGate = nowMs + 5000; hud._lastSay = window.__botSayQ; window.__botSayQ = null; AUD.talk(bkMuz.set(b2.x, b2.y + 1.4, b2.z)); return; }
-            if (nowMs <= (hud._sayGate || 0) || b2.inJunk) return;
+            if (nowMs <= (hud._sayGate || 0) || b2.inJunk || (b2.jIsl && b2.isl)) return;
             if (WX && WX.ghostNear && WX.ghostNear(b2.x, b2.z, 45)) sit = 'ghost';
             else if (S && !S.end && S.entered && S.left <= 60) sit = 't60';
             else if (typeof ALN !== 'undefined' && ALN.disNear && ALN.disNear() && !b2.disTalk) sit = 'dis';
