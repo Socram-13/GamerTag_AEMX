@@ -9152,7 +9152,7 @@ window.startMap = function (RAW, AUTH) {
     b.flyK += ((flying ? 1 : 0) - b.flyK) * Math.min(1, dt * 8);
     fK = b.flyK;
     b.gK = (b.gK || 0) + ((((b.glr || 0) > 0 && b.boostT <= 0 && (b.bh || 0) > 0.15 && !b.ball) ? 1 : 0) - (b.gK || 0)) * Math.min(1, dt * 6);
-    b.kneel += (((b.mode === 'perch' && b.alert) || (b.mode === 'ride' && b.ride && b.ride.ph === 1) ? 1 : 0) - b.kneel) * Math.min(1, dt * 3.5);
+    b.kneel += (((b.mode === 'perch' && b.alert) || (b.mode === 'ride' && b.ride && b.ride.ph === 1) || (b.jk || 0) > 0.6 ? 1 : 0) - b.kneel) * Math.min(1, dt * 3.5); /* revisando un montículo: se agacha */
     var kq = b.kneel, hk, bk;
     b.ballK = (b.ballK || 0) + (((b.ball && b.mode !== 'lift') ? 1 : 0) - (b.ballK || 0)) * Math.min(1, dt * ((b.ball) ? 7 : 6)); bk = b.ballK;
     b.spin = b.spin || 0;
