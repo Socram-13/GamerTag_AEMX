@@ -10595,7 +10595,7 @@ window.startMap = function (RAW, AUTH) {
       L = LL = buildLlorona(); a = L.a; i = (Math.random() * trails.length) | 0; L.path = edgePath(i, trails[i].b); L.last = i; L.s = Math.random() * L.path.len * 0.5;
     }
     a = L.a; path = L.path; if (!path) return;
-    L.s += 0.55 * dt;
+    L.s += 0.4 * dt;
     while (path && L.s >= path.len) {
       L.s -= path.len;
       if (path.kind === 'arc') { L.path = L.next; L.next = null; path = L.path; L.s = 0; }
@@ -10628,12 +10628,14 @@ window.startMap = function (RAW, AUTH) {
 
     if (L.goUntil && t < L.goUntil && bot && !bot.tpj) {
       dd = Math.hypot(bot.x - L.x, bot.z - L.z);
-      if (dd <= 9) { L.goUntil = 0; bot.goal = null; bot.gtype = ''; bot.path = null; bot.idle = Math.max(bot.idle || 0, 28); bot.v = 0; L.watch = t + 28; } /* ya llegó: se acaba la orden, la observa y luego retoma su ronda */
+      if (dd <= 11) { L.goUntil = 0; bot.goal = null; bot.gtype = ''; bot.path = null; bot.idle = Math.max(bot.idle || 0, 28); bot.v = 0; L.watch = t + 28; } /* ya llegó: se acaba la orden, la observa y luego retoma su ronda */
       else {
         L.goT -= dt;
         if (L.goT <= 0) {
           L.goT = 3;
-          var gs = botFreeSpot(L.x + Math.sin(L.yaw) * 4.5, L.z + Math.cos(L.yaw) * 4.5) || botFreeSpot(L.x + 4, L.z + 4);
+          var ahead = null, pq = L.path, ps = L.s + 7, pi2 = pq ? pq.idx : 0, pL;
+          if (pq) { while (pi2 < pq.pts.length - 2 && pq.cum[pi2 + 1] <= ps) pi2++; pL = pq.cum[pi2 + 1] - pq.cum[pi2]; f = pL > 0 ? Math.min(1, Math.max(0, (ps - pq.cum[pi2]) / pL)) : 0; ahead = [pq.pts[pi2][0] + (pq.pts[pi2 + 1][0] - pq.pts[pi2][0]) * f, pq.pts[pi2][1] + (pq.pts[pi2 + 1][1] - pq.pts[pi2][1]) * f]; } /* un poco más adelante en su ruta */
+          var gs = (ahead && botFreeSpot(ahead[0], ahead[1])) || botFreeSpot(L.x + Math.sin(L.yaw) * 7, L.z + Math.cos(L.yaw) * 7) || botFreeSpot(L.x + 4, L.z + 4);
           if (gs) { bot.tour = null; bot.xs = null; bot.idle = 0; if (dd > 60 || !botSetGoal(gs[0], gs[1], 'patrol')) { bot.goal = null; bot.gtype = ''; bot.path = null; bot.idle = 28; bot.tpj = { x: gs[0], z: gs[1], gx: gs[0], gz: gs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: bot.x, y: bot.y + 0.4, z: bot.z }); } }
         }
       }
