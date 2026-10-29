@@ -8744,6 +8744,14 @@ window.startMap = function (RAW, AUTH) {
       }
     }
     if (thr && b.mode === 'walk' && (b.boostT > 0 || (b.glr || 0) > 0) && U.y <= 40 && (!landAt || landAt(U.x, U.z)) && !ufoOverVolc() && !b.alienT && Math.hypot(dh, U.y - (b.y + 1.0)) < 14) botStartRide();
+    if (invLock && thr && b.mode === 'walk' && !b.tpj && !b.ride && dh > 14 && !orbOn && (dh > BOT_HUNT_D || !b.los)) { /* invasión: si no logra acercarse al alien o al meteoro (queda del otro lado de la barrera), salta junto a él */
+      if (b.stkD === undefined || dh < b.stkD - 3) { b.stkT0 = now; b.stkD = dh; }
+      else if (now - b.stkT0 > 6 || (b.hfail || 0) >= 2) {
+        var tsx = b.x - U.x, tsz = b.z - U.z, tsl = Math.hypot(tsx, tsz) || 1, tsp = botFreeSpot(U.x + tsx / tsl * 6, U.z + tsz / tsl * 6);
+        b.stkT0 = now; b.stkD = undefined; b.hfail = 0;
+        if (tsp && !invOut(tsp[0], tsp[1])) { b.tpj = { x: tsp[0], z: tsp[1], gx: tsp[0], gz: tsp[1], t: 0, done: false, back: true }; window.__botSayQ = 'Hay una barrera. Atajo hasta el objetivo.'; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+      }
+    } else { b.stkD = undefined; b.hfail = 0; }
     if (b.mode === 'walk') {
 
       if (thr) {
@@ -8753,8 +8761,8 @@ window.startMap = function (RAW, AUTH) {
           if (now >= b.huntHold && b.gtype !== 'roof' && b.gtype !== 'trail' && !orbOn && !(DUEL && DUEL.ph === 'fight') && (b.gtype !== 'hunt' || now >= b.replanT)) {
             tgt2 = botHuntPoint(U);
             if (tgt2 && b.gtype === 'hunt' && b.goal && b.path && Math.hypot(tgt2.x - b.goal.x, tgt2.z - b.goal.z) < 18) { b.goal.x = tgt2.x; b.goal.z = tgt2.z; b.replanT = now + (dh > 200 ? 6 : 4); }
-            else if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) b.replanT = now + (dh > 200 ? 6 : 4);
-            else { b.noHunt = now + 2.5; if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; } }
+            else if (tgt2 && botSetGoal(tgt2.x, tgt2.z, 'hunt')) { b.replanT = now + (dh > 200 ? 6 : 4); b.hfail = 0; }
+            else { b.hfail = (b.hfail || 0) + 1; b.noHunt = now + 2.5; if (b.gtype === 'hunt') { b.goal = null; b.gtype = ''; b.path = null; } }
           }
         } else if (b.gtype !== 'roof' && b.gtype !== 'flank' && b.gtype !== 'orbit' && !(DUEL && b.gtype === 'patrol')) { b.goal = null; b.gtype = ''; b.path = null; }
       } else if (b.gtype === 'hunt' || b.gtype === 'flank' || b.gtype === 'orbit') { b.goal = null; b.gtype = ''; b.path = null; }
