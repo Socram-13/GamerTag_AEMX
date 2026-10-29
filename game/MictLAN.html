@@ -10512,13 +10512,11 @@ window.startMap = function (RAW, AUTH) {
   }
   /* ===== La Llorona: copia de Aura, blanca y translúcida, cabello negro largo, ojos rojos, bata larga y niebla; camina por las veredas como Aura ===== */
   var LL = null, LL_DLG = [
-    ['¿Oíste ese lamento? Se me heló el sistema…', 'Es la Llorona. Yo no me quedo a averiguarlo.'],
-    ['Dime que ese bulto blanco no es lo que creo…', 'Es la Llorona, sí. Nos apareció la Llorona.'],
-    ['¡Ay no! Se me apareció la Llorona.', 'A mí también. Camina despacio y no la mires.'],
-    ['Tengo miedo… ¿y si nos pide a los hijos?', 'Nosotros no tenemos hijos. Creo. No corras.'],
-    ['Esa niebla no es normal. ¿La ves?', 'La veo. Es la Llorona, vámonos con calma.'],
-    ['Mejor nos alejamos antes de que nos lamente.', 'Ni lo menciones, que me dan escalofríos.'],
-    ['Mis sensores dicen que no hay nadie… pero la veo.', 'Porque es la Llorona. Ni los sensores la entienden.']
+    ['¿Oíste ese lamento? Se me heló el sistema…', 'Es la Llorona. Yo no me quedo a averiguarlo.', 'Dicen que anda por los caminos buscando a sus hijos.', 'Y a quien se la encuentre de noche… mejor ni lo pienso.', 'Entonces no la miremos directo. Caminemos despacio.', 'Despacio… y sin voltear. Ni una palabra más.'],
+    ['Dime que ese bulto blanco no es lo que creo…', 'Es la Llorona, sí. Nos apareció la Llorona.', '¿Por qué siempre nos pasa a nosotros?', 'Será porque patrullamos de noche. Yo avisé.', 'Tengo todos los servos temblando, ¿se nota?', 'Se nota. Respira, o lo que hagas tú. Ya se va.'],
+    ['¡Ay no! Se me apareció la Llorona.', 'A mí también. Camina despacio y no la mires.', 'Esa niebla no es normal, se siente helada.', 'Es su niebla. Dicen que lo cubre todo cuando llora.', '¿Y si nos pide ayuda para buscar a sus hijos?', 'Yo no pienso ayudar. ¡Ni se te ocurra preguntarle!'],
+    ['Tengo miedo… ¿y si nos pide a los hijos?', 'Nosotros no tenemos hijos. Creo. No corras.', 'Mi sistema dice que no hay nadie ahí, pero la veo.', 'Porque es la Llorona. Ni los sensores la entienden.', 'Entonces mejor nos alejamos antes de que nos lamente.', 'Ni lo menciones, que me dan escalofríos.'],
+    ['¿Escuchas ese «ay»? Viene de la niebla…', 'Lo escucho. Y se escucha cada vez más cerca.', 'Dime que es el viento. Dime algo.', 'Me encantaría, pero el viento no llora así.', 'Si nos persigue, tú corres primero.', 'Ni lo dudes. Yo te sigo… a una distancia segura.']
   ];
   function llWhiteFace(src) { /* textura de la cara: sin color, más clara y con iris rojos brillantes */
     var cv = document.createElement('canvas'), c, em = document.createElement('canvas'), e, tE2, W = src.width, H = src.height, side, cx, cy, gr, tx, tE;
@@ -10706,10 +10704,10 @@ window.startMap = function (RAW, AUTH) {
       if (Math.min(dB, dA) < 14) {
         var pr = LL_DLG[(Math.random() * LL_DLG.length) | 0];
         if (pr === L.lastD) pr = LL_DLG[(Math.random() * LL_DLG.length) | 0]; L.lastD = pr;
-        first = dB <= dA ? 'r' : 'a';
-        L.talkT = 75 + Math.random() * 30; window.__llTalk = performance.now() + 9500;
+        first = dB <= dA ? 'r' : 'a'; var firstW = first;
+        L.talkT = 90 + Math.random() * 30; window.__llTalk = performance.now() + pr.length * 3700 + 2500;
         window.__botSayQ = null;
-        window.__dFeedPush(first, pr[0], 2); setTimeout(function () { if (window.__dFeedPush) window.__dFeedPush(first === 'r' ? 'a' : 'r', pr[1], 2); }, 3200);
+        pr.forEach(function (ln, qi) { setTimeout(function () { if (window.__dFeedPush) window.__dFeedPush((qi % 2 === 0) === (firstW === 'r') ? 'r' : 'a', ln, 2); }, qi * 3700); });
         if (!L.wailLast || t - L.wailLast > 12) { L.wailT = 1.5; }
       } else L.talkT = 2;
     }
