@@ -3808,7 +3808,7 @@ window.startMap = function (RAW, AUTH) {
     for (k = 0; k < 3; k++) { p0 = pickIn(2.0); if (!p0) break; used.push([p0[0], p0[1], 2.0]); an = rnd() * 3.1416;
       var ct = new THREE.Group(); box(ct, cm[k % 3], 0, 0.55, 0, 2.6, 1.1, 1.05); edges(ct, 0, 0.55, 0, 2.6, 1.1, 1.05, 0); box(ct, mD, 1.31, 0.55, 0, 0.04, 0.95, 0.9); for (j = -1; j <= 1; j++) box(ct, mD, j * 0.8, 0.56, 0.53, 0.05, 1.0, 0.04);
       if (k === 0) { box(ct, cm[1], 0.1, 1.65, 0, 2.6, 1.1, 1.05, 0.15); edges(ct, 0.1, 1.65, 0, 2.6, 1.1, 1.05, 0.15); }
-      ct.position.set(p0[0], y0(p0[0], p0[1]), p0[1]); ct.rotation.y = an; G.add(ct); monBlk.push({ x: p0[0], z: p0[1], r: 1.9 }); nC++; }
+      ct.position.set(p0[0], y0(p0[0], p0[1]), p0[1]); ct.rotation.y = an; G.add(ct); monBlk.push({ x: p0[0], z: p0[1], r: 2.1 }); nC++; }
     /* montones de piezas del robot y de su clon */
     function pile(px, pz, R, nParts) {
       var pg = new THREE.Group(), c, a2, d2, kd, pp, hh;
@@ -8323,6 +8323,13 @@ window.startMap = function (RAW, AUTH) {
     if (U.z < 1.5) window.__uvxCl.bot = { x: U.x, z: U.z }; else delete window.__uvxCl.bot;
   };
   var JK_DLG = [["¡Encontré el tornillo que me hacía falta!", "Por fin. Llevabas semanas rechinando."], ["Aquí está mi dedo meñique… ¡todavía responde!", "Pónselo antes de que lo pierdas otra vez."], ["Esta antena es de mi modelo. Sirve.", "Con eso tu señal dejará de sonar a radio de taxi."], ["Una batería con carga al 12 %. Es un tesoro.", "Para ti eso es un banquete."], ["¡Mi ojo izquierdo! Por eso veía todo menos nítido.", "Yo creía que era tu personalidad."], ["Estas piezas rojas no son mías. Son de mi clon.", "Mejor no las toques. Ya tuvimos suficiente con él."], ["Nada útil aquí. Solo óxido.", "Sigue buscando. La chatarra no se acaba."]];
+  function botJunkGo(x, z) { /* camino fino (rejilla de 0.6, con margen) para la isla: no depende de la malla gruesa y rodea contenedores y montones */
+    var b = bot, p = null;
+    try { p = botFineAStar(b.x, b.z, x, z); } catch (eJ) { p = null; }
+    if (!p || p.length < 2) { if (botLineFree(b.x, b.z, x, z, 0.3, true)) p = [[b.x, b.z], [x, z]]; else return false; }
+    p[p.length - 1] = [x, z]; b.path = p; b.pi = Math.min(1, p.length - 1); b.goal = { x: x, z: z }; b.gtype = 'patrol'; b.stuck = 0; b.lastGD = 1e9; b.pt = 0;
+    return true;
+  }
   function botCallIsland(jk) { /* jk: ir a la chatarrería de las Islas Marías en vez de Socorro */
     var b = bot, g = (jk && JUNKC) ? JUNKC : geo(-110.97, 18.78), sp, sp2, an;
     if (jk && !JUNKC) return false;
@@ -8350,7 +8357,7 @@ window.startMap = function (RAW, AUTH) {
         if (botFree(mx, mz) && botSetGoal(mx, mz, 'patrol')) { b.disMeet = now0(); b.jog = false; return; }
       }
     }
-    if (!b.inJunk) { b.jRt = null; b.jTalk = false; }
+    if (!b.inJunk) { b.jRt = null; b.jTalk = false; b.jTgt = null; }
     if (freeT && b.inJunk && window.__junk && window.__junk.pp && window.__junk.pp.length && !invLock && Math.random() < 0.9) { /* en la chatarrería: recorrido fijo por los montículos; en cada uno charla con Aura */
       var jp = window.__junk.pp, ja, jx, jz, jt, jc, jl, jk2, jq, jd;
       if (!b.jRt) { /* ruta: siempre al montículo más cercano que falte, así rodea la isla sin ir y venir */
@@ -8361,11 +8368,11 @@ window.startMap = function (RAW, AUTH) {
       if (b.jTalk) { b.jTalk = false; }
       else if (b.jRi >= 0 && window.__dFeedPush && Math.hypot(b.x - jp[b.jRt[b.jRi]][0], b.z - jp[b.jRt[b.jRi]][1]) < 6) {
         if (!b.jBag || !b.jBag.length) { b.jBag = JK_DLG.map(function (q, k) { return k; }).sort(function () { return Math.random() - 0.5; }); }
-        jq = JK_DLG[b.jBag.pop()]; window.__dFeedPush('r', jq[0]); setTimeout(function () { if (window.__dFeedPush) window.__dFeedPush('a', jq[1]); }, 2800);
+        jq = JK_DLG[b.jBag.pop()]; window.__dFeedPush('r', jq[0], true); setTimeout(function () { if (window.__dFeedPush) window.__dFeedPush('a', jq[1], true); }, 2800);
         b.jTalk = true; b.idle = 7; return;
       }
       b.jRi = (b.jRi + 1) % b.jRt.length; jc = b.jRt[b.jRi];
-      for (jt = 0; jt < 8; jt++) { ja = Math.atan2(b.z - jp[jc][1], b.x - jp[jc][0]) + (jt ? (Math.random() - 0.5) * 2.4 : 0); jx = jp[jc][0] + Math.cos(ja) * 2.1; jz = jp[jc][1] + Math.sin(ja) * 2.1; if (botFree(jx, jz) && botSetGoal(jx, jz, 'patrol')) { b.jog = false; b.idle = 3 + Math.random() * 3; return; } }
+      for (jt = 0; jt < 14; jt++) { ja = Math.atan2(b.z - jp[jc][1], b.x - jp[jc][0]) + (jt ? (jt % 2 ? 1 : -1) * Math.ceil(jt / 2) * 0.45 : 0); jx = jp[jc][0] + Math.cos(ja) * 2.1; jz = jp[jc][1] + Math.sin(ja) * 2.1; if (botCellFree(jx, jz) && botJunkGo(jx, jz)) { b.jog = false; b.jTgt = jp[jc]; b.idle = 3 + Math.random() * 3; return; } }
     }
     if (freeT && GM.mode === 'exp' && !DUEL && !VIS && aura && aura.mode === 'trail' && !invLock && now0() >= (b.visCD || 0)) {
       b.visCD = now0() + 25;
@@ -9187,6 +9194,8 @@ window.startMap = function (RAW, AUTH) {
       else botIK(1, 0.3, 0.43 + 0.55 * sp, 0.55 * cp, b.scQs, b.scQe);
     }
 
+    b.jk = (b.jk || 0) + (((b.inJunk && b.jTgt && b.mode === 'walk' && !b.goal && b.v < 0.6) ? 1 : 0) - (b.jk || 0)) * Math.min(1, dt * 3);
+    if (b.jk > 0.02 && b.jTgt) { var jyw = Math.atan2(b.jTgt[0] - b.x, b.jTgt[1] - b.z); b.yaw += nAng(jyw - b.yaw) * Math.min(1, dt * 3); } /* revisando un montículo: se gira hacia él */
     for (i = 0; i < 2; i++) {
       f = (i === 0 ? -1 : 1) * Math.sin(b.ph) * Math.min(0.85, 0.1 + b.v * 0.1) * b.gk * (1 - fK);
       elf = (0.3 + 1.1 * b.runK) * (1 - fK) + 0.12 * fK + 0.45 * (b.gK || 0);
@@ -9195,6 +9204,7 @@ window.startMap = function (RAW, AUTH) {
       bkE.set(-(elf + 0.5 * Math.max(0, f)) * (1 - bk) - 1.8 * bk, 0, 0);
       bkQ2.setFromEuler(bkE).slerp(b.arms[i].he, b.hold);
       if (b._sp > 0.02) { bkSpE.set(-0.55 * b._sp * (0.6 + 0.4 * Math.sin(t * 4.6 + i * 1.9)), 0, (i === 0 ? -1 : 1) * 0.12 * b._sp); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set(-0.7 * b._sp * (0.5 + 0.5 * Math.sin(t * 5.7 + i)), 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* gesticula al hablar */
+      if (b.jk > 0.02) { bkSpE.set((i === 1 ? -1.15 * (0.7 + 0.3 * Math.sin(t * 2.6)) : -0.35 * (0.6 + 0.4 * Math.sin(t * 1.9 + 1))) * b.jk, 0, (i === 0 ? -1 : 1) * 0.1 * b.jk); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set((i === 1 ? -0.55 * (0.5 + 0.5 * Math.sin(t * 3.1)) : -0.2) * b.jk, 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* extiende el brazo y remueve las piezas */
       if (i === 1 && b.scanK > 0.01) { bkQ1.slerp(b.scQs, b.scanK); bkQ2.slerp(b.scQe, b.scanK); }
       b.arms[i].sh.quaternion.copy(bkQ1); b.arms[i].el.quaternion.copy(bkQ2);
     }
@@ -9209,7 +9219,7 @@ window.startMap = function (RAW, AUTH) {
     b.lean = (b.lean || 0) + (lean - (b.lean || 0)) * Math.min(1, dt * 6);
     var yrR = b.pyaw === undefined ? 0 : nAng(b.yaw - b.pyaw) / Math.max(dt, 0.001); b.pyaw = b.yaw; b.yr = (b.yr || 0) + (yrR - (b.yr || 0)) * Math.min(1, dt * 8);
     b.sideK = (b.sideK || 0) + ((((b.boostT > 0 || ((b.glr || 0) > 0 && (b.bh || 0) > 0.3)) && Math.abs(b.yr) > 0.3) ? clamp(b.yr / 2.5, -1, 1) : 0) - (b.sideK || 0)) * Math.min(1, dt * 10);
-    b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin; b.body.rotation.z = 0.18 * b.hangK - 0.22 * b.sideK;
+    b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin + 0.34 * (b.jk || 0); b.body.rotation.z = 0.18 * b.hangK - 0.22 * b.sideK;
     b.body.position.y = -0.38 * bk + (0.84 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.595 * kq;
 
     var swA = (0.044 + 0.061 * b.runK) * (1 - b.hold) * b.gk * (1 - fK) * (1 - bk) * (1 - kq);
@@ -9242,6 +9252,7 @@ window.startMap = function (RAW, AUTH) {
     FXo.blob.visible = onGnd; FXo.blob.position.set(b.x, fxBase + 0.03, b.z); FXo.blob.scale.setScalar(0.75 * (1 + (b.bh || 0) * 0.05)); FXo.blob.material.opacity = 0.5 / (1 + (b.bh || 0) * 0.3);
     b.head.rotation.x = -b.aimPitch - b.lean;
     b.head.rotation.y = (b.aiming ? 0 : (b.mode === 'perch' ? 1.1 : (b.v < 1 ? 0.55 : 0.15))) * Math.sin(t * 0.6) - stA;
+    if (b.jk > 0.02) { b.head.rotation.x += 0.2 * b.jk; b.head.rotation.y += 0.4 * b.jk * Math.sin(t * 1.5); } /* mira el montón y barre con la vista */
     if (b._sp) { b.head.rotation.x += b._sp * 0.12 * Math.sin(t * 7.3); b.head.rotation.y += b._sp * 0.22 * Math.sin(t * 3.1); }
 
     if (b.scanK > 0.3 && b.wk && !liftOn) {
@@ -10192,6 +10203,7 @@ window.startMap = function (RAW, AUTH) {
     var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN;
     if (!el || !bot || !hud || !bs) return;
     if (DUEL) { duelTalk(); return; }
+    if (bot.inJunk) return; /* en la chatarrería solo hablan las frases propias del recorrido */
     if (!botFollow) { if (AT.hide) { AT.hide = 0; el.classList.remove('on'); } AT.rep = null; if (VIS) VIS.say = null; return; }
     sp = el.querySelector('span');
     if (AT.hide && n > AT.hide) { AT.hide = 0; el.classList.remove('on'); }
@@ -12268,7 +12280,7 @@ window.startMap = function (RAW, AUTH) {
             var say = document.getElementById('bSay'), nowMs = performance.now(), base = tx2.indexOf('Explorando') === 0 ? 'city' : tx2.indexOf('Cazando') === 0 ? 'ufo' : tx2.indexOf('Exterminando') === 0 ? 'al' : tx2.indexOf('Destruyendo') === 0 ? 'rock' : tx2.indexOf('Revisando') === 0 ? 'wreck' : tx2.indexOf('Vigilando') === 0 ? 'fall' : tx2.indexOf('Viajando a ') === 0 && S && !S.end ? 'inv' : tx2.indexOf('Saliendo') === 0 ? 'fog' : tx2.indexOf('dron') > 0 ? 'drone' : tx2 === 'Patrullando' ? 'chat' : '', sit = '', cat, L2, ph2, q2, k2, n1, n2, nm2, wk3, REP = { city: 11000, chat: 15000, ghost: 9000, rain: 14000, snow: 14000, dense: 12000, fog2: 14000, volc: 14000, angel: 12000, sea: 16000, ufo: 20000, al: 18000, rock: 16000, inv: 20000, wreck: 14000, t60: 9000, dis: 30000 }, cd2;
             if (hud._sayT && nowMs > hud._sayT) { hud._sayT = 0; say.classList.remove('on'); }
             if (window.__botSayQ) { say.textContent = window.__botSayQ; say.classList.add('on'); hud._sayT = nowMs + 4200; hud._sayGate = nowMs + 5000; hud._lastSay = window.__botSayQ; window.__botSayQ = null; AUD.talk(bkMuz.set(b2.x, b2.y + 1.4, b2.z)); return; }
-            if (nowMs <= (hud._sayGate || 0)) return;
+            if (nowMs <= (hud._sayGate || 0) || b2.inJunk) return;
             if (WX && WX.ghostNear && WX.ghostNear(b2.x, b2.z, 45)) sit = 'ghost';
             else if (S && !S.end && S.entered && S.left <= 60) sit = 't60';
             else if (typeof ALN !== 'undefined' && ALN.disNear && ALN.disNear() && !b2.disTalk) sit = 'dis';
