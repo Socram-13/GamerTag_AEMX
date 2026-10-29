@@ -8299,7 +8299,7 @@ window.startMap = function (RAW, AUTH) {
     if (inC && !C.on) { if (clock.elapsedTime - botCamUser < 3) return; C.on = 1; C.save.copy(camera.position).sub(controls.target); }
     if (!C.on) return;
     C.o.copy(camera.position).sub(controls.target);
-    if (inC) { hl = Math.hypot(C.o.x, C.o.z); if (hl < 0.01) { C.w.set(Math.sin(botYawCam + Math.PI), 0, Math.cos(botYawCam + Math.PI)); } else C.w.set(C.o.x / hl, 0, C.o.z / hl); C.w.multiplyScalar(1.4); C.w.y = 0.8; }
+    if (inC) { hl = Math.hypot(C.o.x, C.o.z); if (hl < 0.01) { C.w.set(Math.sin(botYawCam + Math.PI), 0, Math.cos(botYawCam + Math.PI)); } else C.w.set(C.o.x / hl, 0, C.o.z / hl); C.w.multiplyScalar(Math.min(3.2, 1.4 + 0.22 * Math.max(b.v || 0, 0))); C.w.y = Math.min(1.5, 0.8 + 0.08 * Math.max(b.v || 0, 0)); } /* más lejos mientras más rápido corre, para que no se salga de cuadro */
     else C.w.copy(C.save);
     k = Math.min(1, dt * 1.8); C.o.lerp(C.w, k); camera.position.copy(controls.target).add(C.o);
     if (!inC && C.o.distanceTo(C.save) < 0.15) C.on = 0;
@@ -12153,7 +12153,7 @@ window.startMap = function (RAW, AUTH) {
       botYawCam += nAng((bot.aiming ? bot.aimYaw : bot.yaw) - botYawCam) * Math.min(1, dt * 2.5);
       if (fly) { fly.fb.set(bot.x, bot.y + 0.5, bot.z); fly.pb.set(bot.x, bot.y + 0.5, bot.z).add(botOff); bot._lx = undefined; }
       else {
-        var bsp = (bot._cpx === undefined || dt <= 0) ? 0 : Math.hypot(bot.x - bot._cpx, bot.y - bot._cpy, bot.z - bot._cpz) / dt; bot._cpx = bot.x; bot._cpy = bot.y; bot._cpz = bot.z; var bk2 = Math.min(1, dt * clamp(4 + 0.5 * Math.max(bot.v || 0, bsp), 4, 18)), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
+        var bsp = (bot._cpx === undefined || dt <= 0) ? 0 : Math.hypot(bot.x - bot._cpx, bot.y - bot._cpy, bot.z - bot._cpz) / dt; bot._cpx = bot.x; bot._cpy = bot.y; bot._cpz = bot.z; var bk2 = Math.min(1, dt * clamp(4 + 0.5 * Math.max(bot.v || 0, bsp), 4, 18) * (window.__cityC && window.__cityC.on ? 2.6 : 1)), bdx = (bot.x - controls.target.x) * bk2, bdy = (bot.y + 0.5 - controls.target.y) * bk2, bdz = (bot.z - controls.target.z) * bk2;
         controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
 
         if (botDrag) botCamUser = clock.elapsedTime;
