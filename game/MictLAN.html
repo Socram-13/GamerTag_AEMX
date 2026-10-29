@@ -9837,7 +9837,8 @@ window.startMap = function (RAW, AUTH) {
       sw = Math.sin(K.ph + i * Math.PI) * 0.55 * K.gk;
       tw = 1 - Math.max(K.tk, K.wk, K.gr);
       a.arms[i].sh.rotation.x = K.sp * (i === 0 ? -0.55 + 0.2 * Math.sin(t * 4.7) : (1 - K.gr) * (-0.4 + 0.15 * Math.sin(t * 4.1))) + sw * tw + K.tk * (-0.5 + 0.05 * Math.sin(t * 17 + i * 2)) + (i === 1 ? K.wk * (-1.62 + 0.06 * Math.sin(t * 6)) + K.gr * (-2.6 + 0.05 * Math.sin(t * 5)) : 0);
-      a.arms[i].el.rotation.x = (-0.18 - 0.25 * K.gk * Math.max(0, -Math.sin(K.ph + i * Math.PI))) * tw + K.tk * (-1.0 + 0.14 * Math.sin(t * 13 + i * 1.7)) + (i === 1 ? K.wk * (-0.25 + 0.12 * Math.sin(t * 9)) + K.gr * (-0.35 + 0.4 * Math.sin(t * 8)) : 0) + (i === 0 ? K.wk * -0.18 + K.gr * -0.18 : 0) + K.sp * (i === 0 ? (-0.5 + 0.28 * Math.sin(t * 6.1)) : (1 - K.gr) * (-0.35 + 0.22 * Math.sin(t * 5.3 + 1)));
+      a.arms[i].el.rotation.x = (-0.18 - 0.4 * K.gk * (0.5 - 0.5 * Math.sin(K.ph + i * Math.PI - 0.6))) * tw + K.tk * (-1.0 + 0.14 * Math.sin(t * 13 + i * 1.7)) + (i === 1 ? K.wk * (-0.25 + 0.12 * Math.sin(t * 9)) + K.gr * (-0.5 + 0.1 * Math.sin(t * 8 + 1.2)) : 0) + (i === 0 ? K.wk * -0.18 + K.gr * -0.18 : 0) + K.sp * (i === 0 ? (-0.5 + 0.28 * Math.sin(t * 6.1)) : (1 - K.gr) * (-0.35 + 0.22 * Math.sin(t * 5.3 + 1)));
+      a.arms[i].sh.rotation.z = (i ? 1 : -1) * (0.07 + 0.035 * K.gk * Math.sin(K.ph * 0.5 + i)) * (i === 1 ? 1 - K.gr : 1) + (i === 1 ? K.gr * (0.2 + 0.42 * Math.sin(t * 8)) : 0); /* saludo de lado a lado; al caminar los brazos se abren y cierran un poco */
     }
     K.g.position.set(K.x, 0.215, K.z); K.g.rotation.y = K.yaw;
   }
