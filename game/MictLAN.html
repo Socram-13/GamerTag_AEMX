@@ -8327,7 +8327,7 @@ window.startMap = function (RAW, AUTH) {
     var b = bot, p = null;
     try { p = botFineAStar(b.x, b.z, x, z); } catch (eJ) { p = null; }
     if (!p || p.length < 2) { if (botLineFree(b.x, b.z, x, z, 0.3, true)) p = [[b.x, b.z], [x, z]]; else return false; }
-    p[p.length - 1] = [x, z]; b.path = p; b.pi = Math.min(1, p.length - 1); b.goal = { x: x, z: z }; b.gtype = 'patrol'; b.stuck = 0; b.lastGD = 1e9; b.pt = 0;
+    p[p.length - 1] = [x, z]; b.path = p; b.pi = Math.min(1, p.length - 1); b.goal = { x: x, z: z }; b.gtype = 'junk'; b.stuck = 0; b.lastGD = 1e9; b.pt = 0;
     return true;
   }
   function botCallIsland(jk) { /* jk: ir a la chatarrería de las Islas Marías en vez de Socorro */
@@ -8358,7 +8358,7 @@ window.startMap = function (RAW, AUTH) {
       }
     }
     if (!b.inJunk) { b.jRt = null; b.jTalk = false; b.jTgt = null; }
-    if (freeT && b.inJunk && window.__junk && window.__junk.pp && window.__junk.pp.length && !invLock && Math.random() < 0.9) { /* en la chatarrería: recorrido fijo por los montículos; en cada uno charla con Aura */
+    if (freeT && b.inJunk && window.__junk && window.__junk.pp && window.__junk.pp.length && !invLock) { /* en la chatarrería: recorrido fijo por los montículos; en cada uno charla con Aura */
       var jp = window.__junk.pp, ja, jx, jz, jt, jc, jl, jk2, jq, jd;
       if (!b.jRt) { /* ruta: siempre al montículo más cercano que falte, así rodea la isla sin ir y venir */
         jl = jp.map(function (q, k) { return k; }); b.jRt = []; jx = b.x; jz = b.z;
@@ -8371,8 +8371,10 @@ window.startMap = function (RAW, AUTH) {
         jq = JK_DLG[b.jBag.pop()]; window.__dFeedPush('r', jq[0], true); setTimeout(function () { if (window.__dFeedPush) window.__dFeedPush('a', jq[1], true); }, 2800);
         b.jTalk = true; b.idle = 7; return;
       }
-      b.jRi = (b.jRi + 1) % b.jRt.length; jc = b.jRt[b.jRi];
-      for (jt = 0; jt < 14; jt++) { ja = Math.atan2(b.z - jp[jc][1], b.x - jp[jc][0]) + (jt ? (jt % 2 ? 1 : -1) * Math.ceil(jt / 2) * 0.45 : 0); jx = jp[jc][0] + Math.cos(ja) * 2.1; jz = jp[jc][1] + Math.sin(ja) * 2.1; if (botCellFree(jx, jz) && botJunkGo(jx, jz)) { b.jog = false; b.jTgt = jp[jc]; b.idle = 3 + Math.random() * 3; return; } }
+      if (b.jRi >= b.jRt.length - 1) { b.jDone = true; b.jRt = null; return; } /* terminó la vuelta: ya puede volver */
+      b.jRi = b.jRi + 1; jc = b.jRt[b.jRi];
+      for (jt = 0; jt < 14; jt++) { ja = Math.atan2(b.z - jp[jc][1], b.x - jp[jc][0]) + (jt ? (jt % 2 ? 1 : -1) * Math.ceil(jt / 2) * 0.45 : 0); jx = jp[jc][0] + Math.cos(ja) * (jt < 5 ? 1.6 : jt < 10 ? 2.0 : 2.5); jz = jp[jc][1] + Math.sin(ja) * (jt < 5 ? 1.6 : jt < 10 ? 2.0 : 2.5); if (botCellFree(jx, jz) && botJunkGo(jx, jz)) { b.jog = false; b.jTgt = jp[jc]; b.idle = 3 + Math.random() * 3; return; } }
+      b.idle = 0.4; return; /* ese montículo no tiene acceso libre: pasa al siguiente */
     }
     if (freeT && GM.mode === 'exp' && !DUEL && !VIS && aura && aura.mode === 'trail' && !invLock && now0() >= (b.visCD || 0)) {
       b.visCD = now0() + 25;
@@ -8594,10 +8596,10 @@ window.startMap = function (RAW, AUTH) {
       if (Tp.done && Tp.t >= 0.6) {
         b.g.visible = true; if (b.fxg) b.fxg.g.visible = false; b.tpj = null; b.idle = 0.5;
         if (Tp.back) { b.isl = null; b.liftCD = 0; }
-        else { b.isl = { t0: now }; b.liftCD = now + 90; if (botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0; }
+        else { b.isl = { t0: now }; b.liftCD = now + 90; b.jDone = false; b.jRt = null; if (JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80) b.idle = 0; else if (botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0; }
       }
     }
-    if (b.isl && !b.tpj && b.mode === 'walk' && (now - b.isl.t0 > 40 || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()))) {
+    if (b.isl && !b.tpj && b.mode === 'walk' && (now - b.isl.t0 > (b.inJunk && !b.jDone ? 360 : 40) || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()))) {
       var rs = MYP && isFinite(MYP.x) ? botFreeSpot(MYP.x, MYP.z + 9) : null, rd;
       if (!rs) { rd = districts.filter(function (q) { return q.list.length; })[0]; rs = rd ? botFreeSpot(rd.cx + rd.r + 8, rd.cz) : null; }
       if (rs) { b.tpj = { x: rs[0], z: rs[1], gx: rs[0], gz: rs[1], t: 0, done: false, back: true }; b.isl = null; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
@@ -8809,7 +8811,7 @@ window.startMap = function (RAW, AUTH) {
 
       if (b.goal) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
-        if (gd < (b.gtype === 'roof' ? 0.55 : (GM.mode === 'exp' && b.gtype === 'patrol') ? 2.5 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
+        if (gd < (b.gtype === 'roof' ? 0.55 : b.gtype === 'junk' ? 0.4 : (GM.mode === 'exp' && b.gtype === 'patrol') ? 2.5 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
           if (b.gtype === 'roof') { b.ball = false; b.ballK = 0; b.spin = Math.round((b.spin || 0) / 6.2832) * 6.2832; b.mode = 'jetUp'; b.jph = 0; b.vy = 0; b.v = 0; b.goal = null; b.gtype = ''; }
           else { if (b.gtype === 'wreck') { b.scan = true; b.scanT = 0; } if (b.gtype === 'wreckp') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; } else if (b.gtype === 'hunt') b.huntHold = now + 0.6; b.goal = null; b.gtype = ''; b.path = null; b.idle = 2 + Math.random() * 4; }
         } else {
