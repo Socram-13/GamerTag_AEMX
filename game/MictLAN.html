@@ -10536,13 +10536,13 @@ window.startMap = function (RAW, AUTH) {
       }
     });
     tx = new THREE.CanvasTexture(cv); tx.anisotropy = 4; tE = new THREE.CanvasTexture(em); tE2 = new THREE.CanvasTexture(em2);
-    var fm = new THREE.MeshLambertMaterial({ map: tx, emissive: 0xffffff, emissiveMap: tE, emissiveIntensity: 0.5, transparent: true, opacity: 0.4, depthWrite: false, flatShading: true });
+    var fm = new THREE.MeshLambertMaterial({ map: tx, emissive: 0xffffff, emissiveMap: tE, emissiveIntensity: 0.5, transparent: true, opacity: 0.28, depthWrite: false, flatShading: true });
     fm.userData.eyes = tE2; return fm;
   }
   function buildLlorona() {
     var a = makeAura(), g = a.g, i, j, m, ang, fg, fp, fl2, cv, cx, gr;
-    var wm = new THREE.MeshLambertMaterial({ color: 0xf2f5ff, emissive: 0x6c7592, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide });
-    var hm = new THREE.MeshLambertMaterial({ color: 0x07070a, emissive: 0x010102, transparent: true, opacity: 0.36, depthWrite: false, side: THREE.DoubleSide });
+    var wm = new THREE.MeshLambertMaterial({ color: 0xf2f5ff, emissive: 0x6c7592, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide });
+    var hm = new THREE.MeshLambertMaterial({ color: 0x07070a, emissive: 0x010102, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
     var rm = [], eyeM = [];
     a.shell.remove(a.tab);
     g.traverse(function (o) {
@@ -10573,10 +10573,10 @@ window.startMap = function (RAW, AUTH) {
     gr = cx.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, 'rgba(235,240,255,0.65)'); gr.addColorStop(0.5, 'rgba(215,224,245,0.3)'); gr.addColorStop(1, 'rgba(200,210,235,0)');
     cx.fillStyle = gr; cx.fillRect(0, 0, 128, 128);
     var ft = new THREE.CanvasTexture(cv);
-    for (i = 0; i < 26; i++) {
+    for (i = 0; i < 44; i++) {
       var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ft, color: 0xdfe6f7, transparent: true, opacity: 0.3, depthWrite: false, fog: false, rotation: Math.random() * 6.28 }));
       sp.raycast = function () { };
-      puffs.push({ s: sp, a: i / 26 * 6.2832 + Math.random() * 0.4, r: 0.9 + Math.random() * 1.7, y: 0.03 + Math.random() * 0.6, sz: 1.5 + Math.random() * 1.3, sp: (Math.random() < 0.5 ? -1 : 1) * (0.12 + Math.random() * 0.2), ph: Math.random() * 6.28 });
+      puffs.push({ s: sp, a: i / 44 * 6.2832 + Math.random() * 0.4, r: 1.1 + Math.random() * 2.6, y: 0.03 + Math.random() * 0.8, sz: 2.2 + Math.random() * 1.8, sp: (Math.random() < 0.5 ? -1 : 1) * (0.12 + Math.random() * 0.2), ph: Math.random() * 6.28 });
       fogG.add(sp);
     }
     fogG.visible = false; scene.add(fogG);
@@ -10673,7 +10673,7 @@ window.startMap = function (RAW, AUTH) {
       p2 = L.puffs[i]; p2.a += p2.sp * dt;
       p2.s.position.set(Math.cos(p2.a) * p2.r, p2.y + 0.05 * Math.sin(t * 0.8 + p2.ph), Math.sin(p2.a) * p2.r);
       p2.s.scale.set(p2.sz * (1 + 0.08 * Math.sin(t * 0.7 + p2.ph)), p2.sz * 0.75, 1);
-      p2.s.material.opacity = 0.24 + 0.08 * Math.sin(t * 0.9 + p2.ph);
+      p2.s.material.opacity = 0.42 + 0.1 * Math.sin(t * 0.9 + p2.ph);
       p2.s.material.rotation += dt * 0.05 * p2.sp;
     }
     /* lamento largo */
