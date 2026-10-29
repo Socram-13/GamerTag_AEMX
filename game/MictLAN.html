@@ -12181,6 +12181,11 @@ window.startMap = function (RAW, AUTH) {
           var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng((bot.aiming ? bot.aimYaw : bot.yaw) + Math.PI - bcur) * Math.min(1, dt * 4);
           if (brr > 0.01) { camera.position.x = controls.target.x + Math.sin(bnew) * brr; camera.position.z = controls.target.z + Math.cos(bnew) * brr; }
         }
+        /* reajuste automático: si la cámara se fue alejando/inclinando y el usuario no la toca, vuelve a la vista por defecto (como el botón Alinear) */
+        if (!turretCam && !window.__uvxCam && !botDrag && clock.elapsedTime - botCamUser > 10 && clock.elapsedTime - (window.__bAlT || 0) > 10) {
+          var aox = camera.position.x - controls.target.x, aoy = camera.position.y - controls.target.y, aoz = camera.position.z - controls.target.z, adr = Math.hypot(aox, aoy, aoz), apol = Math.acos(clamp(aoy / (adr || 1), -1, 1));
+          if (Math.abs(adr - 6) > 0.8 || Math.abs(apol - 1.2) > 0.12) { window.__bAlT = clock.elapsedTime; botStartFollow(bot); }
+        }
       }
     }
     /* cityCam desactivada: la cámara del robot queda siempre alineada, sin acercamientos */
