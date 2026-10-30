@@ -6963,68 +6963,88 @@ window.startMap = function (RAW, AUTH) {
     function cy(mat, px, py, pz, r, len, rx, rz, par) { var q = new THREE.Mesh(uCyl, mat); q.position.set(px, py, pz); q.scale.set(r, len, r); q.rotation.set(rx || 0, 0, rz || 0); (par || g).add(q); return q; }
     function ball(mat, px, py, pz, r, par) { var q = new THREE.Mesh(uSphere, mat); q.position.set(px, py, pz); q.scale.setScalar(r); par.add(q); return q; }
     g.rotation.order = 'YXZ'; body.rotation.order = 'YXZ'; upper.rotation.order = 'YXZ';
-    body.position.y = 0.86; g.add(body);
+    body.position.y = 0.93; g.add(body);
 
-    bx(bkBlack, 0, 0, 0, 0.32, 0.14, 0.22, body); bx(bkGray, 0, 0.0, 0.115, 0.16, 0.1, 0.03, body);
-    bx(bkGray, -0.17, 0, 0, 0.04, 0.12, 0.18, body); bx(bkGray, 0.17, 0, 0, 0.04, 0.12, 0.18, body);
+    bx(bkBlack, 0, 0, 0, 0.28, 0.13, 0.2, body); bx(bkGray, 0, 0.0, 0.105, 0.14, 0.09, 0.03, body); bx(eyeMat, 0, -0.015, 0.123, 0.09, 0.012, 0.01, body);
+    bx(bkGray, -0.15, 0, 0, 0.04, 0.11, 0.16, body); bx(bkGray, 0.15, 0, 0, 0.04, 0.11, 0.16, body);
     [-1, 1].forEach(function (sx) {
       var th = new THREE.Group(), kn = new THREE.Group(), ft = new THREE.Group();
-      th.rotation.order = 'YXZ'; th.position.set(sx * 0.12, -0.04, 0); body.add(th);
-      ball(bkJoint, 0, 0, 0, 0.095, th);
-      bx(bkBlack, 0, -0.18, 0, 0.13, 0.34, 0.15, th);
-      bx(bkGray, sx * 0.072, -0.17, 0, 0.025, 0.26, 0.1, th);
-      kn.position.y = -0.36; th.add(kn);
-      ball(bkJoint, 0, 0, 0, 0.085, kn);
-      bx(bkGray, 0, 0, 0.1, 0.12, 0.13, 0.05, kn);
-      bx(bkBlack, 0, -0.17, -0.01, 0.1, 0.32, 0.12, kn);
-      bx(bkGray, 0, -0.12, -0.095, 0.1, 0.2, 0.05, kn);
-      bx(bkGray, 0, -0.17, 0.08, 0.08, 0.24, 0.03, kn);
-      ft.position.y = -0.36; kn.add(ft);
-      ball(bkJoint, 0, 0, 0, 0.065, ft);
-      bx(bkBlack, 0, -0.05, 0.07, 0.15, 0.09, 0.3, ft);
-      bx(bkDark, 0, -0.075, 0.2, 0.14, 0.05, 0.12, ft);
+      th.rotation.order = 'YXZ'; th.position.set(sx * 0.11, -0.04, 0); body.add(th);
+      ball(bkJoint, 0, 0, 0, 0.088, th);
+      bx(bkBlack, 0, -0.2, 0, 0.11, 0.38, 0.14, th);
+      bx(bkGray, sx * 0.064, -0.19, 0, 0.022, 0.3, 0.09, th);
+      bx(eyeMat, 0, -0.2, 0.073, 0.014, 0.27, 0.008, th);
+      kn.position.y = -0.4; th.add(kn);
+      ball(bkJoint, 0, 0, 0, 0.078, kn);
+      bx(bkGray, 0, 0.01, 0.085, 0.1, 0.12, 0.05, kn).rotation.x = 0.3;
+      bx(bkBlack, 0, -0.19, -0.01, 0.085, 0.35, 0.11, kn);
+      bx(bkGray, 0, -0.14, -0.09, 0.09, 0.22, 0.05, kn);
+      bx(bkGray, 0, -0.2, 0.075, 0.07, 0.26, 0.03, kn);
+      bx(eyeMat, 0, -0.2, 0.092, 0.012, 0.22, 0.008, kn);
+      ft.position.y = -0.39; kn.add(ft);
+      ball(bkJoint, 0, 0, 0, 0.06, ft);
+      bx(bkBlack, 0, -0.06, 0.05, 0.115, 0.07, 0.2, ft);
+      bx(bkDark, 0, -0.075, 0.17, 0.1, 0.04, 0.08, ft).rotation.x = -0.12;
+      bx(bkDark, 0, -0.065, -0.07, 0.1, 0.06, 0.06, ft);
       legs.push({ th: th, kn: kn, ft: ft });
     });
 
     upper.position.set(0, 0.1, 0); body.add(upper);
     var shell = new THREE.Group(); upper.add(shell);
-    bx(bkJoint, 0, 0.06, 0, 0.22, 0.14, 0.16, shell);
-    bx(bkBlack, 0, 0.32, 0, 0.4, 0.32, 0.26, shell);
-    bx(bkGray, 0, 0.35, 0.135, 0.32, 0.18, 0.04, shell);
-    bx(bkDark, 0, 0.22, 0.135, 0.24, 0.05, 0.03, shell);
-    bx(eyeMat, 0, 0.35, 0.16, 0.06, 0.06, 0.012, shell);
-    cy(bkJoint, 0, 0.54, 0, 0.06, 0.08, 0, 0, shell);
+    bx(bkJoint, 0, 0.0, 0, 0.13, 0.2, 0.13, shell);
+    [-0.05, 0, 0.05].forEach(function (wy) { cy(bkDark, 0, wy, 0, 0.088, 0.018, 0, 0, shell); }); /* fuelle de la cintura */
+    (function () { var as = new THREE.Shape(), ag; /* abdomen en trapecio invertido: ancho arriba (unido al pecho) y angosto en la cintura */
+      as.moveTo(-0.15, 0.285); as.lineTo(0.15, 0.285); as.lineTo(0.065, 0.095); as.lineTo(-0.065, 0.095); as.closePath();
+      ag = new THREE.ExtrudeGeometry(as, { depth: 0.2, bevelEnabled: false }); ag.translate(0, 0, -0.1); shell.add(new THREE.Mesh(ag, bkBlack)); })();
+    bx(bkBlack, 0, 0.375, 0, 0.32, 0.24, 0.26, shell);
     [-1, 1].forEach(function (sx) {
-      bx(bkGray, sx * 0.2, 0.49, 0, 0.12, 0.07, 0.22, shell).rotation.z = -sx * 0.05; /* hombrera pegada al cuerpo: no sobresale del brazo */
-      bx(bkBlack, sx * 0.33, 0.44, 0, 0.05, 0.1, 0.2, shell);
+      bx(bkGray, sx * 0.075, 0.39, 0.135, 0.13, 0.16, 0.04, shell).rotation.z = -sx * 0.18;
+      bx(eyeMat, sx * 0.05, 0.285, 0.145, 0.065, 0.012, 0.012, shell).rotation.z = sx * 0.5;
+    });
+    bx(bkDark, 0, 0.2, 0.105, 0.085, 0.06, 0.02, shell);
+    bx(eyeMat, 0, 0.37, 0.16, 0.05, 0.05, 0.012, shell);
+    cy(bkJoint, 0, 0.555, 0, 0.055, 0.11, 0, 0, shell); /* cuello: sube hasta meterse en la cabeza */
+    cy(bkDark, 0, 0.51, 0, 0.068, 0.02, 0, 0, shell); /* base del cuello */
+    [-1, 1].forEach(function (sx) {
+      bx(bkGray, sx * 0.2, 0.49, 0, 0.14, 0.07, 0.24, shell).rotation.z = -sx * 0.14; /* hombrera ancha e inclinada: da la silueta en V */
+      bx(bkBlack, sx * 0.275, 0.44, 0, 0.05, 0.1, 0.2, shell);
     });
 
-    head.position.set(0, 0.60, 0); shell.add(head);
-    bx(bkBlack, 0, 0.08, 0, 0.18, 0.18, 0.21, head);
-    bx(bkDark, 0, 0.08, 0.108, 0.15, 0.09, 0.02, head);
-    bx(eyeMat, -0.045, 0.09, 0.12, 0.045, 0.026, 0.012, head); bx(eyeMat, 0.045, 0.09, 0.12, 0.045, 0.026, 0.012, head);
-    bx(bkGray, -0.1, 0.08, 0, 0.03, 0.12, 0.12, head); bx(bkGray, 0.1, 0.08, 0, 0.03, 0.12, 0.12, head);
-    bx(bkGray, 0, 0.18, 0.02, 0.1, 0.03, 0.13, head);
+    head.position.set(0, 0.60, 0); head.rotation.y = -0.3; shell.add(head); /* la cabeza mira hacia donde apunta el arma */
+    bx(bkBlack, 0, 0.08, 0, 0.145, 0.17, 0.2, head);
+    bx(bkDark, 0, -0.012, 0, 0.1, 0.03, 0.12, head); /* collarín: asienta la cabeza sobre el cuello */
+    bx(bkDark, 0, 0.085, 0.1, 0.13, 0.075, 0.04, head);
+    bx(eyeMat, -0.037, 0.09, 0.123, 0.04, 0.026, 0.01, head); bx(eyeMat, 0.037, 0.09, 0.123, 0.04, 0.026, 0.01, head); /* ojos separados */
+    bx(bkGray, 0, -0.005, 0.085, 0.085, 0.05, 0.07, head).rotation.x = 0.4;
+    bx(bkGray, -0.085, 0.08, 0.01, 0.03, 0.13, 0.14, head).rotation.z = 0.08; bx(bkGray, 0.085, 0.08, 0.01, 0.03, 0.13, 0.14, head).rotation.z = -0.08;
     [-1, 1].forEach(function (sx) {
-      var an = new THREE.Group();
-      an.position.set(sx * 0.06, 0.17, -0.05); an.rotation.set(-0.12, 0, -sx * 0.2); head.add(an);
-      bx(bkDark, 0, 0.02, 0, 0.05, 0.06, 0.05, an);
-      cy(bkGray, 0, 0.1, 0, 0.013, 0.17, 0, 0, an);
-      ball(eyeMat, 0, 0.2, 0, 0.022, an);
+      var an = new THREE.Group(), es, eg, em; /* oreja tipo Chappie: panel que se afila hacia arriba, sujeto al costado de la cabeza */
+      an.position.set(sx * 0.112, 0.07, 0); an.rotation.set(-0.35, 0, -sx * 0.1); head.add(an);
+      bx(bkDark, -sx * 0.022, 0.0, 0, 0.05, 0.07, 0.07, an); /* soporte contra el casco */
+      cy(bkJoint, 0, 0.0, 0, 0.026, 0.045, Math.PI / 2, 0, an); /* pivote */
+      var pn = new THREE.Group(); pn.rotation.y = sx * Math.PI / 2; pn.scale.y = 0.6; an.add(pn); /* el panel mira hacia el costado, no hacia el frente */
+      es = new THREE.Shape(); es.moveTo(-0.045, 0.03); es.lineTo(0.045, 0.03); es.lineTo(0.04, 0.2); es.lineTo(0.024, 0.3); es.lineTo(-0.024, 0.3); es.lineTo(-0.04, 0.2); es.closePath();
+      eg = new THREE.ExtrudeGeometry(es, { depth: 0.02, bevelEnabled: false }); eg.translate(0, 0, -0.01);
+      pn.add(new THREE.Mesh(eg, bkBlack));
+      es = new THREE.Shape(); es.moveTo(-0.027, 0.06); es.lineTo(0.027, 0.06); es.lineTo(0.023, 0.2); es.lineTo(0.013, 0.265); es.lineTo(-0.013, 0.265); es.lineTo(-0.023, 0.2); es.closePath();
+      eg = new THREE.ExtrudeGeometry(es, { depth: 0.006, bevelEnabled: false }); eg.translate(0, 0, 0.01);
+      pn.add(new THREE.Mesh(eg, bkGray));
+      bx(eyeMat, 0, 0.15, 0.0175, 0.012, 0.12, 0.004, pn);
     });
 
     var ps = new THREE.Shape();
     ps.moveTo(-0.13, 0.54); ps.lineTo(-0.27, 0.5); ps.lineTo(-0.36, 0.3); ps.lineTo(-0.35, 0.06); ps.lineTo(-0.27, -0.04); ps.lineTo(-0.13, 0.0); ps.closePath();
     var pg = new THREE.ExtrudeGeometry(ps, { depth: 0.26, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
+    pg.translate(0.13, 0, 0); pg.scale(0.6, 1, 1); pg.translate(-0.13, 0, 0); /* mochila más delgada: se comprime el grosor hacia la espalda */
     pg.scale(0.75, 0.75, 0.75); pg.rotateY(-Math.PI / 2); pg.translate(0.1, 0, -0.02);
     var pack = new THREE.Group(); pack.position.y = 0.08; shell.add(pack);
     pack.add(new THREE.Mesh(pg, bkBlack));
-    bx(eyeMat, 0, 0.24, -0.292, 0.026, 0.22, 0.012, pack);
-    bx(bkGray, 0, 0.4, -0.2, 0.12, 0.025, 0.12, pack).rotation.x = -0.25;
+    bx(eyeMat, 0, 0.24, -0.222, 0.026, 0.22, 0.012, pack);
+    bx(bkGray, 0, 0.4, -0.165, 0.12, 0.025, 0.1, pack).rotation.x = -0.25;
     [-1, 1].forEach(function (sx) {
-      var fn = bx(bkGray, sx * 0.14, 0.25, -0.24, 0.022, 0.22, 0.1, pack); fn.rotation.z = sx * 0.28;
+      var fn = bx(bkGray, sx * 0.14, 0.25, -0.19, 0.022, 0.22, 0.1, pack); fn.rotation.z = sx * 0.28;
       var nz = new THREE.Group(), fl;
-      nz.position.set(sx * 0.075, 0.02, -0.25); nz.rotation.x = 0.6; nz.scale.setScalar(0.75); pack.add(nz);
+      nz.position.set(sx * 0.075, 0.02, -0.2); nz.rotation.x = 0.6; nz.scale.setScalar(0.75); pack.add(nz);
       m = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.085, 0.2, 10), bkGray); m.position.y = -0.1; nz.add(m);
       cy(bkDark, 0, -0.2, 0, 0.07, 0.02, 0, 0, nz);
       fl = new THREE.Mesh(bkFlameGeo, new THREE.MeshBasicMaterial({ color: 0x6dffc2, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -7032,23 +7052,28 @@ window.startMap = function (RAW, AUTH) {
       flames.push(fl); nozzles.push(nz);
     });
 
-    rifle.position.set(0.12, 0.52, 0.05); upper.add(rifle);
+    rifle.position.set(0.125, 0.49, 0.17); rifle.rotation.y = -0.5; upper.add(rifle); /* el arma apunta ~28° hacia adentro respecto al torso (postura de tirador) */ /* arma al hombro, a la altura del mentón */
     bx(bkBlack, 0, -0.005, 0.08, 0.09, 0.13, 0.44, rifle);
     bx(bkGray, 0, -0.01, -0.15, 0.1, 0.14, 0.03, rifle);
     bx(bkGray, 0, 0.085, 0.15, 0.07, 0.05, 0.36, rifle);
     bx(bkDark, 0, 0.075, 0.36, 0.04, 0.035, 0.1, rifle);
     bx(bkGray, 0, -0.01, 0.46, 0.085, 0.12, 0.28, rifle);
     for (var ri = 0; ri < 3; ri++) bx(bkDark, 0, -0.08, 0.38 + ri * 0.08, 0.05, 0.03, 0.05, rifle);
-    bx(bkBlack, 0, -0.1, 0.3, 0.05, 0.14, 0.06, rifle).rotation.x = 0.25;
-    bx(bkDark, 0, -0.1, 0.12, 0.06, 0.15, 0.08, rifle);
+    bx(bkBlack, 0, -0.1, 0.38, 0.05, 0.14, 0.06, rifle).rotation.x = 0.25;
+    bx(bkDark, 0, -0.1, 0.056, 0.06, 0.15, 0.08, rifle).rotation.x = 0.3; /* empuñadura inclinada */
     bx(eyeMat, 0.047, 0.01, 0.1, 0.012, 0.05, 0.26, rifle);
     cy(bkDark, 0, -0.075, 0.58, 0.02, 0.08, Math.PI / 2, 0, rifle);
     cy(bkJoint, 0, 0.01, 0.68, 0.02, 0.14, Math.PI / 2, 0, rifle);
     cy(bkDark, 0, 0.01, 0.745, 0.032, 0.06, Math.PI / 2, 0, rifle);
     cy(eyeMat, 0, 0.01, 0.782, 0.026, 0.016, Math.PI / 2, 0, rifle);
 
+    var fR = new THREE.Group(), fL = new THREE.Group(); /* puños pegados al arma, con el mismo ángulo del agarre */
+    fR.position.set(0, -0.1, 0.056); fR.rotation.x = 0.3; rifle.add(fR);
+    bx(bkJoint, 0, 0, 0, 0.088, 0.1, 0.105, fR); bx(bkJoint, -0.052, 0.03, 0.0, 0.03, 0.05, 0.065, fR); bx(bkJoint, 0, 0.04, 0.085, 0.022, 0.022, 0.08, fR); /* palma, pulgar e índice sobre el gatillo */
+    fL.position.set(0, -0.1, 0.38); fL.rotation.x = 0.25; rifle.add(fL);
+    bx(bkJoint, 0, -0.01, 0, 0.088, 0.085, 0.105, fL); bx(bkJoint, 0.056, 0.02, 0, 0.026, 0.07, 0.095, fL); bx(bkJoint, -0.052, 0.03, 0.0, 0.026, 0.05, 0.07, fL); /* palma bajo el guardamano, dedos al costado, pulgar */
     function solveArm(sx, T) {
-      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.27, 0.43, 0), l1 = 0.31, l2 = 0.29;
+      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.205, 0.43, 0), l1 = 0.31, l2 = 0.29;
       var d = T.clone().sub(S), L = d.length(), dist = Math.min(L, l1 + l2 - 0.005), dir = d.clone().normalize(), A, pole, E, Tc, q1, q2, down = new THREE.Vector3(0, -1, 0);
       A = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist))));
       pole = new THREE.Vector3(sx * 0.6, -1, -0.3); pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
@@ -7061,17 +7086,23 @@ window.startMap = function (RAW, AUTH) {
       ball(bkJoint, 0, 0, 0, 0.085, sh);
       bx(bkBlack, 0, -0.155, 0, 0.1, 0.26, 0.12, sh);
       bx(bkGray, sx * 0.065, -0.14, 0, 0.02, 0.17, 0.1, sh);
+      bx(eyeMat, sx * 0.0775, -0.14, 0, 0.008, 0.14, 0.02, sh);
       if (sx < 0) sh.add(s13Decal(-1, 0.11, -0.079, -0.15));
       ball(bkJoint, 0, 0, 0, 0.07, el);
       bx(bkBlack, 0, -0.135, 0, 0.11, 0.22, 0.12, el);
       bx(bkGray, 0, -0.1, 0.065, 0.09, 0.15, 0.03, el);
-      bx(bkDark, 0, -0.28, 0, 0.09, 0.1, 0.1, el);
+      bx(eyeMat, 0, -0.1, 0.083, 0.012, 0.12, 0.008, el);
+      ball(bkJoint, 0, -0.255, 0, 0.045, el); /* muñeca */
+      bx(bkBlack, 0, -0.31, 0, 0.05, 0.085, 0.095, el); /* palma */
+      bx(bkGray, -sx * 0.026, -0.31, 0, 0.012, 0.06, 0.07, el); /* placa del dorso */
+      (function () { var fi, fg, k; for (fi = 0; fi < 2; fi++) { fg = new THREE.Group(); fg.position.set(0, -0.352, -0.021 + fi * 0.042); fg.rotation.z = -sx * 0.6; el.add(fg); bx(bkJoint, 0, -0.03, 0, 0.026, 0.066, 0.036, fg); k = new THREE.Group(); k.position.y = -0.066; k.rotation.z = -sx * 0.7; fg.add(k); bx(bkJoint, 0, -0.023, 0, 0.023, 0.046, 0.033, k); }
+        var th = new THREE.Group(); th.position.set(0, -0.29, 0.05); th.rotation.set(-0.5, 0, -sx * 0.45); el.add(th); bx(bkJoint, 0, -0.03, 0, 0.022, 0.06, 0.022, th); })(); /* dos dedos curvados hacia la palma y pulgar */
       arms.push({ sh: sh, el: el, hs: sh.quaternion.clone(), he: el.quaternion.clone() });
     }
-    solveArm(-1, new THREE.Vector3(0.12, 0.45, 0.4));
-    solveArm(1, new THREE.Vector3(0.12, 0.39, 0.35));
+    solveArm(-1, new THREE.Vector3(-0.105, 0.39, 0.541)); /* izquierda: guardamano (parte delantera) */
+    solveArm(1, new THREE.Vector3(0.077, 0.39, 0.208)); /* derecha: empuñadura / gatillo */
 
-    g.scale.setScalar(0.38);
+    g.scale.setScalar(0.3662); /* escala compensada: la altura del cuerpo queda igual que antes */
     noRay(g); scene.add(g);
 
     var beamG = new THREE.ConeGeometry(5, 28, 20, 1, true), beam, bgp, bgc, bgi, bgt;
@@ -8559,7 +8590,7 @@ window.startMap = function (RAW, AUTH) {
   var bkSc1 = new THREE.Vector3(), bkSc2 = new THREE.Vector3(), bkS = new THREE.Vector3(), bkD = new THREE.Vector3(), bkP = new THREE.Vector3(), bkEl = new THREE.Vector3(), bkTc = new THREE.Vector3(), bkDn = new THREE.Vector3(0, -1, 0), bkQ3 = new THREE.Quaternion(), bkQ4 = new THREE.Quaternion();
   function botIK(sx, tx, ty, tz, qs, qe) {
     var l1 = 0.31, l2 = 0.29, dist, A;
-    bkS.set(sx * 0.27, 0.43, 0); bkD.set(tx, ty, tz).sub(bkS); dist = Math.min(bkD.length(), l1 + l2 - 0.005); bkD.normalize();
+    bkS.set(sx * 0.205, 0.43, 0); bkD.set(tx, ty, tz).sub(bkS); dist = Math.min(bkD.length(), l1 + l2 - 0.005); bkD.normalize();
     A = Math.acos(clamp((l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist), -1, 1));
     bkP.set(sx * 0.6, -1, -0.3); bkP.sub(bkTc.copy(bkD).multiplyScalar(bkP.dot(bkD))).normalize();
     bkEl.copy(bkS).addScaledVector(bkD, l1 * Math.cos(A)).addScaledVector(bkP, l1 * Math.sin(A));
@@ -9268,7 +9299,7 @@ window.startMap = function (RAW, AUTH) {
 
     var twT = 1 - (b.mode === 'walk' ? Math.max(0, Math.min(1, b.v / 1.5)) : 0) * Math.max(0, Math.min(1, 1 - Math.abs(nAng(b.aimYaw - b.yaw)) / 0.35));
     b._twK = (b._twK === undefined ? twT : b._twK) + (twT - (b._twK === undefined ? twT : b._twK)) * Math.min(1, dt * 6);
-    var stA = -0.85 * b.hold * b._twK * Math.max(0, Math.min(1, 1 + nAng(b.aimYaw - b.yaw) / 0.9)) , stC = Math.cos(stA), stS = Math.sin(stA), hq, pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.12, 0.45, 0.4], [0.12, 0.39, 0.35]];
+    var stA = 0.5 * b.hold * b._twK * Math.max(0, Math.min(1, 1 - nAng(b.aimYaw - b.yaw) / 0.9)) , stC = Math.cos(stA), stS = Math.sin(stA), hq, pit = b.aimPitch + b.lean, cp = Math.cos(pit), sp = Math.sin(pit), hy, hz, hT = [[0.15, 0.39, 0.48], [0.15, 0.39, 0.156]];
     if (b.hold > 0.01) {
       for (i = 0; i < 2; i++) {
         hy = hT[i][1] - 0.43; hz = hT[i][2];
@@ -9301,8 +9332,8 @@ window.startMap = function (RAW, AUTH) {
       b.arms[i].sh.quaternion.copy(bkQ1); b.arms[i].el.quaternion.copy(bkQ2);
     }
 
-    hy = 0.09; hz = 0.05;
-    hq = 0.14 - 0.02 * b.hold; hz = -0.4 + (-hy * sp + hz * cp + 0.4) * b.hold;
+    hy = 0.06; hz = 0.10;
+    hq = 0.14 + 0.01 * b.hold; hz = -0.4 + (-hy * sp + hz * cp + 0.4) * b.hold;
     b.rifle.rotation.order = 'YXZ';
     b.rifle.position.set(hq * stC - hz * stS, 0.12 + (0.43 + hy * cp + 0.05 * sp - 0.12) * b.hold, hq * stS + hz * stC);
     b.rifle.rotation.y = -stA;
@@ -9312,7 +9343,7 @@ window.startMap = function (RAW, AUTH) {
     var yrR = b.pyaw === undefined ? 0 : nAng(b.yaw - b.pyaw) / Math.max(dt, 0.001); b.pyaw = b.yaw; b.yr = (b.yr || 0) + (yrR - (b.yr || 0)) * Math.min(1, dt * 8);
     b.sideK = (b.sideK || 0) + ((((b.boostT > 0 || ((b.glr || 0) > 0 && (b.bh || 0) > 0.3)) && Math.abs(b.yr) > 0.3) ? clamp(b.yr / 2.5, -1, 1) : 0) - (b.sideK || 0)) * Math.min(1, dt * 10);
     b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin + 0.34 * (b.jk || 0) - 0.2 * (b.fr || 0); b.body.rotation.z = 0.18 * b.hangK - 0.22 * b.sideK;
-    b.body.position.y = -0.38 * bk + (0.84 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.595 * kq - 0.07 * (b.fr || 0);
+    b.body.position.y = -0.38 * bk + (0.91 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.66 * kq - 0.07 * (b.fr || 0);
 
     var swA = (0.044 + 0.061 * b.runK) * (1 - b.hold) * b.gk * (1 - fK) * (1 - bk) * (1 - kq);
     b.upper.rotation.y = nAng(b.aimYaw - b.yaw) + stA + swA * 0.8 * Math.sin(b.ph + 1.0);
