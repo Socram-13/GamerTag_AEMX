@@ -6996,7 +6996,7 @@ window.startMap = function (RAW, AUTH) {
     (function () { var as = new THREE.Shape(), ag; /* abdomen en trapecio invertido: ancho arriba (unido al pecho) y angosto en la cintura */
       as.moveTo(-0.15, 0.285); as.lineTo(0.15, 0.285); as.lineTo(0.065, 0.095); as.lineTo(-0.065, 0.095); as.closePath();
       ag = new THREE.ExtrudeGeometry(as, { depth: 0.2, bevelEnabled: false }); ag.translate(0, 0, -0.1); shell.add(new THREE.Mesh(ag, bkBlack)); })();
-    bx(bkBlack, 0, 0.375, 0, 0.32, 0.24, 0.26, shell);
+    bx(bkBlack, 0, 0.375, 0, 0.35, 0.24, 0.26, shell);
     [-1, 1].forEach(function (sx) {
       bx(bkGray, sx * 0.075, 0.39, 0.135, 0.13, 0.16, 0.04, shell).rotation.z = -sx * 0.18;
       bx(eyeMat, sx * 0.05, 0.285, 0.145, 0.065, 0.012, 0.012, shell).rotation.z = sx * 0.5;
@@ -7006,8 +7006,8 @@ window.startMap = function (RAW, AUTH) {
     cy(bkJoint, 0, 0.555, 0, 0.055, 0.11, 0, 0, shell); /* cuello: sube hasta meterse en la cabeza */
     cy(bkDark, 0, 0.51, 0, 0.068, 0.02, 0, 0, shell); /* base del cuello */
     [-1, 1].forEach(function (sx) {
-      bx(bkGray, sx * 0.2, 0.49, 0, 0.14, 0.07, 0.24, shell).rotation.z = -sx * 0.14; /* hombrera ancha e inclinada: da la silueta en V */
-      bx(bkBlack, sx * 0.275, 0.44, 0, 0.05, 0.1, 0.2, shell);
+      bx(bkGray, sx * 0.215, 0.49, 0, 0.14, 0.07, 0.24, shell).rotation.z = -sx * 0.14; /* hombrera ancha e inclinada: da la silueta en V */
+      bx(bkBlack, sx * 0.29, 0.44, 0, 0.05, 0.1, 0.2, shell);
     });
 
     head.position.set(0, 0.60, 0); head.rotation.y = -0.3; shell.add(head); /* la cabeza mira hacia donde apunta el arma */
@@ -7073,7 +7073,7 @@ window.startMap = function (RAW, AUTH) {
     fL.position.set(0, -0.1, 0.38); fL.rotation.x = 0.25; rifle.add(fL);
     bx(bkJoint, 0, -0.01, 0, 0.088, 0.085, 0.105, fL); bx(bkJoint, 0.056, 0.02, 0, 0.026, 0.07, 0.095, fL); bx(bkJoint, -0.052, 0.03, 0.0, 0.026, 0.05, 0.07, fL); /* palma bajo el guardamano, dedos al costado, pulgar */
     function solveArm(sx, T) {
-      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.205, 0.43, 0), l1 = 0.31, l2 = 0.29;
+      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.22, 0.43, 0), l1 = 0.31, l2 = 0.29;
       var d = T.clone().sub(S), L = d.length(), dist = Math.min(L, l1 + l2 - 0.005), dir = d.clone().normalize(), A, pole, E, Tc, q1, q2, down = new THREE.Vector3(0, -1, 0);
       A = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist))));
       pole = new THREE.Vector3(sx * 0.6, -1, -0.3); pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
@@ -8589,7 +8589,7 @@ window.startMap = function (RAW, AUTH) {
   var bkSc1 = new THREE.Vector3(), bkSc2 = new THREE.Vector3(), bkS = new THREE.Vector3(), bkD = new THREE.Vector3(), bkP = new THREE.Vector3(), bkEl = new THREE.Vector3(), bkTc = new THREE.Vector3(), bkDn = new THREE.Vector3(0, -1, 0), bkQ3 = new THREE.Quaternion(), bkQ4 = new THREE.Quaternion();
   function botIK(sx, tx, ty, tz, qs, qe) {
     var l1 = 0.31, l2 = 0.29, dist, A;
-    bkS.set(sx * 0.205, 0.43, 0); bkD.set(tx, ty, tz).sub(bkS); dist = Math.min(bkD.length(), l1 + l2 - 0.005); bkD.normalize();
+    bkS.set(sx * 0.22, 0.43, 0); bkD.set(tx, ty, tz).sub(bkS); dist = Math.min(bkD.length(), l1 + l2 - 0.005); bkD.normalize();
     A = Math.acos(clamp((l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist), -1, 1));
     bkP.set(sx * 0.6, -1, -0.3); bkP.sub(bkTc.copy(bkD).multiplyScalar(bkP.dot(bkD))).normalize();
     bkEl.copy(bkS).addScaledVector(bkD, l1 * Math.cos(A)).addScaledVector(bkP, l1 * Math.sin(A));
