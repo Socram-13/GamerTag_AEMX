@@ -4653,7 +4653,7 @@ window.startMap = function (RAW, AUTH) {
         o.k += (o.tg - o.k) * Math.min(1, dt * 1.5); f = o.k * (0.85 + 0.15 * Math.sin(t * 2.3 + i));
         o.ms.forEach(function (m) { m.mat.opacity = f * m.a; m.vis.visible = f > 0.02; });
         if (o.hx.length) o.ms.forEach(function (m) { if (m.neon) { m.mat.opacity = 0.92 + 0.08 * Math.sin(t * 2 + i); m.vis.visible = true; } }); /* corporativo: el logo holográfico sobre su hexágono oscuro es permanente */
-        if (o.ring) { o.ring.children[0].material.opacity = 0.88 + 0.12 * Math.sin(t * 1.6 + i); o.ring.rotation.y = t * 0.12; }
+        if (o.ring) { o.ring.children[0].material.opacity = 0.88 + 0.12 * Math.sin(t * 1.6 + i); o.ring.rotation.y = -t * 0.12; }
       }
     };
     function placeBg(d, make, skip, topY) {
@@ -5620,6 +5620,7 @@ window.startMap = function (RAW, AUTH) {
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'socorro') { q.value = ''; resEl.hidden = true; matches = []; botCallIsland(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'aldea') { q.value = ''; resEl.hidden = true; matches = []; botCallVillage(); auraVilCall(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'inv') { window.__botSayQ = 'La invasión solo existe en el Modo Invasión.'; return; } if (typeof ALN !== 'undefined') ALN.startHere(); return; }
+    if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'dialogos') { q.value = ''; resEl.hidden = true; matches = []; try { window.__DX.preview(); AT.fx = 1; AT.gap = 0; AT.rep = null; } catch (eDx) { } return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'llorona') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'exp') { window.__botSayQ = 'Solo puedo ir a verla en el Modo Exploración.'; return; } if (!window.__llGo || !window.__llGo(true)) window.__botSayQ = 'No la encuentro todavía…'; return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'olvidar') { q.value = ''; resEl.hidden = true; matches = []; if (window.__BM) window.__BM.reset(); window.__botSayQ = 'Memoria borrada. Empiezo de cero.'; return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
@@ -10188,7 +10189,7 @@ window.startMap = function (RAW, AUTH) {
     auraJump(A, e0[0], e0[1], 'join');
   }
 
-  var AT = { cd: {}, gap: 0, idle: 0, call: 0, rep: null, repT: 0, repWho: 0, hide: 0, last: null, hadInv: false, invEnd: 0, pm: '', ps: '' };
+  var AT = { topic: '', topicT: 0, q3: null, fx: 0, cd: {}, gap: 0, idle: 0, call: 0, rep: null, repT: 0, repWho: 0, hide: 0, last: null, hadInv: false, invEnd: 0, pm: '', ps: '' };
   (function (X) { var k; for (k in X) AURA_DLG[k] = (AURA_DLG[k] || []).concat(X[k]); })((window.__MICT && window.__MICT['AURA_DLG_1']) || {});
   AURA_DLG.call = [["¿Dónde estás? Te perdí en el radar.","Aquí sigo, ya casi llego."],["Apúrate, que llegamos tarde.","Voy a mi ritmo. Y mi ritmo es perfecto."],["Ya casi llegas, ¿verdad?","Ya casi. Tú sigue en lo tuyo."],["Te estoy esperando. ¿Piensas venir?","Voy, voy. No me presiones."],["¿Sigues vivo por allá?","Vivo y apuntando. Ya voy."],["Camina más rápido. Tengo datos que enseñarte.","Los datos no se van a ir."],["No te pierdas, que luego te tengo que buscar.","Nunca me pierdo. Solo exploro."],["¿Vienes o te quedas ahí de adorno?","Un adorno con cañones. Voy."],["Llevo rato esperando. Muévete un poco.","Me muevo, me muevo. Qué impaciente."],["Si tardas más me voy a otro sitio.","No te atreves. Sin mí te aburres."]];
   (function (X) { var k; for (k in X) AURA_DLG[k] = X[k]; })((window.__MICT && window.__MICT['AURA_DLG_2']) || {});
@@ -10283,8 +10284,92 @@ window.startMap = function (RAW, AUTH) {
     new MutationObserver(function () { push('a', aS.textContent); }).observe(aS, { childList: true, characterData: true, subtree: true });
     new MutationObserver(function () { push('r', bS.textContent); }).observe(bS, { childList: true, characterData: true, subtree: true });
   })();
+  var DX = (function () { /* diálogos v2 Aura ↔ robot: contexto, memoria, ánimo, continuidad y ritmo */
+    var KEY = 'mictlan_dlgseen_v1', seen = [], rest = 0, topicOf = '', INTJ = ['Mm.', 'Jaja, cierto.', 'Ya veo.', 'Anotado.', 'Eso pensé.', 'Tiene sentido.'], r, LINES, GEN;
+    try { r = localStorage.getItem(KEY); if (r) { seen = JSON.parse(r) || []; if (!Array.isArray(seen)) seen = []; } } catch (eD) { seen = []; }
+    function saveSeen() { try { localStorage.setItem(KEY, JSON.stringify(seen.slice(-40))); } catch (eS) { } }
+    function ctx() {
+      var c = {}, d, bd, p, t;
+      d = (bot && typeof auraCityNear === 'function') ? auraCityNear(bot.x, bot.z) : null; c.city = d ? d.name : '';
+      c.fog = !!(WX && WX.fogAt && bot && WX.fogAt(bot.x, bot.z));
+      c.coast = !!(bot && typeof coastDist === 'function' && coastDist(bot.x, bot.z) < 50);
+      c.junk = !!(bot && (bot.inJunk || bot.jIsl));
+      c.np = players.length; c.hour = new Date().getHours();
+      c.uvx = BM.ago('p', 'uvx'); c.ll = BM.ago('p', 'llorona'); c.jk = BM.ago('p', 'junk');
+      if (c.uvx < 1 || c.jk < 1 || BM.ago('p', 'socorro') < 1) rest = now0();
+      t = now0() - rest;
+      c.mood = c.ll < 10 ? 'fear' : (c.uvx < 6 || c.jk < 6) ? 'hype' : t > 1200 ? 'tired' : 'calm';
+      p = players.length ? players[(Math.random() * players.length) | 0] : null; c.pl = p ? p.name : 'alguien';
+      return c;
+    }
+    function fill(s, c, extra) {
+      return String(s).replace(/\{ciudad\}/g, c.city || 'por aquí').replace(/\{lugar\}/g, c.coast ? 'la costa' : c.junk ? 'la chatarra' : (c.city || 'este lugar')).replace(/\{jugador\}/g, c.pl).replace(/\{N\}/g, c.np)
+        .replace(/\{hace\}/g, extra && extra.hace || '').replace(/\{X\}/g, extra && extra.X || '').replace(/\{n\}/g, extra && extra.n || '');
+    }
+    LINES = [ /* [robot|aura primero, segundo, tercero opcional]; f:'r' = el robot habla primero; fu = solo como seguimiento de ese tema */
+      { id: 'fog1', t: 'fog', w: 2, when: function (c) { return c.fog; }, l: ['La niebla se está espesando por {ciudad}.', 'Mis sensores la ven, pero no me gusta no ver más allá de diez metros.', 'Entonces caminamos juntos y ya.'] },
+      { id: 'fog2', t: 'fog', w: 2, when: function (c) { return c.fog; }, f: 'r', l: ['Con esta niebla hasta los letreros se ven fantasmales.', 'Los hologramas se ven mejor así, a mí me gusta.', 'A ti todo te gusta mientras brille.'] },
+      { id: 'fog_fu', fu: 'fog', w: 3, l: ['Como te decía de la niebla… sigue ahí.', 'Sí, no se va. Parece que le gusta el mapa.', 'Pues que se quede, pero que no tape la ruta.'] },
+      { id: 'cst1', t: 'coast', w: 2, when: function (c) { return c.coast; }, l: ['Se escucha el mar desde aquí. Qué paz.', 'El oleaje se ve más ordenado que el tráfico de la capital.', 'No hay tráfico en el mapa. Aquí no hay nada que ordenar.'] },
+      { id: 'cst2', t: 'coast', w: 2, when: function (c) { return c.coast; }, f: 'r', l: ['La espuma del oleaje se ve bien desde la costa.', 'Solo no te acerques de más, que la arena se hunde.', 'Descuida, no me mojo… casi nunca.'] },
+      { id: 'cst_fu', fu: 'coast', w: 3, l: ['Hablando del mar… ¿te imaginas una isla más allá?', 'Ya hay algunas, solo que las pobló la chatarra.', 'Y las pobló bien, por lo que vi.'] },
+      { id: 'jk1', t: 'junk', w: 3, when: function (c) { return c.junk; }, l: ['Cuánta chatarra junta. Hay hasta una grúa.', 'Cada pieza tiene su historia, aunque no la sepamos.', 'Mientras no me la quieran vender de vuelta, todo bien.'] },
+      { id: 'pl1', t: 'players', w: 2, when: function (c) { return c.np > 5; }, l: ['Hay {N} jugadores en el mapa. Se ve ocupado.', 'Y todos con su estado, su ciudad y su historia.', '{jugador} es de los que más veces se ve en las rutas.'] },
+      { id: 'pl2', t: 'players', w: 2, when: function (c) { return c.np > 0; }, f: 'r', l: ['¿Has notado a {jugador}? Su ciudad tiene buen movimiento.', 'Sí, siempre aparece en la lista cuando reviso.', 'Eso es constancia.'] },
+      { id: 'pl_fu', fu: 'players', w: 3, l: ['Seguía pensando en los jugadores del mapa.', 'Cada uno deja su marca. Algunos más grande que otros.', 'Y algunos, solo la sombra.'] },
+      { id: 'cty1', t: 'city', w: 2, when: function (c) { return !!c.city; }, l: ['{ciudad} tiene su propio ritmo, ¿no crees?', 'Cada estado suena distinto. Aquí es más cálido.', 'A mí me suena a rutas largas y buen café.'] },
+      { id: 'cty_fu', fu: 'city', w: 3, l: ['Seguía pensando en {ciudad}. Siempre me da algo que mirar.', 'Y lo bueno es que siempre hay algo nuevo.', 'Hasta que lo vemos todo y vuelve a empezar.'] },
+      { id: 'late1', t: 'hour', w: 2, when: function (c) { return c.hour >= 23 || c.hour < 5; }, l: ['Es tarde allá afuera. Quien nos mira debería dormir.', 'Dile eso al que mira. Yo no necesito dormir.', 'Pero todos necesitan descansar, aunque nosotros no.'] },
+      { id: 'early1', t: 'hour', w: 2, when: function (c) { return c.hour >= 5 && c.hour < 9; }, l: ['Qué temprano, y ya estamos de ruta.', 'Quien entra de madrugada merece una buena ruta.', 'O un buen café.'] },
+      { id: 'fear1', t: 'fear', w: 4, mood: 'fear', l: ['¿Escuchaste algo detrás de nosotros?', 'No quiero escuchar nada. Camina más rápido.', 'Voy atrás de ti. Bien atrás.'] },
+      { id: 'fear2', t: 'fear', w: 4, mood: 'fear', f: 'r', l: ['Todavía me tiemblan los servos.', 'Fue un susto. Ya pasó.', 'Eso dices tú, que no la tuviste enfrente.'] },
+      { id: 'tire1', t: 'tired', w: 4, mood: 'tired', f: 'r', l: ['Llevamos un buen rato de camino. Mis baterías piden pausa.', 'Cinco minutos y seguimos. Prometido.', 'Eso dijiste hace un rato.'] },
+      { id: 'tire2', t: 'tired', w: 4, mood: 'tired', l: ['Camina más lento, que se te acaba la batería.', 'No camino lento, ahorro energía.', 'Qué elegante forma de llamarlo.'] },
+      { id: 'hyp1', t: 'hype', w: 4, mood: 'hype', l: ['Qué buen rato en la última parada. Valió la pena.', 'Hay lugares que recargan solo de verlos.', 'Con eso me quedo en la ruta lo que falta.'] },
+      { id: 'cal1', t: 'calm', w: 1, mood: 'calm', l: ['Todo tranquilo. Demasiado tranquilo.', 'No lo digas, que luego pasa algo.', 'Ya lo dije. Perdón.'] },
+      { id: 'cal2', t: 'calm', w: 1, mood: 'calm', f: 'r', l: ['A veces prefiero caminar en silencio.', 'Yo igual. Pero rara vez me sale.', 'A mí tampoco.'] }
+    ];
+    function mkGen(id, t, w, fn) { return { id: id, t: t, w: w, g: fn }; }
+    GEN = [
+      mkGen('g_uvx_old', 'uvx', 3, function (c) { if (c.uvx === Infinity) return { l: ['¿Has ido alguna vez a UVXpress?', 'Todavía no. Debería pasar a verla.', 'Pues cuando puedas, la imprenta no se mira sola.'] }; if (c.uvx > 25) return { l: ['Oye, ¿hace cuánto no pasas por UVXpress?', 'Pasé {hace}. Ya toca revisar la imprenta.', 'No la dejes sola mucho tiempo.'], x: { hace: bmAgo(c.uvx) } }; return null; }),
+      mkGen('g_uvx_new', 'uvx', 2, function (c) { if (c.uvx <= 25 && c.uvx < Infinity) return { f: 'r', l: ['La visita a UVXpress {hace} salió bien.', 'La imprenta siempre tiene movimiento. Me quedé con ganas de más.', 'Pues otra vuelta ya mismo.'], x: { hace: bmAgo(c.uvx) } }; return null; }),
+      mkGen('g_city_top', 'city', 2, function () { var d, b = null, bn = 0, n; for (d = 0; d < districts.length; d++) { if (!districts[d].list.length) continue; n = BM.n('c', districts[d].name); if (n > bn) { bn = n; b = districts[d]; } } return b && bn >= 3 ? { l: ['Te la pasas en {X}, ¿eh?', 'Ahí he estado {n} veces. Me queda de paso.', 'Entonces ya te sabes sus calles de memoria.'], x: { X: b.name, n: bn } } : null; }),
+      mkGen('g_city_new', 'city', 3, function () { var d, a = []; for (d = 0; d < districts.length; d++) if (districts[d].list.length && !BM.n('c', districts[d].name)) a.push(districts[d].name); return a.length ? { l: ['¿Y {X}? Nunca has pasado por ahí.', 'Cierto, la tengo pendiente. Voy a ir pronto.', 'Apúntalo antes de que se te olvide.'], x: { X: a[(Math.random() * a.length) | 0] } } : null; }),
+      mkGen('g_ll', 'fear', 3, function (c) { if (c.ll <= 60) return { l: ['¿Sigues pensando en la Llorona?', 'La vi {hace}. Todavía me zumban los sensores.', 'Pues no hagas ruido, a ver si no regresa.'], x: { hace: bmAgo(c.ll) } }; if (c.ll < Infinity) return { f: 'r', l: ['Hace rato que no escuchamos a la Llorona.', 'No lo digas en voz alta, por favor.', 'Ya lo dije. Perdón, perdón.'] }; return null; }),
+      mkGen('g_jk', 'junk', 2, function (c) { if (c.jk < Infinity && !c.junk) return { l: ['Estuviste en la chatarra {hace}.', 'Sí, revisé los montículos uno por uno. Hay buena pieza.', 'Con orden, como debe ser.'], x: { hace: bmAgo(c.jk) } }; return null; })
+    ];
+    function pushSeen(id) { var i = seen.indexOf(id); if (i >= 0) seen.splice(i, 1); seen.push(id); if (seen.length > 40) seen.shift(); saveSeen(); }
+    function candidates(c, AT0) {
+      var out = [], i, e, g, topic = AT0 && AT0.topic && (performance.now() - (AT0.topicT || 0)) < 600000 ? AT0.topic : '', fuPool = [], w;
+      for (i = 0; i < LINES.length; i++) {
+        e = LINES[i]; if (seen.indexOf(e.id) >= 0) continue;
+        if (e.fu) { if (e.fu === topic) fuPool.push({ e: e, w: e.w || 1, x: null }); continue; }
+        if (e.when && !e.when(c)) continue;
+        w = e.w || 1; if (e.mood) w *= e.mood === c.mood ? 3 : 0; if (w <= 0) continue;
+        out.push({ e: e, w: w, x: null });
+      }
+      for (i = 0; i < GEN.length; i++) {
+        g = GEN[i]; if (seen.indexOf(g.id) >= 0) continue;
+        r = g.g(c); if (r) out.push({ e: { id: g.id, t: g.t, f: r.f, l: r.l }, w: g.w, x: r.x || null });
+      }
+      return { main: out, fu: fuPool };
+    }
+    function pick(AT0) {
+      var c = ctx(), cd = candidates(c, AT0), pool, tot = 0, i, q, res, lines;
+      pool = (cd.fu.length && Math.random() < 0.5) ? cd.fu : cd.main;
+      if (!pool.length) { if (seen.length) { seen = seen.slice(Math.floor(seen.length / 2)); saveSeen(); } return null; }
+      for (i = 0; i < pool.length; i++) tot += pool[i].w;
+      q = Math.random() * tot; for (i = 0; i < pool.length; i++) { q -= pool[i].w; if (q <= 0) break; } if (i >= pool.length) i = pool.length - 1;
+      res = pool[i]; pushSeen(res.e.id);
+      lines = res.e.l.map(function (s) { return fill(s, c, res.x); });
+      if (lines.length < 3 && Math.random() < 0.25) lines.push(INTJ[(Math.random() * INTJ.length) | 0]);
+      return { l: lines, f: res.e.f || '', t: res.e.t || '' };
+    }
+    return { pick: pick, ctx: ctx, preview: function () { var c = ctx(), cd = candidates(c, { topic: '' }), a = cd.main.map(function (o) { return o.e.id; }); try { console.log('[DX] ánimo=' + c.mood + ' ciudad=' + c.city + ' candidatos:', a.join(', ')); } catch (e) { } return a; }, reset: function () { seen = []; saveSeen(); } };
+  })();
+  window.__DX = DX;
   function auraTalk() {
-    var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN;
+    var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN, dxR = null, dxF = false, rb = false;
     if (!el || !bot || !hud || !bs) return;
     if (DUEL) { duelTalk(); return; }
     if (performance.now() < (window.__llTalk || 0)) return; /* pausa: hablan de la Llorona */
@@ -10296,6 +10381,7 @@ window.startMap = function (RAW, AUTH) {
       if (AT.repWho === 1) { bs.textContent = AT.rep; bs.classList.add('on'); hud._sayT = ms + 5200; hud._sayGate = ms + 6500; AUD.talk(bkMuz.set(bot.x, bot.y + 1.4, bot.z)); }
       else { sp.textContent = AT.rep; el.classList.add('on'); AT.hide = n + 5.5; AUD.talk(bkMuz.set(A ? A.x : bot.x, 1.4, A ? A.z : bot.z)); }
       AT.rep = null;
+      if (AT.q3) { if (A && A.mode === 'inspect') AT.q3 = null; else { AT.rep = AT.q3[0]; AT.repWho = AT.q3[1]; AT.repT = n + 2.8; AT.q3 = null; } } /* tercer turno de la charla */
     }
     if (VIS && VIS.say !== null && !AT.rep && A) {
       pr = VIS_DLG[VIS.pairs[VIS.say]]; VIS.say = null;
@@ -10342,18 +10428,24 @@ window.startMap = function (RAW, AUTH) {
     if (!pick && far && n >= AT.call) pick = 'call';
     calm = !bot.tpj && bot.mode !== 'lift' && !bot.aiming && !(st && st.entered) && !ev;
     if (!pick && calm && n >= AT.idle) pick = 'chat';
+    if (AT.fx && !AT.rep) { AT.fx = 0; pick = 'chat'; dxF = true; }
     if (!pick) return;
     lst = AURA_DLG[pick]; if (!lst) return;
+    if (pick === 'chat' && (dxF || Math.random() < 0.7)) { try { dxR = DX.pick(AT); } catch (eDX) { dxR = null; } }
     pr = lst[(Math.random() * lst.length) | 0];
     if (AT.last === pr) pr = lst[(Math.random() * lst.length) | 0];
+    if (dxR) { pr = dxR.l; AT.topic = dxR.t; AT.topicT = performance.now(); }
     AT.last = pr; if (AT.mt === pick) AT.mt = null;
     ctx = AT.ctx || ''; if (pr[0].indexOf('{E}') >= 0 || pr[1].indexOf('{E}') >= 0) pr = [pr[0].replace(/\{E\}/g, ctx), pr[1].replace(/\{E\}/g, ctx)];
+    rb = !!(dxR && dxR.f === 'r');
     hud._sayGate = ms + 9500;
     if (pick === 'call') AT.call = n + 30 + Math.random() * 20;
-    { sp.textContent = pr[0]; el.classList.add('on'); AT.hide = n + 6; AUD.talk(bkMuz.set(A.x, 1.4, A.z)); AT.rep = pr[1]; AT.repWho = 1; }
+    AT.q3 = null;
+    if (rb) { bs.textContent = pr[0]; bs.classList.add('on'); hud._sayT = ms + 5200; AUD.talk(bkMuz.set(bot.x, bot.y + 1.4, bot.z)); AT.rep = pr[1]; AT.repWho = 0; if (pr[2]) AT.q3 = [pr[2], 1]; } /* el robot abre la charla */
+    else { sp.textContent = pr[0]; el.classList.add('on'); AT.hide = n + 6; AUD.talk(bkMuz.set(A.x, 1.4, A.z)); AT.rep = pr[1]; AT.repWho = 1; if (pr[2]) AT.q3 = [pr[2], 0]; }
     AT.repT = n + 3.2;
-    AT.gap = n + 9; AT.cd[pick] = n + (pick === 'chat' || pick === 'call' ? 0 : pick === 'inv_end' ? 120 : pick.indexOf('inv_') === 0 ? 25 : 40);
-    if (pick !== 'call') AT.idle = n + 45 + Math.random() * 35;
+    AT.gap = n + 6 + Math.random() * 8; AT.cd[pick] = n + (pick === 'chat' || pick === 'call' ? 0 : pick === 'inv_end' ? 120 : pick.indexOf('inv_') === 0 ? 25 : 40);
+    if (pick !== 'call') AT.idle = n + (Math.random() < 0.18 ? 100 + Math.random() * 60 : 38 + Math.random() * 40); /* a veces un silencio largo */
   }
   function updateAura(t, dt) {
     var A = aura, a, path, seg, f, x, z, tx, tz, l, nx, nz, i, c, cand, ti, nxt, lp, bx, bz, u, vis, moving = false, e, gy, I, sp, k, dd, ang, G, mn, yawT = null, scan = false;
