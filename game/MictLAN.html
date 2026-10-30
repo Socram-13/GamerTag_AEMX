@@ -7086,8 +7086,7 @@ window.startMap = function (RAW, AUTH) {
       ball(bkJoint, 0, 0, 0, 0.085, sh);
       bx(bkBlack, 0, -0.155, 0, 0.1, 0.26, 0.12, sh);
       bx(bkGray, sx * 0.065, -0.14, 0, 0.02, 0.17, 0.1, sh);
-      bx(eyeMat, sx * 0.0775, -0.14, 0, 0.008, 0.14, 0.02, sh);
-      if (sx < 0) sh.add(s13Decal(-1, 0.11, -0.079, -0.15));
+      if (sx < 0) { bx(eyeMat, sx * 0.0775, -0.06, 0, 0.008, 0.07, 0.02, sh); sh.add(s13Decal(-1, 0.11, -0.083, -0.15)); } else bx(eyeMat, sx * 0.0775, -0.14, 0, 0.008, 0.14, 0.02, sh); /* en el brazo con logo S13 la barra neón se acorta para no taparlo */
       ball(bkJoint, 0, 0, 0, 0.07, el);
       bx(bkBlack, 0, -0.135, 0, 0.11, 0.22, 0.12, el);
       bx(bkGray, 0, -0.1, 0.065, 0.09, 0.15, 0.03, el);
