@@ -7092,11 +7092,12 @@ window.startMap = function (RAW, AUTH) {
       bx(bkGray, 0, -0.1, 0.065, 0.09, 0.15, 0.03, el);
       bx(eyeMat, 0, -0.1, 0.083, 0.012, 0.12, 0.008, el);
       ball(bkJoint, 0, -0.255, 0, 0.045, el); /* muñeca */
-      bx(bkBlack, 0, -0.31, 0, 0.05, 0.085, 0.095, el); /* palma */
-      bx(bkGray, -sx * 0.026, -0.31, 0, 0.012, 0.06, 0.07, el); /* placa del dorso */
-      (function () { var fi, fg, k; for (fi = 0; fi < 2; fi++) { fg = new THREE.Group(); fg.position.set(0, -0.352, -0.021 + fi * 0.042); fg.rotation.z = -sx * 0.6; el.add(fg); bx(bkJoint, 0, -0.03, 0, 0.026, 0.066, 0.036, fg); k = new THREE.Group(); k.position.y = -0.066; k.rotation.z = -sx * 0.7; fg.add(k); bx(bkJoint, 0, -0.023, 0, 0.023, 0.046, 0.033, k); }
-        var th = new THREE.Group(); th.position.set(0, -0.29, 0.05); th.rotation.set(-0.5, 0, -sx * 0.45); el.add(th); bx(bkJoint, 0, -0.03, 0, 0.022, 0.06, 0.022, th); })(); /* dos dedos curvados hacia la palma y pulgar */
-      arms.push({ sh: sh, el: el, hs: sh.quaternion.clone(), he: el.quaternion.clone() });
+      var wr = new THREE.Group(); wr.position.set(0, -0.255, 0); el.add(wr); /* muñeca: la mano gira como pieza aparte */
+      bx(bkBlack, 0, -0.055, 0, 0.05, 0.085, 0.095, wr); /* palma */
+      bx(bkGray, -sx * 0.026, -0.055, 0, 0.012, 0.06, 0.07, wr); /* placa del dorso */
+      (function () { var fi, fg, k; for (fi = 0; fi < 2; fi++) { fg = new THREE.Group(); fg.position.set(0, -0.097, -0.021 + fi * 0.042); fg.rotation.z = -sx * 0.6; wr.add(fg); bx(bkJoint, 0, -0.03, 0, 0.026, 0.066, 0.036, fg); k = new THREE.Group(); k.position.y = -0.066; k.rotation.z = -sx * 0.7; fg.add(k); bx(bkJoint, 0, -0.023, 0, 0.023, 0.046, 0.033, k); }
+        var th = new THREE.Group(); th.position.set(0, -0.035, 0.05); th.rotation.set(-0.5, 0, -sx * 0.45); wr.add(th); bx(bkJoint, 0, -0.03, 0, 0.022, 0.06, 0.022, th); })(); /* dos dedos curvados hacia la palma y pulgar */
+      arms.push({ wr: wr, sh: sh, el: el, hs: sh.quaternion.clone(), he: el.quaternion.clone() });
     }
     solveArm(-1, new THREE.Vector3(-0.105, 0.39, 0.541)); /* izquierda: guardamano (parte delantera) */
     solveArm(1, new THREE.Vector3(0.077, 0.39, 0.208)); /* derecha: empuñadura / gatillo */
@@ -9282,7 +9283,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < 2; i++) {
       la = -am * Math.sin(b.ph + i * Math.PI) * b.gk;
       sg = kf * Math.max(0, Math.cos(b.ph + i * Math.PI)) * b.gk;
-      ang = -(la + sg) * 0.85 + sg * 0.55;
+      ang = -(la + sg) * 0.85 + sg * 0.55 + b.runK * (0.65 * sg + 0.6 * Math.max(0, la) / am); /* al correr el pie trasero gira más hacia atrás */
       la = la * (1 - fK) + 0.12 * fK; sg = sg * (1 - fK) + 0.05 * fK; ang = ang * (1 - fK) + 0.45 * fK;
       la = la * (1 - kq) + (i === 0 ? -1.57 : 0) * kq; sg = sg * (1 - kq) + 1.57 * kq; ang = ang * (1 - kq);
       hk = b.hangK || 0;
@@ -9293,7 +9294,7 @@ window.startMap = function (RAW, AUTH) {
     if (b.gk > 0.25 && b.flyK < 0.2 && (b.ballK || 0) < 0.1 && b.kneel < 0.1 && (b.hangK || 0) < 0.1) {
       b.g.updateMatrixWorld(true); bkFb.setFromObject(b.legs[0].ft); var fy0 = bkFb.min.y; bkFb.setFromObject(b.legs[1].ft);
       var fyM = Math.min(fy0, bkFb.min.y) - b.g.position.y, fdn = Math.max(0, Math.min(0.06, fyM + 0.01)) * b.gk;
-      b._bob = (b._bob || 0) + (fdn - (b._bob || 0)) * Math.min(1, dt * 10); b.g.position.y -= b._bob;
+      b._bob = (b._bob || 0) + (fdn - (b._bob || 0)) * Math.min(1, dt * 3); b.g.position.y -= b._bob;
     } else b._bob = 0;
 
     var twT = 1 - (b.mode === 'walk' ? Math.max(0, Math.min(1, b.v / 1.5)) : 0) * Math.max(0, Math.min(1, 1 - Math.abs(nAng(b.aimYaw - b.yaw)) / 0.35));
@@ -9320,7 +9321,7 @@ window.startMap = function (RAW, AUTH) {
     for (i = 0; i < 2; i++) {
       f = (i === 0 ? -1 : 1) * Math.sin(b.ph) * Math.min(0.85, 0.1 + b.v * 0.1) * b.gk * (1 - fK);
       elf = (0.3 + 1.1 * b.runK) * (1 - fK) + 0.12 * fK + 0.45 * (b.gK || 0);
-      bkE.set((-f + 0.1 * fK + 0.3 * (b.gK || 0) - (i === 0 ? 0.25 * (b.hangK || 0) : 0)) * (1 - bk) - 1.35 * bk, 0, (i === 0 ? -1 : 1) * (0.03 + 0.04 * fK + 0.6 * (b.gK || 0)) * (1 - bk) + (i === 0 ? 0.3 : -0.3) * bk);
+      bkE.set((-f + 0.1 * fK + 0.3 * (b.gK || 0) - (i === 0 ? 0.25 * (b.hangK || 0) : 0)) * (1 - bk) - 1.35 * bk, 0, (i === 0 ? -1 : 1) * (0.14 + 0.26 * fK * (1 - (b.gK || 0)) + 0.55 * (b.gK || 0)) * (1 - bk) + (i === 0 ? 0.3 : -0.3) * bk);
       bkQ1.setFromEuler(bkE).slerp(b.arms[i].hs, b.hold);
       bkE.set(-(elf + 0.5 * Math.max(0, f)) * (1 - bk) - 1.8 * bk, 0, 0);
       bkQ2.setFromEuler(bkE).slerp(b.arms[i].he, b.hold);
@@ -9329,6 +9330,7 @@ window.startMap = function (RAW, AUTH) {
       if (b.fr > 0.02) { bkSpE.set(-0.85 * b.fr, 0, (i === 0 ? -1 : 1) * 0.28 * b.fr); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set(-1.25 * b.fr, 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* manos al pecho, encogido */
       if (i === 1 && b.scanK > 0.01) { bkQ1.slerp(b.scQs, b.scanK); bkQ2.slerp(b.scQe, b.scanK); }
       b.arms[i].sh.quaternion.copy(bkQ1); b.arms[i].el.quaternion.copy(bkQ2);
+      b.arms[i].wr.rotation.y = (i === 0 ? -1 : 1) * 1.45 * Math.max(fK, b.gK || 0) * (1 - b.hold) * (1 - bk); /* en vuelo e hiperimpulso/planeo: palmas hacia adelante */
     }
 
     hy = 0.06; hz = 0.10;
@@ -9337,16 +9339,18 @@ window.startMap = function (RAW, AUTH) {
     b.rifle.position.set(hq * stC - hz * stS, 0.12 + (0.43 + hy * cp + 0.05 * sp - 0.12) * b.hold, hq * stS + hz * stC);
     b.rifle.rotation.y = -stA;
     b.rifle.rotation.x = -1.2 * (1 - b.hold) - pit * b.hold; b.rifle.rotation.z = 0.05 * Math.sin(b.ph * 2) * (1 - b.hold);
-    lean = (b.boostT > 0 ? 0.55 : Math.min(0.22, b.v * 0.03)) * b.gk + (b.air > 0.5 ? 0.08 : 0) + 0.18 * kq;
+    lean = (b.boostT > 0 ? 0.55 : Math.min(0.16, b.v * 0.02)) * b.gk + (b.air > 0.5 ? 0.08 : 0) + 0.18 * kq;
     b.lean = (b.lean || 0) + (lean - (b.lean || 0)) * Math.min(1, dt * 6);
     var yrR = b.pyaw === undefined ? 0 : nAng(b.yaw - b.pyaw) / Math.max(dt, 0.001); b.pyaw = b.yaw; b.yr = (b.yr || 0) + (yrR - (b.yr || 0)) * Math.min(1, dt * 8);
     b.sideK = (b.sideK || 0) + ((((b.boostT > 0 || ((b.glr || 0) > 0 && (b.bh || 0) > 0.3)) && Math.abs(b.yr) > 0.3) ? clamp(b.yr / 2.5, -1, 1) : 0) - (b.sideK || 0)) * Math.min(1, dt * 10);
     b.body.rotation.x = b.lean + 0.1 * b.hangK + b.spin + 0.34 * (b.jk || 0) - 0.2 * (b.fr || 0); b.body.rotation.z = 0.18 * b.hangK - 0.22 * b.sideK;
-    b.body.position.y = -0.38 * bk + (0.91 + Math.abs(Math.sin(b.ph)) * (0.035 + 0.035 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.66 * kq - 0.07 * (b.fr || 0);
+    b.body.position.y = -0.38 * bk + (0.91 + Math.abs(Math.sin(b.ph)) * (0.012 + 0.012 * b.runK) * b.gk * (1 - fK) + 0.01 * Math.sin(t * 1.7)) * (1 - kq) + 0.66 * kq - 0.07 * (b.fr || 0);
 
     var swA = (0.044 + 0.061 * b.runK) * (1 - b.hold) * b.gk * (1 - fK) * (1 - bk) * (1 - kq);
-    b.upper.rotation.y = nAng(b.aimYaw - b.yaw) + stA + swA * 0.8 * Math.sin(b.ph + 1.0);
-    b.upper.rotation.z = swA * Math.sin(b.ph);
+    var hpK = (1 - b.hold) * b.gk * (1 - fK) * (1 - bk) * (1 - kq); /* la cadera hace el trabajo: gira, se inclina y se desplaza con el paso; el torso la compensa */
+    b.body.rotation.y = (0.07 + 0.07 * b.runK) * hpK * Math.sin(b.ph + 1.0); b.body.rotation.z += (0.03 + 0.03 * b.runK) * hpK * Math.sin(b.ph); b.body.position.x = 0.012 * (1 + b.runK) * hpK * Math.sin(b.ph);
+    b.upper.rotation.y = nAng(b.aimYaw - b.yaw) + stA - b.body.rotation.y * 0.85;
+    b.upper.rotation.z = -((0.03 + 0.03 * b.runK) * hpK * Math.sin(b.ph)) * 0.85;
     b.upper.rotation.x = 0.9 * bk + (b._sp || 0) * (0.05 + 0.05 * Math.sin(t * 6.1));
     if (b._sp) b.upper.rotation.y += b._sp * 0.12 * Math.sin(t * 2.7);
     b.head.rotation.z = -0.6 * b.upper.rotation.z;
