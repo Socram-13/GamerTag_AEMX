@@ -702,19 +702,21 @@ window.startMap = function (RAW, AUTH) {
       for (k = 0; k < keys.length && !photo; k++) { if (typeof u[keys[k]] === 'string') photo = u[keys[k]]; }
       if (!photo) Object.keys(u).forEach(function (key) { if (!photo && /photo|avatar|pic|image|img/i.test(key) && typeof u[key] === 'string' && /^https?:\/\//i.test(u[key])) photo = u[key]; });
     }
-    if (!photo && AUTH.photoURL) photo = AUTH.photoURL;
+    /* candidatos en orden: foto guardada en la base, foto de Google; si una falla o no es válida se prueba la siguiente */
+    var cands = [photo, AUTH.photoURL, AUTH.providerData && AUTH.providerData[0] && AUTH.providerData[0].photoURL].filter(function (x, ix, ar) { return typeof x === 'string' && /^https?:\/\//i.test(x) && ar.indexOf(x) === ix; });
     document.getElementById('me-name').textContent = '' + name;
     document.getElementById('me-total').textContent = fmt(total);
     document.getElementById('me-state').textContent = estado;
     document.getElementById('me-ini').textContent = name.charAt(0);
-    if (/^https?:\/\//i.test(photo)) {
+    (function tryPhoto(n) {
+      if (n >= cands.length) return;
       var img = document.createElement('img');
       img.alt = '';
       img.referrerPolicy = 'no-referrer';
-      img.addEventListener('error', function () { img.remove(); });
-      img.src = photo;
+      img.addEventListener('error', function () { img.remove(); tryPhoto(n + 1); });
+      img.src = cands[n];
       document.getElementById('me-av').appendChild(img);
-    }
+    })(0);
     meBtn.hidden = false;
     meBtn.addEventListener('click', function () { if (mine && mine.pill) select(mine); });
   })();
@@ -4520,7 +4522,14 @@ window.startMap = function (RAW, AUTH) {
         if (Math.abs(mx0) < 1.0) { mb = 2.1; cyBox(g, bgMull, 0.07, TOP - B0 - 0.1 - (mb - B0), 0.1, mx0, mb + (TOP - 0.1 - mb) / 2 - 0.0, WZ2 / 2 + 0.02); } else cyBox(g, bgMull, 0.07, mH, 0.1, mx0, mY, WZ2 / 2 + 0.02);
       }
       for (mj = 1; mj < 5; mj++) { mz0 = -WZ2 / 2 + mj * (WZ2 / 5); cyBox(g, bgMull, 0.1, mH, 0.07, WX2 / 2 + 0.02, mY, mz0); cyBox(g, bgMull, 0.1, mH, 0.07, -WX2 / 2 - 0.02, mY, mz0); }
-      cyBox(g, bgSlab, 3.6, 1.3, 2.0, 0, TOP + 0.55, 0); cyBox(g, bgSlab, 2.4, 0.5, 1.4, 0, TOP + 1.45, 0); cyBox(g, bgSlab, 0.1, 2.2, 0.1, 0.8, TOP + 2.8, 0.2);
+      cyBox(g, bgSlab, 3.6, 1.3, 2.0, 0.85, TOP + 0.55, 0); cyBox(g, bgSlab, 2.4, 0.5, 1.4, 0.85, TOP + 1.45, 0); cyBox(g, bgSlab, 0.1, 2.2, 0.1, 1.65, TOP + 2.8, 0.2); /* cuarto de máquinas movido a la derecha */
+      (function () { /* helipuerto en el lado izquierdo de la azotea */
+        var hx = -1.85, hy = TOP + 0.28, hpM = new THREE.MeshLambertMaterial({ color: 0x2b3138, emissive: 0x0a0c0e }), hwM = new THREE.MeshBasicMaterial({ color: 0xf2f4f6 }), k2, an2, rg;
+        cyCyl(g, hpM, 0.78, 0.05, hx, hy + 0.025, 0);
+        rg = cyRing(g, cyNeon.yel, hy + 0.06, 0.7); rg.position.x = hx; rg.scale.set(0.7, 0.7, 0.7);
+        cyBox(g, hwM, 0.1, 0.012, 0.62, hx - 0.2, hy + 0.058, 0); cyBox(g, hwM, 0.1, 0.012, 0.62, hx + 0.2, hy + 0.058, 0); cyBox(g, hwM, 0.4, 0.012, 0.1, hx, hy + 0.058, 0); /* la H */
+        for (k2 = 0; k2 < 8; k2++) { an2 = k2 / 8 * 6.2832; cyBox(g, cyNeon.yel, 0.06, 0.05, 0.06, hx + Math.cos(an2) * 0.76, hy + 0.06, Math.sin(an2) * 0.76); } /* luces de borde */
+      })();
       cyBox(g, bgDoor, 1.4, 1.5, 0.06, 0, 0.85, WZ2 / 2 + 0.03); cyBox(g, bgSlab, 2.2, 0.14, 0.9, 0, 1.7, WZ2 / 2 + 0.4);
       corpLogo(g, -1.3, TOP - 2.7, WZ2 / 2 + 0.34, 0); corpLogo(g, 1.3, TOP - 2.7, -WZ2 / 2 - 0.34, Math.PI);
       corpLogo(g, WX2 / 2 + 0.34, TOP - 2.7, 0, 1.5708); corpLogo(g, -WX2 / 2 - 0.34, TOP - 2.7, 0, -1.5708);
@@ -7126,7 +7135,7 @@ window.startMap = function (RAW, AUTH) {
     var items = [], wp = new THREE.Vector3();
     roots.forEach(function (b) { var p = b.userData.p; if (p && p.tier !== undefined) items.push([b, p]); });
     districts.forEach(function (d) {
-      [d.corp, d.branch, d.print].forEach(function (bq) { if (bq && bq._bp) { bq.getWorldPosition(wp); bq._bp.x = wp.x; bq._bp.z = wp.z; if (bq === d.corp) { bq._bp.roofH = 14.28; var cr = bq.rotation.y, cs = Math.sin(cr), cc = Math.cos(cr); bq._bp.roofPts = [[2.3, 0], [-2.3, 0], [0, 1.3], [0, -1.3]].map(function (q) { return [wp.x + q[0] * cc + q[1] * cs, wp.z - q[0] * cs + q[1] * cc]; }); } /* azotea del corporativo: solo las franjas libres junto al cuarto de máquinas */ items.push([bq, bq._bp]); } });
+      [d.corp, d.branch, d.print].forEach(function (bq) { if (bq && bq._bp) { bq.getWorldPosition(wp); bq._bp.x = wp.x; bq._bp.z = wp.z; if (bq === d.corp) { bq._bp.roofH = 14.28; var cr = bq.rotation.y, cs = Math.sin(cr), cc = Math.cos(cr); bq._bp.roofPts = [[-1.85, 0], [0.85, 1.3], [0.85, -1.3]].map(function (q) { return [wp.x + q[0] * cc + q[1] * cs, wp.z - q[0] * cs + q[1] * cc]; }); } /* azotea del corporativo: helipuerto y franjas libres junto al cuarto de máquinas */ items.push([bq, bq._bp]); } });
       if (d.store) { if (!d.store._bp) { d.store.getWorldPosition(wp); d.store._bp = { x: wp.x, z: wp.z, tier: 7, topY: 1.8, isStore: true }; } items.push([d.store, d.store._bp]); }
     });
     camps.forEach(function (c) {
