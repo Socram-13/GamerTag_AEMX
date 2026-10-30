@@ -676,7 +676,7 @@ window.startMap = function (RAW, AUTH) {
     if (!estado || !ESTADO_COORDS[estado]) estado = 'Ciudad de México';
     var ua = Number(u.updatedAt); if (ua > 0 && ua < 1e11) ua *= 1000;
     var inactive = ua > 0 && (Date.now() - ua) > 30 * 86400000;
-    players.push({ uid: uid, name: String(u.username), city: estado, total: total, common: banned ? 0 : num(u.common), rare: banned ? 0 : num(u.rare), epic: banned ? 0 : num(u.epic), legendary: banned ? 0 : num(u.legendary), inactive: inactive && !banned, banned: banned, clan: u.clanMember === true });
+    players.push({ uid: uid, name: String(u.username), city: estado, total: total, common: banned ? 0 : num(u.common), rare: banned ? 0 : num(u.rare), epic: banned ? 0 : num(u.epic), legendary: banned ? 0 : num(u.legendary), inactive: inactive && !banned, banned: banned, clan: (function (v) { return v === true || v === 1 || (typeof v === 'string' && /^(true|1|si|sí|yes)$/i.test(v.trim())); })(u.clanMember !== undefined ? u.clanMember : (u.clan_member !== undefined ? u.clan_member : (u.isClanMember !== undefined ? u.isClanMember : u.clan))) });
   });
 
   CITIES = Object.keys(ESTADO_COORDS).map(function (n) { return [n, 0, ESTADO_COORDS[n][1], ESTADO_COORDS[n][0]]; });
