@@ -2257,7 +2257,7 @@ window.startMap = function (RAW, AUTH) {
         (placed[kk] || (placed[kk] = [])).push([g1.x + ax, g1.z + az]);
       }
     })();
-    var occGrid = {}, invGrid = {}, invList = [], lastCover = 0, A_PAD = HEX_PAD_R * 0.8660254, A_IN = A_PAD - 0.45, A_BAND = HEX_R * 0.8660254 + 0.6;
+    var occGrid = {}, invGrid = {}, invList = [], lastCover = 0, lastHexH = null, A_PAD = HEX_PAD_R * 0.8660254, A_IN = A_PAD - 0.45, A_BAND = HEX_R * 0.8660254 + 0.6;
     function hexInside(dx, dz, a) { var ax = Math.abs(dx), az = Math.abs(dz); return ax <= a && ax * 0.5 + az * 0.8660254 <= a; }
     function hexNorm(dx, dz) { var ax = Math.abs(dx), az = Math.abs(dz); return Math.max(ax, ax * 0.5 + az * 0.8660254); }
     function nzC(x, z, o) { return 0.5 + 0.25 * Math.sin(x * 0.45 + o) * Math.cos(z * 0.58 - o) + 0.25 * Math.sin((x + z) * 0.31 + o * 2.1); }
@@ -2293,7 +2293,7 @@ window.startMap = function (RAW, AUTH) {
           h = l[i];
           if (hexInside(x - h.x, z - h.z, A_IN)) {
             cv = coverAt(h, x, z);
-            if (cv > 0) { lastCover = cv; lastHexSand = h.sand; return 1; }
+            if (cv > 0) { lastCover = cv; lastHexSand = h.sand; lastHexH = h; return 1; }
             st = 2;
           } else if (st === 0 && hexInside(x - h.x, z - h.z, A_BAND)) st = 2;
         }
@@ -2413,7 +2413,7 @@ window.startMap = function (RAW, AUTH) {
           if (sandy && (zone !== 'trop' || vr() > 0.12)) continue;
           k = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k] || (placed[k] = [])).push([x, z]);
-          plants.push({ type: sandy ? 'palm' : pickType(zone), x: x, z: z, y: (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) ? terrainH(x, z) + 0.02 : (ist === 1 ? 0.14 : 0), zone: zone, edge: lastEdge });
+          plants.push({ type: sandy ? 'palm' : pickType(zone), x: x, z: z, y: (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R) ? terrainH(x, z) + 0.02 : (ist === 1 ? 0.14 : 0), zone: zone, edge: lastEdge, hx: ist === 1 ? lastHexH : null });
         }
       }
     });
@@ -2867,13 +2867,13 @@ window.startMap = function (RAW, AUTH) {
     var vB = new THREE.Matrix4(), vL = new THREE.Matrix4(), vP = new THREE.Vector3(), vS = new THREE.Vector3(), vQ = new THREE.Quaternion(), vQ2 = new THREE.Quaternion(), vE = new THREE.Euler();
     var AX_Y = new THREE.Vector3(0, 1, 0), AX_Z = new THREE.Vector3(0, 0, 1);
     function col(h, sat, l) { return new THREE.Color().setHSL(h, Math.min(1, sat), Math.max(0, Math.min(1, l))); }
-    var inUG = false, UGK = 0.6;
+    var inUG = false, UGK = 0.6, curPl = null;
     function part(key, px, py, pz, sx, sy, sz, c, rx, ry, rz, yawTilt) {
       if (inUG) { sx *= UGK; sy *= UGK; sz *= UGK; py *= UGK; }
       if (yawTilt) { vQ.setFromAxisAngle(AX_Y, yawTilt[0]); vQ2.setFromAxisAngle(AX_Z, yawTilt[1]); vQ.multiply(vQ2); }
       else { vE.set(rx || 0, ry || 0, rz || 0); vQ.setFromEuler(vE); }
       vL.compose(vP.set(px, py, pz), vQ, vS.set(sx, sy, sz));
-      lists[key].push({ m: vB.clone().multiply(vL), c: c });
+      lists[key].push({ m: vB.clone().multiply(vL), c: c, pl: curPl });
     }
     var vqYaw = new THREE.Quaternion(), vOne = new THREE.Vector3();
     function jit(c, dl) { var h = {}, o = c.getHSL(h); return col(h.h + (vr() - 0.5) * 0.015, h.s, h.l + (vr() - 0.5) * dl); }
@@ -2912,6 +2912,7 @@ window.startMap = function (RAW, AUTH) {
       inUG = false;
     }
     plants.forEach(function (pl) {
+      curPl = pl;
       var sc = 0.75 + vr() * 0.6, yaw = vr() * 6.283, z = pl.zone, c1, c2, c3, trunkC, kk, side, arm, nn, ang, rr;
 
       if (pl.type === 'pine' || pl.type === 'oak') sc *= 1.0 + vr() * 0.35;
@@ -3095,6 +3096,7 @@ window.startMap = function (RAW, AUTH) {
         }
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        for (i = 0; i < b2.length; i++) if (b2[i].pl && b2[i].pl.hx) (window.__vegHex || (window.__vegHex = [])).push({ mesh: mesh, i: i, m0: b2[i].m, d: b2[i].pl.hx.d, pl: b2[i].pl }); /* vegetación sobre hexágonos: se hunde con la ciudad */
         mesh.frustumCulled = false;
         mesh.raycast = function () {};
         scene.add(mesh);
@@ -7196,7 +7198,7 @@ window.startMap = function (RAW, AUTH) {
       var r = BOT_VR[pl.type], k;
       if (!r) return;
       k = Math.floor(pl.x / 4) + ',' + Math.floor(pl.z / 4);
-      (botVG[k] || (botVG[k] = [])).push([pl.x, pl.z, (r + 0.15) * (r + 0.15)]);
+      (botVG[k] || (botVG[k] = [])).push([pl.x, pl.z, (r + 0.15) * (r + 0.15), pl]);
     });
   }
 
@@ -7206,7 +7208,7 @@ window.startMap = function (RAW, AUTH) {
     for (a = -1; a <= 1; a++) for (c = -1; c <= 1; c++) {
       l = botVG[(cx + a) + ',' + (cz + c)];
       if (!l) continue;
-      for (i = 0; i < l.length; i++) { q = l[i]; dx = x - q[0]; dz = z - q[1]; if (dx * dx + dz * dz < q[2]) return true; }
+      for (i = 0; i < l.length; i++) { q = l[i]; if (q[3] && q[3].sunk) continue; dx = x - q[0]; dz = z - q[1]; if (dx * dx + dz * dz < q[2]) return true; }
     }
     return false;
   }
@@ -10427,7 +10429,7 @@ window.startMap = function (RAW, AUTH) {
   window.__DX = DX;
   /* ===== Hundimiento de ciudades durante la invasión ===== */
   var SNK = (function () {
-    var SPD = 0.34, MINT = 8, LID_T = 1.8, W = null, act = {}, rr0 = 0;
+    var SPD = 0.34, MINT = 8, LID_T = 1.8, VEGD = 12, W = null, act = {}, rr0 = 0;
     var lidGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.99, HEX_PAD_R * 0.99, 0.06, 6), plateGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.8, HEX_PAD_R * 0.86, 0.03, 6);
     var darkGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.99, HEX_PAD_R * 0.99, 0.004, 6), ringGeo = new THREE.RingGeometry(HEX_PAD_R * 0.9, HEX_PAD_R * 0.95, 6), logoGeo = null, dm = new THREE.Object3D();
     ringGeo.rotateZ(Math.PI / 2); ringGeo.rotateX(-Math.PI / 2);
@@ -10489,12 +10491,22 @@ window.startMap = function (RAW, AUTH) {
         s.items.forEach(function (q) { if (Math.hypot(q.wx - hx.x, q.wz - hx.z) < HEX_R * 0.95) tm = Math.max(tm, q.dur); });
         hx.at = t + (tm > 0 ? tm + 0.3 : 2 + hash(hx.x, hx.z) * s.max * 0.5);
       });
+      s.veg = (window.__vegHex || []).filter(function (e) { return e.d === d; }); s.vdep = 0; s.vtmp = new THREE.Matrix4();
       mkLids(s); if (s.lid) { for (i = 0; i < s.hexes.length; i++) setLid(s, i, 0); flush(s); }
       d.snkHide = true; s.endAt = t + s.max + LID_T + 0.5;
       sinkSay('sink_dn', d.name);
     }
+    function vegSet(s, dep) {
+      var ms = [], k, e, el;
+      if (!s.veg || !s.veg.length || Math.abs(dep - s.vdep) < 0.004) return;
+      s.vdep = dep;
+      for (k = 0; k < s.veg.length; k++) {
+        e = s.veg[k]; s.vtmp.copy(e.m0); s.vtmp.elements[13] -= dep; e.mesh.setMatrixAt(e.i, s.vtmp); e.pl.sunk = dep > VEGD * 0.9; if (ms.indexOf(e.mesh) < 0) ms.push(e.mesh);
+      }
+      ms.forEach(function (m) { m.instanceMatrix.needsUpdate = true; });
+    }
     function rise(s, t) {
-      var mx = MINT;
+      var mx = MINT; s.vd0 = s.vdep;
       s.ph = 'up'; s.t1 = t; s.said = false;
       s.items.forEach(function (q) { q.done = false; q.dep = Math.max(0, q.y0 - q.o.position.y); q.upDur = Math.max(MINT * (q.dep > 0.05 ? 1 : 0.01), q.dep / SPD); mx = Math.max(mx, q.upDur); });
       s.hexes.forEach(function (hx) { hx.at = t + hash(hx.z, hx.x) * 1.6; hx.u0 = hx.u; });
@@ -10528,6 +10540,7 @@ window.startMap = function (RAW, AUTH) {
     function step(s, t, dt) {
       var i, q, p, o, all = true, hx, u;
       if (s.ph === 'down') {
+        vegSet(s, Math.min(VEGD, (t - s.t0) * SPD));
         s.items.forEach(function (it) {
           if (it.done) return;
           p = Math.min(1, (t - s.t0) / it.dur); o = it.o;
@@ -10536,12 +10549,14 @@ window.startMap = function (RAW, AUTH) {
         });
         if (s.lid) s.hexes.forEach(function (h, k) { u = Math.max(0, Math.min(1, (t - h.at) / LID_T)); if (u !== h.u) setLid(s, k, u); if (u < 1) all = false; });
         if (s.dark) s.dark.material.opacity = Math.max(0, Math.min(1, (t - s.t0) / (s.max * 0.9)));
+        if (s.veg.length && s.vdep < VEGD - 0.004) all = false; /* la vegetación de los hexágonos termina de bajar */
         if (all) { s.ph = 'hold'; if (!s.said) { s.said = true; window.__botSayQ = 'Ciudad sellada. Solo quedamos nosotros.'; } }
       } else if (s.ph === 'up') {
         if (s.wTry && watch(s.d, s.riseEnd + 45, s)) s.wTry = false; /* el robot debe ir a verla surgir: reintenta hasta lograrlo */
         if (s.lid) s.hexes.forEach(function (h, k) { u = (h.u0 === undefined ? 1 : h.u0) * (1 - Math.max(0, Math.min(1, (t - h.at) / LID_T))); if (u !== h.u) setLid(s, k, u); });
         if (s.dark) s.dark.material.opacity = t < s.up0 ? s.dark.material.opacity : Math.max(0, 1 - (t - s.up0) / s.max);
         if (t >= s.up0) {
+          vegSet(s, Math.max(0, s.vd0 - (t - s.up0) * SPD)); if (s.vdep > 0.004) all = false;
           s.d.snkHide = false;
           s.items.forEach(function (it) {
             if (it.done) return; o = it.o; p = Math.min(1, (t - s.up0) / it.upDur);
