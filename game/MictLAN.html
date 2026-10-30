@@ -10290,9 +10290,10 @@ window.startMap = function (RAW, AUTH) {
     function saveSeen() { try { localStorage.setItem(KEY, JSON.stringify(seen.slice(-40))); } catch (eS) { } }
     function ctx() {
       var c = {}, d, bd, p, t;
-      d = (bot && typeof auraCityNear === 'function') ? auraCityNear(bot.x, bot.z) : null; c.city = d ? d.name : '';
-      c.fog = !!(WX && WX.fogAt && bot && WX.fogAt(bot.x, bot.z));
-      c.coast = !!(bot && typeof coastDist === 'function' && coastDist(bot.x, bot.z) < 50);
+      var P = aura || bot; /* el lugar de la charla es donde está Aura (camina por las carreteras); el robot vuela y puede estar lejos */
+      d = (P && typeof auraCityNear === 'function') ? auraCityNear(P.x, P.z) : null; c.city = d ? d.name : '';
+      c.fog = !!(WX && WX.fogAt && P && WX.fogAt(P.x, P.z));
+      c.coast = !!(P && typeof coastDist === 'function' && coastDist(P.x, P.z) < 50);
       c.junk = !!(bot && (bot.inJunk || bot.jIsl));
       c.np = players.length; c.hour = new Date().getHours();
       c.uvx = BM.ago('p', 'uvx'); c.ll = BM.ago('p', 'llorona'); c.jk = BM.ago('p', 'junk');
