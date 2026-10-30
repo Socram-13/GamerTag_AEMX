@@ -7091,7 +7091,7 @@ window.startMap = function (RAW, AUTH) {
     var items = [], wp = new THREE.Vector3();
     roots.forEach(function (b) { var p = b.userData.p; if (p && p.tier !== undefined) items.push([b, p]); });
     districts.forEach(function (d) {
-      [d.corp, d.branch, d.print].forEach(function (bq) { if (bq && bq._bp) { bq.getWorldPosition(wp); bq._bp.x = wp.x; bq._bp.z = wp.z; if (bq === d.corp) { var cr = bq.rotation.y, cs = Math.sin(cr), cc = Math.cos(cr); bq._bp.roofPts = [[2.3, 0], [-2.3, 0], [0, 1.3], [0, -1.3]].map(function (q) { return [wp.x + q[0] * cc + q[1] * cs, wp.z - q[0] * cs + q[1] * cc]; }); } /* azotea del corporativo: solo las franjas libres junto al cuarto de máquinas */ items.push([bq, bq._bp]); } });
+      [d.corp, d.branch, d.print].forEach(function (bq) { if (bq && bq._bp) { bq.getWorldPosition(wp); bq._bp.x = wp.x; bq._bp.z = wp.z; if (bq === d.corp) { bq._bp.roofH = 14.28; var cr = bq.rotation.y, cs = Math.sin(cr), cc = Math.cos(cr); bq._bp.roofPts = [[2.3, 0], [-2.3, 0], [0, 1.3], [0, -1.3]].map(function (q) { return [wp.x + q[0] * cc + q[1] * cs, wp.z - q[0] * cs + q[1] * cc]; }); } /* azotea del corporativo: solo las franjas libres junto al cuarto de máquinas */ items.push([bq, bq._bp]); } });
       if (d.store) { if (!d.store._bp) { d.store.getWorldPosition(wp); d.store._bp = { x: wp.x, z: wp.z, tier: 7, topY: 1.8, isStore: true }; } items.push([d.store, d.store._bp]); }
     });
     camps.forEach(function (c) {
@@ -7286,6 +7286,7 @@ window.startMap = function (RAW, AUTH) {
   }
   function botRoofY(p, lx, lz) {
     if (p.isStore) return BASE + p.topY;
+    if (p.roofH) return BASE + p.roofH; /* corporativo: malla fundida sin raycast, altura de azotea fija */
     var rc = botRC || (botRC = new THREE.Raycaster()), root = p._broot, ys = [], o = [[0, 0], [0.3, 0], [-0.3, 0], [0, 0.3], [0, -0.3]], i, hit, top = BASE + p.topY;
     root.updateMatrixWorld(true);
     for (i = 0; i < o.length; i++) {
