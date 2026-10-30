@@ -12095,7 +12095,7 @@ window.startMap = function (RAW, AUTH) {
       var tn = clock.elapsedTime, rest = (inv.entered && !inv.to) ? Math.max(0, 480 - inv.tIn) : 0;
       var wasReal = inv.t > 0.5;
       invLock = null; inv = null; cur = null; HFW = false;
-      ufoHold = tn + Math.max(rest, wasReal ? 300 : 0);
+      ufoHold = tn + (wasReal ? 300 : rest); /* paz = 5 min exactos */
       if ((rest > 0 || wasReal) && ufo && !(ufo.state === 'wreck' || ufo.state === 'crash' || ufo.state === 'stuck')) ufoRetire();
       if (wasReal) { nextAt = ufoHold + 360; peaceOn = true; } /* al terminar la paz vuelven los OVNIs y comienza de nuevo la cuenta de 6 min para la siguiente invasión */
     }
