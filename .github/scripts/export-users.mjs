@@ -17,6 +17,7 @@ for (const [uid, u] of Object.entries(all)) {
     country: u.country || '',
     city: u.city || '',
     bannedLeaderboard: u.bannedLeaderboard === true,
+    clanMember: u.clanMember === true,
     common: Number(u.common) || 0,
     rare: Number(u.rare) || 0,
     epic: Number(u.epic) || 0,
