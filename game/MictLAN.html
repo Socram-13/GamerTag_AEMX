@@ -1463,7 +1463,7 @@ window.startMap = function (RAW, AUTH) {
     var i, j, dr, ph, u, k, s, x, z, y, phi, near, flying, tgt, tilt, df;
     for (i = 0; i < drones.length; i++) {
       dr = drones[i];
-      near = camera.position.distanceTo(drTmp.copy(dr.pad).add(dr.d.group.position)) < 700;
+      near = camera.position.distanceTo(drTmp.copy(dr.pad).add(dr.d.group.position)) < 700 && !dr.d.snkHide;
       if (dr.g.visible !== near) dr.g.visible = near;
       if (!near) continue;
       ph = (t + dr.off) % dr.cycle;
@@ -5672,7 +5672,7 @@ window.startMap = function (RAW, AUTH) {
         return;
       }
     }
-    var hits = raycaster.intersectObjects(roots, true);
+    var hits = raycaster.intersectObjects(roots, true).filter(function (h) { var q = h.object; while (q && !(q.userData && q.userData.p)) q = q.parent; return !(q && q.userData.sunk); });
     if (!hits.length) return;
     var o = hits[0].object;
     while (o && !(o.userData && o.userData.p)) o = o.parent;
@@ -7150,7 +7150,7 @@ window.startMap = function (RAW, AUTH) {
   function botBld(x, z, pad) {
     var l = botObs && botObs[Math.floor(x / BOT_CELL) + ',' + Math.floor(z / BOT_CELL)], i, p, d = pad || 0;
     if (!l) return null;
-    for (i = 0; i < l.length; i++) { p = l[i]; if (x > p._x0 - d && x < p._x1 + d && z > p._z0 - d && z < p._z1 + d) return p; }
+    for (i = 0; i < l.length; i++) { p = l[i]; if (!p.sunk && x > p._x0 - d && x < p._x1 + d && z > p._z0 - d && z < p._z1 + d) return p; }
     return null;
   }
 
@@ -7159,7 +7159,7 @@ window.startMap = function (RAW, AUTH) {
     for (a = -1; a <= 1; a++) for (c = -1; c <= 1; c++) {
       l = botObs[(cx + a) + ',' + (cz + c)];
       if (!l) continue;
-      for (i = 0; i < l.length; i++) { p = l[i]; dx = Math.max(p._x0 - x, 0, x - p._x1); dz = Math.max(p._z0 - z, 0, z - p._z1); m = Math.min(m, Math.hypot(dx, dz)); }
+      for (i = 0; i < l.length; i++) { p = l[i]; if (p.sunk) continue; dx = Math.max(p._x0 - x, 0, x - p._x1); dz = Math.max(p._z0 - z, 0, z - p._z1); m = Math.min(m, Math.hypot(dx, dz)); }
     }
     return m;
   }
@@ -7568,7 +7568,7 @@ window.startMap = function (RAW, AUTH) {
     d0 = Math.hypot(rp.p.x - g.x, rp.p.z - g.z);
     for (i = 0; i < botList.length; i++) {
       p = botList[i];
-      if (p === rp.p || p.tier === 6 || p.tier === 0 || p.isPres || p.noRoof) continue;
+      if (p === rp.p || p.tier === 6 || p.tier === 0 || p.isPres || p.sunk || p.noRoof) continue;
       dd = Math.hypot(p.x - rp.lx, p.z - rp.lz);
       if (dd < 4 || dd > 13) continue;
       d1 = Math.hypot(p.x - g.x, p.z - g.z);
@@ -7630,7 +7630,7 @@ window.startMap = function (RAW, AUTH) {
     var b = bot, i, p, cand = [], dd, W, base, k, ang, cx, cz, r2, found = false, angs = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2];
     for (i = 0; i < botList.length; i++) {
       p = botList[i];
-      if (p.tier === 6 || p.tier === 0 || p.isPres || p.noRoof || b.rp && b.rp.p === p) continue;
+      if (p.tier === 6 || p.tier === 0 || p.isPres || p.sunk || p.noRoof || b.rp && b.rp.p === p) continue;
       dd = Math.hypot(p.x - b.x, p.z - b.z);
       if (pref && Math.hypot(p.x - pref.x, p.z - pref.z) > Math.hypot(b.x - pref.x, b.z - pref.z) - 3) continue;
       if (b.hasUp && clock.elapsedTime >= b.noHunt && Math.hypot(p.x - b.up.x, p.z - b.up.z) > Math.hypot(b.x - b.up.x, b.z - b.up.z) + 1) continue;
@@ -8339,7 +8339,7 @@ window.startMap = function (RAW, AUTH) {
     sp = botFreeSpot(o.x + nx * 6, o.z + nz * 6) || botFreeSpot(o.x - nx * 6, o.z - nz * 6) || botFreeSpot(o.x + 6, o.z);
     if (!sp) return false;
     an = Math.random() * 6.283; sp2 = botFreeSpot(sp[0] + Math.cos(an) * 4, sp[1] + Math.sin(an) * 4) || sp;
-    b.tour = null; b.vilTour = null; b.vilWatch = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
+    b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
     window.__botSayQ = corp ? 'Voy al corporativo S13.' : 'Voy a una sucursal S13.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     if (b.mode !== 'walk') botForceLand(b);
@@ -8359,7 +8359,7 @@ window.startMap = function (RAW, AUTH) {
     sp = botFree(wp.x, wp.z) ? [wp.x, wp.z] : botFreeSpot(wp.x, wp.z);
     if (!sp) return false;
     BM.mark('p', 'uvx');
-    b.tour = null; b.vilTour = null; b.vilWatch = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
+    b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
     if (!botFollow && !auto) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     if (b.mode !== 'walk') botForceLand(b);
     window.__botSayQ = 'Voy a la imprenta UVXpress.';
@@ -8447,7 +8447,7 @@ window.startMap = function (RAW, AUTH) {
     sp = botFreeSpot(g.x, g.z); if (!sp) return false;
     BM.mark('p', jk ? 'junk' : 'socorro');
     an = Math.random() * 6.283; sp2 = botFreeSpot(sp[0] + Math.cos(an) * 8, sp[1] + Math.sin(an) * 8) || sp;
-    b.tour = null; b.vilTour = null; b.vilWatch = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
+    b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
     window.__botSayQ = jk ? 'Voy a revisar la chatarrería de robots.' : 'Voy a visitar la isla Socorro.';
     if (!botFollow) { deselect(); ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; turretCam = false; botStartFollow(b); }
     if (b.mode !== 'walk') botForceLand(b);
@@ -8459,7 +8459,7 @@ window.startMap = function (RAW, AUTH) {
   function botPick() {
     var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown()) ? ufo.g.position : null, toward = !!Up && Math.hypot(Up.x - b.x, Up.z - b.z) < 500 && Math.random() < 0.7;
     var freeT = ufoDown() && !(typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state());
-    if (!freeT) { b.tour = null; b.vilTour = null; b.vilWatch = 0; }
+    if (!freeT) { b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; }
     if (freeT && typeof ALN !== 'undefined' && ALN.dis && now0() >= (b.disCD || 0) && !invLock) {
       var Dd = ALN.dis(), mx, mz, mdx, mdz, ml;
       if (Dd && Dd.k > 0.8 && Math.hypot(Dd.x - b.x, Dd.z - b.z) < 60 && Math.random() < 0.8) {
@@ -8529,7 +8529,7 @@ window.startMap = function (RAW, AUTH) {
     var b = bot, rp = b.rp, i, p, W, ang, lx, lz, ry, dd, best = null, bh = rp.roofY + 0.6, r;
     for (i = 0; i < botList.length; i++) {
       p = botList[i];
-      if (p === rp.p || p.tier === 6 || p.tier === 0 || p.isPres || p.noRoof) continue;
+      if (p === rp.p || p.tier === 6 || p.tier === 0 || p.isPres || p.sunk || p.noRoof) continue;
       dd = Math.hypot(p.x - rp.lx, p.z - rp.lz);
       if (dd < 3 || dd > 18 || BASE + p.topY < bh) continue;
       W = TIER_W[p.tier] || 3.4; ang = Math.atan2(rp.lx - p.x, rp.lz - p.z);
@@ -8765,6 +8765,10 @@ window.startMap = function (RAW, AUTH) {
     if (b.vilWatch) {
       if (now >= b.vilWatch || thr || HFL) { b.vilWatch = 0; b.vilTour = null; b.idle = 0.3; }
       else if (b.mode === 'walk') { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; b.v *= Math.max(0, 1 - dt * 5); if (VILD && VILD.sx !== undefined) b.yaw += nAng(Math.atan2(VILD.sx - b.x, VILD.sz - b.z) - b.yaw) * Math.min(1, dt * 3); }
+    }
+    if (b.cwS) { /* observa cómo resurge la ciudad: quieto, a distancia, mirando al centro */
+      if (now >= b.cwS.until || thr || HFL || (typeof ALN !== 'undefined' && ALN.state && ALN.state())) b.cwS = null;
+      else if (b.mode === 'walk' && !b.tpj) { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; b.v *= Math.max(0, 1 - dt * 5); b.yaw += nAng(Math.atan2(b.cwS.tx - b.x, b.cwS.tz - b.z) - b.yaw) * Math.min(1, dt * 3); }
     }
     if (b.trk && b.mode === 'walk') { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; b.v *= Math.max(0, 1 - dt * 5); }
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
@@ -10234,6 +10238,8 @@ window.startMap = function (RAW, AUTH) {
 
   var AT = { topic: '', topicT: 0, q3: null, fx: 0, cd: {}, gap: 0, idle: 0, call: 0, rep: null, repT: 0, repWho: 0, hide: 0, last: null, hadInv: false, invEnd: 0, pm: '', ps: '' };
   (function (X) { var k; for (k in X) AURA_DLG[k] = (AURA_DLG[k] || []).concat(X[k]); })((window.__MICT && window.__MICT['AURA_DLG_1']) || {});
+  AURA_DLG.sink_dn = [["Protocolo de evacuación iniciado en {E}. La ciudad pasa al subsuelo.", "Entendido. Que nadie se quede arriba."], ["Evacuación en curso: {E} desciende y los hexágonos se sellan. Tardará un minuto.", "Lo veo. Es la ciudad entera la que baja."], ["Sellando los hexágonos de {E}. Protocolo de evacuación activo.", "Qué silencio da ver las tapas cerrarse."]];
+  AURA_DLG.sink_up = [["Amenaza neutralizada. {E} regresa a la superficie.", "Ahí vuelven los edificios, uno por uno."], ["Reabriendo los hexágonos de {E}. Edificios en ascenso.", "Los altos serán los últimos en salir."], ["Fin de la alerta. Que {E} vuelva a la luz.", "Me quedo a verlos subir."]];
   AURA_DLG.call = [["¿Dónde estás? Te perdí en el radar.","Aquí sigo, ya casi llego."],["Apúrate, que llegamos tarde.","Voy a mi ritmo. Y mi ritmo es perfecto."],["Ya casi llegas, ¿verdad?","Ya casi. Tú sigue en lo tuyo."],["Te estoy esperando. ¿Piensas venir?","Voy, voy. No me presiones."],["¿Sigues vivo por allá?","Vivo y apuntando. Ya voy."],["Camina más rápido. Tengo datos que enseñarte.","Los datos no se van a ir."],["No te pierdas, que luego te tengo que buscar.","Nunca me pierdo. Solo exploro."],["¿Vienes o te quedas ahí de adorno?","Un adorno con cañones. Voy."],["Llevo rato esperando. Muévete un poco.","Me muevo, me muevo. Qué impaciente."],["Si tardas más me voy a otro sitio.","No te atreves. Sin mí te aburres."]];
   (function (X) { var k; for (k in X) AURA_DLG[k] = X[k]; })((window.__MICT && window.__MICT['AURA_DLG_2']) || {});
 
@@ -10412,6 +10418,147 @@ window.startMap = function (RAW, AUTH) {
     return { pick: pick, ctx: ctx, preview: function () { var c = ctx(), cd = candidates(c, { topic: '' }), a = cd.main.map(function (o) { return o.e.id; }); try { console.log('[DX] ánimo=' + c.mood + ' ciudad=' + c.city + ' candidatos:', a.join(', ')); } catch (e) { } return a; }, reset: function () { seen = []; saveSeen(); } };
   })();
   window.__DX = DX;
+  /* ===== Hundimiento de ciudades durante la invasión ===== */
+  var SNK = (function () {
+    var SPD = 0.24, MINT = 12, LID_T = 1.8, W = null, act = {}, rr0 = 0;
+    var lidGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.99, HEX_PAD_R * 0.99, 0.06, 6), plateGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.8, HEX_PAD_R * 0.86, 0.03, 6);
+    var ringGeo = new THREE.RingGeometry(HEX_PAD_R * 0.9, HEX_PAD_R * 0.95, 6), logoGeo = null, dm = new THREE.Object3D();
+    ringGeo.rotateZ(Math.PI / 2); ringGeo.rotateX(-Math.PI / 2);
+    var lidMat = new THREE.MeshLambertMaterial({ color: 0x59616d, emissive: 0x0b0e12 }), plateMat = new THREE.MeshLambertMaterial({ color: 0x7a8491, emissive: 0x10141a });
+    var ringMat = new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    function hash(x, z) { var h = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return h - Math.floor(h); }
+    function district(name) { var i; for (i = 0; i < districts.length; i++) if (districts[i].name === name) return districts[i]; return null; }
+    function collect(d) {
+      var L = [];
+      function add(o) { if (o && L.indexOf(o) < 0) L.push(o); }
+      roots.forEach(function (b) { var p = b.userData && b.userData.p; if (p && d.list.indexOf(p) >= 0) add(b); });
+      add(d.corp); add(d.branch); add(d.print); add(d.store);
+      camps.forEach(function (c) { if (c.d === d) add(c.root); });
+      if (window.__angel && window.__angel.parent === d.group) add(window.__angel);
+      if (CLANW && CLANW.list) CLANW.list.forEach(function (w) { if (w.m && w.m.parent === d.group) add(w.m); });
+      return L;
+    }
+    function setP(o, v) { var p = (o._bp) || (o.userData && o.userData.p); if (p) p.sunk = v; }
+    function mkLids(s) {
+      var d = s.d, n = s.hexes.length, gx = d.group.position.x, gz = d.group.position.z;
+      if (!s7()) return;
+      s.lid = new THREE.InstancedMesh(lidGeo, lidMat, n); s.plate = new THREE.InstancedMesh(plateGeo, plateMat, n);
+      s.ring = new THREE.InstancedMesh(ringGeo, ringMat, n); s.logo = new THREE.InstancedMesh(logoGeo, s13Mat, n);
+      [s.lid, s.plate, s.ring, s.logo].forEach(function (m) { m.frustumCulled = false; m.receiveShadow = true; m.raycast = function () {}; d.group.add(m); });
+      s.ring.renderOrder = 3; s.logo.renderOrder = 4;
+      s.lx = gx; s.lz = gz;
+    }
+    function s7() { if (!logoGeo) { s13Decal(1, 1, 0, 0); logoGeo = s13Geo.clone(); logoGeo.rotateX(-Math.PI / 2); } return !!logoGeo; }
+    function setLid(s, i, u) {
+      var h = s.hexes[i], x = h.x - s.lx, z = h.z - s.lz, e = u < 0.001;
+      dm.rotation.set(0, 0, 0); dm.scale.set(Math.max(0.001, u), 1, Math.max(0.001, u));
+      dm.position.set(x, e ? -5 : 0.17, z); dm.updateMatrix(); s.lid.setMatrixAt(i, dm.matrix);
+      dm.position.set(x, e ? -5 : 0.2, z); dm.updateMatrix(); s.plate.setMatrixAt(i, dm.matrix);
+      dm.position.set(x, e ? -5 : 0.216, z); dm.updateMatrix(); s.ring.setMatrixAt(i, dm.matrix);
+      dm.scale.set(Math.max(0.001, u) * HEX_PAD_R * 1.15, 1, Math.max(0.001, u) * HEX_PAD_R * 1.15);
+      dm.position.set(x, e ? -5 : 0.222, z); dm.updateMatrix(); s.logo.setMatrixAt(i, dm.matrix);
+      h.u = u; s.dirty = true;
+    }
+    function flush(s) { if (!s.dirty) return; s.lid.instanceMatrix.needsUpdate = true; s.plate.instanceMatrix.needsUpdate = true; s.ring.instanceMatrix.needsUpdate = true; s.logo.instanceMatrix.needsUpdate = true; s.dirty = false; }
+    function begin(d, t) {
+      var s = act[d.name] = { d: d, ph: 'down', t0: t, items: [], hexes: [], max: 0, done: false, said: false }, bb = new THREE.Box3(), wp = new THREE.Vector3(), i, it, h, c, k, add;
+      d.group.updateMatrixWorld(true);
+      collect(d).forEach(function (o) {
+        bb.setFromObject(o); if (bb.isEmpty()) return;
+        it = { o: o, x0: o.position.x, y0: o.position.y, z0: o.position.z, D: Math.max(0.6, bb.max.y - BASE + 0.25), seed: Math.random() * 6.28, done: false };
+        it.dur = Math.max(MINT, it.D / SPD); s.max = Math.max(s.max, it.dur); o.getWorldPosition(wp); it.wx = wp.x; it.wz = wp.z;
+        s.items.push(it); if (o.userData) o.userData.sunk = true;
+      });
+      if (!s.items.length) s.max = MINT;
+      add = function (x, z) { var j; for (j = 0; j < s.hexes.length; j++) if (Math.hypot(s.hexes[j].x - x, s.hexes[j].z - z) < 0.6) return; s.hexes.push({ x: x, z: z, u: 0, at: 0 }); };
+      d.cells.forEach(function (c2) { add(d.cx + c2.x, d.cz + c2.z); }); d.extra.forEach(function (c2) { add(d.cx + c2.x, d.cz + c2.z); });
+      if (window.__angel && window.__angel.parent === d.group) { window.__angel.getWorldPosition(wp); add(wp.x, wp.z); }
+      s.hexes.forEach(function (hx) {
+        var tm = -1;
+        s.items.forEach(function (q) { if (Math.hypot(q.wx - hx.x, q.wz - hx.z) < HEX_R * 0.95) tm = Math.max(tm, q.dur); });
+        hx.at = t + (tm > 0 ? tm + 0.3 : 2 + hash(hx.x, hx.z) * s.max * 0.5);
+      });
+      mkLids(s); if (s.lid) { for (i = 0; i < s.hexes.length; i++) setLid(s, i, 0); flush(s); }
+      d.snkHide = true; s.endAt = t + s.max + LID_T + 0.5;
+      sinkSay('sink_dn', d.name);
+    }
+    function rise(s, t) {
+      var mx = MINT;
+      s.ph = 'up'; s.t1 = t; s.said = false;
+      s.items.forEach(function (q) { q.done = false; q.dep = Math.max(0, q.y0 - q.o.position.y); q.upDur = Math.max(MINT * (q.dep > 0.05 ? 1 : 0.01), q.dep / SPD); mx = Math.max(mx, q.upDur); });
+      s.hexes.forEach(function (hx) { hx.at = t + hash(hx.z, hx.x) * 1.6; hx.u0 = hx.u; });
+      s.up0 = t + LID_T + 2.0; s.riseEnd = s.up0 + mx;
+      sinkSay('sink_up', s.d.name); watch(s.d, s.riseEnd + 4);
+    }
+    function watch(d, until) {
+      var b = bot, dist, base, k, a, sp = null;
+      if (!b || DUEL || b.mode === 'lift' || invLock || b.ride || b.tpj || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state())) return;
+      dist = Math.max(d.r * 1.7, 26); base = Math.atan2(b.x - d.cx, b.z - d.cz);
+      for (k = 0; k < 16 && !sp; k++) { a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.4; sp = botFreeSpot(d.cx + Math.sin(a) * dist, d.cz + Math.cos(a) * dist); if (sp && Math.hypot(sp[0] - d.cx, sp[1] - d.cz) < d.r * 1.3) sp = null; }
+      if (!sp) return;
+      b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
+      if (b.mode !== 'walk') botForceLand(b);
+      b.ball = false; b.ballK = 0; b.glr = 0; b.glr0 = 0; b.bh = 0; b.bvy = 0; b.v = 0; b.rec = 0; b.scan = false; b.circ = false;
+      b.tpj = { x: sp[0], z: sp[1], gx: sp[0], gz: sp[1], t: 0, done: false };
+      b.cwS = { tx: d.cx, tz: d.cz, until: until, d: d };
+      AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
+      window.__botSayQ = 'Voy a ver cómo vuelve ' + d.name + '.';
+    }
+    function callAura(d) {
+      var A = aura, G;
+      if (!A || A.k === undefined || Math.hypot(A.x - d.cx, A.z - d.cz) < d.r + 8) return;
+      if (A.mode !== 'trail' && A.mode !== 'back' && A.mode !== 'join') return;
+      G = auraFreeNear(d.cx, d.cz); if (!G) return;
+      A.bc = d; A.ev = null; A.wp = null; A.jmp = null; auraJump(A, G[0], G[1], 'back'); A.bc = d;
+    }
+    function step(s, t, dt) {
+      var i, q, p, o, all = true, hx, u;
+      if (s.ph === 'down') {
+        s.items.forEach(function (it) {
+          if (it.done) return;
+          p = Math.min(1, (t - s.t0) / it.dur); o = it.o;
+          if (p >= 1) { o.position.set(it.x0, it.y0 - it.D, it.z0); o.visible = false; it.done = true; setP(o, true); bfC.clear(); return; }
+          all = false; o.position.set(it.x0 + Math.sin(t * 38 + it.seed) * 0.02 * (1 - p * 0.6), it.y0 - it.D * p, it.z0 + Math.cos(t * 33 + it.seed) * 0.02 * (1 - p * 0.6));
+        });
+        if (s.lid) s.hexes.forEach(function (h, k) { u = Math.max(0, Math.min(1, (t - h.at) / LID_T)); if (u !== h.u) setLid(s, k, u); if (u < 1) all = false; });
+        if (all) { s.ph = 'hold'; if (!s.said) { s.said = true; window.__botSayQ = 'Ciudad sellada. Solo quedamos nosotros.'; } }
+      } else if (s.ph === 'up') {
+        if (s.lid) s.hexes.forEach(function (h, k) { u = (h.u0 === undefined ? 1 : h.u0) * (1 - Math.max(0, Math.min(1, (t - h.at) / LID_T))); if (u !== h.u) setLid(s, k, u); });
+        if (t >= s.up0) {
+          s.d.snkHide = false;
+          s.items.forEach(function (it) {
+            if (it.done) return; o = it.o; p = Math.min(1, (t - s.up0) / it.upDur);
+            if (it.dep > 0.05 && !o.visible) o.visible = true;
+            if (p >= 1) { o.position.set(it.x0, it.y0, it.z0); o.visible = true; it.done = true; setP(o, false); if (o.userData) o.userData.sunk = false; bfC.clear(); return; }
+            all = false; if (p > 0.5) setP(o, false);
+            o.position.set(it.x0 + Math.sin(t * 38 + it.seed) * 0.02 * (1 - p), it.y0 - it.dep * (1 - p), it.z0 + Math.cos(t * 33 + it.seed) * 0.02 * (1 - p));
+          });
+          if (all) { s.ph = 'done'; if (s.lid) { [s.lid, s.plate, s.ring, s.logo].forEach(function (m) { s.d.group.remove(m); m.dispose && m.dispose(); }); s.lid = null; } delete act[s.d.name]; }
+        } else all = false;
+      }
+      if (s.lid) flush(s);
+    }
+    function update(dt, t) {
+      var S = null, k, s, d, A, near;
+      try { S = ALN.state(); } catch (e) { S = null; }
+      if (S && !S.end) {
+        if (!W && !act[S.name]) { d = district(S.name); if (d && (d.cells.length || d.extra.length)) { W = { d: d, t0: t, name: S.name }; callAura(d); } }
+      } else if (W) W = null;
+      if (W) {
+        A = aura; near = A && A.k !== undefined && A.mode !== 'jump' && Math.hypot(A.x - W.d.cx, A.z - W.d.cz) < W.d.r + 10 && !(A.jmp && !A.jmp.done);
+        if (near || t - W.t0 > 25) { begin(W.d, t); W = null; }
+      }
+      for (k in act) {
+        s = act[k];
+        if ((s.ph === 'down' || s.ph === 'hold') && (!S || S.end || S.name !== k)) rise(s, t);
+        step(s, t, dt);
+      }
+      ringMat.opacity = 0.55 + 0.35 * Math.sin(t * 3);
+    }
+    return { update: update, active: function () { var k; for (k in act) return true; return false; } };
+  })();
+  function sinkSay(key, name) { var n = now0(); AT.sk = key; AT.skT = n + 25; AT.skN = name; AT.gap = 0; AT.cd[key] = 0; }
+
   function auraTalk() {
     var A = aura, n = now0(), el = document.getElementById('aSay'), hud = document.getElementById('botHud'), bs = document.getElementById('bSay'), sp, k, lst, pr, pick, D, cond = {}, ev, calm, far, tb = null, ts = null, ms = performance.now(), st, us, ctx, uN, dxR = null, dxF = false, rb = false;
     if (!el || !bot || !hud || !bs) return;
@@ -10466,8 +10613,10 @@ window.startMap = function (RAW, AUTH) {
     if (A.mode === 'trail') { var dsx = auraCityNear(A.x, A.z), snm = dsx ? dsx.name : ''; if (snm && snm !== AT.ps) { AT.ps = snm; AT.mt = 'trail'; AT.mtT = n + 15; AT.ctx = snm; } }
     if (AT.mt && n > AT.mtT) AT.mt = null;
     if (AT.mt) { cond[AT.mt] = true; }
+    if (AT.sk && n > AT.skT) AT.sk = null;
+    if (AT.sk) cond[AT.sk] = true; /* hundimiento / resurgimiento de la ciudad */
     pick = null;
-    ['inv_end', 'inv_rock', 'inv_few', 'inv_fight', 'inv_alert', 'ufo_crash', 'ufo_abduct', 'ufo_cook', 'wreck', 'met', 'vil', 'hat', 'ghost', 'ufo', 'fog', 'go_wreck', 'go_met', 'go_vil', 'insp_wreck', 'insp_met', 'insp_vil', 'back', 'jump', 'join', 'hf', 'vtour', 'vwatch', 'trail'].some(function (kk) { if (cond[kk] && n >= (AT.cd[kk] || 0)) { pick = kk; return true; } return false; });
+    ['sink_dn', 'sink_up', 'inv_end', 'inv_rock', 'inv_few', 'inv_fight', 'inv_alert', 'ufo_crash', 'ufo_abduct', 'ufo_cook', 'wreck', 'met', 'vil', 'hat', 'ghost', 'ufo', 'fog', 'go_wreck', 'go_met', 'go_vil', 'insp_wreck', 'insp_met', 'insp_vil', 'back', 'jump', 'join', 'hf', 'vtour', 'vwatch', 'trail'].some(function (kk) { if (cond[kk] && n >= (AT.cd[kk] || 0)) { pick = kk; return true; } return false; });
     far = Math.hypot(A.x - bot.x, A.z - bot.z) > 70 && (A.mode === 'trail' || A.mode === 'inspect' || A.mode === 'vwatch' || A.mode === 'hf');
     if (!pick && far && n >= AT.call) pick = 'call';
     calm = !bot.tpj && bot.mode !== 'lift' && !bot.aiming && !(st && st.entered) && !ev;
@@ -10479,8 +10628,8 @@ window.startMap = function (RAW, AUTH) {
     pr = lst[(Math.random() * lst.length) | 0];
     if (AT.last === pr) pr = lst[(Math.random() * lst.length) | 0];
     if (dxR) { pr = dxR.l; AT.topic = dxR.t; AT.topicT = performance.now(); }
-    AT.last = pr; if (AT.mt === pick) AT.mt = null;
-    ctx = AT.ctx || ''; if (pr[0].indexOf('{E}') >= 0 || pr[1].indexOf('{E}') >= 0) pr = [pr[0].replace(/\{E\}/g, ctx), pr[1].replace(/\{E\}/g, ctx)];
+    AT.last = pr; if (AT.mt === pick) AT.mt = null; if (AT.sk === pick) AT.sk = null;
+    ctx = (pick.indexOf('sink_') === 0 && AT.skN) ? AT.skN : (AT.ctx || ''); if (pr[0].indexOf('{E}') >= 0 || pr[1].indexOf('{E}') >= 0) pr = [pr[0].replace(/\{E\}/g, ctx), pr[1].replace(/\{E\}/g, ctx)];
     rb = !!(dxR && dxR.f === 'r');
     hud._sayGate = ms + 9500;
     if (pick === 'call') AT.call = n + 30 + Math.random() * 20;
@@ -12691,6 +12840,7 @@ window.startMap = function (RAW, AUTH) {
           else if (b2.trk) tx2 = 'Vigilando la caída del OVNI';
           else if (HF) tx2 = 'Chocando los cinco con AURA';
           else if (b2.vilWatch) tx2 = 'Observando a los nadadores';
+          else if (b2.cwS) tx2 = 'Observando cómo resurge ' + b2.cwS.d.name;
           else if (b2.disTalk) tx2 = 'Interrogando al turista sospechoso';
           else if (b2.disMeet) tx2 = 'Buscando al turista sospechoso';
           else if (b2.circ || b2.scan || b2.gtype === 'wreck' || b2.gtype === 'wreckp') tx2 = 'Revisando restos del OVNI';
@@ -12870,6 +13020,7 @@ window.startMap = function (RAW, AUTH) {
     if (bot) bot.shell.visible = !botFps;
     if (camera.near !== wantNear) { camera.near = wantNear; camera.updateProjectionMatrix(); }
     try { ALN.update(dt, t); } catch (e) { ALN.update = function () {}; console.warn('Invasión desactivada:', e); }
+    try { SNK.update(dt, t); } catch (e) { SNK.update = function () {}; console.warn('Hundimiento desactivado:', e); }
     try { WX.update(dt, t); } catch (e) { WX.update = function () {}; console.warn("Clima desactivado:", e); }
     if (vegCull) { camera.updateMatrixWorld(); vegCull(); }
     renderer.render(scene, camera);
