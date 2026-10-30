@@ -4382,8 +4382,9 @@ window.startMap = function (RAW, AUTH) {
       slabs.frustumCulled = false; pads.frustumCulled = false;
       for (q = 0; q < n; q++) {
         var ex = d.cx + d.extra[q].x, ez = d.cz + d.extra[q].z;
+        var dup = window.__angel && Math.hypot(ex - window.__angel.position.x, ez - window.__angel.position.z) < 0.5 && window.__angel.parent === d.group; /* el hexágono del Ángel ya tiene su propia placa: sin duplicado (parpadeo por z-fighting) */
         o.position.set(ex, 0.07, ez); o.updateMatrix(); slabs.setMatrixAt(q, o.matrix);
-        o.position.set(ex, 0.131, ez); o.updateMatrix(); pads.setMatrixAt(q, o.matrix);
+        o.position.set(ex, dup ? -9 : 0.131, ez); o.updateMatrix(); pads.setMatrixAt(q, o.matrix);
         for (k = 0; k < 6; k++) {
           var a1 = k * Math.PI / 3, a2 = (k + 1) * Math.PI / 3;
           segs[w++] = ex + R * Math.sin(a1); segs[w++] = 0.16; segs[w++] = ez + R * Math.cos(a1);
@@ -12768,7 +12769,8 @@ window.startMap = function (RAW, AUTH) {
     (function () {
       var on = botFollow && botCamFree && bot && !fly && !turretCam, tg = controls.target, cp = camera.position, tx = tg.x, ty = tg.y, tz = tg.z, ox, oy, oz, r, ang, cand, i, j, f, best = null, cx, cy, cz, bad;
       if (!on || !botObs) { bcAdj.multiplyScalar(Math.max(0, 1 - dt * 5)); cp.add(bcAdj); return; }
-      function free(x, y, z) { return window.__uvxCam ? true : botLOS(tx, ty, tz, x, y, z, null); }
+      var ownB = (bot.mode === 'walk' || bot.mode === 'perch') && bot.y > 3 ? botBld(bot.x, bot.z, -0.55) : null; if (ownB && bot.y < botTop(ownB) - 4) ownB = null; /* sobre una azotea: el propio edificio no cuenta como obstáculo, así la cámara no sube */
+      function free(x, y, z) { return window.__uvxCam ? true : botLOS(tx, ty, tz, x, y, z, ownB); }
       ox = cp.x - tx; oy = cp.y - ty; oz = cp.z - tz;
       if (free(cp.x, cp.y, cp.z)) { bcWant.set(0, 0, 0); }
       else if (now0() > bcHold || bcHold === 0) {
