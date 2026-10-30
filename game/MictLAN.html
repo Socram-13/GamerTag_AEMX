@@ -1525,7 +1525,7 @@ window.startMap = function (RAW, AUTH) {
     if (off) return;
     if (t === 2) { var sl = new THREE.Mesh(uCyl, cyBeamCyan); sl.scale.set(0.8, 1.7, 0.8); sl.position.y = r.top + 0.65; g.add(sl); }
     if (t === 3) cyRing(g, cyNeon.cyan, r.top - 0.35, r.w * 0.55);
-    if (t === 4) { cyBeam(g, cyBeamCyan, 0.9, 16, r.top + 2.4); cyRing(g, cyNeon.cyan, r.top + 2.3, 0.7); }
+    if (t === 4) cyRing(g, cyNeon.cyan, r.top + 2.3, 0.7);
   }
 
   function buildBuilding(p) {
@@ -10420,9 +10420,9 @@ window.startMap = function (RAW, AUTH) {
   window.__DX = DX;
   /* ===== Hundimiento de ciudades durante la invasión ===== */
   var SNK = (function () {
-    var SPD = 0.24, MINT = 12, LID_T = 1.8, W = null, act = {}, rr0 = 0;
+    var SPD = 0.34, MINT = 8, LID_T = 1.8, W = null, act = {}, rr0 = 0;
     var lidGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.99, HEX_PAD_R * 0.99, 0.06, 6), plateGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.8, HEX_PAD_R * 0.86, 0.03, 6);
-    var ringGeo = new THREE.RingGeometry(HEX_PAD_R * 0.9, HEX_PAD_R * 0.95, 6), logoGeo = null, dm = new THREE.Object3D();
+    var darkGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.99, HEX_PAD_R * 0.99, 0.004, 6), ringGeo = new THREE.RingGeometry(HEX_PAD_R * 0.9, HEX_PAD_R * 0.95, 6), logoGeo = null, dm = new THREE.Object3D();
     ringGeo.rotateZ(Math.PI / 2); ringGeo.rotateX(-Math.PI / 2);
     var lidMat = new THREE.MeshLambertMaterial({ color: 0x59616d, emissive: 0x0b0e12 }), plateMat = new THREE.MeshLambertMaterial({ color: 0x7a8491, emissive: 0x10141a });
     var ringMat = new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
@@ -10447,6 +10447,10 @@ window.startMap = function (RAW, AUTH) {
       [s.lid, s.plate, s.ring, s.logo].forEach(function (m) { m.frustumCulled = false; m.receiveShadow = true; m.raycast = function () {}; d.group.add(m); });
       s.ring.renderOrder = 3; s.logo.renderOrder = 4;
       s.lx = gx; s.lz = gz;
+      s.dark = new THREE.InstancedMesh(darkGeo, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), n); /* el hexágono se oscurece mientras baja el edificio */
+      s.dark.frustumCulled = false; s.dark.raycast = function () {}; s.dark.renderOrder = 1; d.group.add(s.dark);
+      s.hexes.forEach(function (h, i) { dm.rotation.set(0, 0, 0); dm.scale.set(1, 1, 1); dm.position.set(h.x - gx, 0.147, h.z - gz); dm.updateMatrix(); s.dark.setMatrixAt(i, dm.matrix); });
+      s.dark.instanceMatrix.needsUpdate = true;
     }
     function s7() { if (!logoGeo) { s13Decal(1, 1, 0, 0); logoGeo = s13Geo.clone(); logoGeo.rotateX(-Math.PI / 2); } return !!logoGeo; }
     function setLid(s, i, u) {
@@ -10521,9 +10525,11 @@ window.startMap = function (RAW, AUTH) {
           all = false; o.position.set(it.x0 + Math.sin(t * 38 + it.seed) * 0.02 * (1 - p * 0.6), it.y0 - it.D * p, it.z0 + Math.cos(t * 33 + it.seed) * 0.02 * (1 - p * 0.6));
         });
         if (s.lid) s.hexes.forEach(function (h, k) { u = Math.max(0, Math.min(1, (t - h.at) / LID_T)); if (u !== h.u) setLid(s, k, u); if (u < 1) all = false; });
+        if (s.dark) s.dark.material.opacity = Math.max(0, Math.min(1, (t - s.t0) / (s.max * 0.9)));
         if (all) { s.ph = 'hold'; if (!s.said) { s.said = true; window.__botSayQ = 'Ciudad sellada. Solo quedamos nosotros.'; } }
       } else if (s.ph === 'up') {
         if (s.lid) s.hexes.forEach(function (h, k) { u = (h.u0 === undefined ? 1 : h.u0) * (1 - Math.max(0, Math.min(1, (t - h.at) / LID_T))); if (u !== h.u) setLid(s, k, u); });
+        if (s.dark) s.dark.material.opacity = t < s.up0 ? s.dark.material.opacity : Math.max(0, 1 - (t - s.up0) / s.max);
         if (t >= s.up0) {
           s.d.snkHide = false;
           s.items.forEach(function (it) {
@@ -10533,7 +10539,7 @@ window.startMap = function (RAW, AUTH) {
             all = false; if (p > 0.5) setP(o, false);
             o.position.set(it.x0 + Math.sin(t * 38 + it.seed) * 0.02 * (1 - p), it.y0 - it.dep * (1 - p), it.z0 + Math.cos(t * 33 + it.seed) * 0.02 * (1 - p));
           });
-          if (all) { s.ph = 'done'; if (s.lid) { [s.lid, s.plate, s.ring, s.logo].forEach(function (m) { s.d.group.remove(m); m.dispose && m.dispose(); }); s.lid = null; } delete act[s.d.name]; }
+          if (all) { s.ph = 'done'; if (s.lid) { [s.lid, s.plate, s.ring, s.logo, s.dark].forEach(function (m) { if (!m) return; s.d.group.remove(m); m.dispose && m.dispose(); }); if (s.dark) s.dark.material.dispose(); s.lid = null; s.dark = null; } delete act[s.d.name]; }
         } else all = false;
       }
       if (s.lid) flush(s);
