@@ -12009,11 +12009,10 @@ window.startMap = function (RAW, AUTH) {
       ad(hd, gHead, skin, 0, 0, 0, 1, 1, 0.92);
       for (s = -1; s <= 1; s += 2) {
         m = ad(hd, gEye, eyeM, s * 0.078, 0.05, 0.125, 1.75, 0.78, 0.5); m.rotation.z = s * 0.5; m.rotation.y = s * 0.45;
-        ad(hd, gSph, darkM, s * 0.012, -0.045, 0.158, 0.007, 0.005, 0.004);
+        ad(hd, gSph, darkM, s * 0.012, -0.045, 0.124, 0.007, 0.005, 0.004);
         ad(hd, gSph, joint, s * 0.1, 0.12, 0.1, 0.03, 0.012, 0.02);
       }
-      ad(hd, gSph, darkM, 0, -0.105, 0.115, 0.026, 0.0045, 0.004);
-      ad(hd, gSph, joint, 0, -0.07, 0.15, 0.01, 0.02, 0.008);
+      ad(hd, gSph, darkM, 0, -0.105, 0.097, 0.026, 0.0045, 0.004);
       for (i = 0; i < 2; i++) {
         s = i ? 1 : -1;
 
@@ -12253,7 +12252,7 @@ window.startMap = function (RAW, AUTH) {
       am = Math.min(0.9, 0.2 + sp * 0.13) * a.gk;
       for (i = 0; i < 2; i++) {
         ph = a.ph + i * Math.PI;
-        a.o.leg[i].th.rotation.x = Math.sin(ph) * am; a.o.leg[i].kn.rotation.x = Math.max(0, Math.cos(ph)) * am * 1.3;
+        a.o.leg[i].th.rotation.x = Math.sin(ph) * am; a.o.leg[i].kn.rotation.x = Math.max(0, -Math.cos(ph)) * am * 1.3;
         a.o.arm[i].sh.rotation.x = -Math.sin(ph) * am * (0.8 + 0.7 * a.fk); a.o.arm[i].el.rotation.x = -(0.15 + 0.7 * a.fk) * a.gk - 0.08; a.o.arm[i].wr.rotation.x = -0.15 * a.gk;
         for (var q = 0; q < 4; q++) a.o.arm[i].fi[q].rotation.x = -(0.25 + 0.35 * a.fk) - 0.1 * q * 0.3;
       }
@@ -12275,23 +12274,45 @@ window.startMap = function (RAW, AUTH) {
     var DIS = null, disMat = null;
     function disMake() {
       var o = mk(), hd = o.head, m, s2;
-      if (!disMat) disMat = { hat: new THREE.MeshLambertMaterial({ color: 0x8a5a2b }), band: new THREE.MeshLambertMaterial({ color: 0x1d1510 }), glass: new THREE.MeshPhongMaterial({ color: 0x050507, specular: 0xaabbcc, shininess: 140 }), must: new THREE.MeshLambertMaterial({ color: 0x2b1a0e }) };
-      var M = disMat, gC = new THREE.CylinderGeometry(1, 1, 1, 16);
+      if (!disMat) disMat = { hat: new THREE.MeshLambertMaterial({ color: 0x8a5a2b }), band: new THREE.MeshLambertMaterial({ color: 0x1d1510 }), glass: new THREE.MeshPhongMaterial({ color: 0x050507, specular: 0xaabbcc, shininess: 140 }), must: new THREE.MeshLambertMaterial({ color: 0x050505 }) };
+      var M = disMat, gC = new THREE.CylinderGeometry(1, 1, 1, 16), gBx = new THREE.BoxGeometry(1, 1, 1);
 
-      var hat = new THREE.Group(); hat.position.set(0, 0.235, -0.01); hat.rotation.set(-0.12, 0, 0.1); hd.add(hat);
-      m = new THREE.Mesh(gC, M.hat); m.scale.set(0.2, 0.012, 0.17); m.position.y = 0.0; hat.add(m);
-      for (s2 = -1; s2 <= 1; s2 += 2) { m = new THREE.Mesh(gC, M.hat); m.scale.set(0.05, 0.012, 0.15); m.position.set(s2 * 0.19, 0.022, 0); m.rotation.z = s2 * -0.5; hat.add(m); }
-      m = new THREE.Mesh(gC, M.hat); m.scale.set(0.095, 0.08, 0.085); m.position.y = 0.045; hat.add(m);
-      m = new THREE.Mesh(gC, M.band); m.scale.set(0.098, 0.016, 0.088); m.position.y = 0.02; hat.add(m);
-      m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), M.hat); m.scale.set(0.095, 0.03, 0.085); m.position.y = 0.088; hat.add(m);
+      var hat = new THREE.Group(); hat.position.set(0, 0.228, -0.005); hat.rotation.set(-0.08, 0, 0.05); hd.add(hat);
+      var hatPts = [[0.34, 0.045], [0.33, 0.022], [0.27, 0.004], [0.17, 0], [0.158, 0.02], [0.156, 0.09], [0.148, 0.13], [0.128, 0.15], [0.08, 0.158], [0.03, 0.148], [0, 0.138]].map(function (p) { return new THREE.Vector2(p[0], p[1]); });
+      var hatM = M.hat.clone(); hatM.side = THREE.DoubleSide;
+      m = new THREE.Mesh(new THREE.LatheGeometry(hatPts, 28), hatM); m.scale.set(1, 1, 0.95); hat.add(m);
+      m = new THREE.Mesh(gC, M.band); m.scale.set(0.166, 0.045, 0.158); m.position.y = 0.05; hat.add(m);
+      m = new THREE.Mesh(gBx, M.band); m.scale.set(0.03, 0.05, 0.02); m.position.set(0.16, 0.045, 0.02); m.rotation.y = 0.2; hat.add(m);
+      if (!disMat.shirt) {
+        var cv = document.createElement('canvas'), cx, tx; cv.width = cv.height = 128; cx = cv.getContext('2d'); cx.fillStyle = '#f26aa8'; cx.fillRect(0, 0, 128, 128);
+        [[22, 24, '#fff6a8'], [86, 14, '#ffffff'], [60, 66, '#ffe04a'], [110, 76, '#fff6a8'], [18, 104, '#ffffff'], [78, 112, '#ffe04a']].forEach(function (f) {
+          var k, a; cx.fillStyle = '#2f9e6a'; cx.beginPath(); cx.ellipse(f[0] + 14, f[1] + 12, 9, 4, 0.7, 0, 7); cx.fill();
+          cx.fillStyle = f[2]; for (k = 0; k < 5; k++) { a = k * Math.PI * 2 / 5; cx.beginPath(); cx.arc(f[0] + Math.cos(a) * 7, f[1] + Math.sin(a) * 7, 6, 0, 7); cx.fill(); }
+          cx.fillStyle = '#f08a1c'; cx.beginPath(); cx.arc(f[0], f[1], 4, 0, 7); cx.fill();
+        });
+        tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(3, 2);
+        disMat.shirt = new THREE.MeshLambertMaterial({ map: tx, side: THREE.DoubleSide });
+      }
+      var shUp = o.g.children[0];
+      m = new THREE.Mesh(new THREE.LatheGeometry([[0.122, 0.34], [0.118, 0.42], [0.11, 0.52], [0.103, 0.66], [0.1, 0.73], [0.072, 0.775], [0.046, 0.795]].map(function (p) { return new THREE.Vector2(p[0], p[1]); }), 24), disMat.shirt);
+      m.scale.set(1, 1, 0.9); shUp.add(m);
+      for (s2 = 0; s2 < 2; s2++) { m = new THREE.Mesh(gC, disMat.shirt); m.scale.set(0.043, 0.13, 0.043); m.position.y = -0.06; o.arm[s2].sh.add(m); }
+      if (!disMat.short) { disMat.short = new THREE.MeshLambertMaterial({ color: 0x1fa3bd }); disMat.sole = new THREE.MeshLambertMaterial({ color: 0xe8512c }); disMat.strap = new THREE.MeshLambertMaterial({ color: 0xf2c230 }); }
+      m = new THREE.Mesh(gC, disMat.short); m.scale.set(0.072, 0.07, 0.052); m.position.set(0, 0.925, 0); o.g.add(m);
+      for (s2 = 0; s2 < 2; s2++) {
+        m = new THREE.Mesh(gC, disMat.short); m.scale.set(0.04, 0.2, 0.04); m.position.y = -0.08; o.leg[s2].th.add(m);
+        m = new THREE.Mesh(gBx, disMat.sole); m.scale.set(0.068, 0.024, 0.19); m.position.set(0, -0.462, 0.05); o.leg[s2].kn.add(m);
+        m = new THREE.Mesh(gBx, disMat.strap); m.scale.set(0.062, 0.012, 0.016); m.position.set(0, -0.44, 0.04); o.leg[s2].kn.add(m);
+        m = new THREE.Mesh(gBx, disMat.strap); m.scale.set(0.012, 0.012, 0.08); m.position.set(0, -0.44, 0.09); o.leg[s2].kn.add(m);
+      }
 
       for (s2 = -1; s2 <= 1; s2 += 2) {
-        m = new THREE.Mesh(gSph, M.glass); m.position.set(s2 * 0.078, 0.05, 0.138); m.scale.set(0.088, 0.058, 0.032); m.rotation.z = s2 * 0.5; m.rotation.y = s2 * 0.45; hd.add(m);
-        m = new THREE.Mesh(gSph, M.glass); m.position.set(s2 * 0.155, 0.075, 0.05); m.scale.set(0.01, 0.008, 0.09); m.rotation.y = s2 * 0.1; hd.add(m);
+        m = new THREE.Mesh(gBx, M.band); m.position.set(s2 * 0.082, 0.05, 0.137); m.scale.set(0.118, 0.098, 0.024); m.rotation.y = s2 * 0.38; hd.add(m); m = new THREE.Mesh(gBx, M.glass); m.position.set(s2 * 0.082, 0.05, 0.141); m.scale.set(0.102, 0.082, 0.026); m.rotation.y = s2 * 0.38; hd.add(m);
+        m = new THREE.Mesh(gBx, M.band); m.position.set(s2 * 0.155, 0.075, 0.05); m.scale.set(0.01, 0.01, 0.09); m.rotation.y = s2 * 0.1; hd.add(m);
       }
-      m = new THREE.Mesh(gSph, M.glass); m.position.set(0, 0.065, 0.158); m.scale.set(0.03, 0.008, 0.008); hd.add(m);
+      m = new THREE.Mesh(gBx, M.band); m.position.set(0, 0.075, 0.15); m.scale.set(0.05, 0.012, 0.012); hd.add(m);
 
-      for (s2 = -1; s2 <= 1; s2 += 2) { m = new THREE.Mesh(gSph, M.must); m.position.set(s2 * 0.045, -0.09, 0.152); m.scale.set(0.058, 0.019, 0.022); m.rotation.z = s2 * 0.3; hd.add(m); m = new THREE.Mesh(gSph, M.must); m.position.set(s2 * 0.09, -0.098, 0.138); m.scale.set(0.02, 0.026, 0.016); m.rotation.z = s2 * 0.5; hd.add(m); }
+      for (s2 = -1; s2 <= 1; s2 += 2) { [[0.034, -0.084, 0.112, 0.052, 0.032, 0.03, 0.1], [0.082, -0.094, 0.094, 0.05, 0.03, 0.03, 0.05], [0.122, -0.102, 0.072, 0.04, 0.024, 0.026, -0.3], [0.152, -0.098, 0.052, 0.03, 0.018, 0.022, -0.7], [0.17, -0.082, 0.042, 0.02, 0.016, 0.018, -1.2], [0.176, -0.062, 0.038, 0.013, 0.016, 0.014, -1.5]].forEach(function (c) { m = new THREE.Mesh(gSph, M.must); m.position.set(s2 * c[0] * 1.4, -0.09 + (c[1] + 0.09) * 1.4, c[2] + 0.012); m.scale.set(c[3] * 1.4, c[4] * 1.4, c[5] * 1.4); m.rotation.z = s2 * c[6]; hd.add(m); }); }
       var bg = new THREE.Group(), bi, ba;
       function bl(c) { return new THREE.MeshLambertMaterial({ color: c }); }
       function bcy(rt, rb, h, y, c) { var q = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 16), bl(c)); q.position.y = y; bg.add(q); }
@@ -12365,7 +12386,7 @@ window.startMap = function (RAW, AUTH) {
       am = 0.3 * D2.gk;
       for (i = 0; i < 2; i++) {
         ph = D2.ph + i * Math.PI;
-        D2.o.leg[i].th.rotation.x = Math.sin(ph) * am; D2.o.leg[i].kn.rotation.x = Math.max(0, Math.cos(ph)) * am * 1.2;
+        D2.o.leg[i].th.rotation.x = Math.sin(ph) * am; D2.o.leg[i].kn.rotation.x = Math.max(0, -Math.cos(ph)) * am * 1.2;
         D2.o.arm[i].sh.rotation.x = -Math.sin(ph) * am * 0.9; D2.o.arm[i].el.rotation.x = -0.1 - 0.15 * D2.gk; D2.o.arm[i].wr.rotation.x = -0.1;
         D2.o.arm[i].sh.rotation.z = (i ? 1 : -1) * 0.06;
       }
@@ -12594,7 +12615,7 @@ window.startMap = function (RAW, AUTH) {
           am = 0.3 * a.gk;
           for (k = 0; k < 2; k++) {
             ph = a.ph + k * Math.PI;
-            o.leg[k].th.rotation.x = Math.sin(ph) * am; o.leg[k].kn.rotation.x = Math.max(0, Math.cos(ph)) * am * 1.2;
+            o.leg[k].th.rotation.x = Math.sin(ph) * am; o.leg[k].kn.rotation.x = Math.max(0, -Math.cos(ph)) * am * 1.2;
             o.arm[k].sh.rotation.x = -Math.sin(ph) * am * 0.9; o.arm[k].el.rotation.x = -0.1 - 0.15 * a.gk; o.arm[k].wr.rotation.x = -0.1; o.arm[k].sh.rotation.z = (k ? 1 : -1) * 0.06;
           }
           o.arm[1].sh.rotation.x = o.arm[1].sh.rotation.x * (1 - a.wv) + -2.6 * a.wv; o.arm[1].el.rotation.x = o.arm[1].el.rotation.x * (1 - a.wv) - 0.5 * a.wv; o.arm[1].sh.rotation.z = o.arm[1].sh.rotation.z * (1 - a.wv) + (0.1 + 0.45 * Math.sin(t * 7 + i)) * a.wv;
