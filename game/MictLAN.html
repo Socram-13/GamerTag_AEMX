@@ -10456,7 +10456,7 @@ window.startMap = function (RAW, AUTH) {
       [s.lid, s.plate, s.ring, s.logo].forEach(function (m) { m.frustumCulled = false; m.receiveShadow = true; m.raycast = function () {}; d.group.add(m); });
       s.ring.renderOrder = 3; s.logo.renderOrder = 4;
       s.lx = gx; s.lz = gz;
-      s.dark = new THREE.InstancedMesh(darkGeo, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), n); /* el hexágono se oscurece mientras baja el edificio */
+      s.dark = new THREE.InstancedMesh(darkGeo, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), n); /* el hexágono se pone negro mientras el edificio baja o sube; azul cuando está completamente afuera */
       s.dark.frustumCulled = false; s.dark.raycast = function () {}; s.dark.renderOrder = 1; d.group.add(s.dark);
       s.hexes.forEach(function (h, i) { dm.rotation.set(0, 0, 0); dm.scale.set(1, 1, 1); dm.position.set(h.x - gx, 0.147, h.z - gz); dm.updateMatrix(); s.dark.setMatrixAt(i, dm.matrix); });
       s.dark.instanceMatrix.needsUpdate = true;
@@ -10488,7 +10488,8 @@ window.startMap = function (RAW, AUTH) {
       if (window.__angel && window.__angel.parent === d.group) { window.__angel.getWorldPosition(wp); add(wp.x, wp.z); }
       s.hexes.forEach(function (hx) {
         var tm = -1;
-        s.items.forEach(function (q) { if (Math.hypot(q.wx - hx.x, q.wz - hx.z) < HEX_R * 0.95) tm = Math.max(tm, q.dur); });
+        hx.its = []; hx.dk = true;
+        s.items.forEach(function (q) { if (Math.hypot(q.wx - hx.x, q.wz - hx.z) < HEX_R * 0.95) { tm = Math.max(tm, q.dur); hx.its.push(q); } });
         hx.at = t + (tm > 0 ? tm + 0.3 : 2 + hash(hx.x, hx.z) * s.max * 0.5);
       });
       s.veg = (window.__vegHex || []).filter(function (e) { return e.d === d; }); s.vdep = 0; s.vtmp = new THREE.Matrix4();
@@ -10548,13 +10549,12 @@ window.startMap = function (RAW, AUTH) {
           all = false; o.position.set(it.x0 + Math.sin(t * 38 + it.seed) * 0.02 * (1 - p * 0.6), it.y0 - it.D * p, it.z0 + Math.cos(t * 33 + it.seed) * 0.02 * (1 - p * 0.6));
         });
         if (s.lid) s.hexes.forEach(function (h, k) { u = Math.max(0, Math.min(1, (t - h.at) / LID_T)); if (u !== h.u) setLid(s, k, u); if (u < 1) all = false; });
-        if (s.dark) s.dark.material.opacity = Math.max(0, Math.min(1, (t - s.t0) / (s.max * 0.9)));
         if (s.veg.length && s.vdep < VEGD - 0.004) all = false; /* la vegetación de los hexágonos termina de bajar */
         if (all) { s.ph = 'hold'; if (!s.said) { s.said = true; window.__botSayQ = 'Ciudad sellada. Solo quedamos nosotros.'; } }
       } else if (s.ph === 'up') {
         if (s.wTry && watch(s.d, s.riseEnd + 45, s)) s.wTry = false; /* el robot debe ir a verla surgir: reintenta hasta lograrlo */
         if (s.lid) s.hexes.forEach(function (h, k) { u = (h.u0 === undefined ? 1 : h.u0) * (1 - Math.max(0, Math.min(1, (t - h.at) / LID_T))); if (u !== h.u) setLid(s, k, u); });
-        if (s.dark) s.dark.material.opacity = t < s.up0 ? s.dark.material.opacity : Math.max(0, 1 - (t - s.up0) / s.max);
+        if (s.dark) { var dch = false; s.hexes.forEach(function (h, k) { if (!h.dk) return; if (h.its.length ? h.its.every(function (q) { return q.done; }) : h.u <= 0.001) { h.dk = false; dm.rotation.set(0, 0, 0); dm.scale.set(1, 1, 1); dm.position.set(h.x - s.lx, -5, h.z - s.lz); dm.updateMatrix(); s.dark.setMatrixAt(k, dm.matrix); dch = true; } }); if (dch) s.dark.instanceMatrix.needsUpdate = true; }
         if (t >= s.up0) {
           vegSet(s, Math.max(0, s.vd0 - (t - s.up0) * SPD)); if (s.vdep > 0.004) all = false;
           s.d.snkHide = false;
