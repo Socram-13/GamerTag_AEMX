@@ -10429,10 +10429,12 @@ window.startMap = function (RAW, AUTH) {
   window.__DX = DX;
   /* ===== Hundimiento de ciudades durante la invasión ===== */
   var SNK = (function () {
-    var SPD = 0.34, MINT = 8, LID_T = 1.8, VEGD = 12, W = null, act = {}, rr0 = 0;
-    var lidGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.99, HEX_PAD_R * 0.99, 0.06, 6), plateGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.8, HEX_PAD_R * 0.86, 0.03, 6);
+    var SPD = 0.34, MINT = 8, LID_T = 2.6, VEGD = 12, W = null, act = {}, rr0 = 0;
+    var HRC = HEX_PAD_R * 0.99, APO = HRC * 0.8660254, bladeShape = new THREE.Shape(); /* iris: 6 hojas triangulares que crecen desde el borde hacia el centro */
+    bladeShape.moveTo(-HRC / 2, 0); bladeShape.lineTo(HRC / 2, 0); bladeShape.lineTo(0, APO); bladeShape.closePath();
+    var lidGeo = new THREE.ExtrudeGeometry(bladeShape, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 1 }), plateGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.8, HEX_PAD_R * 0.86, 0.03, 6);
     var darkGeo = new THREE.CylinderGeometry(HEX_PAD_R * 0.99, HEX_PAD_R * 0.99, 0.004, 6), ringGeo = new THREE.RingGeometry(HEX_PAD_R * 0.9, HEX_PAD_R * 0.95, 6), logoGeo = null, dm = new THREE.Object3D();
-    ringGeo.rotateZ(Math.PI / 2); ringGeo.rotateX(-Math.PI / 2);
+    ringGeo.rotateZ(Math.PI / 2); ringGeo.rotateX(-Math.PI / 2); lidGeo.rotateX(-Math.PI / 2);
     var lidMat = new THREE.MeshLambertMaterial({ color: 0x59616d, emissive: 0x0b0e12 }), plateMat = new THREE.MeshLambertMaterial({ color: 0x7a8491, emissive: 0x10141a });
     var ringMat = new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
     function hash(x, z) { var h = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return h - Math.floor(h); }
@@ -10451,7 +10453,7 @@ window.startMap = function (RAW, AUTH) {
     function mkLids(s) {
       var d = s.d, n = s.hexes.length, gx = d.group.position.x, gz = d.group.position.z;
       if (!s7()) return;
-      s.lid = new THREE.InstancedMesh(lidGeo, lidMat, n); s.plate = new THREE.InstancedMesh(plateGeo, plateMat, n);
+      s.lid = new THREE.InstancedMesh(lidGeo, lidMat, n * 6); s.plate = new THREE.InstancedMesh(plateGeo, plateMat, n);
       s.ring = new THREE.InstancedMesh(ringGeo, ringMat, n); s.logo = new THREE.InstancedMesh(logoGeo, s13Mat, n);
       [s.lid, s.plate, s.ring, s.logo].forEach(function (m) { m.frustumCulled = false; m.receiveShadow = true; m.raycast = function () {}; d.group.add(m); });
       s.ring.renderOrder = 3; s.logo.renderOrder = 4;
@@ -10463,13 +10465,15 @@ window.startMap = function (RAW, AUTH) {
     }
     function s7() { if (!logoGeo) { s13Decal(1, 1, 0, 0); logoGeo = s13Geo.clone(); logoGeo.rotateX(-Math.PI / 2); } return !!logoGeo; }
     function setLid(s, i, u) {
-      var h = s.hexes[i], x = h.x - s.lx, z = h.z - s.lz, e = u < 0.001;
-      dm.rotation.set(0, 0, 0); dm.scale.set(Math.max(0.001, u), 1, Math.max(0.001, u));
-      dm.position.set(x, e ? -5 : 0.17, z); dm.updateMatrix(); s.lid.setMatrixAt(i, dm.matrix);
-      dm.position.set(x, e ? -5 : 0.2, z); dm.updateMatrix(); s.plate.setMatrixAt(i, dm.matrix);
-      dm.position.set(x, e ? -5 : 0.216, z); dm.updateMatrix(); s.ring.setMatrixAt(i, dm.matrix);
-      dm.scale.set(Math.max(0.001, u) * HEX_PAD_R * 1.15, 1, Math.max(0.001, u) * HEX_PAD_R * 1.15);
-      dm.position.set(x, e ? -5 : 0.222, z); dm.updateMatrix(); s.logo.setMatrixAt(i, dm.matrix);
+      var h = s.hexes[i], x = h.x - s.lx, z = h.z - s.lz, k, sk, ph, full = u >= 0.999, ll = HEX_PAD_R * 1.15;
+      for (k = 0; k < 6; k++) { /* hojas del iris: cada una crece desde el borde, en cadena */
+        sk = Math.max(0, Math.min(1, (u - k * 0.07) / 0.65)); sk = sk * sk * (3 - 2 * sk); ph = k * Math.PI / 3 + Math.PI / 6;
+        dm.rotation.set(0, ph, 0); dm.scale.set(1, 1, Math.max(0.001, sk)); dm.position.set(x + Math.sin(ph) * APO, sk < 0.002 ? -5 : 0.152, z + Math.cos(ph) * APO); dm.updateMatrix(); s.lid.setMatrixAt(i * 6 + k, dm.matrix);
+      }
+      dm.rotation.set(0, 0, 0); dm.scale.set(1, 1, 1); /* placa, aro y logo aparecen al cerrarse el iris */
+      dm.position.set(x, full ? 0.2 : -5, z); dm.updateMatrix(); s.plate.setMatrixAt(i, dm.matrix);
+      dm.position.set(x, full ? 0.216 : -5, z); dm.updateMatrix(); s.ring.setMatrixAt(i, dm.matrix);
+      dm.scale.set(ll, 1, ll); dm.position.set(x, full ? 0.222 : -5, z); dm.updateMatrix(); s.logo.setMatrixAt(i, dm.matrix);
       h.u = u; s.dirty = true;
     }
     function flush(s) { if (!s.dirty) return; s.lid.instanceMatrix.needsUpdate = true; s.plate.instanceMatrix.needsUpdate = true; s.ring.instanceMatrix.needsUpdate = true; s.logo.instanceMatrix.needsUpdate = true; s.dirty = false; }
