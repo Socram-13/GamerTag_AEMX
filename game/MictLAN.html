@@ -3611,7 +3611,7 @@ window.startMap = function (RAW, AUTH) {
           s13BB.push({ m: en.mat, ph: rg() * 6.28 }); ord.push(k);
         }
         for (k = ord.length - 1; k > 0; k--) { q = Math.floor(rg() * (k + 1)); var tmp = ord[k]; ord[k] = ord[q]; ord[q] = tmp; }
-        var postG = new THREE.CylinderGeometry(0.08, 0.1, 5.8, 8), glowM = new THREE.MeshBasicMaterial({ color: 0x77f0ff, fog: false }), bbPlane = new THREE.PlaneGeometry(7.2, 3.0);
+        var postG = new THREE.CylinderGeometry(0.08, 0.1, 3.3, 8), glowM = new THREE.MeshBasicMaterial({ color: 0x77f0ff, fog: false }), bbPlane = new THREE.PlaneGeometry(7.2, 3.0);
 
         var cand = {}, cand2 = {}, sid, STEP = 12;
         function genCand(rf, cand) {
@@ -3654,10 +3654,10 @@ window.startMap = function (RAW, AUTH) {
             var fx = -c5.dx * 0.8 + c5.nx * 0.6, fz = -c5.dz * 0.8 + c5.nz * 0.6, yawN = Math.atan2(fx, fz), y0 = Math.max(0, terrainH(c5.ox, c5.oz)), g = new THREE.Group(), m5, mt = ents[ord[nBB % PH.length]].mat;
             taken.push([c5.px, c5.pz]); nBB++;
             g.position.set(c5.ox, y0, c5.oz); g.rotation.y = yawN;
-            [-3.5, 3.5].forEach(function (lx) { m5 = new THREE.Mesh(postG, gPostMat); m5.position.set(lx, 2.9, 0); g.add(m5); m5 = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.34), glowM); m5.position.set(lx, 5.85, 0); g.add(m5); });
-            m5 = new THREE.Mesh(bbPlane, mt); m5.position.set(0, 7.5, 0.03); m5.renderOrder = 7; g.add(m5);
-            m5 = new THREE.Mesh(bbPlane, mt); m5.position.set(0, 7.5, -0.03); m5.rotation.y = Math.PI; m5.renderOrder = 7; g.add(m5);
-            m5 = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.07, 0.07), glowM); m5.position.set(0, 5.95, 0); g.add(m5);
+            [-3.5, 3.5].forEach(function (lx) { m5 = new THREE.Mesh(postG, gPostMat); m5.position.set(lx, 1.65, 0); g.add(m5); m5 = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.34), glowM); m5.position.set(lx, 3.35, 0); g.add(m5); });
+            m5 = new THREE.Mesh(bbPlane, mt); m5.position.set(0, 5.0, 0.03); m5.renderOrder = 7; g.add(m5);
+            m5 = new THREE.Mesh(bbPlane, mt); m5.position.set(0, 5.0, -0.03); m5.rotation.y = Math.PI; m5.renderOrder = 7; g.add(m5);
+            m5 = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.07, 0.07), glowM); m5.position.set(0, 3.45, 0); g.add(m5);
             g.traverse(function (o) { o.raycast = function () {}; });
             scene.add(g);
           })(best);
