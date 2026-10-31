@@ -10791,7 +10791,12 @@ window.startMap = function (RAW, AUTH) {
       x = path.pts[path.idx][0]; z = path.pts[path.idx][1];
       tx = path.pts[path.idx + 1][0] - x; tz = path.pts[path.idx + 1][1] - z;
       bx = x + tx * f; bz = z + tz * f; l = Math.hypot(tx, tz);
-      if (l > 1e-6) { u = mtP ? Math.atan2(bot.x - A.x, bot.z - A.z) : Math.atan2(tx, tz); A.yaw += nAng(u - A.yaw) * Math.min(1, dt * 6); nx = tz / l; nz = -tx / l; } else { nx = 0; nz = 0; }
+      if (l > 1e-6) { u = mtP ? Math.atan2(bot.x - A.x, bot.z - A.z) : Math.atan2(tx, tz); A.yaw += nAng(u - A.yaw) * Math.min(1, dt * 6);
+        var sA = tx / l, sB = tz / l, sC = sA, sD = sB, pp2 = path.pts, pk2 = path.idx, qa, qb, ql2; /* normal suavizada entre vértices (evita el saltito al desplazarse de lado en cada esquina del trayecto) */
+        if (pk2 > 0) { qa = pp2[pk2][0] - pp2[pk2 - 1][0]; qb = pp2[pk2][1] - pp2[pk2 - 1][1]; ql2 = Math.hypot(qa, qb) || 1; sA += qa / ql2; sB += qb / ql2; ql2 = Math.hypot(sA, sB) || 1; sA /= ql2; sB /= ql2; }
+        if (pk2 + 2 < pp2.length) { qa = pp2[pk2 + 2][0] - pp2[pk2 + 1][0]; qb = pp2[pk2 + 2][1] - pp2[pk2 + 1][1]; ql2 = Math.hypot(qa, qb) || 1; sC += qa / ql2; sD += qb / ql2; ql2 = Math.hypot(sC, sD) || 1; sC /= ql2; sD /= ql2; }
+        sA = sA * (1 - f) + sC * f; sB = sB * (1 - f) + sD * f; ql2 = Math.hypot(sA, sB) || 1; nx = sB / ql2; nz = -sA / ql2;
+      } else { nx = 0; nz = 0; }
       if (car) { dd = Math.hypot(car.x - bx, car.z - bz); if (!A.dodge && dd < 14 && (car.v > 2 || dd < 6)) { A.dodge = true; A.side = Math.random() < 0.5 ? 1 : -1; A.hop = 0.55; } else if (A.dodge && dd > 17) A.dodge = false; } else A.dodge = false;
       A.obT = (A.obT || 0) - dt;
       if (A.obT <= 0 && l > 1e-6) {
@@ -10802,7 +10807,7 @@ window.startMap = function (RAW, AUTH) {
         A.offT = oi < oo.length ? ob : 0;
       }
       A.off += ((A.dodge ? A.side * 2.6 : (A.offT || 0)) - A.off) * Math.min(1, dt * 6);
-      A.x = bx + nx * A.off; A.z = bz + nz * A.off;
+      var tox = nx * A.off, toz = nz * A.off; if (A.ox === undefined) { A.ox = tox; A.oz = toz; } A.ox += (tox - A.ox) * Math.min(1, dt * 3.5); A.oz += (toz - A.oz) * Math.min(1, dt * 3.5); /* desplazamiento lateral en el mundo: sin saltos al cambiar de tramo */ A.x = bx + A.ox; A.z = bz + A.oz;
       u = terrainH(A.x, A.z); gy = Math.max(0, u) + 0.06; u = 0.012 + u + Math.min(0.08, u * 0.8) + 0.04; if (u > gy) gy = u; A.y = gy;
 
       A.evCD -= dt;
