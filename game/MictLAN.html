@@ -10584,6 +10584,7 @@ window.startMap = function (RAW, AUTH) {
       s.ph = 'up'; s.t1 = t; s.said = false;
       s.items.forEach(function (q) { q.done = false; q.dep = Math.max(0, q.y0 - q.o.position.y); q.upDur = Math.max(MINT * (q.dep > 0.05 ? 1 : 0.01), q.dep / SPD); mx = Math.max(mx, q.upDur); });
       s.hexes.forEach(function (hx) { hx.at = t + hash(hx.z, hx.x) * 1.6; hx.u0 = hx.u; });
+      s.hexes.forEach(function (hx) { hx.nv = 0; s.veg.forEach(function (e) { var m = e.m0.elements; if (Math.hypot(m[12] - hx.x, m[14] - hx.z) < HEX_R * 1.05) hx.nv++; }); }); /* hexágonos con vegetación: siguen negros hasta que los árboles terminan de subir */
       s.up0 = t + LID_T + 2.0; s.riseEnd = s.up0 + mx;
       sinkSay('sink_up', s.d.name); s.wTry = true;
     }
@@ -10627,7 +10628,7 @@ window.startMap = function (RAW, AUTH) {
       } else if (s.ph === 'up') {
         if (s.wTry && watch(s.d, s.riseEnd + 45, s)) s.wTry = false; /* el robot debe ir a verla surgir: reintenta hasta lograrlo */
         if (s.lid) s.hexes.forEach(function (h, k) { u = (h.u0 === undefined ? 1 : h.u0) * (1 - Math.max(0, Math.min(1, (t - h.at) / LID_T))); if (u !== h.u) setLid(s, k, u); });
-        if (s.dark) { var dch = false; s.hexes.forEach(function (h, k) { if (!h.dk) return; if (h.its.length ? h.its.every(function (q) { return q.done; }) : h.u <= 0.001) { h.dk = false; dm.rotation.set(0, 0, 0); dm.scale.set(1, 1, 1); dm.position.set(h.x - s.lx, -5, h.z - s.lz); dm.updateMatrix(); s.dark.setMatrixAt(k, dm.matrix); dch = true; } }); if (dch) s.dark.instanceMatrix.needsUpdate = true; }
+        if (s.dark) { var dch = false; s.hexes.forEach(function (h, k) { if (!h.dk) return; if ((h.its.length ? h.its.every(function (q) { return q.done; }) : h.u <= 0.001) && (!h.nv || s.vdep <= 0.004)) { h.dk = false; dm.rotation.set(0, 0, 0); dm.scale.set(1, 1, 1); dm.position.set(h.x - s.lx, -5, h.z - s.lz); dm.updateMatrix(); s.dark.setMatrixAt(k, dm.matrix); dch = true; } }); if (dch) s.dark.instanceMatrix.needsUpdate = true; }
         if (t >= s.up0) {
           vegSet(s, Math.max(0, s.vd0 - (t - s.up0) * SPD)); if (s.vdep > 0.004) all = false;
           s.d.snkHide = false;
