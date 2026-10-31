@@ -10537,7 +10537,7 @@ window.startMap = function (RAW, AUTH) {
       var h = s.hexes[i], x = h.x - s.lx, z = h.z - s.lz, k, sk, ph, full = u >= 0.999, ll = APO * 2; /* el logo mide lo mismo que el hexágono */
       for (k = 0; k < 6; k++) { /* hojas del iris: cada una crece desde el borde, en cadena */
         sk = Math.max(0, Math.min(1, u)); sk = sk * sk * (3 - 2 * sk); ph = k * Math.PI / 3 + Math.PI / 6; /* obturador: las 6 hojas giran a la vez en remolino mientras crecen/encogen */
-        var gm = 0.3 * Math.sin(Math.PI * sk), pa = ph + gm, sc = Math.max(0.001, Math.pow(sk, 0.7));
+        var pa = ph, sc = Math.max(0.001, Math.pow(sk, 0.7));
         dm.rotation.set(0, pa, 0); dm.scale.set(sc, 1, sc); dm.position.set(x + Math.sin(pa) * APO, sk < 0.002 ? -5 : 0.152 + k * 0.002, z + Math.cos(pa) * APO); dm.updateMatrix(); s.lid.setMatrixAt(i * 6 + k, dm.matrix);
       }
       dm.rotation.set(0, 0, 0); dm.scale.set(1, 1, 1); /* placa, aro y logo aparecen al cerrarse el iris */
