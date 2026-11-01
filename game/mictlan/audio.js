@@ -1,14 +1,14 @@
 /* MictLAN · motor de audio y música de fondo (WebAudio, sin archivos) */
 window.MictlanAudio = function (E) {
   return (function () {
-    var ctx = null, master = null, noiseBuf = null, on = true, vol = 0.55, L = {}, hasPan = true, rainA = 0, rainB = 0, ghostPos = null;
+    var ctx = null, master = null, sfxG = null, musG = null, vMus = 1, vSfx = 1, noiseBuf = null, on = true, vol = 0.55, L = {}, hasPan = true, rainA = 0, rainB = 0, ghostPos = null;
 
     var RNG = {
       shot: [25, 350], hit: [30, 500], crash: [40, 900], explode: [60, 1800], moo: [20, 300],
       mfall: [80, 1500], mimp: [80, 2500], mhit: [30, 400], mburn: [25, 300], alspawn: [14, 160], alcry: [10, 140], alhit: [10, 140], aldie: [10, 140],
       glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55], wail: [10, 75], llorona: [14, 110], scare: [14, 90], drone: [10, 120], beep: [10, 90], ali: [8, 80], step: [7, 90], servo: [5, 60], bfly: [16, 260], talk: [6, 60]
     };
-    try { on = localStorage.getItem('aemx-sound') !== '0'; } catch (e) {}
+    try { on = localStorage.getItem('aemx-sound') !== '0'; vMus = parseFloat(localStorage.getItem('aemx-vmus')); vSfx = parseFloat(localStorage.getItem('aemx-vsfx')); if (!(vMus >= 0)) vMus = 1; if (!(vSfx >= 0)) vSfx = 1; } catch (e) {}
 
     function spat(pos, rng) {
       var c = E.camera.position, e = E.camera.matrixWorld.elements, dx, dy, dz, d, ref = rng[0], max = rng[1], g, t, f, s, pan;
@@ -35,7 +35,7 @@ window.MictlanAudio = function (E) {
         pn = ctx.createStereoPanner(); pn.pan.value = s ? s.pan : 0;
         lp.connect(pn); out = pn;
       }
-      out.connect(master);
+      out.connect(sfxG);
       return { g: g, lp: lp, pn: pn, input: g };
     }
     function setBus(b, s, tc, tau) {
@@ -53,7 +53,7 @@ window.MictlanAudio = function (E) {
     function loopNoise(filterType, f, v, dest) {
       var s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
       s.buffer = noiseBuf; s.loop = true; fl.type = filterType; fl.frequency.value = f; g.gain.value = v;
-      s.connect(fl); fl.connect(g); g.connect(dest || master); s.start();
+      s.connect(fl); fl.connect(g); g.connect(dest || sfxG); s.start();
       return { f: fl, g: g };
     }
     function init() {
@@ -64,6 +64,8 @@ window.MictlanAudio = function (E) {
       comp = ctx.createDynamicsCompressor();
       master = ctx.createGain(); master.gain.value = on ? vol : 0;
       master.connect(comp); comp.connect(ctx.destination);
+      sfxG = ctx.createGain(); sfxG.gain.value = vSfx; sfxG.connect(master);
+      musG = ctx.createGain(); musG.gain.value = vMus; musG.connect(master);
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
       d = noiseBuf.getChannelData(0);
       for (i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -109,7 +111,7 @@ window.MictlanAudio = function (E) {
       g.gain.setValueAtTime(0.0001, t0);
       g.gain.exponentialRampToValueAtTime(v, t0 + Math.min(0.02, dur * 0.25));
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      o.connect(g); g.connect(dest || master); o.start(t0); o.stop(t0 + dur + 0.05);
+      o.connect(g); g.connect(dest || sfxG); o.start(t0); o.stop(t0 + dur + 0.05);
     }
     function noise(dur, v, f0, f1, type, delay, dest) {
       var t0, s, fl, g;
@@ -120,7 +122,7 @@ window.MictlanAudio = function (E) {
       fl = ctx.createBiquadFilter(); fl.type = type || 'lowpass'; fl.frequency.setValueAtTime(f0, t0);
       if (f1) fl.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
       g = ctx.createGain(); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      s.connect(fl); fl.connect(g); g.connect(dest || master); s.start(t0, Math.random() * 1.5); s.stop(t0 + dur + 0.05);
+      s.connect(fl); fl.connect(g); g.connect(dest || sfxG); s.start(t0, Math.random() * 1.5); s.stop(t0 + dur + 0.05);
     }
 
     function shotBus(pos, key) {
@@ -181,7 +183,7 @@ window.MictlanAudio = function (E) {
       M.lp = ctx.createBiquadFilter(); M.lp.type = 'lowpass'; M.lp.frequency.value = 14000;
       M.dly = ctx.createDelay(1); M.dly.delayTime.value = 0.36;
       M.fb = ctx.createGain(); M.fb.gain.value = 0.38; M.dg = ctx.createGain(); M.dg.gain.value = 0.3;
-      M.out.connect(M.lp); M.lp.connect(master); M.lp.connect(M.dly); M.dly.connect(M.fb); M.fb.connect(M.dly); M.dly.connect(M.dg); M.dg.connect(master);
+      M.out.connect(M.lp); M.lp.connect(musG); M.lp.connect(M.dly); M.dly.connect(M.fb); M.fb.connect(M.dly); M.dly.connect(M.dg); M.dg.connect(musG);
     }
     function mRegion() {
       var x = E.camera.position.x, z = E.camera.position.z, best = null, bd = 1e12, i, d, dd, st;
@@ -409,6 +411,12 @@ window.MictlanAudio = function (E) {
       setRain: function (a, b) { rainA = a; rainB = b; },
       setGhost: function (p) { ghostPos = p; },
       isOn: function () { return on; },
+      getVol: function (w) { return w === 'mus' ? vMus : vSfx; },
+      setVol: function (w, v) {
+        v = Math.max(0, Math.min(2, v));
+        if (w === 'mus') { vMus = v; if (musG && ctx) musG.gain.setTargetAtTime(v, ctx.currentTime, 0.05); try { localStorage.setItem('aemx-vmus', v); } catch (e) {} }
+        else { vSfx = v; if (sfxG && ctx) sfxG.gain.setTargetAtTime(v, ctx.currentTime, 0.05); try { localStorage.setItem('aemx-vsfx', v); } catch (e) {} }
+      },
       toggle: function () {
         on = !on;
         try { localStorage.setItem('aemx-sound', on ? '1' : '0'); } catch (e) {}
