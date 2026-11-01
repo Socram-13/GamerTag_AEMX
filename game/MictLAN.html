@@ -5877,7 +5877,7 @@ window.startMap = function (RAW, AUTH) {
     [['mus', 'Música'], ['sfx', 'Efectos']].forEach(function (r) {
       var l = document.createElement('label'), i = document.createElement('input');
       l.textContent = r[1]; l.style.margin = '0';
-      i.type = 'range'; i.min = 0; i.max = 200; i.step = 1; i.value = Math.round(AUD.getVol(r[0]) * 100);
+      i.type = 'range'; i.min = 0; i.max = r[0] === 'mus' ? 400 : 200; i.step = 1; i.value = Math.round(AUD.getVol(r[0]) * 100);
       i.addEventListener('input', function () { AUD.init(); AUD.setVol(r[0], i.value / 100); });
       pop.appendChild(l); pop.appendChild(i);
     });
