@@ -213,12 +213,121 @@ window.MictlanAudio = function (E) {
       if (Math.random() < (R.lead || 0.6)) { f = mFreq(R, ch[[0, 1, 2, 1, 0, 2, 1, 2][st]] + 14); mNote('sawtooth', f, t0, sd * 1.5, 0.04, 0.01, mSes.g, R.lp * 2.2); }
       mNext += sd; mStep++;
     }
+    /* ===== Estilos regionales: cada región tiene su propio compás, ritmo e instrumentos (sintetizados) ===== */
+    MREG.norte.bpm = 124; MREG.noroeste.bpm = 104; MREG.occidente.bpm = 150; MREG.golfo.bpm = 156; MREG.sur.bpm = 92; MREG.peninsula.bpm = 240; MREG.peninsula.sc = 'major'; MREG.peninsula.prog = [0, 3, 4, 3]; MREG.peninsula.root = 48;
+    function mNz(t0, v, f, dur, type, q) {
+      var ns = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+      ns.buffer = noiseBuf; fl.type = type || 'bandpass'; fl.frequency.value = f; if (q) fl.Q.value = q;
+      g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      ns.connect(fl); fl.connect(g); g.connect(mSes.g); ns.start(t0, Math.random() * 1.5); ns.stop(t0 + dur + 0.03);
+    }
+    function mTom(t0, f, v, dur) {
+      var o = ctx.createOscillator(), g = ctx.createGain(); dur = dur || 0.26;
+      o.frequency.setValueAtTime(f, t0); o.frequency.exponentialRampToValueAtTime(f * 0.55, t0 + dur * 0.8);
+      g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(mSes.g); o.start(t0); o.stop(t0 + dur + 0.05);
+    }
+    function mWd(t0, f, v) { mNote('sine', f, t0, 0.07, v, 0.002, mSes.g, 1800); mNz(t0, v * 0.5, 2400, 0.04, 'bandpass', 4); }
+    function mVib(type, f, t0, dur, v, att, lp, rate, depth) {
+      var o = ctx.createOscillator(), g = ctx.createGain(), out = g, fl, lf = ctx.createOscillator(), lg = ctx.createGain();
+      o.type = type; o.frequency.value = f; lf.frequency.value = rate; lg.gain.value = f * depth; lf.connect(lg); lg.connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(v, t0 + att); g.gain.setValueAtTime(v, t0 + Math.max(att, dur * 0.6)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); if (lp) { fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; g.connect(fl); out = fl; }
+      out.connect(mSes.g); o.start(t0); lf.start(t0); o.stop(t0 + dur + 0.05); lf.stop(t0 + dur + 0.05);
+    }
+    function mMar(f, t0, v, dur) { mNote('sine', f, t0, dur || 0.5, v, 0.003, mSes.g, 3500); mNote('sine', f * 4, t0, 0.09, v * 0.35, 0.002, mSes.g, 6000); }
+    function mChordAt(R, base) { return [base, base + 2, base + 4]; }
+    function mNoteAt(R, deg, t0, dur, v, type, lp) { mNote(type || 'sawtooth', mFreq(R, deg), t0, dur, v, 0.012, mSes.g, lp || 2400); }
+    var MOT = {
+      pen: [[4, -1, -1, 5, 4, -1, 2, -1, 4, -1, 2, 0, -1, -1, -1, -1], [0, -1, 2, 4, -1, 4, -1, 5, 7, -1, 5, 4, -1, 2, -1, -1], [5, -1, 5, -1, 4, 2, -1, 0, 2, -1, 4, -1, 2, -1, 0, -1], [7, -1, 5, 4, -1, 5, -1, 7, 9, -1, 7, -1, 5, 4, 2, -1]],
+      norte: [[4, 5, 4, 2, 0, 2, 4, -1], [2, 4, 5, 7, 5, 4, 2, -1], [4, 4, 5, 4, 2, 0, 2, 0], [7, 5, 4, 5, 4, 2, 0, -1]],
+      noroeste: [[4, -1, 4, 5, 7, -1, 5, 4], [2, 4, -1, 5, 4, 2, 0, -1], [7, -1, 7, 5, 4, -1, 5, 7], [5, 4, 2, 4, 0, -1, -1, -1]],
+      occidente: [[7, -1, 9, 7, 5, 7, 4, -1, 5, 4, 2, 4], [9, 9, -1, 7, 5, -1, 4, 5, 7, 4, -1, 0], [4, -1, 5, 7, 9, 7, 5, -1, 4, 2, 4, -1], [7, -1, -1, 9, 7, 5, 7, -1, 5, 4, 2, 0]],
+      sur: [[4, -1, 2, -1, 4, 5, 4, -1], [5, -1, 4, 2, 0, -1, 2, 4], [2, 2, 4, -1, 5, -1, 4, -1], [7, -1, 5, 4, 2, -1, 0, -1]]
+    };
+    function sNorte(R, t0, sd, ms) { /* polka norteña: compás de 2/4, bajo-acorde, acordeón con vibrato */
+      var st = ms % 4, bar = Math.floor(ms / 4), base = R.prog[Math.floor(bar / 2) % R.prog.length], ch = mChordAt(R, base), mo = MOT.norte[Math.floor(bar / 2) % 4], m, k;
+      if (st === 0 || st === 2) mNote('triangle', mFreq(R, base - 7 + (st === 2 ? 4 : 0)), t0, sd * 1.6, 0.13, 0.01, mSes.g, 600);
+      else for (k = 0; k < 3; k++) { mNote('square', mFreq(R, ch[k]), t0, sd * 0.7, 0.014, 0.006, mSes.g, 1800); mNote('sawtooth', mFreq(R, ch[k] + 7), t0, sd * 0.55, 0.012, 0.006, mSes.g, 2400); }
+      if (st === 1 || st === 3) mNz(t0, 0.05, 3200, 0.07, 'bandpass', 1);
+      m = mo[(bar % 2) * 4 + st];
+      if (m !== undefined && m >= 0) { mVib('sawtooth', mFreq(R, base + m + 7), t0, sd * 1.7, 0.03, 0.02, 2800, 5.5, 0.004); mVib('square', mFreq(R, base + m + 5), t0, sd * 1.7, 0.016, 0.02, 2200, 5.5, 0.004); }
+    }
+    function sNoroeste(R, t0, sd, ms) { /* banda: tuba, metales a contratiempo, tambora y redoble */
+      var st = ms % 8, bar = Math.floor(ms / 8), base = R.prog[bar % R.prog.length], ch = mChordAt(R, base), mo = MOT.noroeste[Math.floor(bar / 2) % 4], m, k;
+      if (st % 2 === 0) mNote('triangle', mFreq(R, base - 7 + ((st % 4) ? 4 : 0)), t0, sd * 1.5, 0.15, 0.012, mSes.g, 520);
+      else for (k = 0; k < 3; k++) { mNote('sawtooth', mFreq(R, ch[k] + 0), t0, sd * 0.6, st === 7 ? 0.034 : 0.026, 0.008, mSes.g, 2100); mNote('sawtooth', mFreq(R, ch[k] + 7) * 1.004, t0, sd * 0.55, 0.014, 0.008, mSes.g, 2400); }
+      if (st === 0 || st === 4) mTom(t0, 96, 0.2); if (st === 2 || st === 6) mNz(t0, 0.09, 1800, 0.1, 'bandpass', 1.2); if (st === 7) mNz(t0 + sd * 0.5, 0.07, 1800, 0.08, 'bandpass', 1.2);
+      m = mo[st]; if (m >= 0) { mNote('sawtooth', mFreq(R, base + m + 7), t0, sd * 1.1, 0.036, 0.015, mSes.g, 2800); mNote('sawtooth', mFreq(R, base + m + 9), t0, sd * 1.1, 0.024, 0.015, mSes.g, 2600); }
+    }
+    function sOcc(R, t0, sd, ms) { /* mariachi: 6/8, guitarrón, vihuela y trompetas en terceras */
+      var st = ms % 6, bar = Math.floor(ms / 6), base = R.prog[bar % R.prog.length], ch = mChordAt(R, base), mo = MOT.occidente[Math.floor(bar / 2) % 4], m, k, ix = (bar % 2) * 6 + st;
+      if (st === 0 || st === 3) mNote('triangle', mFreq(R, base - 7 + (st === 3 ? 4 : 0)), t0, sd * 2.3, 0.14, 0.01, mSes.g, 520);
+      if (st !== 0 && st !== 3) for (k = 0; k < 3; k++) mNote('triangle', mFreq(R, ch[k] + 7), t0 + k * 0.011, sd * 0.9, 0.028, 0.004, mSes.g, 3600);
+      m = mo[ix]; if (m !== undefined && m >= 0 && (bar >> 1) % 4 !== 3) { mVib('sawtooth', mFreq(R, base + m + 7), t0, sd * 1.5, 0.03, 0.02, 3000, 5, 0.003); mVib('sawtooth', mFreq(R, base + m + 9), t0, sd * 1.5, 0.022, 0.02, 2800, 5, 0.003); }
+    }
+    function sGolfo(R, t0, sd, ms) { /* son jarocho: 6/8, jarana en arpegio, arpa y zapateado */
+      var st = ms % 6, bar = Math.floor(ms / 6), base = R.prog[bar % R.prog.length], ch = [base, base + 2, base + 4, base + 7], ix = [0, 1, 2, 3, 2, 1][st], acc = (st === 0 || st === 3) ? 1.4 : 1;
+      mNote('triangle', mFreq(R, ch[ix] + 7), t0, sd * 1.4, 0.03 * acc, 0.003, mSes.g, 4200);
+      if (st === 0 || st === 3) mNote('triangle', mFreq(R, base - 7 + (st === 3 ? 4 : 0)), t0, sd * 2, 0.12, 0.008, mSes.g, 600);
+      if (st === 0 || st === 2 || st === 3 || st === 5) mWd(t0, st === 0 || st === 3 ? 170 : 230, 0.07);
+      if ((st === 0 || st === 2 || st === 4) && Math.random() < 0.7) { var pen = [0, 2, 4, 5, 7][Math.floor(Math.random() * 5)] + base + 14; mNote('sine', mFreq(R, pen), t0, sd * 2.6, 0.045, 0.003, mSes.g, 5200); mNote('triangle', mFreq(R, pen) * 2, t0, sd * 0.8, 0.012, 0.003, mSes.g, 6000); }
+    }
+    function sSur(R, t0, sd, ms) { /* marimba: ostinato entrelazado, bajo de marimba y redoble */
+      var st = ms % 8, bar = Math.floor(ms / 8), base = R.prog[bar % R.prog.length], ch = mChordAt(R, base), mo = MOT.sur[Math.floor(bar / 2) % 4], m;
+      mMar(mFreq(R, ch[[0, 2, 1, 2, 0, 2, 1, 2][st]] + 7), t0, st % 2 ? 0.045 : 0.06);
+      if (st === 0 || st === 4) mMar(mFreq(R, base - 7 + (st === 4 ? 4 : 0)), t0, 0.1, 0.8);
+      if (st === 0 || st === 5) mTom(t0, 118, 0.08);
+      m = mo[st]; if (m >= 0) mMar(mFreq(R, base + m + 14), t0, 0.07, 0.6);
+      if (st === 6 && (bar % 2)) { mMar(mFreq(R, base + 14), t0, 0.05, 0.2); mMar(mFreq(R, base + 14), t0 + sd / 3, 0.05, 0.2); mMar(mFreq(R, base + 14), t0 + sd * 2 / 3, 0.05, 0.2); }
+      if (st === 0 && bar % 2 === 0) for (var k = 0; k < 3; k++) mNote('sine', mFreq(R, ch[k] + 7), t0, sd * 16, 0.018, 1.2, mSes.g, 900);
+    }
+    function sPen(R, t0, sd, ms) { /* Península tropical (caribeña): clave, cencerro, güiro, congas, tumbao, montuno brillante y metales */
+      var st = ms % 16, bar = Math.floor(ms / 16), base = R.prog[bar % R.prog.length], ch = mChordAt(R, base), mo = MOT.pen[Math.floor(bar / 2) % 4], m, k, f, mt;
+      if ([0, 3, 6, 10, 12].indexOf(st) >= 0) mWd(t0, 1100, 0.055); /* clave */
+      if (st % 4 === 0) { mNote('square', 560, t0, 0.07, 0.014, 0.002, mSes.g, 3200); mNote('square', 830, t0, 0.05, 0.01, 0.002, mSes.g, 3200); } /* cencerro */
+      mNz(t0, st % 4 === 0 ? 0.05 : 0.026, 6800, 0.045, 'highpass'); /* güiro */
+      if (st === 4 || st === 12) mNz(t0, 0.07, 2600, 0.05, 'bandpass', 2); /* conga slap */
+      if (st === 6 || st === 7 || st === 14 || st === 15) mTom(t0, 245, 0.06, 0.16); /* conga abierta */
+      if (st === 6 || st === 14) mNote('triangle', mFreq(R, base - 7), t0, sd * 3.2, 0.14, 0.006, mSes.g, 560);
+      if (st === 12) mNote('triangle', mFreq(R, base - 7 + 4), t0, sd * 3.2, 0.12, 0.006, mSes.g, 560);
+      if (st === 0 && bar % 2 === 0) mNote('triangle', mFreq(R, base - 7), t0, sd * 2, 0.1, 0.006, mSes.g, 560);
+      if ([1, 3, 4, 6, 9, 11, 12, 14].indexOf(st) >= 0) { k = [1, 3, 4, 6, 9, 11, 12, 14].indexOf(st); f = mFreq(R, ch[k % 3] + (k % 2 ? 14 : 7)); mNote('triangle', f, t0, sd * 1.4, 0.032, 0.003, mSes.g, 5200); mNote('sine', f * 2, t0, sd * 0.6, 0.012, 0.002, mSes.g, 6500); } /* montuno */
+      m = mo[st]; if (m >= 0) { f = mFreq(R, base + m + 14); mNote('sine', f, t0, sd * 3, 0.055, 0.003, mSes.g, 5600); mNote('triangle', f * 2, t0, sd * 0.9, 0.022, 0.002, mSes.g, 6800); } /* melodía de marimba/vibráfono */
+      if (st === 14 && bar % 2) for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, ch[k] + 7), t0, sd * 1.3, 0.026, 0.006, mSes.g, 2800); /* golpe de metales */
+    }
+    /* ===== Invasión: alerta (sparse, sirena) y combate (bombo, bajo en corcheas, golpes disonantes) ===== */
+    MS.invs = [0, 1, 3, 6, 7, 8, 10];
+    MREG.invasion = { root: 33, sc: 'invs', bpm: 138, prog: [0, 0, 1, 0], lp: 900 };
+    function mInvOn() {
+      var iv = null;
+      if (window.__invSim !== undefined) { window.__invInt = window.__invSim; return window.__invSim >= 0; }
+      try { iv = window.__aemxAlien && window.__aemxAlien.state && window.__aemxAlien.state(); } catch (e) { }
+      window.__invInt = iv && iv.entered ? 1 : 0; return !!(iv && !iv.end);
+    }
+    function sInv(R, t0, sd, ms) {
+      var st = ms % 8, bar = Math.floor(ms / 8), base = R.prog[bar % R.prog.length], fight = (window.__invInt || 0) > 0.5, sw = 0.5 + 0.5 * Math.sin(ms * 0.19), k, o, g, fo;
+      if (fight ? st % 2 === 0 : st === 0 || st === 4) mTom(t0, 122, fight ? 0.26 : 0.2, 0.22);
+      if (fight) {
+        mNote('sawtooth', mFreq(R, base - 7 + (st === 3 || st === 6 ? 1 : 0)), t0, sd * 0.85, 0.1, 0.005, mSes.g, 200 + 600 * sw);
+        if (st === 2 || st === 6) mNz(t0, 0.11, 1900, 0.15, 'bandpass', 0.8);
+        if (st % 2 === 1) { mNz(t0, 0.04, 7500, 0.04, 'highpass'); } mNz(t0 + sd / 2, 0.022, 7500, 0.03, 'highpass');
+        if (st === 0 || st === 3 || st === 5) { mNote('sawtooth', mFreq(R, base + 14), t0, sd * 0.55, 0.03, 0.004, mSes.g, 2800); mNote('sawtooth', mFreq(R, base + 17), t0, sd * 0.55, 0.026, 0.004, mSes.g, 2600); }
+        if (st === 0 && bar % 4 === 3) { o = ctx.createOscillator(); g = ctx.createGain(); fo = mFreq(R, base + 7); o.type = 'sawtooth'; o.frequency.setValueAtTime(fo, t0); o.frequency.exponentialRampToValueAtTime(fo * 2.2, t0 + sd * 8); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.022, t0 + sd * 7.5); g.gain.exponentialRampToValueAtTime(0.0001, t0 + sd * 8.2); o.connect(g); g.connect(mSes.g); o.start(t0); o.stop(t0 + sd * 8.3); }
+      } else {
+        if (st === 0 || st === 4) mNote('sawtooth', mFreq(R, base - 7), t0, sd * 3, 0.09, 0.01, mSes.g, 260);
+        if (st === 0 || st === 4) mNote('square', mFreq(R, base + 14 + (st === 4 ? 3 : 0)), t0 + sd * 0.5, sd * 0.4, 0.016, 0.004, mSes.g, 1800); /* sirena de alerta: dos tonos en tritono */
+        if (st === 6 && bar % 2) mNz(t0, 0.03, 7000, 0.05, 'highpass');
+      }
+      if (st === 0 && bar % 2 === 0) for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, [base, base + 3, base + 4][k]) * (1 + k * 0.004), t0, sd * 17, 0.02, 1.3, mSes.g, 650);
+    }
+    var STY = { invasion: sInv,  norte: sNorte, noroeste: sNoroeste, occidente: sOcc, golfo: sGolfo, sur: sSur, peninsula: sPen };
     function musicStep(t) {
       var now = ctx.currentTime, key, R, old, inJ;
       if (!on || ctx.state !== 'running') return;
       if (!M) mInit();
       if (t - mCheck > 0.6) {
-        mCheck = t; key = window.__uvx ? 'uvx' : ((typeof E.WX !== "undefined" && E.WX && E.WX.fogAt && E.WX.fogAt(E.camera.position.x, E.camera.position.z)) && !(window.__junkIn && window.__junkIn(E.camera.position.x, E.camera.position.z))) ? 'niebla' : mRegion();
+        mCheck = t; key = window.__uvx ? 'uvx' : mInvOn() ? 'invasion' : ((typeof E.WX !== "undefined" && E.WX && E.WX.fogAt && E.WX.fogAt(E.camera.position.x, E.camera.position.z)) && !(window.__junkIn && window.__junkIn(E.camera.position.x, E.camera.position.z))) ? 'niebla' : mRegion();
         if (key !== mKey || !mSes) {
           old = mSes; mKey = key;
           mSes = { g: ctx.createGain() }; mSes.g.gain.value = 0.0001; mSes.g.connect(M.out); mSes.g.gain.setTargetAtTime(1, now, 1.2);
@@ -234,7 +343,7 @@ window.MictlanAudio = function (E) {
       if (!mSes) return;
       R = MREG[mKey];
       if (mNext < now - 0.5) mNext = now + 0.05;
-      while (mNext < now + 0.35) mSched(R, now);
+      while (mNext < now + 0.35) { if (STY[mKey]) { STY[mKey](R, mNext, 30 / R.bpm, mStep); mNext += 30 / R.bpm; mStep++; } else mSched(R, now); }
     }
     function update(t) {
       var tc, u, s, r, act, p, g;
