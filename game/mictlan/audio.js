@@ -321,7 +321,7 @@ window.MictlanAudio = function (E) {
       }
       if (st === 0 && bar % 2 === 0) for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, [base, base + 3, base + 4][k]) * (1 + k * 0.004), t0, sd * 17, 0.02, 1.3, mSes.g, 650);
     }
-    var MBOOST = { norte: 1.9, noroeste: 1.6, occidente: 1.9, golfo: 2.1, sur: 1.7, peninsula: 1.7, invasion: 3.0 }; /* nivelan el volumen con la música de Centro */
+    var MBOOST = { norte: 1.9, noroeste: 1.6, occidente: 1.9, golfo: 2.1, sur: 1.7, peninsula: 1.7, invasion: 4.5 }; /* nivelan el volumen con la música de Centro */
     var STY = { invasion: sInv,  norte: sNorte, noroeste: sNoroeste, occidente: sOcc, golfo: sGolfo, sur: sSur, peninsula: sPen };
     function musicStep(t) {
       var now = ctx.currentTime, key, R, old, inJ;
