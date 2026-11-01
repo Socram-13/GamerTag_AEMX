@@ -321,6 +321,7 @@ window.MictlanAudio = function (E) {
       }
       if (st === 0 && bar % 2 === 0) for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, [base, base + 3, base + 4][k]) * (1 + k * 0.004), t0, sd * 17, 0.02, 1.3, mSes.g, 650);
     }
+    var MBOOST = { norte: 1.9, noroeste: 1.6, occidente: 1.9, golfo: 2.1, sur: 1.7, peninsula: 1.7, invasion: 3.0 }; /* nivelan el volumen con la música de Centro */
     var STY = { invasion: sInv,  norte: sNorte, noroeste: sNoroeste, occidente: sOcc, golfo: sGolfo, sur: sSur, peninsula: sPen };
     function musicStep(t) {
       var now = ctx.currentTime, key, R, old, inJ;
@@ -329,7 +330,7 @@ window.MictlanAudio = function (E) {
       if (t - mCheck > 0.6) {
         mCheck = t; key = window.__uvx ? 'uvx' : mInvOn() ? 'invasion' : ((typeof E.WX !== "undefined" && E.WX && E.WX.fogAt && E.WX.fogAt(E.camera.position.x, E.camera.position.z)) && !(window.__junkIn && window.__junkIn(E.camera.position.x, E.camera.position.z))) ? 'niebla' : mRegion();
         if (key !== mKey || !mSes) {
-          old = mSes; mKey = key;
+          old = mSes; mKey = key; M.out.gain.setTargetAtTime(0.03 * (MBOOST[key] || 1), now, 0.5);
           mSes = { g: ctx.createGain() }; mSes.g.gain.value = 0.0001; mSes.g.connect(M.out); mSes.g.gain.setTargetAtTime(1, now, 1.2);
           if (old) { old.g.gain.setTargetAtTime(0.0001, now, 1.2); setTimeout(function () { try { old.g.disconnect(); } catch (e) { } }, 9000); }
           if (key === 'niebla') { mSes.ns = ctx.createBufferSource(); mSes.ns.buffer = noiseBuf; mSes.ns.loop = true; var wf = ctx.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 420; wf.Q.value = 3; var wg = ctx.createGain(); wg.gain.value = 0.05; mSes.ns.connect(wf); wf.connect(wg); wg.connect(mSes.g); mSes.ns.start(); }
