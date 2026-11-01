@@ -2456,6 +2456,28 @@ window.startMap = function (RAW, AUTH) {
       }
     });
 
+    (function () { /* selva alrededor de Chichén Itzá */
+      var c0 = geo(CHI_LL[0], CHI_LL[1]), R0 = 9, R1 = 34, gx, gz, x, z, d, t, p, patch, k2, rr2, tp, n = 0;
+      for (gx = c0.x - R1; gx <= c0.x + R1; gx += 1.9) {
+        for (gz = c0.z - R1; gz <= c0.z + R1; gz += 1.9) {
+          x = gx + (vr() - 0.5) * 1.5; z = gz + (vr() - 0.5) * 1.5;
+          d = Math.hypot(x - c0.x, z - c0.z);
+          if (d < R0 || d > R1) continue;
+          t = d < 20 ? (d - R0) / 11 : 1 - (d - 20) / (R1 - 20);
+          patch = 0.5 + 0.5 * Math.sin(x * 0.31 + 0.7) * Math.sin(z * 0.27 - 1.1);
+          p = Math.min(1, t * 1.15) * (0.55 + 0.45 * patch) * 0.9;
+          if (vr() > p) continue;
+          if (crowded(x, z) || trailNear(x, z, 2.5)) continue;
+          if (!onLand(x, z)) continue;
+          k2 = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
+          (placed[k2] || (placed[k2] = [])).push([x, z]);
+          rr2 = vr();
+          tp = rr2 < 0.2 ? 'oak' : rr2 < 0.4 ? 'round' : rr2 < 0.52 ? 'palm' : rr2 < 0.72 ? 'bush' : rr2 < 0.82 ? 'grass' : rr2 < 0.9 ? 'flower' : rr2 < 0.94 ? 'flamboyan' : rr2 < 0.97 ? 'dead' : 'rock';
+          plants.push({ type: tp, x: x, z: z, y: 0, zone: 'trop', edge: lastEdge }); n++;
+        }
+      }
+      VMAX += n;
+    })();
     (function () {
       var withP = {}, deadL = [], q, j, tmp;
       districts.forEach(function (d) { if (d.list.length) withP[d.name] = 1; });
