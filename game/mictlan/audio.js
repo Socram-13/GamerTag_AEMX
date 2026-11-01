@@ -8,7 +8,7 @@ window.MictlanAudio = function (E) {
       mfall: [80, 1500], mimp: [80, 2500], mhit: [30, 400], mburn: [25, 300], alspawn: [14, 160], alcry: [10, 140], alhit: [10, 140], aldie: [10, 140],
       glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55], wail: [10, 75], llorona: [14, 110], scare: [14, 90], drone: [10, 120], beep: [10, 90], ali: [8, 80], step: [7, 90], servo: [5, 60], bfly: [16, 260], talk: [6, 60]
     };
-    try { on = localStorage.getItem('aemx-sound') !== '0'; vMus = parseFloat(localStorage.getItem('aemx-vmus')); vSfx = parseFloat(localStorage.getItem('aemx-vsfx')); if (!(vMus >= 0)) vMus = 1; if (!(vSfx >= 0)) vSfx = 1; } catch (e) {}
+    try { on = localStorage.getItem('aemx-sound') !== '0'; vMus = parseFloat(localStorage.getItem('aemx-vmus2')); vSfx = parseFloat(localStorage.getItem('aemx-vsfx2')); if (!(vMus >= 0)) vMus = 1; if (!(vSfx >= 0)) vSfx = 1; } catch (e) {}
 
     function spat(pos, rng) {
       var c = E.camera.position, e = E.camera.matrixWorld.elements, dx, dy, dz, d, ref = rng[0], max = rng[1], g, t, f, s, pan;
@@ -323,7 +323,7 @@ window.MictlanAudio = function (E) {
       }
       if (st === 0 && bar % 2 === 0) for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, [base, base + 3, base + 4][k]) * (1 + k * 0.004), t0, sd * 17, 0.02, 1.3, mSes.g, 650);
     }
-    var MBOOST = { norte: 1.9, noroeste: 1.6, occidente: 1.9, golfo: 2.1, sur: 1.7, peninsula: 1.7, invasion: 4.5 }; /* nivelan el volumen con la música de Centro */
+    var MBOOST = { norte: 0.95, noroeste: 0.8, occidente: 0.95, golfo: 1.05, sur: 0.85, peninsula: 0.85, invasion: 13.5 }; /* nivelan el volumen con la música de Centro */
     var STY = { invasion: sInv,  norte: sNorte, noroeste: sNoroeste, occidente: sOcc, golfo: sGolfo, sur: sSur, peninsula: sPen };
     function musicStep(t) {
       var now = ctx.currentTime, key, R, old, inJ;
@@ -332,7 +332,7 @@ window.MictlanAudio = function (E) {
       if (t - mCheck > 0.6) {
         mCheck = t; key = window.__uvx ? 'uvx' : mInvOn() ? 'invasion' : ((typeof E.WX !== "undefined" && E.WX && E.WX.fogAt && E.WX.fogAt(E.camera.position.x, E.camera.position.z)) && !(window.__junkIn && window.__junkIn(E.camera.position.x, E.camera.position.z))) ? 'niebla' : mRegion();
         if (key !== mKey || !mSes) {
-          old = mSes; mKey = key; M.out.gain.setTargetAtTime(0.03 * (MBOOST[key] || 1), now, 0.5);
+          old = mSes; mKey = key; M.out.gain.setTargetAtTime(0.03 * (MBOOST[key] || 0.5), now, 0.5);
           mSes = { g: ctx.createGain() }; mSes.g.gain.value = 0.0001; mSes.g.connect(M.out); mSes.g.gain.setTargetAtTime(1, now, 1.2);
           if (old) { old.g.gain.setTargetAtTime(0.0001, now, 1.2); setTimeout(function () { try { old.g.disconnect(); } catch (e) { } }, 9000); }
           if (key === 'niebla') { mSes.ns = ctx.createBufferSource(); mSes.ns.buffer = noiseBuf; mSes.ns.loop = true; var wf = ctx.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 420; wf.Q.value = 3; var wg = ctx.createGain(); wg.gain.value = 0.05; mSes.ns.connect(wf); wf.connect(wg); wg.connect(mSes.g); mSes.ns.start(); }
@@ -414,8 +414,8 @@ window.MictlanAudio = function (E) {
       getVol: function (w) { return w === 'mus' ? vMus : vSfx; },
       setVol: function (w, v) {
         v = Math.max(0, Math.min(4, v));
-        if (w === 'mus') { vMus = v; if (musG && ctx) musG.gain.setTargetAtTime(v, ctx.currentTime, 0.05); try { localStorage.setItem('aemx-vmus', v); } catch (e) {} }
-        else { vSfx = v; if (sfxG && ctx) sfxG.gain.setTargetAtTime(v, ctx.currentTime, 0.05); try { localStorage.setItem('aemx-vsfx', v); } catch (e) {} }
+        if (w === 'mus') { vMus = v; if (musG && ctx) musG.gain.setTargetAtTime(v, ctx.currentTime, 0.05); try { localStorage.setItem('aemx-vmus2', v); } catch (e) {} }
+        else { vSfx = v; if (sfxG && ctx) sfxG.gain.setTargetAtTime(v, ctx.currentTime, 0.05); try { localStorage.setItem('aemx-vsfx2', v); } catch (e) {} }
       },
       toggle: function () {
         on = !on;
