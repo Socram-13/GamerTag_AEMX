@@ -377,6 +377,7 @@
         <button type="button" id="b-pal">Palacio</button>
         <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
         <button type="button" id="b-snd" aria-pressed="true" aria-label="Activar o desactivar el sonido" title="Activar o desactivar el sonido">🔊</button>
+        <button type="button" id="b-vol" aria-label="Volumen de música y efectos" title="Volumen de música y efectos">🎚</button>
         <button type="button" id="b-fs" aria-pressed="false" aria-label="Pantalla completa" title="Pantalla completa" hidden>⛶</button>
         <button type="button" id="b-ui" aria-pressed="false" title="Mostrar u ocultar la interfaz">Ocultar</button>
         <button type="button" id="b-top" aria-pressed="false" aria-label="Ocultar la barra superior" title="Ocultar la barra superior (queda la búsqueda)">▲</button>
@@ -5869,6 +5870,21 @@ window.startMap = function (RAW, AUTH) {
   function sndSync() { sndBtn.setAttribute('aria-pressed', AUD.isOn() ? 'true' : 'false'); sndBtn.textContent = AUD.isOn() ? '🔊' : '🔇'; }
   sndBtn.addEventListener('click', function () { AUD.init(); AUD.toggle(); sndSync(); });
   sndSync();
+  (function () {
+    var pop = document.createElement('div'), vb = document.getElementById('b-vol');
+    pop.id = 'vol-pop'; pop.hidden = true;
+    pop.style.cssText = 'position:fixed;top:56px;right:12px;z-index:60;background:rgba(10,12,18,.88);color:#fff;font:13px system-ui,sans-serif;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.2);display:grid;grid-template-columns:auto 130px;gap:8px 10px;align-items:center';
+    [['mus', 'Música'], ['sfx', 'Efectos']].forEach(function (r) {
+      var l = document.createElement('label'), i = document.createElement('input');
+      l.textContent = r[1]; l.style.margin = '0';
+      i.type = 'range'; i.min = 0; i.max = 200; i.step = 1; i.value = Math.round(AUD.getVol(r[0]) * 100);
+      i.addEventListener('input', function () { AUD.init(); AUD.setVol(r[0], i.value / 100); });
+      pop.appendChild(l); pop.appendChild(i);
+    });
+    document.body.appendChild(pop);
+    vb.addEventListener('click', function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; });
+    document.addEventListener('pointerdown', function (e) { if (!pop.hidden && !pop.contains(e.target) && e.target !== vb) pop.hidden = true; });
+  })();
 
   var glGhostMats = [
     new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }),
