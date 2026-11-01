@@ -413,7 +413,7 @@ window.MictlanAudio = function (E) {
       isOn: function () { return on; },
       getVol: function (w) { return w === 'mus' ? vMus : vSfx; },
       setVol: function (w, v) {
-        v = Math.max(0, Math.min(2, v));
+        v = Math.max(0, Math.min(4, v));
         if (w === 'mus') { vMus = v; if (musG && ctx) musG.gain.setTargetAtTime(v, ctx.currentTime, 0.05); try { localStorage.setItem('aemx-vmus', v); } catch (e) {} }
         else { vSfx = v; if (sfxG && ctx) sfxG.gain.setTargetAtTime(v, ctx.currentTime, 0.05); try { localStorage.setItem('aemx-vsfx', v); } catch (e) {} }
       },
