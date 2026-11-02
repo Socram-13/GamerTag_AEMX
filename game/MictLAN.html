@@ -1695,6 +1695,42 @@ window.startMap = function (RAW, AUTH) {
     a.zHead.rotation.z = 0.22 + 0.05 * Math.sin(zT * 1.7); a.zHead.rotation.x = 0.18 + 0.04 * Math.sin(zT * 1.1); a.zHead.rotation.y = 0.18 * Math.sin(zT * 0.6);
     if (a.zSk) a.zSk.scale.setScalar(0.92 + 0.1 * Math.sin(zT * 3.1));
   }
+  /* fusiona las mallas fijas de cada extremidad/pivote por material: de ~470 mallas a unas pocas decenas */
+  function zBake(a) {
+    var g = a.g, p = a.parts, piv = [g, p.legL, p.legLJ, p.legR, p.legRJ, p.armL, p.armLJ, p.armR, p.armRJ, a.zHead, a.zSk].filter(Boolean), buckets = {}, order = [], inv = new THREE.Matrix4(), rel = new THREE.Matrix4(), n0 = 0, n1 = 0;
+    function isP(o) { return piv.indexOf(o) >= 0; }
+    function sig(m) { return m.clippingPlanes ? 'U' + m.uuid : [m.type, m.color && m.color.getHex(), m.emissive && m.emissive.getHex(), m.opacity, m.transparent, m.side, m.vertexColors, m.depthWrite, m.depthTest, m.blending, m.wireframe, m.shininess, m.flatShading].join('|'); }
+    g.updateMatrixWorld(true);
+    g.traverse(function (o) {
+      var q, P = null, vis = true, geo, ni, key, b;
+      if (!o.isMesh || isP(o)) return;
+      n0++;
+      for (q = o; q.parent; ) { q = q.parent; if (!q.visible) vis = false; if (!P && isP(q)) P = q; }
+      if (!vis || !o.visible || !P || o.material.map || Array.isArray(o.material) || !o.geometry.attributes.position) return;
+      geo = o.geometry; ni = geo.index ? geo.toNonIndexed() : geo.clone();
+      inv.copy(P.matrixWorld).invert(); rel.multiplyMatrices(inv, o.matrixWorld); ni.applyMatrix4(rel);
+      key = P.uuid + '#' + sig(o.material) + '#' + o.renderOrder + '#' + (ni.attributes.color ? 'c' + ni.attributes.color.itemSize : '-') + (ni.attributes.normal ? 'n' : '-');
+      b = buckets[key]; if (!b) { b = buckets[key] = { P: P, mat: o.material, ro: o.renderOrder, geos: [], src: [] }; order.push(b); }
+      b.geos.push(ni); b.src.push(o);
+    });
+    order.forEach(function (b) {
+      var tot = 0, i, k, off = 0, names = ['position', 'normal', 'color'], out = {}, mg = new THREE.BufferGeometry(), m;
+      b.geos.forEach(function (ge) { tot += ge.attributes.position.count; });
+      names.forEach(function (nm) {
+        var at = b.geos[0].attributes[nm], arr, o2 = 0;
+        if (!at) return;
+        arr = new Float32Array(tot * at.itemSize);
+        b.geos.forEach(function (ge) { var src = ge.attributes[nm].array; arr.set(src, o2); o2 += src.length; });
+        mg.setAttribute(nm, new THREE.BufferAttribute(arr, at.itemSize));
+      });
+      mg.computeBoundingSphere();
+      m = new THREE.Mesh(mg, b.mat); m.renderOrder = b.ro; b.P.add(m); n1++;
+      b.src.forEach(function (o) { o.parent.remove(o); });
+      b.geos.forEach(function (ge) { ge.dispose(); });
+    });
+    (function prune(o) { var i, c, ch = o.children.slice(); for (i = 0; i < ch.length; i++) { c = ch[i]; if (!c.isMesh) prune(c); if (!c.isMesh && !isP(c) && !c.children.length) o.remove(c); } })(g);
+    return [n0, n1];
+  }
   /* construye un zombi listo (envuelto en un grupo, pies en el piso, altura = la del robot) */
   function makeZombie() {
     var sv = [EGG, astEgg, astGeoCache.hw, astGeoCache.vv], a, w = new THREE.Group(), lo = 9, bb = new THREE.Box3();
@@ -1704,14 +1740,13 @@ window.startMap = function (RAW, AUTH) {
     a.g.rotation.x = 0.2;
     w.add(a.g); w.rotation.order = 'YXZ'; w.updateMatrixWorld(true);
     zPoseG(a, 0, false);
+    a.bk = zBake(a);
     a.g.position.y = 0; w.updateMatrixWorld(true);
     [a.parts.legL, a.parts.legR].forEach(function (l) { bb.setFromObject(l); lo = Math.min(lo, bb.min.y); });
     a.g.position.y = -lo - 0.012;
     a.w = w; a.small = []; a.near = true;
-    (function () { var bx = new THREE.Box3(), sz = new THREE.Vector3(); w.updateMatrixWorld(true); w.traverse(function (o) { if (o.isMesh) { bx.setFromObject(o); bx.getSize(sz); if (Math.max(sz.x, sz.y, sz.z) < 0.1) a.small.push(o); } }); })();
     return a;
   }
-
   var presAst = [], prL = new THREE.Vector3(), prP = new THREE.Vector3(), prT = new THREE.Vector3(), prM = new THREE.Vector3();
   var prSuit = new THREE.MeshLambertMaterial({ color: 0x15171c, emissive: 0x05060a });
   var prPack = new THREE.MeshLambertMaterial({ color: 0x2a2d34 });
