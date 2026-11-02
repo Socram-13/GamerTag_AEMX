@@ -10686,7 +10686,7 @@ window.startMap = function (RAW, AUTH) {
     sc = ev.kind === 'met' ? 1.3 : 1; k = A.hk * (0.82 + 0.18 * Math.sin(t * 23) * Math.sin(t * 7.3));
     H.g.visible = true; H.g.position.set(ev.x, botGround(ev.x, ev.z), ev.z); H.g.scale.setScalar(sc * (0.6 + 0.4 * A.hk));
     for (i = 0; i < H.list.length; i++) H.list[i].m.opacity = H.list[i].b * k;
-    H.rock.visible = H.rockS.visible = H.arc.visible = ev.kind === 'met' && !ev.z; H.skull.visible = ev.kind === 'met' && !!ev.z; H.sau.visible = ev.kind !== 'met';
+    H.rock.visible = H.rockS.visible = H.arc.visible = ev.kind === 'met' && !ev.zb; H.skull.visible = ev.kind === 'met' && !!ev.zb; H.sau.visible = ev.kind !== 'met';
     H.skull.rotation.y = Math.sin(t * 0.9) * 0.7; H.skull.position.y = 1.7 + 2.9 + 0.12 * Math.sin(t * 2);
     H.rock.rotation.y = t * 0.9; H.rock.rotation.x = t * 0.4; H.rockS.rotation.copy(H.rock.rotation); H.sau.rotation.y = t * 0.9;
     hLift = ev.kind === 'met' ? 2.9 : 0;
@@ -10708,7 +10708,7 @@ window.startMap = function (RAW, AUTH) {
   function auraVilMaybe() { if (vilReq || !VILD || now0() < vilNext || Math.random() > 0.012 || !ufoDown()) return; auraVilCall(); }
   function auraEvent() {
     var u = ufo, I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null, vl;
-    if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 9.5, left: I.left, kind: 'met', z: !!I.inf, al: I.al };
+    if (I && I.mx !== null) return { key: (I.inf ? 'z' : 'm') + I.name + (I.inf ? '' : Math.round(I.mx)), x: I.mx, z: I.mz, R: 9.5, left: I.left, kind: 'met', zb: !!I.inf, al: I.al };
     if (vilReq && VILD) { vl = vilReq.until - now0(); if (vl > 0) return { key: 'v' + vilReq.id, x: VILD.ux, z: VILD.uz, R: 6.5, left: vl, kind: 'vil', al: [] }; vilReq = null; }
     var ci, cr, best = null, bl = 0;
     for (ci = 0; ci < craters.length; ci++) { cr = craters[ci]; if (cr.on && CRATER_LIFE - cr.age > bl) { bl = CRATER_LIFE - cr.age; best = cr; } }
@@ -11250,6 +11250,7 @@ window.startMap = function (RAW, AUTH) {
     calm = !bot.tpj && bot.mode !== 'lift' && !bot.aiming && !(st && st.entered) && !ev;
     if (!pick && calm && n >= AT.idle) pick = 'chat';
     if (AT.fx && !AT.rep) { AT.fx = 0; pick = 'chat'; dxF = true; }
+    if (pick && st && st.inf && !st.end && pick !== 'inv_alert' && pick !== 'inv_fight' && pick !== 'inv_few' && pick !== 'hf' && !(pick === 'met' && st.live === 0)) pick = null; /* en la infección solo habla de la infección */
     if (!pick) return;
     lst = ((st ? st.inf : (pick === 'inv_end' && AT.hadInf)) && AURA_DLG['z_' + pick]) || AURA_DLG[pick]; if (!lst) return;
     if (pick === 'chat' && (dxF || Math.random() < 0.7)) { try { dxR = DX.pick(AT); } catch (eDX) { dxR = null; } }
@@ -11361,6 +11362,11 @@ window.startMap = function (RAW, AUTH) {
 
       e = auraEvent(); I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
       var act = A.mode === 'go' || A.mode === 'inspect';
+      if (act && e && e.zb && A.ev && A.ev.zb && e.key === A.ev.key && Math.hypot(e.x - A.ev.x, e.z - A.ev.z) > 8 && !HF && !HFW) { /* infección: cae el último zombi, Aura va a analizarlo */
+        var Gz = null; try { Gz = auraNeighborSpot(I.name, e.x, e.z); } catch (er) { Gz = null; } if (!Gz) Gz = auraFreeNear(e.x + 6, e.z + 6);
+        if (Gz && Math.hypot(e.x - A.x, e.z - A.z) > 30) { A.ev = e; auraJump(A, Gz[0], Gz[1], 'go'); return; }
+        A.ev = e;
+      }
       if (act && (!e || !A.ev || e.key !== A.ev.key || e.left < 8)) { if (!(A.mode === 'inspect' && A.ev && A.ev.kind === 'met' && auraHFStart(A))) auraBack(A); }
       A.rkT = (A.mode === 'go' || A.mode === 'hf') && !!A.wp && A.wp.length > 0 && Math.hypot(A.wp[A.wp.length - 1][0] - A.x, A.wp[A.wp.length - 1][1] - A.z) > 6;
       sp = (A.mode === 'go' || A.mode === 'hf') ? 1.0 + 4.0 * (A.rk || 0) : 1.1;
