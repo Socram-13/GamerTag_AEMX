@@ -5,7 +5,7 @@ window.MictlanAudio = function (E) {
 
     var RNG = {
       shot: [25, 350], hit: [30, 500], crash: [40, 900], explode: [60, 1800], moo: [20, 300],
-      mfall: [80, 1500], mimp: [80, 2500], mhit: [30, 400], mburn: [25, 300], alspawn: [14, 160], alcry: [10, 140], alhit: [10, 140], aldie: [10, 140],
+      mfall: [80, 1500], mimp: [80, 2500], mhit: [30, 400], mburn: [25, 300], alspawn: [14, 160], alcry: [10, 140], alhit: [10, 140], aldie: [10, 140], zgrn: [12, 150], zhit: [10, 120], zdie: [12, 150],
       glitch: [30, 600], chime: [30, 600], car: [25, 500], ufo: [40, 900], fire: [25, 500], ghost: [8, 55], wail: [10, 75], llorona: [14, 110], scare: [14, 90], drone: [10, 120], beep: [10, 90], ali: [8, 80], step: [7, 90], servo: [5, 60], bfly: [16, 260], talk: [6, 60]
     };
     try { on = localStorage.getItem('aemx-sound') !== '0'; vMus = parseFloat(localStorage.getItem('aemx-vmus2')); vSfx = parseFloat(localStorage.getItem('aemx-vsfx2')); if (!(vMus >= 0)) vMus = 1; if (!(vSfx >= 0)) vSfx = 1; } catch (e) {}
@@ -438,6 +438,9 @@ window.MictlanAudio = function (E) {
       alSpawn: function (pos) { var b = shotBus(pos, 'alspawn'); if (!b) return; tone('sine', 180, 1500, 0.9, 0.16, 0, b); tone('square', 90, 700, 0.9, 0.04, 0, b); noise(0.9, 0.1, 4500, 1200, 'bandpass', 0, b); },
       alCry: function (pos) { var b = shotBus(pos, 'alcry'), f0 = 800 + Math.random() * 700, i; if (!b) return; for (i = 0; i < 3; i++) tone('square', f0 * (1 + 0.12 * i), f0 * 1.5, 0.07, 0.1, i * 0.09, b); tone('sawtooth', f0 * 1.2, f0 * 0.7, 0.28, 0.1, 0.28, b); },
       alHit: function (pos) { var b = shotBus(pos, 'alhit'); if (!b) return; tone('sawtooth', 1600 + Math.random() * 400, 500, 0.22, 0.2, 0, b); noise(0.1, 0.2, 5000, 1500, 'bandpass', 0, b); },
+      zGroan: function (pos) { var b = shotBus(pos, 'zgrn'); if (!b) return; var f = 85 + Math.random() * 40; tone('sawtooth', f, f * 0.55, 1.3, 0.2, 0, b); tone('square', f * 1.5, f * 0.8, 1.1, 0.05, 0.05, b); noise(1.1, 0.12, 700, 180, 'bandpass', 0, b); },
+      zHit: function (pos) { var b = shotBus(pos, 'zhit'); if (!b) return; noise(0.1, 0.3, 500, 200, 'lowpass', 0, b); tone('triangle', 120, 60, 0.15, 0.25, 0, b); },
+      zDie: function (pos) { var b = shotBus(pos, 'zdie'); if (!b) return; tone('sawtooth', 150, 35, 1.7, 0.26, 0, b); tone('square', 90, 30, 1.5, 0.08, 0, b); noise(1.2, 0.2, 900, 100, 'lowpass', 0, b); },
       alDie: function (pos) { var b = shotBus(pos, 'aldie'); if (!b) return; tone('sawtooth', 760, 80, 0.9, 0.2, 0, b); tone('square', 380, 60, 0.9, 0.06, 0, b); noise(0.8, 0.1, 2600, 300, 'lowpass', 0, b); noise(0.04, 0.3, 6000, 2000, 'highpass', 0.85, b); },
       moo: function (pos) {
         var t0, o, fl, g, b = shotBus(pos, 'moo');
