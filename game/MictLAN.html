@@ -7864,7 +7864,7 @@ window.startMap = function (RAW, AUTH) {
     if (botCrater(x, z)) return false;
     k = (Math.round(x * 4) + 60000) * 200000 + Math.round(z * 4) + 60000;
     v = bfC.get(k);
-    if (v === undefined) { v = botFreeS(x, z); if (bfC.size > 400000) bfC.clear(); bfC.set(k, v); }
+    if (v === undefined) { v = botFreeS(x, z); if (bfC.size > 150000) bfC.clear(); bfC.set(k, v); }
     return v;
   }
   function botFreeS(x, z) {
@@ -11152,7 +11152,7 @@ window.startMap = function (RAW, AUTH) {
       if (!b || DUEL) return false;
       if (b.mode === 'lift' || b.ride || b.tpj) return false;
       dist = Math.max(d.r * 1.7, 26); base = Math.atan2(b.x - d.cx, b.z - d.cz);
-      var gap = function (x, z) { var gm = 1e9, gq, gd, gi, gc, gl, all; for (gl = 0; gl < districts.length; gl++) { gd = districts[gl]; if (!gd.list.length || Math.hypot(x - gd.cx, z - gd.cz) > gd.r + 60) continue; all = gd._bh || (gd._bh = gd.cells.concat(gd.extra)); for (gi = 0; gi < all.length; gi++) { gc = all[gi]; gq = Math.hypot(gd.cx + gc.x - x, gd.cz + gc.z - z); if (gq < gm) gm = gq; } } return gm; }, mi, mul = [1, 1.3, 1.7, 2.2];
+      var gap = function (x, z) { var gm = 1e9, gq, gd, gi, gc, gl, all; for (gl = 0; gl < districts.length; gl++) { gd = districts[gl]; if (!gd.list.length) continue; all = gd._bh || (gd._bh = gd.cells.concat(gd.extra)); for (gi = 0; gi < all.length; gi++) { gc = all[gi]; gq = Math.hypot(gd.cx + gc.x - x, gd.cz + gc.z - z); if (gq < gm) gm = gq; } } return gm; }, mi, mul = [1, 1.3, 1.7, 2.2];
       for (mi = 0; mi < mul.length && !sp; mi++) for (k = 0; k < 16 && !sp; k++) { a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.4; sp = botFreeSpot(d.cx + Math.sin(a) * dist * mul[mi], d.cz + Math.cos(a) * dist * mul[mi]); if (sp && (Math.hypot(sp[0] - d.cx, sp[1] - d.cz) < d.r * 1.3 || gap(sp[0], sp[1]) < 18)) sp = null; } /* fuera del área real de la ciudad (sus celdas), no solo de su radio */
       if (!sp) return false;
       b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
@@ -12321,7 +12321,7 @@ window.startMap = function (RAW, AUTH) {
         var f = fogs[i], dd = Math.max(0, Math.min(1, (cp.distanceTo(f.sp.position) - 30) / 140));
         f.sp.position.x = f.b.x + Math.sin(t * 0.05 + f.ph) * f.amp;
         f.sp.position.z = f.b.z + Math.cos(t * 0.04 + f.ph) * f.amp;
-        f.sp.material.opacity = f.base * dd * (0.9 + 0.1 * Math.sin(t * 0.3 + f.ph));
+        f.sp.material.opacity = f.base * dd * (0.9 + 0.1 * Math.sin(t * 0.3 + f.ph)); f.sp.visible = dd > 0.004;
       }
       nextAt -= dt;
       if (nextAt <= 0) { if (events.length < 2) pickEvent(); nextAt = rnd(40, 150); }
@@ -12863,9 +12863,13 @@ window.startMap = function (RAW, AUTH) {
       }
       m = inv.met;
       if (m && m.state === 'rest') {
-        m.wT += dt; if (A && A.mode === 'inspect' && A.ev && A.ev.kind === 'met' && Math.hypot(A.x - m.x, A.z - m.z) < 16) m.iT += dt;
+        m.wT += dt; m.jT = (m.jT || 0) - dt;
+        if (A && A.k !== undefined && m.wT > 20 && m.jT <= 0 && !A.smp && Math.hypot(A.x - m.x, A.z - m.z) > 14 && A.mode !== 'jump' && A.mode !== 'hf' && !(A.jmp && !A.jmp.done)) { /* si Aura no llega a la muestra, se transporta junto al ultimo zombi */
+          m.jT = 25; var G = auraFreeNear(m.x, m.z); if (G) { A.ev = null; A.wp = null; auraJump(A, G[0], G[1], 'trail'); }
+        }
+        if (A && A.mode === 'inspect' && A.ev && A.ev.kind === 'met' && Math.hypot(A.x - m.x, A.z - m.z) < 16) m.iT += dt;
         if (A && A.sampled && A.smp) { A.sampled = false; m.state = 'dead'; }
-        else if (m.iT > 30 || m.wT > 90) m.state = 'dead';
+        else if (m.iT > 30 || m.wT > 150) m.state = 'dead';
       } else if (m && m.state === 'dead') m.deadT += dt;
     }
     function disposeBar(a) { if (a.bar) { grp.remove(a.bar); a.bar.material.dispose(); a.barTex.dispose(); a.bar = null; } }
@@ -12882,6 +12886,11 @@ window.startMap = function (RAW, AUTH) {
       var tn = clock.elapsedTime, wasInf = !!inv.inf, rest = (inv.entered && !inv.to) ? Math.max(0, 480 - inv.tIn) : 0;
       var wasReal = inv.t > 0.5;
       invLock = null; inv = null; cur = null; HFW = false;
+      if (wasReal) { /* limpieza: libera la GPU de los zombis en pool, el cache de caminos y las particulas */
+        if (wasInf) { ZP.forEach(function (zm) { zm.w.traverse(function (o) { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) { m.dispose(); }); }); }); ZP.length = 0; }
+        bfC.clear();
+        try { fxPool.forEach(function (q) { q.life = 0; q.m.visible = false; }); } catch (e) { }
+      }
       ufoHold = tn + (wasReal ? 300 : rest); /* paz = 5 min exactos */
       if ((rest > 0 || wasReal) && ufo && !(ufo.state === 'wreck' || ufo.state === 'crash' || ufo.state === 'stuck')) ufoRetire();
       if (wasReal) { nextAt = ufoHold + 360; peaceOn = true; nextKind = wasInf ? 'inv' : 'inf'; } /* al terminar la paz vuelven los OVNIs y comienza de nuevo la cuenta de 6 min para la siguiente invasión */
