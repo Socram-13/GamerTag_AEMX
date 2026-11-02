@@ -1692,13 +1692,13 @@ window.startMap = function (RAW, AUTH) {
     a.zHead.rotation.z = 0.22 + 0.05 * Math.sin(zT * 1.7); a.zHead.rotation.x = 0.18 + 0.04 * Math.sin(zT * 1.1); a.zHead.rotation.y = 0.18 * Math.sin(zT * 0.6);
     if (a.zSk) a.zSk.scale.setScalar(0.92 + 0.1 * Math.sin(zT * 3.1));
   }
-  /* construye un zombi listo (envuelto en un grupo, pies en el piso, altura ~1.15) */
+  /* construye un zombi listo (envuelto en un grupo, pies en el piso, altura = la del robot) */
   function makeZombie() {
     var sv = [EGG, astEgg, astGeoCache.hw, astGeoCache.vv], a, w = new THREE.Group(), lo = 9, bb = new THREE.Box3();
     EGG = [0.235, 0.215, 0.24]; astEgg = null; delete astGeoCache.hw; delete astGeoCache.vv;
     try { a = makeAstronaut(undefined); astAll.splice(astAll.indexOf(a.parts), 1); } finally { EGG = sv[0]; astEgg = sv[1]; if (sv[2]) astGeoCache.hw = sv[2]; else delete astGeoCache.hw; if (sv[3]) astGeoCache.vv = sv[3]; else delete astGeoCache.vv; }
     zFit(a); zombify(a);
-    a.g.scale.multiplyScalar(1.6); a.g.rotation.x = 0.2;
+    a.g.rotation.x = 0.2;
     w.add(a.g); w.rotation.order = 'YXZ'; w.updateMatrixWorld(true);
     zPoseG(a, 0, false);
     a.g.position.y = 0; w.updateMatrixWorld(true);
@@ -10021,7 +10021,7 @@ window.startMap = function (RAW, AUTH) {
       fxSpawn(b.x - Math.sin(b.yaw) * 0.3, b.y + 0.06, b.z - Math.cos(b.yaw) * 0.3, 0, 0.25, 0, 0.5, 0.05, 0.18, 0xc8b48a, 0.3, false);
     }
 
-    if (b.aiming && pred && !b.ball && d3 <= (b.alienT ? Math.min(botRng(), 24) : botRng()) && (b.alienT || (now >= (ufo.noFireUntil || 0) && !ufoOverVolc()))) {
+    if (b.aiming && pred && !b.ball && !(typeof ALN !== 'undefined' && ALN.watching && ALN.watching()) && d3 <= (b.alienT ? Math.min(botRng(), 24) : botRng()) && (b.alienT || (now >= (ufo.noFireUntil || 0) && !ufoOverVolc()))) {
       b.fireT -= dt;
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
@@ -10663,6 +10663,10 @@ window.startMap = function (RAW, AUTH) {
     var base = new THREE.Mesh(new THREE.RingGeometry(2.6, 2.74, 64), hm(0x4fd8ff, 0.8)); base.rotation.x = -Math.PI / 2; base.position.y = 0.08; g.add(base);
     var base2 = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.56, 48), hm(0x4fd8ff, 0.55)); base2.rotation.x = -Math.PI / 2; base2.position.y = 0.09; g.add(base2);
     var col = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.6, 3.4, 36, 1, true), hm(0x2aa8ff, 0.07)); col.position.y = 1.7; g.add(col);
+    var skull = new THREE.Group(); skull.position.y = 1.7; g.add(skull);
+    m = new THREE.Mesh(new THREE.SphereGeometry(0.9, 14, 10), hm(0x7dff5a, 0.7, true)); m.scale.set(1, 1.05, 1.05); skull.add(m);
+    m = new THREE.Mesh(uBox, hm(0x7dff5a, 0.7, true)); m.scale.set(0.8, 0.4, 0.7); m.position.set(0, -0.85, 0.15); skull.add(m);
+    [-0.34, 0.34].forEach(function (ex) { m = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), hm(0xc8ffb0, 0.9, false)); m.position.set(ex, 0.1, 0.78); skull.add(m); });
     var sc = []; for (i = 0; i < 2; i++) { m = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.26, 40), hm(0x9ff0ff, 0.8)); m.rotation.x = -Math.PI / 2; g.add(m); sc.push(m); }
     var bars = new THREE.Group(), bl = []; g.add(bars);
     for (i = 0; i < 6; i++) { m = new THREE.Mesh(uBox, hm(0x6fdcff, 0.7)); m.scale.set(0.2, 1, 0.05); m.position.x = (i - 2.5) * 0.34; bars.add(m); bl.push(m); }
@@ -10673,7 +10677,7 @@ window.startMap = function (RAW, AUTH) {
     var beamMt = new THREE.MeshBasicMaterial({ color: 0x66d8ff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
     var beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.1, 1, 8, 1, true), beamMt); beam.visible = false; beam.frustumCulled = false; scene.add(beam);
     g.visible = false; noRay(g); noRay(beam); scene.add(g);
-    return { g: g, list: list, rock: rock, rockS: rockS, sau: sau, sc: sc, bars: bars, bl: bl, arc: arc, base: base, base2: base2, beam: beam, beamMt: beamMt };
+    return { g: g, list: list, skull: skull, rock: rock, rockS: rockS, sau: sau, sc: sc, bars: bars, bl: bl, arc: arc, base: base, base2: base2, beam: beam, beamMt: beamMt };
   }
   function auraHoloStep(A, t, dt) {
     var H = A.holo, ev = A.ev, hLift, i, sc, hv = auHoloV1, hv2 = auHoloV2, len, k, u, rs, bh, ya;
@@ -10682,7 +10686,8 @@ window.startMap = function (RAW, AUTH) {
     sc = ev.kind === 'met' ? 1.3 : 1; k = A.hk * (0.82 + 0.18 * Math.sin(t * 23) * Math.sin(t * 7.3));
     H.g.visible = true; H.g.position.set(ev.x, botGround(ev.x, ev.z), ev.z); H.g.scale.setScalar(sc * (0.6 + 0.4 * A.hk));
     for (i = 0; i < H.list.length; i++) H.list[i].m.opacity = H.list[i].b * k;
-    H.rock.visible = H.rockS.visible = H.arc.visible = ev.kind === 'met'; H.sau.visible = ev.kind !== 'met';
+    H.rock.visible = H.rockS.visible = H.arc.visible = ev.kind === 'met' && !ev.z; H.skull.visible = ev.kind === 'met' && !!ev.z; H.sau.visible = ev.kind !== 'met';
+    H.skull.rotation.y = Math.sin(t * 0.9) * 0.7; H.skull.position.y = 1.7 + 2.9 + 0.12 * Math.sin(t * 2);
     H.rock.rotation.y = t * 0.9; H.rock.rotation.x = t * 0.4; H.rockS.rotation.copy(H.rock.rotation); H.sau.rotation.y = t * 0.9;
     hLift = ev.kind === 'met' ? 2.9 : 0;
     H.rock.position.y = H.rockS.position.y = 1.7 + hLift + 0.12 * Math.sin(t * 2); H.sau.position.y = 1.7 + 0.12 * Math.sin(t * 2);
@@ -10703,7 +10708,7 @@ window.startMap = function (RAW, AUTH) {
   function auraVilMaybe() { if (vilReq || !VILD || now0() < vilNext || Math.random() > 0.012 || !ufoDown()) return; auraVilCall(); }
   function auraEvent() {
     var u = ufo, I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null, vl;
-    if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 9.5, left: I.left, kind: 'met', al: I.al };
+    if (I && I.mx !== null) return { key: 'm' + I.name + Math.round(I.mx), x: I.mx, z: I.mz, R: 9.5, left: I.left, kind: 'met', z: !!I.inf, al: I.al };
     if (vilReq && VILD) { vl = vilReq.until - now0(); if (vl > 0) return { key: 'v' + vilReq.id, x: VILD.ux, z: VILD.uz, R: 6.5, left: vl, kind: 'vil', al: [] }; vilReq = null; }
     var ci, cr, best = null, bl = 0;
     for (ci = 0; ci < craters.length; ci++) { cr = craters[ci]; if (cr.on && CRATER_LIFE - cr.age > bl) { bl = CRATER_LIFE - cr.age; best = cr; } }
@@ -10825,6 +10830,14 @@ window.startMap = function (RAW, AUTH) {
   AURA_DLG.sink_up = [["Amenaza neutralizada. {E} regresa a la superficie.", "Ahí vuelven los edificios, uno por uno."], ["Reabriendo los hexágonos de {E}. Edificios en ascenso.", "Los altos serán los últimos en salir."], ["Fin de la alerta. Que {E} vuelva a la luz.", "Me quedo a verlos subir."]];
   AURA_DLG.call = [["¿Dónde estás? Te perdí en el radar.","Aquí sigo, ya casi llego."],["Apúrate, que llegamos tarde.","Voy a mi ritmo. Y mi ritmo es perfecto."],["Ya casi llegas, ¿verdad?","Ya casi. Tú sigue en lo tuyo."],["Te estoy esperando. ¿Piensas venir?","Voy, voy. No me presiones."],["¿Sigues vivo por allá?","Vivo y apuntando. Ya voy."],["Camina más rápido. Tengo datos que enseñarte.","Los datos no se van a ir."],["No te pierdas, que luego te tengo que buscar.","Nunca me pierdo. Solo exploro."],["¿Vienes o te quedas ahí de adorno?","Un adorno con cañones. Voy."],["Llevo rato esperando. Muévete un poco.","Me muevo, me muevo. Qué impaciente."],["Si tardas más me voy a otro sitio.","No te atreves. Sin mí te aburres."]];
   (function (X) { var k; for (k in X) AURA_DLG[k] = X[k]; })((window.__MICT && window.__MICT['AURA_DLG_2']) || {});
+  (function () { /* diálogos de Aura durante la infección */
+    AURA_DLG.z_inv_alert = [["Alerta de infección. Hay una nube verde en otro estado.", "La vi en el HUD. Voy para allá."], ["Detecto contaminación biológica y movimiento lento. Muy lento.", "Lento es bueno. Más tiempo para apuntar."], ["Infección confirmada. Marcando la zona para ti.", "Gracias. Dime cuántos son."], ["Los sensores marcan cuerpos que no deberían caminar. Cuidado.", "Cuidado es mi segundo nombre. El primero es Rifle."]];
+    AURA_DLG.z_inv_fight = [["Zombis en el área. Cuenta rápida: bastantes.", "Cuenta lenta: cada uno cuenta."], ["Aguantan muchísimo daño. Sigue disparando.", "Para eso traigo munición de sobra."], ["Avanzan despacio, pero la niebla verde avanza con ellos.", "Entonces los detengo antes de que lleguen al centro."], ["Apunta a la cabeza, o a lo que le quede de cabeza.", "Anotado. Apunto a todo lo que se mueva."], ["Eran astronautas. Qué mal final.", "Les daré uno mejor que quedarse arrastrándose."]];
+    AURA_DLG.z_inv_few = [["Quedan pocos zombis. Los puedo contar con los dedos.", "Dedos sí tienes, yo solo tengo cañones."], ["La niebla se está disipando. Falta poco.", "Falta el último. Siempre cuesta más."], ["Pocos infectados en pantalla. Buen trabajo hasta ahora.", "Aún no termino. Guarda los aplausos."]];
+    AURA_DLG.z_inv_end = [["La infección terminó. La niebla ya se fue.", "Perfecto. Ahora sí, a seguir patrullando."], ["Zona despejada. Ningún zombi a la vista.", "Mis sensores también se aburren."], ["Misión cumplida. Estimo que habrá paz por un rato.", "Ese rato nunca dura. Aprovéchalo."]];
+    AURA_DLG.z_met = [["Voy a analizar al último zombi. Mantén distancia.", "No pienso acercarme más de lo necesario."], ["Tejido en descomposición y un rastro raro en el traje. Interesante.", "Interesante para ti. Para mí es asqueroso."], ["Muestra tomada. La infección venía del espacio, como sospechaba.", "Siempre viene del espacio. Chocamos los cinco."]];
+  })();
+
 
   (function (X) { AURA_DLG.chat = (AURA_DLG.chat || []).concat(X); })([
     ["Mi armadura salió de los talleres de S13. Todavía huele a laboratorio nuevo.", "La mía también. S13 no entrega nada sin calibrar dos veces."],
@@ -11216,7 +11229,7 @@ window.startMap = function (RAW, AUTH) {
     cond.inv_few = !!(st && !st.end && st.entered && st.live > 0 && st.live <= 3 && !cond.inv_rock);
     cond.inv_fight = !!(st && !st.end && st.entered && st.live > 3 && !cond.inv_rock);
     if (AT.hadInv && !st && n >= AT.invEnd) { AT.hadInv = false; cond.inv_end = true; }
-    if (st) { AT.hadInv = true; AT.invEnd = n + 1.5; }
+    if (st) { AT.hadInv = true; AT.invEnd = n + 1.5; AT.hadInf = !!st.inf; }
 
     if (A.mode !== AT.pm) {
       var kd = ev ? ev.kind : (A.ev ? A.ev.kind : ''), mk = null;
@@ -11238,7 +11251,7 @@ window.startMap = function (RAW, AUTH) {
     if (!pick && calm && n >= AT.idle) pick = 'chat';
     if (AT.fx && !AT.rep) { AT.fx = 0; pick = 'chat'; dxF = true; }
     if (!pick) return;
-    lst = AURA_DLG[pick]; if (!lst) return;
+    lst = ((st ? st.inf : (pick === 'inv_end' && AT.hadInf)) && AURA_DLG['z_' + pick]) || AURA_DLG[pick]; if (!lst) return;
     if (pick === 'chat' && (dxF || Math.random() < 0.7)) { try { dxR = DX.pick(AT); } catch (eDX) { dxR = null; } }
     pr = lst[(Math.random() * lst.length) | 0];
     if (AT.last === pr) pr = lst[(Math.random() * lst.length) | 0];
@@ -12740,13 +12753,14 @@ window.startMap = function (RAW, AUTH) {
       w.visible = true;
       if (a.s === 'spawn') {
         k = Math.min(1, a.age / 2.2);
-        if (!a.snd) { a.snd = 1; for (d = 0; d < 6; d++) fxSpawn(a.x + rnd(-0.5, 0.5), a.y + 0.2, a.z + rnd(-0.5, 0.5), rnd(-0.6, 0.6), rnd(0.4, 1.4), rnd(-0.6, 0.6), 1.2, 0.5, 1.6, 0x6fff4a, 0.7, true); }
-        w.position.set(a.x, a.y - (1 - k) * 1.5, a.z); w.rotation.set(0, a.yaw, 0);
+        if (!a.snd) { a.snd = 1; AUD.zGroan({ x: a.x, y: a.y + 1, z: a.z }); for (d = 0; d < 6; d++) fxSpawn(a.x + rnd(-0.5, 0.5), a.y + 0.2, a.z + rnd(-0.5, 0.5), rnd(-0.6, 0.6), rnd(0.4, 1.4), rnd(-0.6, 0.6), 1.2, 0.5, 1.6, 0x6fff4a, 0.7, true); }
+        w.position.set(a.x, a.y - (1 - k) * 0.9, a.z); w.rotation.set(0, a.yaw, 0);
         zPoseG(a.zm, dt, false);
         if (a.age > 2.2) a.s = 'live';
         return;
       }
       if (a.flash > 0) a.flash -= dt;
+      a.gT = (a.gT === undefined ? rnd(2, 8) : a.gT) - dt; if (a.gT <= 0) { a.gT = rnd(7, 15); AUD.zGroan({ x: a.x, y: a.y + 1, z: a.z }); }
       tgx = inv.cx; tgz = inv.cz;
       if (B && !B.tpj && Math.hypot(B.x - a.x, B.z - a.z) < 30 && inPoly(inv.rings, B.x, B.z)) { tgx = B.x; tgz = B.z; }
       d = Math.hypot(tgx - a.x, tgz - a.z); want = Math.atan2(tgx - a.x, tgz - a.z); df = nAngl(want - a.yaw); a.yaw += df * Math.min(1, dt * 2);
@@ -12756,7 +12770,7 @@ window.startMap = function (RAW, AUTH) {
       a.y += (botGround(a.x, a.z) - a.y) * Math.min(1, dt * 8);
       w.position.set(a.x, a.y, a.z); w.rotation.set(a.flash > 0 ? -0.12 : 0, a.yaw, 0);
       zPoseG(a.zm, dt, sp > 0.05, false);
-      if (a.bar) { a.bar.position.set(a.x, a.y + 1.5, a.z); a.bar.visible = true; }
+      if (a.bar) { a.bar.position.set(a.x, a.y + 0.95, a.z); a.bar.visible = true; }
     }
     function infStep(dt, live) {
       var m = inv.met, i, a, A = aura;
@@ -13349,7 +13363,7 @@ window.startMap = function (RAW, AUTH) {
         if (cur && cur.s === 'live' && cd >= 1e9 && best) cur = best;
         else if (!cur || cur.s !== 'live' || (cur.ban || 0) > now || bd < cd * 0.7) cur = best;
       }
-      if (!cur || cur.s !== 'live') { if (inv.ph === 'rock' && inv.met && inv.met.state === 'rest') return tpos.set(inv.met.x, inv.met.y + 1.4, inv.met.z); return null; }
+      if (!cur || cur.s !== 'live') { if (inv.ph === 'rock' && inv.met && inv.met.state === 'rest') return tpos.set(inv.met.x, inv.met.y + 1.4, inv.met.z); if (inv.inf && inv.met && inv.met.state === 'rest') return tpos.set(inv.met.x, inv.met.y + 0.3, inv.met.z); return null; }
       return tpos.set(cur.x, cur.y + 0.8, cur.z);
     }
 
@@ -13375,14 +13389,14 @@ window.startMap = function (RAW, AUTH) {
         k = Math.hypot(a.x - cx, a.y + 0.8 - cy, a.z - cz);
         if (!a.zb && k >= 1.0 && k < 5.5 && a.dodCD <= 0 && !(a.react > 0)) dodge(a, false);
         if (k < 1.0) {
-          a.hp--; a.flash = 0.3; alarmAll(); if (!a.zb) dodge(a, true); drawBar(a); if (a.hp > 0) AUD.alHit({ x: a.x, y: a.y + 1, z: a.z }); fxSpawn(cx, cy, cz, 0, 0, 0, 0.3, 0.3, 1.1, 0x7dffa0, 0.9, true);
-          if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; if (a.zb) inv.lastZ = a; AUD.alDie({ x: a.x, y: a.y + 1, z: a.z }); for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.8 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
+          a.hp--; a.flash = 0.3; alarmAll(); if (!a.zb) dodge(a, true); drawBar(a); if (a.hp > 0) (a.zb ? AUD.zHit : AUD.alHit)({ x: a.x, y: a.y + 1, z: a.z }); fxSpawn(cx, cy, cz, 0, 0, 0, 0.3, 0.3, 1.1, 0x7dffa0, 0.9, true);
+          if (a.hp <= 0) { a.s = 'dying'; a.dy = 0; pickT = 0; if (a.zb) inv.lastZ = a; (a.zb ? AUD.zDie : AUD.alDie)({ x: a.x, y: a.y + 1, z: a.z }); for (k = 0; k < 8; k++) fxSpawn(a.x + rnd(-0.3, 0.3), a.y + 0.8 + rnd(-0.2, 0.3), a.z + rnd(-0.3, 0.3), rnd(-1, 1), rnd(0.5, 1.8), rnd(-1, 1), 0.8, 0.3, 1.0, 0x9dffb8, 0.9, true); }
           return true;
         }
       }
       return false;
     }
-    return { entered: function () { return inv && inv.entered && !inv.end ? inv : null; }, cowAt: function (x, z) { var i, c, d, bd = 1e9, r = null; if (!inv || !inv.cows) return null; for (i = 0; i < inv.cows.length; i++) { c = inv.cows[i].g.position; d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; r = { x: c.x, z: c.z }; } } return r; }, peace: function () { return (peaceOn && !inv) ? Math.max(0, ufoHold - clock.elapsedTime) : 0; }, startHere: function (kd) { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm, kd) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, hold: function () { nextAt = 1e12; }, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, inf: !!inv.inf, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { entered: function () { return inv && inv.entered && !inv.end ? inv : null; }, cowAt: function (x, z) { var i, c, d, bd = 1e9, r = null; if (!inv || !inv.cows) return null; for (i = 0; i < inv.cows.length; i++) { c = inv.cows[i].g.position; d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; r = { x: c.x, z: c.z }; } } return r; }, peace: function () { return (peaceOn && !inv) ? Math.max(0, ufoHold - clock.elapsedTime) : 0; }, startHere: function (kd) { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm, kd) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6); if (inv.end && !mOn) return null; return { name: inv.name, inf: !!inv.inf, mx: mOn ? m.x : null, mz: m ? m.z : null, left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, hold: function () { nextAt = 1e12; }, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, watching: function () { return !!(inv && inv.inf && inv.met && inv.met.state === 'rest'); }, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, inf: !!inv.inf, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN;
 
@@ -13701,7 +13715,7 @@ window.startMap = function (RAW, AUTH) {
           var hot = sh && sec <= 60; if (hot !== hud._cdHot) { hud._cdHot = hot; cd.classList.toggle('hot', hot); }
         })();
         if (!hud._mrd) hud._mrd = 0; if (++hud._mrd % 3) return;
-        var cv = document.getElementById('bMiniC'), g = cv.getContext('2d'), W = cv.width, R = W / 2, RNG = nm ? 70 : 230, SC = R / RNG, ys = botYawCam, sy = Math.sin(ys), cy = Math.cos(ys), i, e, dx, dz, f, r, px, py, d, n = 0, rk = nm ? ALN.rock() : null, L = nm ? ALN.list() : [], q, k, st, pt;
+        var cv = document.getElementById('bMiniC'), g = cv.getContext('2d'), W = cv.width, R = W / 2, RNG = nm ? 70 : 230, SC = R / RNG, ys = botYawCam, sy = Math.sin(ys), cy = Math.cos(ys), i, e, dx, dz, f, r, px, py, d, n = 0, rk = nm ? ALN.rock() : null, L = nm ? ALN.list() : [], q, k, st, pt, ZI = !!(nm && ALN.state() && ALN.state().inf);
         function P(x, z) { dx = x - bot.x; dz = z - bot.z; f = dx * sy + dz * cy; r = -dx * cy + dz * sy; px = R + r * SC; py = R - f * SC; return px; }
         function dot(x, z, rad, col, sq) {
           P(x, z); d = Math.hypot(px - R, py - R);
@@ -13712,7 +13726,7 @@ window.startMap = function (RAW, AUTH) {
 
         if (landAt) { var NG = 22, cs = W / NG, gx, gz, wx, wz; for (gx = 0; gx < NG; gx++) for (gz = 0; gz < NG; gz++) { r = (gx + 0.5) * cs - R; f = R - (gz + 0.5) * cs; wx = bot.x + (r * (-cy) + f * sy) / SC; wz = bot.z + (r * sy + f * cy) / SC; g.fillStyle = landAt(wx, wz) ? 'rgba(46,110,70,0.55)' : 'rgba(20,70,120,0.45)'; g.fillRect(gx * cs, gz * cs, cs + 1, cs + 1); } }
 
-        if (nm && statePolys[nm]) { g.strokeStyle = 'rgba(255,70,70,0.9)'; g.lineWidth = 3; statePolys[nm].forEach(function (ring) { g.beginPath(); for (i = 0; i < ring.length; i++) { P(ring[i][0], ring[i][1]); if (i) g.lineTo(px, py); else g.moveTo(px, py); } g.closePath(); g.stroke(); }); }
+        if (nm && statePolys[nm]) { g.strokeStyle = ZI ? 'rgba(110,255,90,0.9)' : 'rgba(255,70,70,0.9)'; g.lineWidth = 3; statePolys[nm].forEach(function (ring) { g.beginPath(); for (i = 0; i < ring.length; i++) { P(ring[i][0], ring[i][1]); if (i) g.lineTo(px, py); else g.moveTo(px, py); } g.closePath(); g.stroke(); }); }
 
         g.strokeStyle = 'rgba(214,170,110,0.9)'; g.lineWidth = nm ? 4 : 3; g.lineJoin = 'round';
         for (i = 0; i < trails.length; i++) { q = trails[i].pts; if (!q) continue; g.beginPath(); st = false; for (k = 0; k < q.length; k++) { P(q[k][0], q[k][1]); if (Math.abs(px - R) < R * 1.4 && Math.abs(py - R) < R * 1.4) { if (st) g.lineTo(px, py); else { g.moveTo(px, py); st = true; } } else st = false; } g.stroke(); }
@@ -13722,11 +13736,11 @@ window.startMap = function (RAW, AUTH) {
         if (wand) dot(wand.x, wand.z, 6, '#ffb86b', false);
         if (aura) dot(aura.x, aura.z, 6, '#ff9ab8', false);
         if (ufo && ufo.g && ufo.g.visible && !ufoDown()) { dot(ufo.x, ufo.z, 8, '#5dff7a', false); g.strokeStyle = '#d7ffe0'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, 11, 0, 6.2832); g.stroke(); }
-        for (i = 0; i < L.length; i++) { e = L[i]; if (e.s === 'live' || e.s === 'spawn') { n++; if (e.s === 'live') dot(e.x, e.z, 5, '#ff4a4a'); } }
+        for (i = 0; i < L.length; i++) { e = L[i]; if (e.s === 'live' || e.s === 'spawn') { n++; if (e.s === 'live') dot(e.x, e.z, 5, ZI ? '#7dff4a' : '#ff4a4a'); } }
         if (rk) dot(rk.x, rk.z, 10, '#ff9a2a', true);
         g.restore();
         g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(R, R - 13); g.lineTo(R + 9, R + 10); g.lineTo(R, R + 5); g.lineTo(R - 9, R + 10); g.closePath(); g.fill(); g.strokeStyle = '#0b5a7a'; g.lineWidth = 2; g.stroke();
-        var tt = nm ? (n > 0 ? 'Aliens: ' + n : (rk ? 'Meteorito' : 'Invasión')) : 'Mapa';
+        var tt = nm ? (n > 0 ? (ZI ? 'Zombis: ' : 'Aliens: ') + n : (rk ? 'Meteorito' : ZI ? 'Infección' : 'Invasión')) : 'Mapa';
         if (tt !== hud._tt) { hud._tt = tt; document.getElementById('bMiniT').textContent = tt; }
         if (!!nm !== hud._ni) { hud._ni = !!nm; cv.style.borderColor = nm ? 'rgba(255,90,90,0.75)' : 'rgba(63,208,255,0.75)'; cv.style.boxShadow = nm ? '0 0 16px rgba(255,40,40,0.35)' : '0 0 16px rgba(255,228,77,0.3)'; }
       })();
