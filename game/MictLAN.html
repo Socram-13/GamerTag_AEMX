@@ -10708,7 +10708,7 @@ window.startMap = function (RAW, AUTH) {
   function auraVilMaybe() { if (vilReq || !VILD || now0() < vilNext || Math.random() > 0.012 || !ufoDown()) return; auraVilCall(); }
   function auraEvent() {
     var u = ufo, I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null, vl;
-    if (I && I.mx !== null) return { key: (I.inf ? 'z' : 'm') + I.name + (I.inf ? '' : Math.round(I.mx)), x: I.mx, z: I.mz, R: 9.5, left: I.left, kind: 'met', zb: !!I.inf, al: I.al };
+    if (I && I.mx !== null) return { key: (I.inf ? 'z' : 'm') + I.name + (I.inf ? '' : Math.round(I.mx)), x: I.mx, z: I.mz, R: I.cp ? 2 : 9.5, left: I.left, kind: 'met', zb: !!I.inf, cp: !!I.cp, al: I.al };
     if (vilReq && VILD) { vl = vilReq.until - now0(); if (vl > 0) return { key: 'v' + vilReq.id, x: VILD.ux, z: VILD.uz, R: 6.5, left: vl, kind: 'vil', al: [] }; vilReq = null; }
     var ci, cr, best = null, bl = 0;
     for (ci = 0; ci < craters.length; ci++) { cr = craters[ci]; if (cr.on && CRATER_LIFE - cr.age > bl) { bl = CRATER_LIFE - cr.age; best = cr; } }
@@ -11362,7 +11362,7 @@ window.startMap = function (RAW, AUTH) {
 
       e = auraEvent(); I = (typeof ALN !== 'undefined' && ALN && ALN.info) ? ALN.info() : null;
       var act = A.mode === 'go' || A.mode === 'inspect';
-      if (act && e && e.zb && A.ev && A.ev.zb && e.key === A.ev.key && Math.hypot(e.x - A.ev.x, e.z - A.ev.z) > 8 && !HF && !HFW) { /* infección: cae el último zombi, Aura va a analizarlo */
+      if (act && e && e.zb && A.ev && A.ev.zb && e.key === A.ev.key && (Math.hypot(e.x - A.ev.x, e.z - A.ev.z) > 8 || (e.cp && !A.ev.cp)) && !HF && !HFW) { /* infección: cae el último zombi, Aura va a analizarlo */
         var Gz = null; try { Gz = auraNeighborSpot(I.name, e.x, e.z); } catch (er) { Gz = null; } if (!Gz) Gz = auraFreeNear(e.x + 6, e.z + 6);
         if (Gz && Math.hypot(e.x - A.x, e.z - A.z) > 30) { A.ev = e; auraJump(A, Gz[0], Gz[1], 'go'); return; }
         A.ev = e;
@@ -11396,8 +11396,21 @@ window.startMap = function (RAW, AUTH) {
         var ty = Math.atan2(A.ev.x - A.x, A.ev.z - A.z), cp = A.cyc % 19, odir = A.odir || 1, oR = A.oR || A.ev.R, rx, rz, r, tgx, tgz, vx, vz, th, des, rb = bot ? Math.hypot(A.x - bot.x, A.z - bot.z) : 99;
         A.vt = (A.vt || 0) - dt;
         if (A.vt <= 0) { A.vt = 14 + Math.random() * 10; if (Math.random() < 0.45) A.odir = odir = -odir; A.oR = oR = A.ev.R * (0.88 + Math.random() * 0.3); }
-        if (bot && rb < 2 && !(A.yb > 0)) { A.yb = 1.6; A.ybYaw = Math.atan2(A.x - bot.x, A.z - bot.z); }
-        if (A.yb > 0) {
+        if (bot && rb < 2 && !(A.yb > 0) && !A.ev.cp) { A.yb = 1.6; A.ybYaw = Math.atan2(A.x - bot.x, A.z - bot.z); }
+        if (A.ev.cp) { /* infección: se acerca al último zombi caído y toma una muestra */
+          var SM = A.smp;
+          if (!SM || SM.key !== A.ev.key) SM = A.smp = { key: A.ev.key, ph: 'walk', t: 0, fx: 0 };
+          A.hOn = false; A.yaw += nAng(ty - A.yaw) * Math.min(1, dt * 4);
+          if (SM.ph === 'walk') {
+            A.hyT = 0; A.hxT = 0.12;
+            if (dd > 1.3) { nx = A.x + Math.sin(A.yaw) * 1.5 * dt; nz = A.z + Math.cos(A.yaw) * 1.5 * dt; if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; moving = true; } else { SM.t += dt; if (SM.t > 4) { SM.ph = 'take'; SM.t = 0; } } }
+            else { SM.ph = 'take'; SM.t = 0; AUD.holo({ x: A.x, y: A.y + 0.5, z: A.z }); }
+          } else if (SM.ph === 'take') {
+            SM.t += dt; A.hyT = 0; A.hxT = SM.t < 3.2 ? 0.45 : 0.05;
+            if (SM.t > 0.9 && SM.t < 3.1) { SM.fx -= dt; if (SM.fx <= 0) { SM.fx = 0.09; fxSpawn(A.ev.x + rnd(-0.25, 0.25), botGround(A.ev.x, A.ev.z) + 0.25, A.ev.z + rnd(-0.25, 0.25), rnd(-0.1, 0.1), rnd(0.4, 0.9), rnd(-0.1, 0.1), 0.9, 0.12, 0.3, 0x7dff4a, 0.8, true); } }
+            if (SM.t > 5.0) { SM.ph = 'done'; A.sampled = true; A.flash = 0.2; AUD.shutter({ x: A.x, y: A.y + 0.5, z: A.z }); }
+          } else { A.hyT = 0; A.hxT = 0.02; }
+        } else if (A.yb > 0) {
           A.yb -= dt; A.yaw += nAng(A.ybYaw - A.yaw) * Math.min(1, dt * 5);
           if (Math.abs(nAng(A.ybYaw - A.yaw)) < 0.8) { nx = A.x + Math.sin(A.yaw) * 0.9 * dt; nz = A.z + Math.cos(A.yaw) * 0.9 * dt; if (botFree(nx, nz) && !botCrater(nx, nz)) { A.x = nx; A.z = nz; moving = true; } }
           A.hyT = Math.max(-1.1, Math.min(1.1, nAng(Math.atan2(bot.x - A.x, bot.z - A.z) - A.yaw))); A.hxT = 0.02;
@@ -11456,6 +11469,31 @@ window.startMap = function (RAW, AUTH) {
     A.body.position.y = 0.86 + Math.abs(Math.sin(A.ph)) * (0.03 + 0.09 * rk) * A.gk + 0.008 * Math.sin(t * 1.7);
     A.pelvis.position.x = 0.012 * sph * A.gk; A.pelvis.rotation.z = 0.04 * sph * A.gk; A.pelvis.rotation.y = 0.08 * sph * A.gk;
     A.upper.rotation.z = 0; A.upper.rotation.y = -0.07 * sph * A.gk * (1 - 0.9 * Math.min(1, A.fk * 2)); A.upper.rotation.x = (0.03 + 0.16 * rk) * A.gk;
+    (function () { /* toma de muestra: se agacha, extiende el brazo, llena el frasco y lo levanta */
+      var SM = A.smp, tkP = !!(SM && SM.ph === 'take' && A.mode === 'inspect'), tT = tkP ? SM.t : 0, i2, vl, fill;
+      A.smK = (A.smK || 0) + (((tkP && tT < 3.2) ? 1 : 0) - (A.smK || 0)) * Math.min(1, dt * 5);
+      A.smR = (A.smR || 0) + (((tkP && tT >= 3.2) || (SM && SM.ph === 'done' && A.mode === 'inspect') ? 1 : 0) - (A.smR || 0)) * Math.min(1, dt * 5);
+      if (!A.vial && (A.smK > 0.01 || A.smR > 0.01)) {
+        vl = new THREE.Group();
+        var gl = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 10), new THREE.MeshPhongMaterial({ color: 0xbfefff, transparent: true, opacity: 0.35, depthWrite: false }));
+        var lq = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.14, 10), new THREE.MeshBasicMaterial({ color: 0x7dff4a }));
+        var cp2 = new THREE.Mesh(new THREE.CylinderGeometry(0.037, 0.037, 0.03, 10), new THREE.MeshLambertMaterial({ color: 0x20242c }));
+        cp2.position.y = 0.095; vl.add(gl); vl.add(lq); vl.add(cp2); vl.position.set(0, -0.36, 0.05); vl.rotation.x = 0.9; A.arms[0].el.add(vl); noRay(vl); A.vial = { g: vl, liq: lq };
+      }
+      if (A.vial) {
+        A.vial.g.visible = A.smK > 0.05 || A.smR > 0.05;
+        fill = Math.max(0.02, Math.min(1, (tkP ? tT - 0.9 : 3) / 2.2)); A.vial.liq.scale.y = fill; A.vial.liq.position.y = -0.07 * (1 - fill);
+      }
+      if (A.smK > 0.01 || A.smR > 0.01) {
+        for (i2 = 0; i2 < 2; i2++) {
+          A.legs[i2].th.rotation.x = A.legs[i2].th.rotation.x * (1 - A.smK) + (-1.0) * A.smK; A.legs[i2].kn.rotation.x = A.legs[i2].kn.rotation.x * (1 - A.smK) + 1.6 * A.smK; A.legs[i2].ft.rotation.x = A.legs[i2].ft.rotation.x * (1 - A.smK) - 0.6 * A.smK;
+        }
+        A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.smK) + (-1.0) * A.smK; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.smK) + (-0.6) * A.smK;
+        A.arms[1].sh.rotation.x = A.arms[1].sh.rotation.x * (1 - A.smK) + (-0.5) * A.smK;
+        A.arms[0].sh.rotation.x = A.arms[0].sh.rotation.x * (1 - A.smR) + (-1.75) * A.smR; A.arms[0].el.rotation.x = A.arms[0].el.rotation.x * (1 - A.smR) + (-1.3) * A.smR;
+        A.upper.rotation.x += 0.35 * A.smK; A.body.position.y -= 0.28 * A.smK;
+      }
+    })();
     A.hy = (A.hy || 0) + (A.hyT - (A.hy || 0)) * Math.min(1, dt * 6); A.hx = (A.hx || 0) + (A.hxT - (A.hx || 0)) * Math.min(1, dt * 6);
     A.head.rotation.y = A.hy; A.head.rotation.x = A.hx; A.upper.rotation.y += A.hy * 0.2 * (1 - Math.min(1, A.fk * 2)); A.tabBeam.rotation.y = Math.PI - A.upper.rotation.y;
     for (i = 0; i < A.locks.length; i++) { k = A.locks[i]; k.g.rotation.x = (k.back ? 0.1 : 0.03) * Math.sin(A.ph * 2 + k.ph) * A.gk - (k.back ? 0.02 : 0.05) * A.gk; if (!k.back) k.g.rotation.z = k.sx * (0.04 * Math.sin(A.ph + k.ph) * A.gk); }
@@ -12787,7 +12825,8 @@ window.startMap = function (RAW, AUTH) {
       m = inv.met;
       if (m && m.state === 'rest') {
         m.wT += dt; if (A && A.mode === 'inspect' && A.ev && A.ev.kind === 'met' && Math.hypot(A.x - m.x, A.z - m.z) < 16) m.iT += dt;
-        if (m.iT > 6 || m.wT > 75) m.state = 'dead';
+        if (A && A.sampled && A.smp) { A.sampled = false; m.state = 'dead'; }
+        else if (m.iT > 30 || m.wT > 90) m.state = 'dead';
       } else if (m && m.state === 'dead') m.deadT += dt;
     }
     function disposeBar(a) { if (a.bar) { grp.remove(a.bar); a.bar.material.dispose(); a.barTex.dispose(); a.bar = null; } }
@@ -13402,7 +13441,7 @@ window.startMap = function (RAW, AUTH) {
       }
       return false;
     }
-    return { entered: function () { return inv && inv.entered && !inv.end ? inv : null; }, cowAt: function (x, z) { var i, c, d, bd = 1e9, r = null; if (!inv || !inv.cows) return null; for (i = 0; i < inv.cows.length; i++) { c = inv.cows[i].g.position; d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; r = { x: c.x, z: c.z }; } } return r; }, peace: function () { return (peaceOn && !inv) ? Math.max(0, ufoHold - clock.elapsedTime) : 0; }, startHere: function (kd) { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm, kd) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6), zc = inv.inf && !m && !inv.end; if (inv.end && !mOn) return null; return { name: inv.name, inf: !!inv.inf, mx: mOn ? m.x : (zc ? inv.cx : null), mz: m ? m.z : (zc ? inv.cz : null), left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, hold: function () { nextAt = 1e12; }, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, orb: function (bx, bz) { var i, a, d, bd = 1e9, r = null; if (!inv || !inv.inf || inv.end) return null; for (i = 0; i < inv.al.length; i++) { a = inv.al[i]; if (!a.zb || a.s !== 'live') continue; d = Math.hypot(a.x - bx, a.z - bz); if (d < bd) { bd = d; r = a; } } if (!r) return null; if (bd >= 9 && cur && cur.zb && cur.s === 'live') r = cur; return { x: r.x, z: r.z }; }, watching: function () { return !!(inv && inv.inf && inv.met && inv.met.state === 'rest'); }, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, inf: !!inv.inf, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { entered: function () { return inv && inv.entered && !inv.end ? inv : null; }, cowAt: function (x, z) { var i, c, d, bd = 1e9, r = null; if (!inv || !inv.cows) return null; for (i = 0; i < inv.cows.length; i++) { c = inv.cows[i].g.position; d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; r = { x: c.x, z: c.z }; } } return r; }, peace: function () { return (peaceOn && !inv) ? Math.max(0, ufoHold - clock.elapsedTime) : 0; }, startHere: function (kd) { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm, kd) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6), zc = inv.inf && !m && !inv.end; if (inv.end && !mOn) return null; return { name: inv.name, inf: !!inv.inf, cp: !!(inv.inf && m), mx: mOn ? m.x : (zc ? inv.cx : null), mz: m ? m.z : (zc ? inv.cz : null), left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, hold: function () { nextAt = 1e12; }, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, orb: function (bx, bz) { var i, a, d, bd = 1e9, r = null; if (!inv || !inv.inf || inv.end) return null; for (i = 0; i < inv.al.length; i++) { a = inv.al[i]; if (!a.zb || a.s !== 'live') continue; d = Math.hypot(a.x - bx, a.z - bz); if (d < bd) { bd = d; r = a; } } if (!r) return null; if (bd >= 9 && cur && cur.zb && cur.s === 'live') r = cur; return { x: r.x, z: r.z }; }, watching: function () { return !!(inv && inv.inf && inv.met && inv.met.state === 'rest'); }, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, inf: !!inv.inf, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN;
 
