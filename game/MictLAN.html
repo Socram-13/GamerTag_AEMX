@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><link rel="icon" type="image/webp" href="mictlan/img/intro-boom.webp"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="preload" as="image" href="mictlan/img/intro-boom.webp" fetchpriority="high"><link rel="preload" as="image" href="mictlan/img/intro-fig1.webp" fetchpriority="high"><link rel="preload" as="image" href="mictlan/img/intro-fig2.webp" fetchpriority="high"><link rel="preload" as="image" href="mictlan/img/intro-fig3.webp" fetchpriority="high"><link rel="preload" as="image" href="mictlan/img/intro-extra1.webp" fetchpriority="high"><link rel="preload" as="image" href="mictlan/img/intro-s13.webp" fetchpriority="high"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://www.gstatic.com" crossorigin><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>MictLAN</title>
+<title>MictLAND</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&display=swap">
 <style>
@@ -293,6 +293,9 @@
   #gate h1.gt-title { position: relative; margin: 0 0 18px; font-family: 'GtOxa', var(--f-display), sans-serif; font-weight: 800; font-size: clamp(24px, 5.6vw, 46px); letter-spacing: 0.02em; line-height: 1.05; color: #ffe44d; transform: skewX(-13deg); text-shadow: 0 0 10px rgba(255,228,77,0.85), 0 0 34px rgba(255,170,0,0.45), 3px 3px 0 #b3560c; animation: gtGlT 3.2s steps(1) infinite; }
   #gate h1.gt-title .gm { font-size: 1.3em; }
   #gate h1.gt-title .gl { font-size: 1.5em; }
+  #gate h1.gt-title .gk { position: relative; display: inline-block; }
+  #gate h1.gt-title .gk i { font-style: normal; animation: gtP 5s steps(1) var(--gd, 0s) infinite; }
+  #gate h1.gt-title .gk b { position: absolute; left: 0; top: 0; font-weight: inherit; color: #00e5ff; text-shadow: -3px 0 #ff2a8a, 0 0 12px #00e5ff; opacity: 0; animation: gtD 5s steps(1) var(--gd, 0s) infinite; }
   #gate h1.gt-title .gp { position: relative; display: inline-block; }
   #gate h1.gt-title .gp i { font-style: normal; animation: gtP 5s steps(1) infinite; }
   #gate h1.gt-title .gp b { position: absolute; left: 0; top: 0; font-weight: inherit; color: #00e5ff; text-shadow: -3px 0 #ff2a8a, 0 0 12px #00e5ff; opacity: 0; animation: gtD 5s steps(1) infinite; }
@@ -346,7 +349,7 @@
     #gate .gt-load, #gate .gt-modes { grid-column: 1 / -1; grid-row: 3; }
     #gate #gate-msg, #gate #gate-btn, #gate #gate-err { grid-column: 1 / -1; grid-row: auto; }
   }
-  @media (prefers-reduced-motion: reduce) { #gate .gt-fig, #gate .gt-met, #gate .gt-boom, #gate .gt-flash, #gate h1.gt-title, #gate h1.gt-title .gp i, #gate h1.gt-title .gp b, #gate .gt-petals i { animation: none; } #gate .gt-by { animation: none; opacity: 0.95; } }
+  @media (prefers-reduced-motion: reduce) { #gate .gt-fig, #gate .gt-met, #gate .gt-boom, #gate .gt-flash, #gate h1.gt-title, #gate h1.gt-title .gp i, #gate h1.gt-title .gp b, #gate h1.gt-title .gk i, #gate h1.gt-title .gk b, #gate .gt-petals i { animation: none; } #gate .gt-by { animation: none; opacity: 0.95; } }
 </style>
 
 <main class="stage" id="stage">
@@ -425,7 +428,7 @@
     <img class="gt-fig rb" alt="" src="mictlan/img/intro-fig2.webp">
     <div class="gt-mid">
       <img class="gt-met" alt="" src="mictlan/img/intro-fig3.webp">
-      <div class="gt-ttl"><h1 class="gt-title" aria-label="MICTLANPUNK"><span class="gm">M</span>ICT<span class="gl">LAN<span class="gp"><i>P</i><b>D</b></span></span>UNK</h1></div>
+      <div class="gt-ttl"><h1 class="gt-title" aria-label="MICTLAND"><span class="gm">M</span>ICT<span class="gl"><span class="gk" style="--gd:0s"><i>L</i><b>L</b></span><span class="gk" style="--gd:0.12s"><i>A</i><b>A</b></span><span class="gk" style="--gd:0.26s"><i>N</i><b>N</b></span><span class="gk" style="--gd:0.4s"><i>D</i><b>D</b></span></span></h1></div>
       <div class="gt-load" id="gt-load" hidden>
         <div class="gt-tagrow"><span class="gt-hatch"></span><span class="gt-tag" id="gt-cnt"></span></div>
         <div class="gt-bar"><div class="gt-fill" id="gt-fill"></div></div>
@@ -11114,7 +11117,8 @@ window.startMap = function (RAW, AUTH) {
       if (!b || DUEL) return false;
       if (b.mode === 'lift' || b.ride || b.tpj) return false;
       dist = Math.max(d.r * 1.7, 26); base = Math.atan2(b.x - d.cx, b.z - d.cz);
-      for (k = 0; k < 16 && !sp; k++) { a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.4; sp = botFreeSpot(d.cx + Math.sin(a) * dist, d.cz + Math.cos(a) * dist); if (sp && Math.hypot(sp[0] - d.cx, sp[1] - d.cz) < d.r * 1.3) sp = null; }
+      var gap = function (x, z) { var gm = 1e9, gq, gd, gi, gc, gl, all; for (gl = 0; gl < districts.length; gl++) { gd = districts[gl]; if (!gd.list.length || Math.hypot(x - gd.cx, z - gd.cz) > gd.r + 60) continue; all = gd._bh || (gd._bh = gd.cells.concat(gd.extra)); for (gi = 0; gi < all.length; gi++) { gc = all[gi]; gq = Math.hypot(gd.cx + gc.x - x, gd.cz + gc.z - z); if (gq < gm) gm = gq; } } return gm; }, mi, mul = [1, 1.3, 1.7, 2.2];
+      for (mi = 0; mi < mul.length && !sp; mi++) for (k = 0; k < 16 && !sp; k++) { a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.4; sp = botFreeSpot(d.cx + Math.sin(a) * dist * mul[mi], d.cz + Math.cos(a) * dist * mul[mi]); if (sp && (Math.hypot(sp[0] - d.cx, sp[1] - d.cz) < d.r * 1.3 || gap(sp[0], sp[1]) < 18)) sp = null; } /* fuera del área real de la ciudad (sus celdas), no solo de su radio */
       if (!sp) return false;
       b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0; b.boostT = 0; b.hopGoal = null;
       if (b.mode !== 'walk') botForceLand(b);
