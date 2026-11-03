@@ -2853,8 +2853,8 @@ window.startMap = function (RAW, AUTH) {
     });
     var W = {
       temp: [['pine', 0.19], ['flamboyan', 0.01], ['mayo', 0.015], ['oak', 0.16], ['round', 0.11], ['birch', 0.08], ['jacaranda', 0.04], ['golden', 0.03], ['bush', 0.14], ['flower', 0.06], ['grass', 0.08], ['rock', 0.05], ['agave', 0.03], ['cactus', 0.02]],
-      arid: [['cactus', 0.22], ['agave', 0.16], ['bush', 0.20], ['grass', 0.12], ['rock', 0.14], ['flower', 0.04], ['round', 0.05], ['palm', 0.05], ['pine', 0.02]],
-      trop: [['palm', 0.22], ['flamboyan', 0.04], ['mayo', 0.03], ['round', 0.19], ['oak', 0.10], ['bush', 0.16], ['flower', 0.10], ['grass', 0.10], ['jacaranda', 0.03], ['golden', 0.03], ['rock', 0.02], ['cactus', 0.01]]
+      arid: [['cactus', 0.26], ['agave', 0.2], ['bush', 0.22], ['grass', 0.12], ['rock', 0.16], ['flower', 0.03], ['round', 0.01], ['palm', 0.01]],
+      trop: [['palm', 0.25], ['flamboyan', 0.05], ['mayo', 0.03], ['round', 0.23], ['oak', 0.15], ['bush', 0.08], ['flower', 0.05], ['grass', 0.04], ['jacaranda', 0.04], ['golden', 0.04], ['rock', 0.01], ['cactus', 0.01]]
     };
     function pickType(zone) {
       var l = W[zone], r = vr(), i, acc = 0;
@@ -2899,22 +2899,22 @@ window.startMap = function (RAW, AUTH) {
     });
 
     (function () { /* selva alrededor de Chichén Itzá */
-      var c0 = geo(CHI_LL[0], CHI_LL[1]), R0 = 9, R1 = 34, gx, gz, x, z, d, t, p, patch, k2, rr2, tp, n = 0;
-      for (gx = c0.x - R1; gx <= c0.x + R1; gx += 1.9) {
-        for (gz = c0.z - R1; gz <= c0.z + R1; gz += 1.9) {
+      var c0 = geo(CHI_LL[0], CHI_LL[1]), R0 = 9, R1 = 42, gx, gz, x, z, d, t, p, patch, k2, rr2, tp, n = 0;
+      for (gx = c0.x - R1; gx <= c0.x + R1; gx += 1.6) {
+        for (gz = c0.z - R1; gz <= c0.z + R1; gz += 1.6) {
           x = gx + (vr() - 0.5) * 1.5; z = gz + (vr() - 0.5) * 1.5;
           d = Math.hypot(x - c0.x, z - c0.z);
           if (d < R0 || d > R1) continue;
-          t = d < 20 ? (d - R0) / 11 : 1 - (d - 20) / (R1 - 20);
+          t = d < 24 ? (d - R0) / 15 : 1 - (d - 24) / (R1 - 24);
           patch = 0.5 + 0.5 * Math.sin(x * 0.31 + 0.7) * Math.sin(z * 0.27 - 1.1);
-          p = Math.min(1, t * 1.15) * (0.55 + 0.45 * patch) * 0.9;
+          p = Math.min(1, t * 1.15) * (0.55 + 0.45 * patch) * 1.0;
           if (vr() > p) continue;
           if (crowded(x, z) || trailNear(x, z, 2.5)) continue;
           if (!onLand(x, z)) continue;
           k2 = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k2] || (placed[k2] = [])).push([x, z]);
           rr2 = vr();
-          tp = rr2 < 0.2 ? 'oak' : rr2 < 0.4 ? 'round' : rr2 < 0.52 ? 'palm' : rr2 < 0.72 ? 'bush' : rr2 < 0.82 ? 'grass' : rr2 < 0.9 ? 'flower' : rr2 < 0.94 ? 'flamboyan' : rr2 < 0.97 ? 'dead' : 'rock';
+          tp = rr2 < 0.24 ? 'oak' : rr2 < 0.48 ? 'round' : rr2 < 0.64 ? 'palm' : rr2 < 0.76 ? 'bush' : rr2 < 0.82 ? 'grass' : rr2 < 0.86 ? 'flower' : rr2 < 0.9 ? 'flamboyan' : rr2 < 0.94 ? 'mayo' : rr2 < 0.96 ? 'dead' : 'rock';
           plants.push({ type: tp, x: x, z: z, y: 0, zone: 'trop', edge: lastEdge }); n++;
         }
       }
