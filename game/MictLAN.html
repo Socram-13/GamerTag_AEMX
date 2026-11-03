@@ -10874,6 +10874,10 @@ window.startMap = function (RAW, AUTH) {
     AURA_DLG.z_inv_few = [["Quedan pocos zombis. Los puedo contar con los dedos.", "Dedos sí tienes, yo solo tengo cañones."], ["La niebla se está disipando. Falta poco.", "Falta el último. Siempre cuesta más."], ["Pocos infectados en pantalla. Buen trabajo hasta ahora.", "Aún no termino. Guarda los aplausos."]];
     AURA_DLG.z_inv_end = [["La infección terminó. La niebla ya se fue.", "Perfecto. Ahora sí, a seguir patrullando."], ["Zona despejada. Ningún zombi a la vista.", "Mis sensores también se aburren."], ["Misión cumplida. Estimo que habrá paz por un rato.", "Ese rato nunca dura. Aprovéchalo."]];
     AURA_DLG.z_met = [["Voy a analizar al último zombi. Mantén distancia.", "No pienso acercarme más de lo necesario."], ["Tejido en descomposición y un rastro raro en el traje. Interesante.", "Interesante para ti. Para mí es asqueroso."], ["Muestra tomada. La infección venía del espacio, como sospechaba.", "Siempre viene del espacio. Chocamos los cinco."]];
+    AURA_DLG.z_go_met = [["Voy a acercarme al último zombi. Necesito una muestra.", "Ve con cuidado. Yo vigilo que no se levante."], ["Me dirijo al zombi caído. Quiero analizar el tejido.", "Si se mueve, grítame. Ya tengo el dedo en el gatillo."], ["Salgo hacia el último infectado. Mantente cerca.", "Aquí estoy. No pienso perderte de vista."]];
+    AURA_DLG.z_insp_met = [["Estoy junto al zombi. Tomo la muestra con calma.", "Lenta y con cuidado. Estos bichos son traicioneros."], ["El tejido sigue activo. Lo guardo en el frasco.", "Bien guardado. No quiero esa cosa cerca de mí."], ["Muestra casi lista. El cuerpo no se mueve.", "Qué alivio. Ya mordieron suficiente por hoy."]];
+    AURA_DLG.z_hf = [["Muestra asegurada. Esto sí es trabajo en equipo.", "Y ni un solo mordisco. Choca esa mano."], ["Tengo el tejido del último zombi. Misión cumplida.", "Cumplida y sin bajas. Choca."], ["Muestra tomada y la infección contenida. Buen trabajo.", "Los dos hicimos lo nuestro. Choquemos esas manos."]];
+    AURA_DLG.z_back = [["Muestra guardada. Vuelvo contigo, sin zombis a la vista.", "Perfecto. Que nadie estornude cerca de nosotros."], ["Terminé con el análisis. Regreso a tu posición.", "Te espero. Lejos de la niebla verde, de preferencia."], ["Reporte de la infección cerrado. Voy de regreso.", "Tómate tu tiempo. Ya no hay prisa."]];
   })();
 
 
@@ -11268,7 +11272,7 @@ window.startMap = function (RAW, AUTH) {
     cond.inv_few = !!(st && !st.end && st.entered && st.live > 0 && st.live <= 3 && !cond.inv_rock);
     cond.inv_fight = !!(st && !st.end && st.entered && st.live > 3 && !cond.inv_rock);
     if (AT.hadInv && !st && n >= AT.invEnd) { AT.hadInv = false; cond.inv_end = true; }
-    if (st) { AT.hadInv = true; AT.invEnd = n + 1.5; AT.hadInf = !!st.inf; }
+    if (st) { AT.hadInv = true; AT.invEnd = n + 1.5; AT.hadInf = !!st.inf; if (st.inf) AT.infT = n; }
 
     if (A.mode !== AT.pm) {
       var kd = ev ? ev.kind : (A.ev ? A.ev.kind : ''), mk = null;
@@ -11289,9 +11293,9 @@ window.startMap = function (RAW, AUTH) {
     calm = !bot.tpj && bot.mode !== 'lift' && !bot.aiming && !(st && st.entered) && !ev;
     if (!pick && calm && n >= AT.idle) pick = 'chat';
     if (AT.fx && !AT.rep) { AT.fx = 0; pick = 'chat'; dxF = true; }
-    if (pick && st && st.inf && !st.end && pick !== 'inv_alert' && pick !== 'inv_fight' && pick !== 'inv_few' && pick !== 'hf' && !(pick === 'met' && st.live === 0)) pick = null; /* en la infección solo habla de la infección */
+    if (pick && st && st.inf && !st.end && pick !== 'inv_alert' && pick !== 'inv_fight' && pick !== 'inv_few' && pick !== 'hf' && !((pick === 'met' || pick === 'go_met' || pick === 'insp_met') && st.live === 0)) pick = null; /* en la infección solo habla de la infección */
     if (!pick) return;
-    lst = ((st ? st.inf : (pick === 'inv_end' && AT.hadInf)) && AURA_DLG['z_' + pick]) || AURA_DLG[pick]; if (!lst) return;
+    lst = ((st ? st.inf : (AT.hadInf && (pick === 'inv_end' || ((pick === 'back' || pick === 'hf' || pick === 'join') && n - (AT.infT || 0) < 90)))) && AURA_DLG['z_' + pick]) || AURA_DLG[pick]; if (!lst) return;
     if (pick === 'chat' && (dxF || Math.random() < 0.7)) { try { dxR = DX.pick(AT); } catch (eDX) { dxR = null; } }
     pr = lst[(Math.random() * lst.length) | 0];
     if (AT.last === pr) pr = lst[(Math.random() * lst.length) | 0];
