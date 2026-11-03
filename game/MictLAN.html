@@ -237,7 +237,7 @@
     .tag { font-size: 11px; margin-top: 2px; }
     .search input { height: 34px; font-size: 13px; padding: 0 10px; }
     #res button { font-size: 12.5px; padding: 6px 8px; }
-    .tools { gap: 6px; }
+    .tools { gap: 6px; flex-wrap: wrap; max-width: 100%; }
     .tools button { height: 34px; font-size: 12px; padding: 0 8px; }
     .legend { font-size: 11px; padding: 6px 8px; gap: 5px; }
     .card { padding: 10px 12px 12px; }
@@ -380,7 +380,7 @@
       <div class="tools">
         <button type="button" id="b-align" hidden title="Volver a la vista por defecto del robot">Alinear</button>
         <button type="button" id="b-over">México</button>
-        <button type="button" id="b-pal">Palacio</button>
+        <button type="button" id="b-pal" hidden style="display:none">Palacio</button>
         <button type="button" id="b-lbl" aria-pressed="false" title="Mostrar u ocultar etiquetas">Etiquetas</button>
         <button type="button" id="b-snd" aria-pressed="true" aria-label="Activar o desactivar el sonido" title="Activar o desactivar el sonido">🔊</button>
         <button type="button" id="b-vol" aria-label="Volumen de música y efectos" title="Volumen de música y efectos">🎚</button>
