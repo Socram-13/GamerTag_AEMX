@@ -10404,6 +10404,38 @@ window.startMap = function (RAW, AUTH) {
     c.fillStyle = gr; c.fillRect(0, 0, 512, 640);
     var tx = new THREE.CanvasTexture(cv); tx.anisotropy = 8; return tx;
   }
+  function auFaceNew(T) { /* rostro facetado (propuesta aprobada); el cabello original no cambia */
+   var seed=7;function rnd(){seed=(seed*16807)%2147483647;return seed/2147483647}
+   function M(c,o){return new T.MeshStandardMaterial(Object.assign({color:c,flatShading:true,roughness:0.8,metalness:0.02},o||{}))}
+   var skin=M(0xf0c3b3),skinD=M(0xd9a08f),pearl=M(0xe9eef3),blk=M(0x1b1d26),hair=M(0xf4f6fb),hairD=M(0xcfd5e8),eye=M(0x2f7bff,{roughness:.2,emissive:0x0a2a66}),white=new T.MeshBasicMaterial({color:0xffffff}),red=new T.MeshBasicMaterial({color:0xff2a2a});
+   function jit(g,a){var p=g.attributes.position,m={},i,k,v;for(i=0;i<p.count;i++){k=p.getX(i).toFixed(3)+','+p.getY(i).toFixed(3)+','+p.getZ(i).toFixed(3);if(!m[k])m[k]=[(rnd()-.5)*a,(rnd()-.5)*a,(rnd()-.5)*a];v=m[k];p.setXYZ(i,p.getX(i)+v[0],p.getY(i)+v[1],p.getZ(i)+v[2])}g.computeVertexNormals();return g}
+   function mesh(g,m,x,y,z,par){var q=new T.Mesh(g,m);q.position.set(x||0,y||0,z||0);if(par)par.add(q);return q}
+   function tap(m,wt,dt,wb,db,h,x,y,z,par){var g=new T.BoxGeometry(1,1,1),p=g.attributes.position,j;for(j=0;j<p.count;j++){if(p.getY(j)>0){p.setX(j,p.getX(j)*wt);p.setZ(j,p.getZ(j)*dt)}else{p.setX(j,p.getX(j)*wb);p.setZ(j,p.getZ(j)*db)}p.setY(j,p.getY(j)*h)}g.computeVertexNormals();return mesh(g,m,x,y,z,par)}
+   function ico(m,r,d,sx,sy,sz,x,y,z,par,j){var g=new T.IcosahedronGeometry(r,d);g.scale(sx,sy,sz);if(j)jit(g,j);return mesh(g,m,x,y,z,par)}
+   var head=new T.Group();
+   ico(skin,1,2,0.31,0.35,0.3,0,0,0,head,0.035);
+   tap(skin,0.2,0.15,0.1,0.1,0.11,0,-0.27,0.07,head);
+   (function () { /* nariz simétrica: pirámide con eje en x=0 */
+    var P = [[0, 0.05, 0], [0, -0.025, 0.045], [-0.03, -0.035, 0], [0.03, -0.035, 0]], F = [[0, 2, 1], [0, 1, 3], [2, 3, 1], [0, 3, 2]], pos = [], g = new T.BufferGeometry();
+    F.forEach(function (f) { f.forEach(function (i) { pos.push(P[i][0], P[i][1], P[i][2]); }); });
+    g.setAttribute('position', new T.BufferAttribute(new Float32Array(pos), 3)); g.computeVertexNormals();
+    var nz = new T.Mesh(g, new T.MeshStandardMaterial({ color: 0xd9a08f, flatShading: true, roughness: 0.8, side: T.DoubleSide })); nz.position.set(0, -0.035, 0.285); head.add(nz);
+  })();
+   [-1,1].forEach(function(s){
+    ico(M(0xfafcff,{roughness:.6}),0.056,2,1.2,0.92,0.12,s*0.115,0.03,0.292,head); ico(eye,0.034,2,1.2,0.92,0.15,s*0.115,0.03,0.297,head);
+    (function () { /* pestañas: línea del párpado superior y tres pestañas hacia afuera */
+      var ar = mesh(new T.TorusGeometry(0.066, 0.005, 4, 16, 2.4), blk, s * 0.115, 0.016, 0.309, head); ar.rotation.z = Math.PI / 2 - 1.2; ar.scale.x = 1.15;
+      [[0.05, 0.062, 0.55], [0.066, 0.045, 0.95], [0.074, 0.024, 1.35]].forEach(function (L) { var l = tap(blk, 0.003, 0.003, 0.009, 0.005, 0.034, s * (0.115 + L[0]), 0.03 + L[1], 0.31, head); l.rotation.z = -s * L[2]; });
+    })(); (function () { var lg = new T.CylinderGeometry(0.058, 0.058, 0.004, 18, 1, false, -Math.PI / 2, Math.PI), ld = new T.Mesh(lg, skin); ld.rotation.x = Math.PI / 2; ld.scale.x = 1.15; ld.position.set(s * 0.115, 0.004, 0.2985); head.add(ld); })();
+    ico(white,0.007,0,1,1,1,s*0.115-s*0.007,0.045,0.302,head);ico(white,0.0035,0,1,1,1,s*0.115+s*0.009,0.012,0.303,head);
+    tap(blk,0.1,0.02,0.1,0.02,0.018,s*0.115,0.125,0.285,head).rotation.z=s*-0.18;
+    tap(red,0.07,0.01,0.07,0.01,0.008,s*0.115,-0.05,0.304,head);
+    tap(skinD,0.03,0.06,0.03,0.05,0.1,s*0.3,0,0,head);ico(pearl,0.07,0,0.6,1,1,s*0.325,0,0,head);
+   });
+   (function () { var A_ = 1.0, sm = mesh(new T.TorusGeometry(0.12, 0.007, 4, 14, A_), M(0x7a2a3a), 0, -0.04, 0.276, head); sm.rotation.z = -Math.PI / 2 - A_ / 2; })(); /* sonrisa ligera */
+   head.scale.set(0.28, 0.34, 0.31); head.position.set(0, 0.065, 0); return head;
+  }
+  
   function makeAura() {
     var g = new THREE.Group(), body = new THREE.Group(), upper = new THREE.Group(), shell = new THREE.Group(), head = new THREE.Group(), m, seg, legs = [], arms = [], locks = [];
     function bx(mat, px, py, pz, sx, sy, sz, par) { var q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); (par || g).add(q); return q; }
@@ -10466,8 +10498,7 @@ window.startMap = function (RAW, AUTH) {
 
     head.position.set(0, 0.612, 0); head.scale.setScalar(1.12); shell.add(head);
     function fsph(mat, px, py, pz, sx, sy, sz, par, ws, hs) { var q = new THREE.Mesh(new THREE.SphereGeometry(1, ws, hs), mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); par.add(q); return q; }
-    var sk = _auNoFace ? null : auFacetSkull(); if (sk) head.add(sk);
-    if (!_auNoFace) head.add(auNose());
+    if (!_auNoFace) head.add(auFaceNew(THREE));
 
     if (!_auNoFace) head.add(auHairCap());
     [-1, 1].forEach(function (sx) {
