@@ -12864,8 +12864,9 @@ window.startMap = function (RAW, AUTH) {
       m = inv.met;
       if (m && m.state === 'rest') {
         m.wT += dt; m.jT = (m.jT || 0) - dt;
-        if (A && A.k !== undefined && m.wT > 20 && m.jT <= 0 && !A.smp && Math.hypot(A.x - m.x, A.z - m.z) > 14 && A.mode !== 'jump' && A.mode !== 'hf' && !(A.jmp && !A.jmp.done)) { /* si Aura no llega a la muestra, se transporta junto al ultimo zombi */
-          m.jT = 25; var G = auraFreeNear(m.x, m.z); if (G) { A.ev = null; A.wp = null; auraJump(A, G[0], G[1], 'trail'); }
+        if (A && A.k !== undefined && m.wT > 20 && m.jT <= 0 && !A.smp && Math.hypot(A.x - m.x, A.z - m.z) > 14 && !(A.mode === 'inspect' || A.mode === 'go') && A.mode !== 'jump' && A.mode !== 'hf' && !(A.jmp && !A.jmp.done)) { /* si Aura no llega a la muestra, se transporta junto al ultimo zombi */
+          m.jT = 60; var Ge = null, Gz = null; try { Ge = auraEvent(); Gz = auraNeighborSpot(inv.name, m.x, m.z); } catch (er) { Gz = null; } if (!Gz) Gz = auraFreeNear(m.x + 6, m.z + 6);
+          if (Gz && Ge && Ge.cp) { A.ev = Ge; A.wp = null; auraJump(A, Gz[0], Gz[1], 'go'); }
         }
         if (A && A.mode === 'inspect' && A.ev && A.ev.kind === 'met' && Math.hypot(A.x - m.x, A.z - m.z) < 16) m.iT += dt;
         if (A && A.sampled && A.smp) { A.sampled = false; m.state = 'dead'; }
