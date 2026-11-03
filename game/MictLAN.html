@@ -3419,6 +3419,7 @@ window.startMap = function (RAW, AUTH) {
 
       if (pl.type === 'pine' || pl.type === 'oak') sc *= 1.0 + vr() * 0.35;
       if (pl.type === 'rock' || pl.type === 'bush' || pl.type === 'grass' || pl.type === 'flower') sc *= 0.6;
+      if (pl.type === 'mayo') sc *= 0.65;
       vqYaw.setFromAxisAngle(AX_Y, yaw);
       vB.compose(new THREE.Vector3(pl.x, pl.y || 0, pl.z), vqYaw, vOne.set(sc, sc, sc));
       trunkC = col(0.07 + vr() * 0.02, 0.4, 0.2 + vr() * 0.06);
