@@ -4098,7 +4098,7 @@ window.startMap = function (RAW, AUTH) {
       lines.push(e.pts);
       for (q = 1; q < e.pts.length; q++) trailAdd(e.pts[q - 1][0], e.pts[q - 1][1], e.pts[q][0], e.pts[q][1]);
     });
-    var ringDone = {}, ringLines = [], RING_W = TRAIL_W * 1.35;
+    var ringDone = {}, ringLines = [], ringInfo = {}, RING_W = TRAIL_W * 1.35;
     chosen.forEach(function (e) {
       [e.a, e.b].forEach(function (ci) {
         if (ringDone[ci]) return;
@@ -4110,24 +4110,64 @@ window.startMap = function (RAW, AUTH) {
           trailAdd(dd.cx + Math.cos(a0) * R, dd.cz + Math.sin(a0) * R, dd.cx + Math.cos(a1) * R, dd.cz + Math.sin(a1) * R, true);
           rp.push([dd.cx + Math.cos(a0) * R, dd.cz + Math.sin(a0) * R]);
         }
-        rp.push(rp[0]); ringLines.push(rp); /* anillo pavimentado completo alrededor de la ciudad */
+        rp.push(rp[0]); ringLines.push(rp); ringInfo[ci] = { dd: dd, R: R, nn: nn, rp: rp }; /* anillo pavimentado completo alrededor de la ciudad */
       });
+    });
+    /* los senderos se recortan en el borde exterior del anillo y se anotan los ángulos de entrada para abrir huecos en las líneas del anillo */
+    var jang = {}, lines2 = [];
+    function trimTo(pts, ci, atStart) {
+      var dd = ds[ci], rt = dd.r + 2 + RING_W / 2 - 0.3, o = pts.slice(), i, a, b, lo, hi, md, px, pz;
+      if (!atStart) o.reverse();
+      i = 0; while (i < o.length && Math.hypot(o[i][0] - dd.cx, o[i][1] - dd.cz) < rt) i++;
+      if (i === 0 || i >= o.length) { if (!atStart) o.reverse(); return o; }
+      a = o[i - 1]; b = o[i]; lo = 0; hi = 1;
+      for (k = 0; k < 20; k++) { md = (lo + hi) / 2; px = a[0] + (b[0] - a[0]) * md; pz = a[1] + (b[1] - a[1]) * md; if (Math.hypot(px - dd.cx, pz - dd.cz) < rt) lo = md; else hi = md; }
+      px = a[0] + (b[0] - a[0]) * hi; pz = a[1] + (b[1] - a[1]) * hi;
+      o = [[px, pz]].concat(o.slice(i));
+      (jang[ci] || (jang[ci] = [])).push(Math.atan2(pz - dd.cz, px - dd.cx));
+      if (!atStart) o.reverse();
+      return o;
+    }
+    chosen.forEach(function (e) {
+      var p2 = trimTo(e.pts, e.a, true);
+      p2 = trimTo(p2, e.b, false);
+      if (p2.length >= 2) lines2.push(p2);
+    });
+    function arcsOf(ci, pts, nn) { /* divide el anillo en arcos, dejando huecos donde entran los senderos */
+      var out = [], cur = [], q, a, ok, j, dA, gap = (TRAIL_W / 2 + 0.5) / ringInfo[ci].R, ja = jang[ci] || [], m = pts.length - 1;
+      for (q = 0; q <= m; q++) {
+        a = q / m * 6.2832 - 3.14159265; ok = true;
+        for (j = 0; j < ja.length; j++) { dA = Math.abs(Math.atan2(Math.sin(a - ja[j]), Math.cos(a - ja[j]))); if (dA < gap) { ok = false; break; } }
+        if (ok) cur.push(pts[q]); else { if (cur.length > 1) out.push(cur); cur = []; }
+      }
+      if (cur.length > 1) out.push(cur);
+      return out;
+    }
+    var ringEdge = [], ringDash = [];
+    Object.keys(ringInfo).forEach(function (ck) {
+      var inf = ringInfo[ck], fin = [], nf = Math.max(24, Math.ceil(2 * Math.PI * inf.R / 1.2)), q, a;
+      for (q = 0; q <= nf; q++) { a = q / nf * 6.2832 - 3.14159265; fin.push([inf.dd.cx + Math.cos(a) * inf.R, inf.dd.cz + Math.sin(a) * inf.R]); }
+      var base = [];
+      for (q = 0; q <= inf.nn; q++) { a = q / inf.nn * 6.2832 - 3.14159265; base.push([inf.dd.cx + Math.cos(a) * inf.R, inf.dd.cz + Math.sin(a) * inf.R]); }
+      arcsOf(+ck, fin, nf).forEach(function (r) { ringEdge.push(r); });
+      arcsOf(+ck, base, inf.nn).forEach(function (r) { ringDash.push(r); });
     });
     var bMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -0.8, polygonOffsetUnits: -0.8 });
     var tMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1.2, polygonOffsetUnits: -1.2 });
-    var bm = new THREE.Mesh(trailRibbon(lines, TRAIL_W + 0.6, 0.008, 'grass', 0.05, rg), bMat);
-    var tm = new THREE.Mesh(trailRibbon(lines, TRAIL_W, 0.012, 'soil', 0.05, rg), tMat);
+    var bm = new THREE.Mesh(trailRibbon(lines2, TRAIL_W + 0.6, 0.008, 'grass', 0.05, rg), bMat);
+    var tm = new THREE.Mesh(trailRibbon(lines2, TRAIL_W, 0.012, 'soil', 0.05, rg), tMat);
     var bmR = new THREE.Mesh(trailRibbon(ringLines, RING_W + 0.6, 0.008, 'grass', 0.05, rg), bMat);
     var tmR = new THREE.Mesh(trailRibbon(ringLines, RING_W, 0.0125, 'soil', 0.05, rg), tMat);
     var mkM = function (col, f) { return new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.28, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: f, polygonOffsetUnits: f }); };
     var mw = TRAIL_W / 2 - 0.32;
-    var m1 = new THREE.Mesh(trailMarks(lines, mw, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
-    var m2 = new THREE.Mesh(trailMarks(lines, -mw, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
-    var m3 = new THREE.Mesh(trailMarks(lines, 0, 0.13, 0.016, true), mkM(0xf2d04a, -2.4));
+    var m1 = new THREE.Mesh(trailMarks(lines2, mw, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
+    var m2 = new THREE.Mesh(trailMarks(lines2, -mw, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
+    var m3 = new THREE.Mesh(trailMarks(lines2, 0, 0.13, 0.016, true), mkM(0xf2d04a, -2.4));
     var mwR = RING_W / 2 - 0.32;
-    var m4 = new THREE.Mesh(trailMarks(ringLines, mwR, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
-    var m5 = new THREE.Mesh(trailMarks(ringLines, -mwR, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
-    [bm, tm, bmR, tmR, m4, m5, m1, m2, m3].forEach(function (mm) { mm.raycast = function () {}; mm.frustumCulled = false; scene.add(mm); });
+    var m4 = new THREE.Mesh(trailMarks(ringEdge, mwR, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
+    var m5 = new THREE.Mesh(trailMarks(ringEdge, -mwR, 0.1, 0.016, false), mkM(0xf2f2ee, -2.4));
+    var m6 = new THREE.Mesh(trailMarks(ringDash, 0, 0.13, 0.016, true), mkM(0xf2d04a, -2.4));
+    [bm, tm, bmR, tmR, m4, m5, m6, m1, m2, m3].forEach(function (mm) { mm.raycast = function () {}; mm.frustumCulled = false; scene.add(mm); });
 
     try {
       var stateAt = function (x, z) {
