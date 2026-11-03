@@ -2852,9 +2852,9 @@ window.startMap = function (RAW, AUTH) {
       h.sand = coastal(h.x, h.z, e, SAND_W + 3.7);
     });
     var W = {
-      temp: [['pine', 0.19], ['flamboyan', 0.01], ['oak', 0.16], ['round', 0.11], ['birch', 0.08], ['jacaranda', 0.04], ['golden', 0.03], ['bush', 0.14], ['flower', 0.06], ['grass', 0.08], ['rock', 0.05], ['agave', 0.03], ['cactus', 0.02]],
+      temp: [['pine', 0.19], ['flamboyan', 0.01], ['mayo', 0.015], ['oak', 0.16], ['round', 0.11], ['birch', 0.08], ['jacaranda', 0.04], ['golden', 0.03], ['bush', 0.14], ['flower', 0.06], ['grass', 0.08], ['rock', 0.05], ['agave', 0.03], ['cactus', 0.02]],
       arid: [['cactus', 0.22], ['agave', 0.16], ['bush', 0.20], ['grass', 0.12], ['rock', 0.14], ['flower', 0.04], ['round', 0.05], ['palm', 0.05], ['pine', 0.02]],
-      trop: [['palm', 0.22], ['flamboyan', 0.04], ['round', 0.19], ['oak', 0.10], ['bush', 0.16], ['flower', 0.10], ['grass', 0.10], ['jacaranda', 0.03], ['golden', 0.03], ['rock', 0.02], ['cactus', 0.01]]
+      trop: [['palm', 0.22], ['flamboyan', 0.04], ['mayo', 0.03], ['round', 0.19], ['oak', 0.10], ['bush', 0.16], ['flower', 0.10], ['grass', 0.10], ['jacaranda', 0.03], ['golden', 0.03], ['rock', 0.02], ['cactus', 0.01]]
     };
     function pickType(zone) {
       var l = W[zone], r = vr(), i, acc = 0;
@@ -3573,6 +3573,48 @@ window.startMap = function (RAW, AUTH) {
         fcl(tx0, ty0 + 0.1, tz0, 0.6, 20);
         for (kk = 0; kk < 9; kk++) { ang = vr() * 6.2832; fr = 0.5 + vr() * 1.4; part('ico0', Math.cos(ang) * fr, 0.03, Math.sin(ang) * fr, 0.09, 0.02, 0.09, jit(fr2, 0.1), 0, vr() * 3, 0); }
         if (vr() < 0.4) undergrowth(1.0, gBush, gTuft);
+      } else if (pl.type === 'mayo') {
+        /* flor de mayo (plumeria): tronco gris grueso y retorcido, rosetas de hojas largas y racimos de flores blancas con centro amarillo */
+        var mw = col(0.09, 0.08, 0.55 + vr() * 0.05), mw2 = col(0.09, 0.1, 0.45), mg1 = col(0.3, 0.55, 0.28), mg2 = col(0.33, 0.5, 0.34), mwh = col(0.12, 0.2, 0.96), mpk = col(0.96, 0.45, 0.88), myl = col(0.13, 0.95, 0.6), mends = [];
+        part('trunk', 0, 0.35, 0, 1.6, 0.7, 1.6, mw);
+        /* se ramifica desde muy abajo: ramas gruesas y retorcidas que se vuelven a dividir */
+        var mfork = function (x, y, z, yw, tl, ln, rd, d) {
+          var nx = x - Math.sin(tl) * Math.cos(yw) * ln, ny = y + Math.cos(tl) * ln, nz = z + Math.sin(tl) * Math.sin(yw) * ln;
+          branch(x, y, z, yw, tl, ln, rd, d ? mw : mw2);
+          if (d > 0) {
+            mfork(nx, ny, nz, yw + 0.7 + vr() * 0.4, tl + 0.25, ln * (0.55 + vr() * 0.4), rd * 0.75, d - 1);
+            mfork(nx, ny, nz, yw - 0.7 - vr() * 0.4, tl + 0.35, ln * (0.5 + vr() * 0.4), rd * 0.7, d - 1);
+          } else mends.push([nx, ny, nz]);
+        };
+        fn = 4 + (vr() < 0.5 ? 1 : 0);
+        for (kk = 0; kk < fn; kk++) mfork(Math.cos(kk * 2) * 0.05, 0.3 + vr() * 0.4, Math.sin(kk * 2) * 0.05, kk / fn * 6.2832 + vr() * 0.7, 0.25 + vr() * 0.65, 0.65 + vr() * 0.7, 0.12, 1);
+        var mvein = col(0.25, 0.4, 0.5);
+        mends.forEach(function (e, i2) {
+          var q, an, rr, fx0, fy0, fz0, pj, pa;
+          /* hojas anchas con nervio central: anillo exterior caído + anillo interior más erguido */
+          for (q = 0; q < 11; q++) {
+            an = q / 11 * 6.2832 + vr() * 0.35; rr = q % 2 ? 0.44 : 0.3; fy0 = e[1] + (q % 2 ? -0.02 : 0.1);
+            part('ico', e[0] + Math.cos(an) * rr, fy0, e[2] + Math.sin(an) * rr, q % 2 ? 0.5 : 0.42, 0.06, 0.2, jit(q % 3 ? mg1 : mg2, 0.06), 0, -an, q % 2 ? -0.62 : -0.4);
+            part('ico', e[0] + Math.cos(an) * rr, fy0 + 0.055, e[2] + Math.sin(an) * rr, q % 2 ? 0.44 : 0.36, 0.012, 0.035, mvein, 0, -an, q % 2 ? -0.62 : -0.4);
+          }
+          /* flores de 5 pétalos blancos con centro amarillo */
+          for (q = 0; q < 7; q++) {
+            an = vr() * 6.2832; rr = vr() * 0.34; fx0 = e[0] + Math.cos(an) * rr; fy0 = e[1] + 0.22 + vr() * 0.1; fz0 = e[2] + Math.sin(an) * rr;
+            pa = vr() * 6.2832; var tf = 0.55 + vr() * 0.5, ta = Math.atan2(e[2], e[0]) + (vr() - 0.5) * 1.6, ct = Math.cos(tf), st = Math.sin(tf);
+            /* cada flor inclinada: (x,z) del plano de la flor -> mundo con inclinación tf hacia ta */
+            var fl = function (rad, ph, yy) {
+              var lx = Math.cos(ph) * rad, lz = Math.sin(ph) * rad, y1 = -lz * st, z1 = lz * ct;
+              return [lx * Math.cos(ta) + z1 * Math.sin(ta), y1 + yy, -lx * Math.sin(ta) + z1 * Math.cos(ta)];
+            };
+            part('ico0', fx0, fy0 - 0.005, fz0, 0.085, 0.05, 0.085, jit(myl, 0.04), 0, 0, 0);
+            for (pj = 0; pj < 5; pj++) {
+              var pg = pa + pj * 1.2566, d1 = fl(0.085, pg, 0.012), d2 = fl(0.045, pg, 0.03), l1 = Math.hypot(d1[0], d1[2]), l2 = Math.hypot(d2[0], d2[2]);
+              part('ico', fx0 + d1[0], fy0 + d1[1], fz0 + d1[2], 0.12, 0.028, 0.075, jit(q % 4 === 3 ? mpk : mwh, 0.03), 0, -Math.atan2(d1[2], d1[0]), Math.atan2(d1[1] - 0.012, l1));
+              part('ico', fx0 + d2[0], fy0 + d2[1], fz0 + d2[2], 0.055, 0.012, 0.05, myl, 0, -Math.atan2(d2[2], d2[0]), Math.atan2(d2[1] - 0.03, l2));
+            }
+          }
+        });
+        for (kk = 0; kk < 8; kk++) { ang = vr() * 6.2832; fr = 0.4 + vr() * 1.2; part('ico0', Math.cos(ang) * fr, 0.03, Math.sin(ang) * fr, 0.08, 0.02, 0.08, jit(kk % 3 ? mwh : mpk, 0.05), 0, vr() * 3, 0); }
       } else if (pl.type === 'palm') {
 
         c1 = col(0.36 + vr() * 0.04, 0.55, 0.27 + vr() * 0.08);
@@ -7851,7 +7893,7 @@ window.startMap = function (RAW, AUTH) {
     }
     rp.dx = best ? best[0] : rp.cx; rp.dz = best ? best[1] : rp.cz;
   }
-  var BOT_VR = { pine: 0.22, oak: 0.22, round: 0.22, birch: 0.2, jacaranda: 0.22, golden: 0.22, flamboyan: 0.24, palm: 0.18, cactus: 0.2, rock: 0.3, bush: 0.25, agave: 0.22, dead: 0.16 };
+  var BOT_VR = { pine: 0.22, oak: 0.22, round: 0.22, birch: 0.2, jacaranda: 0.22, golden: 0.22, flamboyan: 0.24, mayo: 0.22, palm: 0.18, cactus: 0.2, rock: 0.3, bush: 0.25, agave: 0.22, dead: 0.16 };
   function botBuildVeg() {
     botVG = {}; bfC.clear();
     vegObs.forEach(function (pl) {
