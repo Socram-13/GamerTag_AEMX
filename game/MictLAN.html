@@ -4982,23 +4982,39 @@ window.startMap = function (RAW, AUTH) {
   })();
 
   (function () {
-    var stGrey = new THREE.MeshLambertMaterial({ color: 0x7a808c });
+        var stGrey = new THREE.MeshLambertMaterial({ color: 0x7a808c });
     var stRed = new THREE.MeshLambertMaterial({ color: 0xc81e2d, emissive: 0x2a0508 });
+    var stYel = new THREE.MeshLambertMaterial({ color: 0xffd23a, emissive: 0x3a2c00 });
     var stGlass = new THREE.MeshLambertMaterial({ color: 0x0b1a33, emissive: 0x06203a });
     var stDark = new THREE.MeshLambertMaterial({ color: 0x3a3f4c });
     var stGreen = new THREE.MeshLambertMaterial({ color: 0x2f9e55 });
-    var stSignTex = cyTex(512, 160, function (x, w, h) {
-      x.fillStyle = '#080c18'; x.fillRect(0, 0, w, h);
+    function stSignDraw(x, w, h) {
+      function rr(x0, y0, ww, hh, r) { x.beginPath(); x.moveTo(x0 + r, y0); x.lineTo(x0 + ww - r, y0); x.quadraticCurveTo(x0 + ww, y0, x0 + ww, y0 + r); x.lineTo(x0 + ww, y0 + hh - r); x.quadraticCurveTo(x0 + ww, y0 + hh, x0 + ww - r, y0 + hh); x.lineTo(x0 + r, y0 + hh); x.quadraticCurveTo(x0, y0 + hh, x0, y0 + hh - r); x.lineTo(x0, y0 + r); x.quadraticCurveTo(x0, y0, x0 + r, y0); x.closePath(); }
+      x.clearRect(0, 0, w, h); x.fillStyle = '#080c18'; rr(4, 4, w - 8, h - 8, 46); x.fill();
       x.strokeStyle = '#00f0ff'; x.lineWidth = 8; x.shadowColor = '#00f0ff'; x.shadowBlur = 14;
-      x.strokeRect(10, 10, w - 20, h - 20);
-      x.font = 'bold 88px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      rr(12, 12, w - 24, h - 24, 38); x.stroke();
+      x.font = 'bold ' + Math.round(h * 0.55) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
 
       x.shadowColor = '#00f0ff'; x.shadowBlur = 40; x.fillStyle = '#7ff3ff';
       x.fillText('C.R.E.L.', w / 2, h / 2 + 6); x.fillText('C.R.E.L.', w / 2, h / 2 + 6);
       x.shadowBlur = 12; x.fillStyle = '#ffffff';
       x.fillText('C.R.E.L.', w / 2, h / 2 + 6);
-    });
-    var stSignMat = new THREE.MeshBasicMaterial({ map: stSignTex });
+    }
+    var stSignTex = cyTex(512, 160, stSignDraw);
+    /* rótulo del frente: rectángulo redondeado blanco, vacío, listo para un logo PNG (crel-logo.png junto al visor, o botón 'Cargar logo') */
+    var crelSigns = [];
+    function crelMk(w, h, r) { var c = document.createElement('canvas'); c.width = w; c.height = h; var o = { r: r, cv: c, cx: c.getContext('2d'), tex: new THREE.CanvasTexture(c) }; o.tex.anisotropy = 4; crelSigns.push(o); return o; }
+    var crelFront = crelMk(1040, 280, 92), crelPole = crelMk(1120, 700, 120), stSignTex2 = crelFront.tex, stSignTexP = crelPole.tex, crelImg = null;
+    function crelDrawOne(o, img) {
+      var cx = o.cx, W = o.cv.width, H = o.cv.height, r = o.r, p = 30, sc;
+      function rr(x0, y0, ww, hh, q) { cx.beginPath(); cx.moveTo(x0 + q, y0); cx.lineTo(x0 + ww - q, y0); cx.quadraticCurveTo(x0 + ww, y0, x0 + ww, y0 + q); cx.lineTo(x0 + ww, y0 + hh - q); cx.quadraticCurveTo(x0 + ww, y0 + hh, x0 + ww - q, y0 + hh); cx.lineTo(x0 + q, y0 + hh); cx.quadraticCurveTo(x0, y0 + hh, x0, y0 + hh - q); cx.lineTo(x0, y0 + q); cx.quadraticCurveTo(x0, y0, x0 + q, y0); cx.closePath(); }
+      cx.clearRect(0, 0, W, H); cx.save(); rr(4, 4, W - 8, H - 8, r); cx.fillStyle = '#ffffff'; cx.fill(); cx.clip();
+      if (img && img.width) { sc = Math.min((W - 2 * p) / img.width, (H - 2 * p) / img.height); cx.drawImage(img, (W - img.width * sc) / 2, (H - img.height * sc) / 2, img.width * sc, img.height * sc); }
+      cx.restore(); o.tex.needsUpdate = true;
+    }
+    function crelDraw(img) { crelImg = img; crelSigns.forEach(function (o) { crelDrawOne(o, img); }); }
+    crelDraw(null);
+    var stSignMat = new THREE.MeshBasicMaterial({ map: stSignTex, transparent: true, alphaTest: 0.35 }), stSignMat2 = new THREE.MeshBasicMaterial({ map: stSignTex2, transparent: true, alphaTest: 0.35 }), stSignMatP = new THREE.MeshBasicMaterial({ map: stSignTexP, transparent: true, alphaTest: 0.35 });
     var stShopTex = cyTex(256, 128, function (x, w, h) {
       var gr = x.createLinearGradient(0, 0, 0, h);
       gr.addColorStop(0, '#fffbe0'); gr.addColorStop(1, '#9ff3ff');
@@ -5017,8 +5033,8 @@ window.startMap = function (RAW, AUTH) {
       var g = new THREE.Group(), m, i;
 
       cyBox(g, stGrey, 3.0, 1.5, 2.2, 0, 0.75, 0).castShadow = true;
-      cyBox(g, stRed, 3.04, 0.28, 2.24, 0, 1.3, 0);
-      cyBox(g, stRed, 3.4, 0.3, 2.6, 0, 1.65, 0).castShadow = true;
+      cyBox(g, stYel, 3.04, 0.28, 2.24, 0, 1.3, 0);
+      cyBox(g, stRed, 3.4, 0.55, 2.6, 0, 1.775, 0).castShadow = true;
       cyBox(g, cyNeon.cyan, 3.44, 0.05, 2.64, 0, 1.5, 0);
 
       cyBox(g, stGlassLit, 1.8, 0.9, 0.05, -0.45, 0.65, 1.1);
@@ -5026,16 +5042,20 @@ window.startMap = function (RAW, AUTH) {
       cyBox(g, stGrey, 0.05, 1.0, 0.08, 0.95, 0.55, 1.1);
       cyBox(g, cyNeon.mag, 1.9, 0.04, 0.06, -0.45, 0.14, 1.11);
 
-      m = new THREE.Mesh(uPlane, stSignMat); m.scale.set(1.5, 0.24, 1); m.position.set(-0.45, 1.3, 1.13); g.add(m);
+      m = new THREE.Mesh(uPlane, stSignMat2); m.scale.set(1.6, 0.43, 1); m.position.set(-0.45, 1.775, 1.31); g.add(m);
 
       cyCyl(g, stDark, 0.07, 3.2, 1.9, 1.6, 1.2);
       cyBox(g, stDark, 1.3, 0.7, 0.1, 1.9, 3.0, 1.2);
-      m = new THREE.Mesh(uPlane, stSignMat); m.scale.set(1.12, 0.35, 1); m.position.set(1.9, 3.0, 1.275); g.add(m);
-      m = new THREE.Mesh(uPlane, stSignMat); m.scale.set(1.12, 0.35, 1); m.position.set(1.9, 3.0, 1.125); m.rotation.y = Math.PI; g.add(m);
+      m = new THREE.Mesh(uPlane, stSignMatP); m.scale.set(1.12, 0.7, 1); m.position.set(1.9, 3.0, 1.275); g.add(m);
+      m = new THREE.Mesh(uPlane, stSignMatP); m.scale.set(1.12, 0.7, 1); m.position.set(1.9, 3.0, 1.125); m.rotation.y = Math.PI; g.add(m);
       cyBox(g, stRed, 1.34, 0.08, 0.14, 1.9, 3.39, 1.2);
       g.traverse(function (o) { o.raycast = function () {}; });
       return g;
     }
+    (function () { /* logo de la tienda: si existe mictlan/img/crel-logo.png se dibuja sobre los dos recuadros blancos (solo con servidor http/https) */
+      if (!/^https?:/.test(location.protocol)) return;
+      var im = new Image(); im.onload = function () { try { crelDraw(im); } catch (er) { } }; im.src = 'mictlan/img/crel-logo.png';
+    })();
 
     districts.forEach(function (d) {
       var n = d.list.filter(function (q) { return !q.banned; }).length, best = null, i, c, s;
