@@ -10433,7 +10433,7 @@ window.startMap = function (RAW, AUTH) {
     tap(skinD,0.03,0.06,0.03,0.05,0.1,s*0.3,0,0,head);ico(pearl,0.07,0,0.6,1,1,s*0.325,0,0,head);
    });
    (function () { var A_ = 1.0, sm = mesh(new T.TorusGeometry(0.12, 0.007, 4, 14, A_), M(0x7a2a3a), 0, -0.04, 0.276, head); sm.rotation.z = -Math.PI / 2 - A_ / 2; })(); /* sonrisa ligera */
-   head.scale.set(0.28, 0.34, 0.31); head.position.set(0, 0.065, 0); return head;
+   head.userData.auFace = true; head.scale.set(0.28, 0.34, 0.31); head.position.set(0, 0.065, 0); return head;
   }
   
   function makeAura() {
@@ -10586,7 +10586,7 @@ window.startMap = function (RAW, AUTH) {
       dk = mt === auPearl || mt === auDark || mt === auJoint2 || mt === auBlack;
       if (inAny(o, feet)) { o.material = black; return; }
       if (anc(o, a.pelvis)) { o.material = mt === auPearl ? den : denD; return; }
-      if (anc(o, a.head)) { if (!(mt.map || mt === auSkin || mt === auSkinF || mt.type === 'MeshBasicMaterial')) o.material = black; return; }
+      if (anc(o, a.head)) { for (var fq = o; fq && fq !== a.head; fq = fq.parent) if (fq.userData && fq.userData.auFace) return; /* el rostro nuevo conserva sus colores */ if (!(mt.map || mt === auSkin || mt === auSkinF || mt.type === 'MeshBasicMaterial')) o.material = black; return; }
       if (inAny(o, els)) { o.material = auSkin; return; }
       if (inAny(o, shs)) { if (mt.type === 'MeshBasicMaterial') rm.push(o); else o.material = dk ? black : blackD; return; }
       if (mt === auSkin || mt === auSkinF) return;
