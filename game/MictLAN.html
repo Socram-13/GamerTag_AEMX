@@ -3508,29 +3508,38 @@ window.startMap = function (RAW, AUTH) {
         var fw = col(0.08, 0.08, 0.5 + vr() * 0.06), fw2 = col(0.07, 0.1, 0.38), fr1 = col(0.995, 0.85, 0.46), fr2 = col(0.012, 0.9, 0.5), fr3 = col(0.035, 0.92, 0.54), fgr = col(0.29, 0.5, 0.3), fn, fyw, ftl, fx, fy, fz, fa, fb, fr, ends = [];
         part('trunk', 0, 0.5, 0, 2.0, 1.0, 2.0, fw);
         for (kk = 0; kk < 3; kk++) { ang = kk * 2.1 + vr(); part('ico0', Math.cos(ang) * 0.16, 0.1, Math.sin(ang) * 0.16, 0.2, 0.17, 0.09, fw2, 0, -ang, 0); }
+        /* tronco curvo + ramas irregulares en 2-3 tramos; racimos de flores y hojas pegados a las ramas */
+        var fcl = function (x, y, z, sz, n) {
+          var q, an, rr, cc, gr;
+          for (q = 0; q < n; q++) {
+            an = vr() * 6.2832; rr = vr() * sz; gr = q % 5 < 2; cc = gr ? fgr : (q % 3 === 0 ? fr1 : (q % 3 === 1 ? fr2 : fr3));
+            part('ico', x + Math.cos(an) * rr, y + (gr ? -0.12 - vr() * 0.1 : 0.1 + vr() * 0.2) * sz * 1.2, z + Math.sin(an) * rr, (gr ? 0.13 : 0.09) + vr() * 0.07, 0.07 + vr() * 0.04, (gr ? 0.13 : 0.09) + vr() * 0.07, jit(cc, 0.07), vr() * 3, vr() * 3, 0);
+          }
+        };
+        var fch = function (x, y, z, yw, tl, ln, rd, nseg, depth) {
+          var sg, nx, ny, nz;
+          for (sg = 0; sg < nseg; sg++) {
+            branch(x, y, z, yw, tl, ln, rd, sg ? fw2 : fw);
+            nx = x - Math.sin(tl) * Math.cos(yw) * ln; ny = y + Math.cos(tl) * ln; nz = z + Math.sin(tl) * Math.sin(yw) * ln;
+            x = nx; y = ny; z = nz; yw += (vr() - 0.5) * 0.9; tl = Math.min(1.5, tl + 0.15 + vr() * 0.3); ln *= 0.85; rd *= 0.7;
+            if (sg > 0) fcl(x, y, z, 0.4, 14);
+            if (depth > 0 && sg === 0) fch(x, y, z, yw + (vr() < 0.5 ? 1 : -1) * (0.7 + vr() * 0.5), tl + 0.3, ln * 0.9, rd, 2, depth - 1);
+          }
+          fcl(x, y + 0.08, z, 0.5, 22);
+          fcl(x, y + 0.3, z, 0.4, 8); fcl(x, y + 0.45, z, 0.28, 6);
+          ends.push([x, y, z]);
+        };
+        /* tronco principal curvo */
+        var tyw = vr() * 6.2832, tx0 = 0, ty0 = 0.9, tz0 = 0, tt = 0.18;
+        for (kk = 0; kk < 3; kk++) {
+          branch(tx0, ty0, tz0, tyw, tt, 0.4, 0.15 - kk * 0.03, fw);
+          tx0 -= Math.sin(tt) * Math.cos(tyw) * 0.4; ty0 += Math.cos(tt) * 0.4; tz0 += Math.sin(tt) * Math.sin(tyw) * 0.4;
+          tt += (kk % 2 ? -0.25 : 0.3); tyw += 0.5;
+        }
         fn = 4 + (vr() < 0.5 ? 1 : 0);
-        for (kk = 0; kk < fn; kk++) {
-          fyw = kk / fn * 6.2832 + vr() * 0.6; ftl = 1.0 + vr() * 0.25; fr = 0.95 + vr() * 0.35;
-          branch(0, 0.95, 0, fyw, ftl, fr, 0.08, fw);
-          fx = -Math.sin(ftl) * Math.cos(fyw) * fr; fy = 0.95 + Math.cos(ftl) * fr; fz = Math.sin(ftl) * Math.sin(fyw) * fr;
-          branch(fx, fy, fz, fyw + 0.5, 0.45, 0.3, 0.04, fw2);
-          ends.push([fx, fy, fz]);
-        }
-        part('ico', 0, 1.72, 0, 1.05, 0.2, 1.05, jit(fr1, 0.05), 0, vr() * 3, 0);
-        part('ico', 0, 1.6, 0, 0.85, 0.18, 0.85, jit(fr3, 0.05), 0, vr() * 3, 0);
-        ends.forEach(function (e, i2) {
-          part('ico', e[0], e[1] + 0.6, e[2], 0.72, 0.17, 0.72, jit(i2 % 2 ? fr2 : fr1, 0.06), 0, vr() * 3, 0);
-          part('ico', e[0] * 0.8, e[1] + 0.46, e[2] * 0.8, 0.7, 0.16, 0.7, jit(fr3, 0.06), 0, vr() * 3, 0);
-        });
-        for (kk = 0; kk < 16; kk++) {
-          ang = kk / 16 * 6.2832 + vr() * 0.3; fr = 1.5 + vr() * 0.35;
-          part('ico', Math.cos(ang) * fr, 1.62 + vr() * 0.2, Math.sin(ang) * fr, 0.3, 0.06, 0.3, jit(kk % 2 ? fr2 : fr1, 0.07), 0, 0, 0, [-ang, -0.5]);
-        }
-        for (kk = 0; kk < 12; kk++) {
-          ang = vr() * 6.2832; fr = 0.2 + vr() * 1.3;
-          part('ico', Math.cos(ang) * fr, 1.98 + (1.3 - fr) * 0.04, Math.sin(ang) * fr, 0.2, 0.05, 0.2, jit(kk % 3 ? fr3 : fr1, 0.07), 0, 0, 0, [-ang, 0.4]);
-        }
-        for (kk = 0; kk < 5; kk++) { ang = vr() * 6.2832; fr = 0.5 + vr() * 1.0; part('ico', Math.cos(ang) * fr, 1.5, Math.sin(ang) * fr, 0.2, 0.05, 0.2, jit(fgr, 0.08), 0, 0, 0, [-ang, -0.5]); }
+        for (kk = 0; kk < fn; kk++) fch(tx0 * 0.6, 0.95 + (ty0 - 0.95) * 0.6, tz0 * 0.6, kk / fn * 6.2832 + vr() * 0.6, 0.85 + vr() * 0.45, 0.8 + vr() * 0.25, 0.08, 2, 1);
+        fch(tx0, ty0, tz0, tyw, 0.5, 0.6, 0.07, 2, 0);
+        fcl(tx0, ty0 + 0.1, tz0, 0.6, 20);
         for (kk = 0; kk < 9; kk++) { ang = vr() * 6.2832; fr = 0.5 + vr() * 1.4; part('ico0', Math.cos(ang) * fr, 0.03, Math.sin(ang) * fr, 0.09, 0.02, 0.09, jit(fr2, 0.1), 0, vr() * 3, 0); }
         if (vr() < 0.4) undergrowth(1.0, gBush, gTuft);
       } else if (pl.type === 'palm') {
