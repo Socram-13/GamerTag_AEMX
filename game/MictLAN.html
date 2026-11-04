@@ -8943,8 +8943,8 @@ window.startMap = function (RAW, AUTH) {
       o = parts[i]; par = o.parent; if (!par) continue;
       D.parts.push({ o: o, par: par, p0: o.position.clone(), q0: o.quaternion.clone(), s0: o.scale.clone() });
       scene.attach(o);
-      a = Math.random() * 6.2832; sp = 2 + Math.random() * 3.5;
-      DEB.push({ o: o, pos: o.position.clone(), e: new THREE.Euler().setFromQuaternion(o.quaternion, 'YXZ').clone(), v: new THREE.Vector3(Math.cos(a) * sp, 5 + Math.random() * 4.5, Math.sin(a) * sp), w: new THREE.Vector3((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16), rest: false, t: 0 });
+      a = Math.random() * 6.2832; sp = 0.3 + Math.random() * 0.8;
+      DEB.push({ o: o, pos: o.position.clone(), e: new THREE.Euler().setFromQuaternion(o.quaternion, 'YXZ').clone(), v: new THREE.Vector3(Math.cos(a) * sp, 6 + Math.random() * 3, Math.sin(a) * sp), w: new THREE.Vector3((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16), rest: false, t: 0 });
     }
     G.g.visible = false; if (who === 'foe' || who !== 'me') G.dead = true;
     for (k = 0; k < 8; k++) { a = Math.random() * 6.2832; sp = 1.5 + Math.random() * 3; fxSpawn(c.x, c.y, c.z, Math.cos(a) * sp, 1 + Math.random() * 3, Math.sin(a) * sp, 0.7 + Math.random() * 0.4, 0.6, 2.8, k % 2 ? 0xffa030 : 0xff5a1a, 0.9, true); }
