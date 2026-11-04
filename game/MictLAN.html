@@ -8559,6 +8559,7 @@ window.startMap = function (RAW, AUTH) {
     if (D.fg && D.fg.g.parent) D.fg.g.parent.remove(D.fg.g);
     if (bot) { bot.jy = 0; bot.bwd = 0; }
     if (D.parts) duelDebrisClear(D);
+    duelOverClear(D);
     document.getElementById('dvs').hidden = true;
     duelFloorClear(D); duelCoverClear(D);
     if (D.bar) { scene.remove(D.bar.m); D.bar.m.geometry.dispose(); D.bar.m.material.dispose(); D.bar.tex.dispose(); }
@@ -8927,10 +8928,46 @@ window.startMap = function (RAW, AUTH) {
         p.v.y -= 22 * dt; p.pos.addScaledVector(p.v, dt); gy = botGround(p.pos.x, p.pos.z) + 0.08;
         if (p.pos.y < gy) { p.pos.y = gy; if (Math.abs(p.v.y) > 1.4) { p.v.y *= -0.38; p.v.x *= 0.7; p.v.z *= 0.7; p.w.multiplyScalar(0.6); } else { p.v.set(0, 0, 0); p.w.set(0, 0, 0); p.rest = true; } }
         p.e.x += p.w.x * dt; p.e.y += p.w.y * dt; p.e.z += p.w.z * dt;
-        p.t += dt; if (p.t < 1.6 && Math.random() < 0.35) fxSpawn(p.pos.x, p.pos.y + 0.1, p.pos.z, 0, 0.7, 0, 1.2, 0.2, 0.8, 0x555555, 0.35, false);
+        p.t += dt;
       }
+      p.sm = (p.sm || 0) + dt; /* las piezas siguen humeando y soltando alguna chispa */
+      if (p.sm < 9 && Math.random() < (p.sm < 1.6 ? 0.35 : 0.14)) fxSpawn(p.pos.x, p.pos.y + 0.1, p.pos.z, (Math.random() - 0.5) * 0.3, 0.7, (Math.random() - 0.5) * 0.3, 1.4, 0.2, 0.9, 0x555555, 0.35, false);
+      if (p.sm < 5 && Math.random() < 0.03) fxSpawn(p.pos.x, p.pos.y + 0.15, p.pos.z, (Math.random() - 0.5) * 2, 1 + Math.random() * 2, (Math.random() - 0.5) * 2, 0.3, 0.06, 0.02, 0xffd860, 1, true);
       p.o.position.copy(p.pos); p.o.rotation.set(p.e.x, p.e.y, p.e.z);
     }
+  }
+  function duelOverTick(D, G, el, dt) {
+    var O = D.ov, ramp = Math.max(0, Math.min(1, (el - 0.4) / 8.6)), k, i, n, ln, ps, a, e, sx, sy, sz, j, vx, vy, vz;
+    if (!O) {
+      O = D.ov = { glow: new THREE.Mesh(uSphere, new THREE.MeshBasicMaterial({ color: 0xff1010, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })), lines: [], eye0: G.eyeMat.color.getHex(), ph: 0, t: 0, G: G, ramp: 0 };
+      O.glow.frustumCulled = false; scene.add(O.glow);
+      for (i = 0; i < 6; i++) {
+        ln = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(8 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+        ln.frustumCulled = false; ln.visible = false; scene.add(ln); O.lines.push(ln);
+      }
+    }
+    O.ramp = ramp; O.ph += (1.5 + ramp * ramp * 11) * dt; k = (O.ph % 1) < 0.5 ? 1 : 0.12;
+    O.glow.position.set(G.x, G.y + 0.9, G.z); O.glow.scale.set(0.75, 1.05, 0.75); O.glow.material.opacity = k * (0.08 + 0.42 * ramp) * (ramp > 0 ? 1 : 0);
+    if (G.eyeMat) G.eyeMat.color.setHex(k > 0.5 ? 0xff3030 : 0x330000);
+    if (ramp > 0 && Math.random() < dt * (6 + 44 * ramp)) { a = Math.random() * 6.2832; fxSpawn(G.x + Math.cos(a) * 0.3, G.y + 0.3 + Math.random() * 1.3, G.z + Math.sin(a) * 0.3, Math.cos(a) * (1 + Math.random() * 2), 1 + Math.random() * 3.5, Math.sin(a) * (1 + Math.random() * 2), 0.3 + Math.random() * 0.4, 0.07, 0.02, 0xffd860, 1, true); }
+    O.t += dt;
+    if (O.t > 0.06) {
+      O.t = 0; n = ramp > 0 ? 1 + Math.floor(ramp * 5.99) : 0;
+      for (i = 0; i < O.lines.length; i++) {
+        ln = O.lines[i]; ln.visible = i < n; if (!ln.visible) continue;
+        ps = ln.geometry.attributes.position.array; sx = G.x + (Math.random() - 0.5) * 0.5; sy = G.y + 0.3 + Math.random() * 1.3; sz = G.z + (Math.random() - 0.5) * 0.5;
+        a = Math.random() * 6.2832; e = 0.7 + Math.random() * 1.1; vx = Math.cos(a) * e; vz = Math.sin(a) * e; vy = (Math.random() < 0.6 ? G.y + 0.05 - sy : (Math.random() - 0.5) * 1.2);
+        for (j = 0; j < 8; j++) { ps[j * 3] = sx + vx * j / 7 + (j && j < 7 ? (Math.random() - 0.5) * 0.3 : 0); ps[j * 3 + 1] = sy + vy * j / 7 + (j && j < 7 ? (Math.random() - 0.5) * 0.3 : 0); ps[j * 3 + 2] = sz + vz * j / 7 + (j && j < 7 ? (Math.random() - 0.5) * 0.3 : 0); }
+        ln.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+  }
+  function duelOverClear(D) {
+    var O = D.ov, i; if (!O) return;
+    scene.remove(O.glow); O.glow.material.dispose();
+    for (i = 0; i < O.lines.length; i++) { scene.remove(O.lines[i]); O.lines[i].geometry.dispose(); O.lines[i].material.dispose(); }
+    if (O.G && O.G.eyeMat) O.G.eyeMat.color.setHex(O.eye0);
+    D.ov = null;
   }
   function duelExplode(D, who) {
     var G = who === 'me' ? bot : D.fg, parts, i, o, par, c, a, sp, k;
@@ -9032,13 +9069,29 @@ window.startMap = function (RAW, AUTH) {
       duelBars();
       if (D.me.hp <= 0 || D.foe.hp <= 0 || left <= 0) {
         win = D.foe.hp <= 0 ? true : D.me.hp <= 0 ? false : (D.me.hp + D.me.sh >= D.foe.hp + D.foe.sh);
-        D.win = win; D.ph = 'end'; D.tb = now; D.te = now + (win ? 9 : 5.4); D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
+        D.win = win; D.ph = 'end'; D.tb = now; D.te = now + 10 + (win ? 8.15 : 4.55); D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
         D.tgt = null;
       }
     } else if (D.ph === 'end') {
-      var el2 = now - D.tb, LG = D.loser === 'me' ? b : F;
-      if (!D.boomed) { LG.g.visible = el2 < 0.85 ? (Math.floor(el2 * 14) % 2 === 0) : false; if (el2 >= 0.85) { D.boomed = true; duelExplode(D, D.loser); if (D.loser === 'foe') duelInspectGo(D); } }
-      if (D.boomed && !D.banShown && el2 >= 2.2) { D.banShown = true; duelBanner(D.win ? '¡GANASTE!' : 'PERDISTE', !D.win); }
+      var el2 = now - D.tb, LG = D.loser === 'me' ? b : F, WG = D.loser === 'me' ? F : b, BOOM = 10;
+      if (!D.boomed) { /* final dramático: el ganador se acerca, el perdedor se sobrecarga (rojo, chispas, rayos) y recibe el tiro de gracia */
+        var ldx = LG.x - WG.x, ldz = LG.z - WG.z, ld = Math.hypot(ldx, ldz) || 1, wyaw = Math.atan2(ldx, ldz), apx, apz, apS;
+        if (D.loser === 'me') {
+          if (ld > 4.5 && el2 < 6.5) { apx = WG.x + ldx / ld * 2.2 * dt; apz = WG.z + ldz / ld * 2.2 * dt; if (botFree(apx, apz)) { WG.x = apx; WG.z = apz; } }
+          WG.y = botGround(WG.x, WG.z); WG.yaw += nAng(wyaw - WG.yaw) * Math.min(1, dt * 6);
+        } else {
+          if (!D.apr) { D.apr = true; apS = botFreeSpot(LG.x - ldx / ld * 4.5, LG.z - ldz / ld * 4.5); if (apS) botSetGoal(apS[0], apS[1], 'patrol'); }
+          if (ld < 5.4 || el2 > 6.5) WG.yaw += nAng(wyaw - WG.yaw) * Math.min(1, dt * 6);
+        }
+        duelOverTick(D, LG, el2, dt);
+        if (el2 >= BOOM - 0.45 && !D.fin) { /* tiro de gracia */
+          D.fin = true; WG.yaw = wyaw;
+          botShoot(bkTmpA.set(WG.x + Math.sin(WG.yaw) * 0.7, WG.y + 0.5, WG.z + Math.cos(WG.yaw) * 0.7), bkTmpB.set(LG.x, LG.y + 0.7, LG.z), WG === F);
+          fxSpawn(LG.x, LG.y + 0.7, LG.z, 0, 0.3, 0, 0.25, 0.3, 1.4, 0xffffff, 0.9, true);
+        }
+        if (el2 >= BOOM) { D.boomed = true; duelOverClear(D); fxSpawn(LG.x, LG.y + 1, LG.z, 0, 0, 0, 0.4, 0.6, 9, 0xffffff, 0.95, true); duelExplode(D, D.loser); if (D.loser === 'foe') duelInspectGo(D); }
+      }
+      if (D.boomed && !D.banShown && el2 >= BOOM + 2.2) { D.banShown = true; duelBanner(D.win ? '¡GANASTE!' : 'PERDISTE', !D.win); }
       if (now >= D.te) {
         duelDebrisClear(D); if (D.bar) D.bar.on = false; duelCoverClear(D); duelBanner(''); stage.classList.remove('duel-on'); document.getElementById('dbar').hidden = true; if (F.g.parent) F.g.parent.remove(F.g); D.fg = null; D.ph = 'out';
         b.tpj = { x: D.rs[0], z: D.rs[1], gx: D.rs[0], gz: D.rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z });
@@ -9046,7 +9099,7 @@ window.startMap = function (RAW, AUTH) {
       }
       spd = 0;
     }
-    window.__duelMus = D.ph === 'out' ? null : { ph: (D.ph === 'fight' || D.ph === 'count' || D.ph === 'end') ? D.ph : 'intro', left: D.ph === 'fight' ? 90 - (now - D.tf) : 99, me: (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax), foe: (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax), win: D.win }; /* música del duelo */
+    window.__duelMus = D.ph === 'out' ? null : { ph: D.ph === 'end' ? (D.boomed ? 'end' : 'over') : (D.ph === 'fight' || D.ph === 'count') ? D.ph : 'intro', ov: D.ov ? D.ov.ramp : 0, left: D.ph === 'fight' ? 90 - (now - D.tf) : 99, me: (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax), foe: (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax), win: D.win }; /* música del duelo */
     if (F && D.ph !== 'out' && !F.dead) {
       var mdx = F.x - (F.px === undefined ? F.x : F.px), mdz = F.z - (F.pz === undefined ? F.z : F.pz), mv = Math.hypot(mdx, mdz) / Math.max(dt, 0.001), moving2 = D.ph === 'fight' && (mv > 0.5 || D.dF || D.jF), va = moving2 ? Math.max(8, Math.min(14, mv * 1.8)) : 0, am2, kf2, la2, sg2, hd2, back2 = false;
       F.px = F.x; F.pz = F.z; F.gk = (F.gk || 0) + ((va > 0 ? 1 : 0) - (F.gk || 0)) * Math.min(1, dt * 8);
