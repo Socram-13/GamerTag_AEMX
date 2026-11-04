@@ -752,6 +752,49 @@ window.startMap = function (RAW, AUTH) {
   var COZ_ISL = [[-86.7275, 20.5927], [-86.7237, 20.5825], [-86.7575, 20.5265], [-86.7705, 20.4956], [-86.816, 20.44], [-86.8299, 20.4381], [-86.9324, 20.312], [-86.9889, 20.2714], [-86.9951, 20.2753], [-87.0217, 20.3395], [-87.0246, 20.3584], [-87.0169, 20.4115], [-86.9256, 20.5526], [-86.8976, 20.5661], [-86.8367, 20.5395], [-86.8116, 20.5535], [-86.7749, 20.5545], [-86.7657, 20.5699]];   /* contorno de la isla en el mapa (lon, lat) */
   function cozInIsl(px, pz) { var c = false, i, j, a, b, ip = cozInIsl.p; if (!ip) ip = cozInIsl.p = COZ_ISL.map(function (q) { var g3 = geo(q[0], q[1]); return [g3.x, g3.z]; }); for (i = 0, j = ip.length - 1; i < ip.length; j = i++) { a = ip[i]; b = ip[j]; if ((a[1] > pz) !== (b[1] > pz) && px < (b[0] - a[0]) * (pz - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
   function cozOff(lx, lz) { return [lx * Math.cos(COZ_R) + lz * Math.sin(COZ_R), -lx * Math.sin(COZ_R) + lz * Math.cos(COZ_R)]; }   /* coordenadas locales de la mansión (x ancho, z frente) → desplazamiento en el mundo */
+  /* Puente Cozumel–continente: eje = eje de la entrada de la mansión (local x=0, hacia el frente). Se calcula al crecer la vegetación (para dejar libre el paso) y se dibuja en buildMansion */
+  var COZ_BP = null, COZ_BW = 3.2;
+  function cozPlan(onL) {
+    if (COZ_BP) return COZ_BP;
+    var g0 = geo(COZ_LL[0], COZ_LL[1]), fx = Math.sin(COZ_R), fz = Math.cos(COZ_R), sA = 9.0, s, x, z, sI = null, sM = null, i, ds = districts || [];
+    for (s = sA; s < 110; s += 0.25) {
+      x = g0.x + fx * s; z = g0.z + fz * s;
+      if (sI === null) { if (!cozInIsl(x, z)) sI = s; }
+      else if (s > sI + 3 && onL(x, z, 0.4)) { sM = s; break; }
+    }
+    if (sI === null || sM === null) { console.warn('Puente AEMX: no se encontró la costa', sI, sM); return null; }
+    var ex = g0.x + fx * (sM + 1.0), ez = g0.z + fz * (sM + 1.0), pts = [], P = null, best = 1e9, k, sg;
+    sg = trailClosest(ex, ez, 120, null);
+    if (sg) P = [sg.px, sg.pz];
+    if (!P) { for (i = 0; i < ds.length; i++) { var dd = Math.hypot(ds[i].cx - ex, ds[i].cz - ez) - ds[i].r; if (dd < best) { best = dd; P = [ds[i].cx + (ex - ds[i].cx) * (ds[i].r + 0.5) / Math.hypot(ds[i].cx - ex, ds[i].cz - ez), ds[i].cz + (ez - ds[i].cz) * (ds[i].r + 0.5) / Math.hypot(ds[i].cx - ex, ds[i].cz - ez)]; } } }
+    if (P) {
+      var d = Math.hypot(P[0] - ex, P[1] - ez), m = Math.max(2, Math.ceil(d / 1.5)), ok = true, a0 = [ex + fx * 4, ez + fz * 4], dir = [P[0] - a0[0], P[1] - a0[1]];
+      /* primero 4 unidades siguiendo el eje del puente y luego recta hacia el sendero, suavizado */
+      pts.push([ex, ez], a0);
+      var d2 = Math.hypot(dir[0], dir[1]), m2 = Math.max(2, Math.ceil(d2 / 1.5));
+      for (k = 1; k <= m2; k++) pts.push([a0[0] + dir[0] * k / m2, a0[1] + dir[1] * k / m2]);
+      for (var it = 0; it < 2; it++) { var np = [pts[0]]; for (k = 0; k < pts.length - 1; k++) { np.push([pts[k][0] * 0.75 + pts[k + 1][0] * 0.25, pts[k][1] * 0.75 + pts[k + 1][1] * 0.25], [pts[k][0] * 0.25 + pts[k + 1][0] * 0.75, pts[k][1] * 0.25 + pts[k + 1][1] * 0.75]); } np.push(pts[pts.length - 1]); pts = np; }
+      for (k = 0; k < pts.length; k++) if (!onL(pts[k][0], pts[k][1], 0.2)) { ok = false; break; }
+      if (!ok) { console.warn('Puente AEMX: el camino al sendero cruza agua; se deja solo el puente'); pts = []; }
+    }
+    COZ_BP = { g0: g0, fx: fx, fz: fz, sA: sA, sI: sI, sM: sM, sB0: sI - 1.2, sB1: sM + 1.2, conn: pts, tgt: P };
+    COZ_BP.hAt = function (q) {
+      var u, base = 0.06;
+      if (q <= COZ_BP.sB0) return base;
+      if (q >= COZ_BP.sB1) return base;
+      u = (q - COZ_BP.sB0) / (COZ_BP.sB1 - COZ_BP.sB0);
+      return base + 1.1 * Math.pow(Math.sin(Math.PI * u), 0.85);
+    };
+    COZ_BP.on = function (px, pz) {
+      var dx = px - g0.x, dz = pz - g0.z, q = dx * fx + dz * fz, lt = dx * fz - dz * fx;
+      return q >= COZ_BP.sB0 && q <= COZ_BP.sB1 && Math.abs(lt) < COZ_BW / 2 - 0.2;
+    };
+    /* el trazado entra en la red de senderos: la vegetación lo evita y los robots lo reconocen */
+    for (s = sA; s < sM + 1.0; s += 2) trailAdd(g0.x + fx * s, g0.z + fz * s, g0.x + fx * Math.min(s + 2, sM + 1.0), g0.z + fz * Math.min(s + 2, sM + 1.0), false);
+    for (k = 0; k < pts.length - 1; k++) trailAdd(pts[k][0], pts[k][1], pts[k + 1][0], pts[k + 1][1], false);
+    if (COZ_G) { try { buildCozBridge(); } catch (e) { console.warn('No se pudo crear el puente AEMX', e); } }   /* la mansión se crea antes que la vegetación: el puente se dibuja cuando ya hay plan */
+    return COZ_BP;
+  }
   var invLock = null;
   function invOut(x, z) {
     var L = invLock, r, m, a, q, ins = false;
@@ -2834,6 +2877,7 @@ window.startMap = function (RAW, AUTH) {
       return bestIn && minD >= (me === undefined ? 0.9 : me);
     }
 
+    try { cozPlan(onLand); } catch (e) { console.warn('Puente AEMX: error al planear', e); }
     var SAND_W = 7;
     var coastAng = 0, sandSpots = [], lastHexSand = false;
     function coastal(x, z, edge, lim) {
@@ -4923,8 +4967,8 @@ function buildBaseAEMX(){
     [-1,1].forEach(function(sx){ box(.3,.85,RD-.2,mWall,sx*17.8,1.32,RC); box(.3,.1,RD,mWall2,sx*17.8,1.78,RC); });
   })();
   /* logo AEMX flotando sobre el domo */
-  var LG=buildLogoAEMX({size:1.7}); LG.group.userData.noMerge=true; LG.group.position.set(FX,4.1,FZZ); B.add(LG.group);
-  var beam=cyl(1.5,.5,2.5,mBeam,FX,2.8,FZZ,20);   // haz desde el pedestal
+  var LG=buildLogoAEMX({size:2.2}); LG.group.userData.noMerge=true; LG.group.position.set(FX,4.7,FZZ); B.add(LG.group);
+  var beam=cyl(1.5,.5,3.1,mBeam,FX,3.1,FZZ,20);   // haz desde el pedestal
   var baseY=LG.group.position.y, t=0, sway=true;
   var out={group:B, logo:LG, sway:true,
     night:function(n){ mWin.emissiveIntensity=n?1.6:.35; mGlass.emissiveIntensity=n?1.2:.5; },
@@ -4936,12 +4980,51 @@ function buildBaseAEMX(){
   return out;
 }
 
+  function buildCozBridge() {
+    var P = COZ_BP; if (!P || P.built) return;
+    P.built = true; window.__cozBP = P;
+    var G = new THREE.Group(), BW = COZ_BW, i, s, h0, h1, ds = 1, mAsf = aemxMat({ color: 0x2d3036 }), mCurb = aemxMat({ color: 0xb9b5a6 }), mRail = aemxMat({ color: 0x9aa4ad, metalness: .5, roughness: .4 }), mPier = aemxMat({ color: 0xa9a699 }),
+      mDash = aemxMat({ color: 0xf2d04a, emissive: 0xf2d04a, emissiveIntensity: .3 }), mLamp = aemxMat({ color: 0x3ee6ff, emissive: 0x3ee6ff, emissiveIntensity: 1.6 });
+    function bx(w, h, d, m, x, y, z, rx) { var o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); if (rx) o.rotation.x = rx; G.add(o); return o; }
+    for (s = P.sA; s < P.sB1; s += ds) {
+      var s1 = Math.min(s + ds, P.sB1); h0 = P.hAt(s); h1 = P.hAt(s1);
+      var len = Math.hypot(s1 - s, h1 - h0) + 0.03, cs = (s + s1) / 2, cy = (h0 + h1) / 2, pit = -Math.atan2(h1 - h0, s1 - s), water = s >= P.sB0 - 0.01 && s1 <= P.sB1 + 0.01;
+      bx(BW, 0.3, len, mAsf, 0, cy - 0.15, cs, pit);
+      if (Math.floor((s - P.sA) / ds) % 3 === 0) bx(0.12, 0.03, 1.1, mDash, 0, cy + 0.015, cs, pit);
+      if (water) {
+        [-1, 1].forEach(function (sx) {
+          bx(0.3, 0.3, len, mCurb, sx * (BW / 2 + 0.05), cy + 0.0, cs, pit);
+          bx(0.1, 0.1, len, mRail, sx * (BW / 2 + 0.05), cy + 0.95, cs, pit);
+          bx(0.07, 0.07, len, mRail, sx * (BW / 2 + 0.05), cy + 0.55, cs, pit);
+        });
+        if (Math.round(s - P.sA) % 2 === 0) [-1, 1].forEach(function (sx) {
+          bx(0.14, 1.0, 0.14, mRail, sx * (BW / 2 + 0.05), h0 + 0.5, s);
+          if (Math.round(s - P.sA) % 4 === 0) bx(0.2, 0.2, 0.2, mLamp, sx * (BW / 2 + 0.05), h0 + 1.1, s);
+        });
+        if (Math.round(s - P.sA) % 5 === 0 && h0 > 0.4) bx(BW - 0.5, h0 + 2.2, 0.8, mPier, 0, (h0 - 0.3 - 2.5) / 2, s);
+      }
+    }
+    aemxMerge(G);
+    G.position.set(P.g0.x, 0, P.g0.z); G.rotation.y = COZ_R;
+    G.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
+    scene.add(G);
+    /* camino del extremo continental hasta la red de senderos (mismo aspecto que los senderos) */
+    if (P.conn.length > 1) {
+      var rg = mulberry32(991), bMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -0.8, polygonOffsetUnits: -0.8 }),
+        tMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1.2, polygonOffsetUnits: -1.2 }),
+        mk = function (col) { return new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.28, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2.4, polygonOffsetUnits: -2.4 }); }, mw = BW / 2 - 0.32, L = [P.conn];
+      var ms = [new THREE.Mesh(trailRibbon(L, BW + 0.6, 0.008, 'grass', 0.05, rg), bMat), new THREE.Mesh(trailRibbon(L, BW, 0.012, 'soil', 0.05, rg), tMat),
+        new THREE.Mesh(trailMarks(L, mw, 0.1, 0.016, false), mk(0xf2f2ee)), new THREE.Mesh(trailMarks(L, -mw, 0.1, 0.016, false), mk(0xf2f2ee)), new THREE.Mesh(trailMarks(L, 0, 0.13, 0.016, true), mk(0xf2d04a))];
+      ms.forEach(function (mm) { mm.raycast = function () {}; mm.frustumCulled = false; scene.add(mm); });
+    }
+  }
   function buildMansion() {
     var g0 = geo(COZ_LL[0], COZ_LL[1]), y0 = Math.max(0, terrainH(g0.x, g0.z)) + 0.03, A = buildBaseAEMX(), outer = new THREE.Group(), i, j;
     aemxMerge(A.group); aemxMerge(A.logo.ring);
     A.group.position.z = 1.5; outer.add(A.group); outer.scale.setScalar(COZ_S); outer.rotation.y = COZ_R; outer.position.set(g0.x, y0, g0.z);
     outer.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
     scene.add(outer); COZ_G = outer;
+    try { buildCozBridge(); } catch (e) { console.warn('No se pudo crear el puente AEMX', e); }
     for (i = -3; i <= 3; i++) for (j = -2; j <= 2; j++) { var wo = cozOff(i * 6.4 * COZ_S, j * 6.4 * COZ_S + 0.9); monBlk.push({ x: g0.x + wo[0], z: g0.z + wo[1], r: 4.6 * COZ_S }); }
     COZ_D = { name: 'Sede AEMX', cx: g0.x, cz: g0.z, r: 18, list: [{}], coz: true };
     var e = document.createElement('div'); e.className = 'dist'; e.setAttribute('role', 'button'); e.tabIndex = 0; e.addEventListener('click', function () { flyToDistrict(COZ_D); }); e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') flyToDistrict(COZ_D); }); e.appendChild(document.createTextNode('Sede AEMX'));
@@ -8325,6 +8408,7 @@ function buildBaseAEMX(){
 
   function botGround(x, z) {
     var h = Math.max(0, terrainH(x, z)), i, j, d, c, dx, dz;
+    if (COZ_BP && COZ_BP.on(x, z)) return COZ_BP.hAt((x - COZ_BP.g0.x) * COZ_BP.fx + (z - COZ_BP.g0.z) * COZ_BP.fz);
     for (i = 0; i < districts.length; i++) {
       d = districts[i];
       if (Math.abs(x - d.cx) > d.r + 12 || Math.abs(z - d.cz) > d.r + 12) continue;
@@ -8377,6 +8461,7 @@ function buildBaseAEMX(){
     return v;
   }
   function botFreeS(x, z) {
+    if (COZ_BP && COZ_BP.on(x, z)) return true;
     for (var mbi = 0; mbi < monBlk.length; mbi++) if (Math.hypot(x - monBlk[mbi].x, z - monBlk[mbi].z) < monBlk[mbi].r) return false;
     if (landAt && !(landAt(x, z) && landAt(x + 0.5, z) && landAt(x - 0.5, z) && landAt(x, z + 0.5) && landAt(x, z - 0.5))) return false;
     if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false;
