@@ -9069,7 +9069,7 @@ window.startMap = function (RAW, AUTH) {
       duelBars();
       if (D.me.hp <= 0 || D.foe.hp <= 0 || left <= 0) {
         win = D.foe.hp <= 0 ? true : D.me.hp <= 0 ? false : (D.me.hp + D.me.sh >= D.foe.hp + D.foe.sh);
-        D.win = win; D.ph = 'end'; D.tb = now; D.apr = false; D.fin = false; if (!win) { D.rg = null; D.dR = null; D.jR = null; D.insp = false; } D.te = now + 10 + (win ? 8.15 : 4.55); D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
+        D.win = win; D.ph = 'end'; D.tb = now; D.apr = false; D.fin = false; D.rg = null; D.dR = null; D.jR = null; D.insp = false; D.aimT = null; D.te = now + 10 + (win ? 8.15 : 4.55); D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
         D.tgt = null;
       }
     } else if (D.ph === 'end') {
@@ -9077,10 +9077,19 @@ window.startMap = function (RAW, AUTH) {
       if (!D.boomed) { /* final dramático: el ganador se acerca, el perdedor se sobrecarga (rojo, chispas, rayos) y recibe el tiro de gracia */
         var ldx = LG.x - WG.x, ldz = LG.z - WG.z, ld = Math.hypot(ldx, ldz) || 1, wyaw = Math.atan2(ldx, ldz), apx, apz, apS;
         if (D.loser === 'me') {
-          if (ld > 4.5 && el2 < 6.5) { apx = WG.x + ldx / ld * 3.6 * dt; apz = WG.z + ldz / ld * 3.6 * dt; if (botFree(apx, apz)) { WG.x = apx; WG.z = apz; } }
+          if (ld > 2.8 && el2 < 9) { apx = WG.x + ldx / ld * 4.4 * dt; apz = WG.z + ldz / ld * 4.4 * dt; if (botFree(apx, apz)) { WG.x = apx; WG.z = apz; } }
           WG.y = botGround(WG.x, WG.z); WG.yaw += nAng(wyaw - WG.yaw) * Math.min(1, dt * 6);
         } else {
-          if (!D.apr) { D.apr = true; duelInspectGo(D, 4.6); } /* tu robot camina hacia el rival antes de rematarlo */
+          /* tu robot camina directo hacia el rival, apuntándole, hasta quedar muy cerca */
+          D.aimT = D.aimT || { x: 0, y: 0, z: 0 }; D.aimT.x = LG.x; D.aimT.y = LG.y + 0.8; D.aimT.z = LG.z;
+          WG.yaw += nAng(wyaw - WG.yaw) * Math.min(1, dt * 10); WG.aimYaw = WG.yaw;
+          if (ld > 2.8 && el2 < 9) {
+            apx = WG.x + ldx / ld * 4.4 * dt; apz = WG.z + ldz / ld * 4.4 * dt;
+            if (!botFree(apx, apz)) { apx = WG.x + (ldx + ldz * 0.8) / ld * 4.4 * dt; apz = WG.z + (ldz - ldx * 0.8) / ld * 4.4 * dt; }
+            if (!botFree(apx, apz)) { apx = WG.x + (ldx - ldz * 0.8) / ld * 4.4 * dt; apz = WG.z + (ldz + ldx * 0.8) / ld * 4.4 * dt; }
+            if (botFree(apx, apz)) { WG.x = apx; WG.z = apz; WG.y = botGround(apx, apz); WG.v += (4.4 - WG.v) * Math.min(1, dt * 8); } else WG.v *= Math.max(0, 1 - dt * 8);
+          } else WG.v *= Math.max(0, 1 - dt * 8);
+          WG.bwd = 0;
         }
         duelOverTick(D, LG, el2, dt);
         if (el2 >= BOOM - 0.45 && !D.fin) { /* tiro de gracia */
@@ -9088,7 +9097,7 @@ window.startMap = function (RAW, AUTH) {
           botShoot(bkTmpA.set(WG.x + Math.sin(WG.yaw) * 0.7, WG.y + 0.5, WG.z + Math.cos(WG.yaw) * 0.7), bkTmpB.set(LG.x, LG.y + 0.7, LG.z), WG === F);
           fxSpawn(LG.x, LG.y + 0.7, LG.z, 0, 0.3, 0, 0.25, 0.3, 1.4, 0xffffff, 0.9, true);
         }
-        if (el2 >= BOOM) { D.boomed = true; duelOverClear(D); fxSpawn(LG.x, LG.y + 1, LG.z, 0, 0, 0, 0.4, 0.6, 9, 0xffffff, 0.95, true); duelExplode(D, D.loser); if (D.loser === 'foe') duelInspectGo(D); }
+        if (el2 >= BOOM) { D.boomed = true; D.aimT = null; duelOverClear(D); fxSpawn(LG.x, LG.y + 1, LG.z, 0, 0, 0, 0.4, 0.6, 9, 0xffffff, 0.95, true); duelExplode(D, D.loser); if (D.loser === 'foe') duelInspectGo(D); }
       }
       if (D.boomed && !D.banShown && el2 >= BOOM + 2.2) { D.banShown = true; duelBanner(D.win ? '¡GANASTE!' : 'PERDISTE', !D.win); }
       if (now >= D.te) {
@@ -9570,6 +9579,7 @@ window.startMap = function (RAW, AUTH) {
 
     b.trk = null;
     if (!HFL && ufo && ufo.state === 'crash' && !thr && (b.mode === 'walk' || b.mode === 'perch') && Math.hypot(ufo.g.position.x - b.x, ufo.g.position.z - b.z) < 450) b.trk = ufo.g.position;
+    if (DUEL && DUEL.aimT && DUEL.ph === 'end' && !DUEL.boomed) b.trk = DUEL.aimT; /* final del duelo: el rifle apunta al rival */
     if (b.vilWatch) {
       if (now >= b.vilWatch || thr || HFL) { b.vilWatch = 0; b.vilTour = null; b.idle = 0.3; }
       else if (b.mode === 'walk') { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; b.v *= Math.max(0, 1 - dt * 5); if (VILD && VILD.sx !== undefined) b.yaw += nAng(Math.atan2(VILD.sx - b.x, VILD.sz - b.z) - b.yaw) * Math.min(1, dt * 3); }
@@ -9585,7 +9595,7 @@ window.startMap = function (RAW, AUTH) {
         }
       }
     }
-    if (b.trk && b.mode === 'walk') { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; b.v *= Math.max(0, 1 - dt * 5); }
+    if (b.trk && b.mode === 'walk') { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; if (!(DUEL && DUEL.aimT)) b.v *= Math.max(0, 1 - dt * 5); }
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
     b.alert = thr && d3 <= botRng() + 25;
     b.sameCity = false;
