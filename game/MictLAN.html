@@ -766,7 +766,14 @@ window.startMap = function (RAW, AUTH) {
     var ex = g0.x + fx * (sM + 1.0), ez = g0.z + fz * (sM + 1.0), pts = [], P = null, best = 1e9, k, sg;
     sg = trailClosest(ex, ez, 120, null);
     if (sg) P = [sg.px, sg.pz];
-    if (!P) { for (i = 0; i < ds.length; i++) { var dd = Math.hypot(ds[i].cx - ex, ds[i].cz - ez) - ds[i].r; if (dd < best) { best = dd; P = [ds[i].cx + (ex - ds[i].cx) * (ds[i].r + 0.5) / Math.hypot(ds[i].cx - ex, ds[i].cz - ez), ds[i].cz + (ez - ds[i].cz) * (ds[i].r + 0.5) / Math.hypot(ds[i].cx - ex, ds[i].cz - ez)]; } } }
+    var ringJ = null;
+    if (!P) { /* sin sendero cerca: entra por el anillo de la ciudad más cercana, igual que los senderos (se corta en el borde exterior del anillo y se abre un hueco en sus líneas) */
+      var bi = -1, c0, c1; for (i = 0; i < ds.length; i++) { var dd = Math.hypot(ds[i].cx - ex, ds[i].cz - ez) - ds[i].r; if (dd < best) { best = dd; bi = i; } }
+      if (bi >= 0) {
+        var dc = ds[bi], RW = TRAIL_W * 1.35, rt = dc.r + 2 + RW / 2 - 0.3, ux = (ex + fx * 4 - dc.cx), uz = (ez + fz * 4 - dc.cz), ul = Math.hypot(ux, uz);
+        P = [dc.cx + ux / ul * rt, dc.cz + uz / ul * rt]; ringJ = { ux: ux / ul, uz: uz / ul, cx: dc.cx + ux / ul * (dc.r + 2), cz: dc.cz + uz / ul * (dc.r + 2), RW: RW };
+      }
+    }
     if (P) {
       var d = Math.hypot(P[0] - ex, P[1] - ez), m = Math.max(2, Math.ceil(d / 1.5)), ok = true, a0 = [ex + fx * 4, ez + fz * 4], dir = [P[0] - a0[0], P[1] - a0[1]];
       /* primero 4 unidades siguiendo el eje del puente y luego recta hacia el sendero, suavizado */
@@ -777,7 +784,7 @@ window.startMap = function (RAW, AUTH) {
       for (k = 0; k < pts.length; k++) if (!onL(pts[k][0], pts[k][1], 0.2)) { ok = false; break; }
       if (!ok) { console.warn('Puente AEMX: el camino al sendero cruza agua; se deja solo el puente'); pts = []; }
     }
-    COZ_BP = { g0: g0, fx: fx, fz: fz, sA: sA, sI: sI, sM: sM, sB0: sI - 1.2, sB1: sM + 1.2, conn: pts, tgt: P };
+    COZ_BP = { ringJ: ringJ, g0: g0, fx: fx, fz: fz, sA: sA, sI: sI, sM: sM, sB0: sI - 1.2, sB1: sM + 1.2, conn: pts, tgt: P };
     COZ_BP.hAt = function (q) {
       var u, base = 0.06;
       if (q <= COZ_BP.sB0) return base;
@@ -5086,6 +5093,12 @@ function buildBaseAEMX(){
       var ms = [new THREE.Mesh(trailRibbon(L, BW + 0.6, 0.008, 'grass', 0.05, rg), bMat), new THREE.Mesh(trailRibbon(L, BW, 0.012, 'soil', 0.05, rg), tMat),
         new THREE.Mesh(trailMarks(L, mw, 0.1, 0.016, false), mk(0xf2f2ee)), new THREE.Mesh(trailMarks(L, -mw, 0.1, 0.016, false), mk(0xf2f2ee)), new THREE.Mesh(trailMarks([cozResample(P.conn, 3)], 0, 0.13, 0.016, true), mk(0xf2d04a))];
       ms.forEach(function (mm) { mm.raycast = function () {}; mm.frustumCulled = false; scene.add(mm); });
+      if (P.ringJ) { /* hueco en las líneas del anillo donde entra el camino: parche de asfalto sobre ellas */
+        var J = P.ringJ, hl = J.RW / 2 + 0.25, hw2 = BW / 2 + 0.05, vx = -J.uz, vz = J.ux, pos2 = [], cs2 = [[-hl, -hw2], [hl, -hw2], [hl, hw2], [-hl, hw2]], cc = trailColor('soil', J.cx, J.cz), col2 = [];
+        cs2.forEach(function (q) { var qx = J.cx + J.ux * q[0] + vx * q[1], qz = J.cz + J.uz * q[0] + vz * q[1], hh = terrainH(qx, qz); pos2.push(qx, 0.018 + hh + Math.min(0.08, hh * 0.8), qz); col2.push(cc.r, cc.g, cc.b); });
+        var gj = new THREE.BufferGeometry(); gj.setAttribute('position', new THREE.Float32BufferAttribute(pos2, 3)); gj.setAttribute('color', new THREE.Float32BufferAttribute(col2, 3)); gj.setIndex([0, 1, 2, 0, 2, 3]); gj.computeVertexNormals();
+        var mj = new THREE.Mesh(gj, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); mj.raycast = function () {}; mj.frustumCulled = false; scene.add(mj);
+      }
     }
   }
   function buildMansion() {
