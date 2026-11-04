@@ -8545,14 +8545,17 @@ window.startMap = function (RAW, AUTH) {
   var DUEL = null, DEB = [], DUELCAM = null;
   function duelStats(p) {
     function n(c, cap) { return Math.sqrt(Math.min(c || 0, cap) / cap); }
-    var hp = 100 + 200 * n(p.common, 5000), sh = 120 * n(p.rare, 3000);
-    return { hp: hp, hpMax: hp, sh: sh, shMax: sh, aim: 0.35 + 0.45 * n(p.epic, 1500), crit: 0.05 + 0.25 * n(p.legendary, 500) };
+    var hp = 100 + 200 * n(p.common, 5000), sh = 120 * n(p.rare, 3000), aim = 0.35 + 0.45 * n(p.epic, 1500), fa = 1 + (Math.random() * 2 - 1) * 0.3, fh = 1 + (Math.random() * 2 - 1) * 0.3, fm;
+    hp *= fh; aim = Math.min(0.95, aim * fa); fm = (fa + fh) / 2; /* forma del día: ±30% en puntería y vida */
+    return { hp: hp, hpMax: hp, sh: sh, shMax: sh, aim: aim, crit: 0.05 + 0.25 * n(p.legendary, 500), dodge: 0.04 + 0.26 * n(p.epic, 1500), form: fm, formTxt: fm > 1.1 ? 'en forma' : fm < 0.9 ? 'cansado' : 'normal' };
   }
   function duelRoll(A, B, dash) {
-    var hit = Math.random() < A.aim * (dash ? 0.4 : 1), dmg = 3 * (Math.random() < A.crit ? 2 : 1);
+    var hit = Math.random() < A.aim * (dash ? 0.4 : 1), dmg = (2 + Math.floor(Math.random() * 3)) * (Math.random() < A.crit ? 2 : 1);
+    if (hit && Math.random() < (B.dodge || 0)) { B.dodged = true; return false; } /* esquive: ligado a las épicas */
     if (hit) { if (B.sh > 0) { var ab = Math.min(B.sh, dmg); B.sh -= ab; dmg -= ab; } B.hp = Math.max(0, B.hp - dmg); }
     return hit;
   }
+  function duelDodgeFx(G) { fxSpawn(G.x, G.y + 0.8, G.z, 0, 0.3, 0, 0.3, 0.4, 1.8, 0x8fe8ff, 0.75, true); fxSpawn(G.x, G.y + 0.8, G.z, 0, 0.5, 0, 0.22, 0.15, 0.9, 0xffffff, 0.9, true); }
   function duelBanner(t, lose) { var e = document.getElementById('dres'); if (!t) { e.hidden = true; return; } e.hidden = false; e.textContent = t; e.className = lose ? 'lose' : ''; }
   function duelClear() {
     var D = DUEL; if (!D) return;
@@ -9042,6 +9045,7 @@ window.startMap = function (RAW, AUTH) {
   function duelRobotShot() {
     var D = DUEL, F = D.fg; if (D.ph !== 'fight' || !F) return;
     if (!duelBlocked(bot.x, bot.y + 0.5, bot.z, F.x, F.y + 0.45, F.z) && duelRoll(D.me, D.foe, !!(D.dF || D.jF))) fxSpawn(F.x, F.y + 0.45, F.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
+    else if (D.foe.dodged) { D.foe.dodged = false; duelDodgeFx(F); }
   }
   function duelTick(dt, now) {
     var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
@@ -9052,7 +9056,7 @@ window.startMap = function (RAW, AUTH) {
     if (D.ph === 'in') {
       if (!b.tpj) {
         duelSpawnFoe(); D.ph = 'intro'; D.ti = now + 3.4; D.tc = 0;
-        document.getElementById('v-me').textContent = '' + (MYP.name || 'tú'); document.getElementById('v-foe').textContent = '' + D.p.name; document.getElementById('dvs').hidden = false;
+        document.getElementById('v-me').textContent = '' + (MYP.name || 'tú') + ' · ' + D.me.formTxt; document.getElementById('v-foe').textContent = '' + D.p.name + ' · ' + D.foe.formTxt; document.getElementById('dvs').hidden = false;
         DUELCAM = { r: 4, dir: -1, until: now + 3.5 };
       }
       return;
@@ -9097,12 +9101,13 @@ window.startMap = function (RAW, AUTH) {
         tg = bkTmpB.set(b.x, b.y + 0.45, b.z);
         if (duelBlocked(mz.x, mz.y, mz.z, tg.x, tg.y, tg.z)) D.blk = (D.blk || 0) + 1;
         if (!duelBlocked(mz.x, mz.y, mz.z, tg.x, tg.y, tg.z) && duelRoll(D.foe, D.me, !!(D.dR || D.jR))) fxSpawn(b.x, b.y + 0.45, b.z, 0, 0.4, 0, 0.3, 0.18, 0.7, 0xff6a6a, 0.85, true);
-        else { tg.x += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.8); tg.y += 0.2 + Math.random() * 0.5; }
+        else { if (D.me.dodged) { D.me.dodged = false; duelDodgeFx(b); } tg.x += (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.8); tg.y += 0.2 + Math.random() * 0.5; }
         botShoot(mz, tg, true);
       }
       duelBars();
       if (D.me.hp <= 0 || D.foe.hp <= 0 || left <= 0) {
-        win = D.foe.hp <= 0 ? true : D.me.hp <= 0 ? false : (D.me.hp + D.me.sh >= D.foe.hp + D.foe.sh);
+        var rM = (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax), rF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax);
+        win = (D.foe.hp <= 0 && D.me.hp <= 0) ? Math.random() < 0.5 : D.foe.hp <= 0 ? true : D.me.hp <= 0 ? false : (rM === rF ? Math.random() < 0.5 : rM > rF); /* gana quien conserve más porcentaje de vida; el empate se sortea */
         D.win = win; D.ph = 'end'; D.tb = now; D.apr = false; D.fin = false; D.rg = null; D.dR = null; D.jR = null; D.insp = false; D.aimT = null; D.te = now + 10 + (win ? 8.15 : 4.55); D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
         D.tgt = null;
       }
@@ -10317,7 +10322,7 @@ window.startMap = function (RAW, AUTH) {
       if (canShoot && b.fireT <= 0) {
         botShoot(bkMuz, b.alienT ? pred : U);
         b.fireT = b.alienT ? 0.35 : 0.12;
-        if (DUEL) { duelRobotShot(); b.burstN = (b.burstN || 0) + 1; if (b.burstN >= 3) { b.burstN = 0; b.fireT = 0.8; } else b.fireT = 0.13; if (b.burstN === 1 && DUEL.fg && !DUEL.fg.burstN) DUEL.fg.fireT = 0.3; }
+        if (DUEL) { duelRobotShot(); b.burstN = (b.burstN || 0) + 1; if (b.burstN >= 3) { b.burstN = 0; b.fireT = 0.8; } else b.fireT = 0.13; if (b.burstN === 1 && DUEL.fg && !DUEL.fg.burstN) DUEL.fg.fireT = 0.05; }
       }
     }
     botBolts(dt);
