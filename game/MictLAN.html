@@ -8950,6 +8950,8 @@ window.startMap = function (RAW, AUTH) {
     var O = D.ov, ramp = Math.max(0, Math.min(1, (el - 0.4) / 8.6)), k, i, n, a, e, j, m, B, pts, sx, sy, sz, ex, ey, ez, mx, my, mz, bp, jt;
     if (!O) {
       O = D.ov = { red: new THREE.MeshBasicMaterial({ color: 0xff2010 }), meshes: [], bolts: [], eye0: G.eyeMat.color.getHex(), ph: 0, t: 0, G: G, ramp: 0, on: -1, coreM: new THREE.MeshBasicMaterial({ color: 0xffffff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 1 }), glowM: new THREE.MeshBasicMaterial({ color: 0x6fb8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.45 }) };
+      O.sh = []; [G.legs && G.legs[0] && G.legs[0].th, G.legs && G.legs[1] && G.legs[1].th, G.arms && G.arms[0] && G.arms[0].sh, G.arms && G.arms[1] && G.arms[1].sh, G.head, G.rifle, G.shell].forEach(function (pp, ii) { if (pp && pp.position) O.sh.push({ o: pp, b: pp.position.clone(), bz: pp.rotation ? pp.rotation.z : 0, a: 0.6 + Math.random() * 0.8, f: 0.7 + Math.random() * 0.8 }); });
+      O.wp = new THREE.Vector3();
       G.g.traverse(function (o) { if (o.isMesh && o.visible && o.material && !o.material.transparent && o.material !== G.eyeMat && o.material.blending !== THREE.AdditiveBlending) O.meshes.push({ m: o, mat: o.material }); });
       for (i = 0; i < 6; i++) {
         B = { segs: [], t: 0 };
@@ -8965,6 +8967,11 @@ window.startMap = function (RAW, AUTH) {
       O.on = k; for (i = 0; i < O.meshes.length; i++) O.meshes[i].m.material = k ? O.red : O.meshes[i].mat;
     }
     if (G.eyeMat) G.eyeMat.color.setHex(k ? 0xffffff : 0x330000);
+    for (i = 0; i < O.sh.length; i++) { /* cada pieza vibra por su cuenta, cada vez más fuerte: presión acumulándose */
+      m = O.sh[i]; e = ramp * ramp * 0.07 * m.a * (1 + 0.6 * Math.sin(O.ph * 5 * m.f + i * 2.1));
+      m.o.position.set(m.b.x + (Math.random() - 0.5) * 2 * e, m.b.y + (Math.random() - 0.5) * 2 * e, m.b.z + (Math.random() - 0.5) * 2 * e);
+      if (m.o.rotation && ramp > 0.3) m.o.rotation.z = m.bz + (Math.random() - 0.5) * ramp * 0.16;
+    }
     if (ramp > 0 && Math.random() < dt * (6 + 44 * ramp)) { a = Math.random() * 6.2832; fxSpawn(G.x + Math.cos(a) * 0.3, G.y + 0.3 + Math.random() * 1.3, G.z + Math.sin(a) * 0.3, Math.cos(a) * (1 + Math.random() * 2), 1 + Math.random() * 3.5, Math.sin(a) * (1 + Math.random() * 2), 0.3 + Math.random() * 0.4, 0.07, 0.02, 0xffd860, 1, true); }
     O.t += dt;
     if (O.t > 0.055) { /* rayos: zigzag con ramificación, del cuerpo al suelo o al aire */
@@ -8972,9 +8979,9 @@ window.startMap = function (RAW, AUTH) {
       for (i = 0; i < O.bolts.length; i++) {
         B = O.bolts[i];
         if (i >= n || Math.random() < 0.25) { duelBoltSet(B, [], 0); continue; }
-        sx = G.x + (Math.random() - 0.5) * 0.5; sy = G.y + 0.2 + Math.random() * 1.5; sz = G.z + (Math.random() - 0.5) * 0.5;
-        a = Math.random() * 6.2832; e = 0.9 + Math.random() * 1.6;
-        ex = sx + Math.cos(a) * e; ez = sz + Math.sin(a) * e; ey = Math.random() < 0.6 ? G.y + 0.05 : sy + (Math.random() - 0.3) * 1.6;
+        if (O.meshes.length) { O.meshes[(Math.random() * O.meshes.length) | 0].m.getWorldPosition(O.wp); sx = O.wp.x; sy = O.wp.y; sz = O.wp.z; } else { sx = G.x; sy = G.y + 0.9; sz = G.z; }
+        if (Math.random() < 0.3 && O.meshes.length) { O.meshes[(Math.random() * O.meshes.length) | 0].m.getWorldPosition(O.wp); ex = O.wp.x; ey = O.wp.y; ez = O.wp.z; } /* arco entre dos piezas del cuerpo */
+        else { a = Math.atan2(sz - G.z, sx - G.x) + (Math.random() - 0.5) * 1.4; e = 0.7 + Math.random() * 1.5; ex = sx + Math.cos(a) * e; ez = sz + Math.sin(a) * e; ey = Math.random() < 0.5 ? G.y + 0.05 : sy + (Math.random() - 0.3) * 1.4; }
         pts = [new THREE.Vector3(sx, sy, sz)];
         for (j = 1; j < 8; j++) { m = j / 7; jt = (j < 7 ? 0.28 : 0); pts.push(new THREE.Vector3(sx + (ex - sx) * m + (Math.random() - 0.5) * jt, sy + (ey - sy) * m + (Math.random() - 0.5) * jt, sz + (ez - sz) * m + (Math.random() - 0.5) * jt)); }
         bp = pts[3]; /* rama que sale a la mitad */
@@ -8990,6 +8997,7 @@ window.startMap = function (RAW, AUTH) {
   function duelOverClear(D) {
     var O = D.ov, i, j, B; if (!O) return;
     for (i = 0; i < O.meshes.length; i++) O.meshes[i].m.material = O.meshes[i].mat;
+    for (i = 0; i < O.sh.length; i++) { O.sh[i].o.position.copy(O.sh[i].b); if (O.sh[i].o.rotation) O.sh[i].o.rotation.z = O.sh[i].bz; }
     for (i = 0; i < O.bolts.length; i++) { B = O.bolts[i]; for (j = 0; j < B.segs.length; j++) { scene.remove(B.segs[j].c); scene.remove(B.segs[j].g); } }
     O.red.dispose(); O.coreM.dispose(); O.glowM.dispose();
     if (O.G && O.G.eyeMat) O.G.eyeMat.color.setHex(O.eye0);
