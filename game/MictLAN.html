@@ -5047,7 +5047,7 @@ function buildBaseAEMX(){
       if (P && P.sM) {
         if (P.conn.length > 1) { var rs = cozResample(P.conn, 1.5), n0 = Math.min(rs.length - 1, 10); for (i = n0; i >= 0; i--) W.push(rs[i]); }
         for (i = P.sM + 1; i >= 10.4; i -= 1.5) W.push([P.g0.x + P.fx * i, P.g0.z + P.fz * i]);
-        W.push([P.g0.x + P.fx * 10.4, P.g0.z + P.fz * 10.4]);
+        [[10.4, 0], [8.2, 0], [6.9, 2.9], [5.4, 3.1], [4.2, 2.0], [3.2, 0]].forEach(function (c) { W.push([P.g0.x + P.fx * c[0] + P.fz * c[1], P.g0.z + P.fz * c[0] - P.fx * c[1]]); });   /* rodea la fuente y se detiene al pie de la escalinata */
         if (W.length > 3) {
           if (!mt) mt = { x: b.x, z: b.z, until: 0 };
           b.x = W[0][0]; b.z = W[0][1]; b.y = botGround(b.x, b.z); b.mode = 'walk'; b.goal = null; b.gtype = ''; b.path = null; b.vy = 0; b.bh = 0; b.bvy = 0;
