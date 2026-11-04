@@ -323,21 +323,53 @@ window.MictlanAudio = function (E) {
       }
       if (st === 0 && bar % 2 === 0) for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, [base, base + 3, base + 4][k]) * (1 + k * 0.004), t0, sd * 17, 0.02, 1.3, mSes.g, 650);
     }
-    var MBOOST = { norte: 0.95, noroeste: 0.8, occidente: 0.95, golfo: 1.05, sur: 0.85, peninsula: 0.85, invasion: 13.5 }; /* nivelan el volumen con la música de Centro */
-    var STY = { invasion: sInv,  norte: sNorte, noroeste: sNoroeste, occidente: sOcc, golfo: sGolfo, sur: sSur, peninsula: sPen };
+    /* ===== Duelo 1 vs 1: tensión (intro/cuenta), combate electrónico agresivo, golpes de inicio y fanfarria de victoria/derrota ===== */
+    MREG.duelo = { root: 33, sc: 'minor', bpm: 148, prog: [0, 0, 5, 3], lp: 900 };
+    var dLast = '', DB = [0, 0, 7, 0, 0, 7, 3, 4], DA = [0, 2, 4, 7, 4, 2];
+    function sDuelo(R, t0, sd, ms) {
+      var D = window.__duelMus || {}, ph = D.ph || 'intro', st = ms % 8, bar = Math.floor(ms / 8), base = R.prog[bar % R.prog.length], k, sw = 0.5 + 0.5 * Math.sin(ms * 0.23);
+      var hot = ph === 'fight' && ((D.left !== undefined && D.left < 20) || Math.min(D.me === undefined ? 1 : D.me, D.foe === undefined ? 1 : D.foe) < 0.3);
+      if (ph !== dLast) {
+        if (ph === 'count') { mNz(t0, 0.07, 600, 2.8, 'bandpass', 1.5); for (k = 0; k < 3; k++) { mTom(t0 + k, 70, 0.32, 0.4); mNote('sawtooth', mFreq(R, -7 + k * 2), t0 + k, 0.5, 0.05, 0.01, mSes.g, 500); } }
+        else if (ph === 'fight') { mTom(t0, 58, 0.55, 0.7); mNz(t0, 0.3, 1800, 0.6, 'lowpass', 0.8); for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, [0, 4, 7][k] + 7) * (1 + k * 0.004), t0, 1.4, 0.05, 0.01, mSes.g, 2400); }
+        else if (ph === 'end') {
+          if (D.win) { for (k = 0; k < 4; k++) mNote('square', mFreq(R, [7, 9, 11, 14][k]), t0 + k * 0.13, 0.5, 0.045, 0.006, mSes.g, 3200); for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, [7, 9, 11][k] + 7), t0 + 0.55, 2.2, 0.04, 0.02, mSes.g, 2600); mTom(t0 + 0.55, 80, 0.4, 0.6); }
+          else { for (k = 0; k < 4; k++) mNote('sawtooth', mFreq(R, [7, 6, 4, 0][k]), t0 + k * 0.45, 1.2, 0.05, 0.02, mSes.g, 700 - k * 120); mNote('sine', 49, t0 + 1.2, 3.5, 0.09, 0.3, mSes.g, 200); }
+        }
+        dLast = ph;
+      }
+      if (ph === 'intro' || ph === 'count') {
+        if (st === 0 || st === 3) mTom(t0, 68, 0.22, 0.32);
+        if (st === 0) mNote('sawtooth', mFreq(R, -7), t0, sd * 8, 0.07, 0.4, mSes.g, 280);
+        if (st === 4 || st === 7) mNote('sine', mFreq(R, 14 + (bar % 3) * 2 + (st === 7 ? 1 : 0)), t0, sd * 2, 0.02, 0.01, mSes.g, 1800);
+      } else if (ph === 'fight') {
+        R.bpm = hot ? 168 : 148;
+        if (st % 2 === 0) mTom(t0, 120, hot ? 0.3 : 0.26, 0.22);
+        if (st === 2 || st === 6) mNz(t0, 0.12, 1900, 0.15, 'bandpass', 0.8);
+        mNote('square', mFreq(R, base - 7 + DB[st]), t0, sd * 0.85, 0.075, 0.004, mSes.g, 220 + 700 * sw);
+        mNote('sawtooth', mFreq(R, base - 14), t0, sd * 0.9, 0.06, 0.004, mSes.g, 160);
+        if (st % 2 === 1) mNz(t0, 0.04, 7500, 0.04, 'highpass');
+        if (hot) mNz(t0 + sd / 2, 0.025, 7500, 0.03, 'highpass');
+        if (hot || st === 0 || st === 3 || st === 5) mNote('sawtooth', mFreq(R, base + 14 + DA[ms % 6]), t0, sd * 0.6, hot ? 0.03 : 0.026, 0.004, mSes.g, hot ? 3400 : 2600);
+        if (st === 0 && bar % 2 === 0) for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, base + [0, 2, 4][k] + 7) * (1 + k * 0.004), t0, sd * 15, 0.02, 0.9, mSes.g, 700);
+        if (st === 0 && bar % 4 === 3) mNote('square', mFreq(R, base + 21), t0, sd * 7, 0.022, 0.05, mSes.g, 1800); /* sirena: remate cada 4 compases */
+      }
+    }
+    var MBOOST = { norte: 0.95, noroeste: 0.8, occidente: 0.95, golfo: 1.05, sur: 0.85, peninsula: 0.85, invasion: 13.5, duelo: 13.5 }; /* nivelan el volumen con la música de Centro */
+    var STY = { duelo: sDuelo, invasion: sInv,  norte: sNorte, noroeste: sNoroeste, occidente: sOcc, golfo: sGolfo, sur: sSur, peninsula: sPen };
     function musicStep(t) {
       var now = ctx.currentTime, key, R, old, inJ;
       if (!on || ctx.state !== 'running') return;
       if (!M) mInit();
       if (t - mCheck > 0.6) {
-        mCheck = t; key = window.__uvx ? 'uvx' : mInvOn() ? 'invasion' : ((typeof E.WX !== "undefined" && E.WX && E.WX.fogAt && E.WX.fogAt(E.camera.position.x, E.camera.position.z)) && !(window.__junkIn && window.__junkIn(E.camera.position.x, E.camera.position.z))) ? 'niebla' : mRegion();
+        mCheck = t; key = window.__uvx ? 'uvx' : window.__duelMus ? 'duelo' : mInvOn() ? 'invasion' : ((typeof E.WX !== "undefined" && E.WX && E.WX.fogAt && E.WX.fogAt(E.camera.position.x, E.camera.position.z)) && !(window.__junkIn && window.__junkIn(E.camera.position.x, E.camera.position.z))) ? 'niebla' : mRegion();
         if (key !== mKey || !mSes) {
           old = mSes; mKey = key; M.out.gain.setTargetAtTime(0.03 * (MBOOST[key] || 0.5), now, 0.5);
           mSes = { g: ctx.createGain() }; mSes.g.gain.value = 0.0001; mSes.g.connect(M.out); mSes.g.gain.setTargetAtTime(1, now, 1.2);
           if (old) { old.g.gain.setTargetAtTime(0.0001, now, 1.2); setTimeout(function () { try { old.g.disconnect(); } catch (e) { } }, 9000); }
           if (key === 'niebla') { mSes.ns = ctx.createBufferSource(); mSes.ns.buffer = noiseBuf; mSes.ns.loop = true; var wf = ctx.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 420; wf.Q.value = 3; var wg = ctx.createGain(); wg.gain.value = 0.05; mSes.ns.connect(wf); wf.connect(wg); wg.connect(mSes.g); mSes.ns.start(); }
           if (old && old.ns) setTimeout(function () { try { old.ns.stop(); } catch (e) { } }, 9000);
-          mNext = now + 0.1; mStep = 0;
+          mNext = now + 0.1; mStep = 0; dLast = '';
         }
         inJ = !!(window.__junkIn && window.__junkIn(E.camera.position.x, E.camera.position.z));
         M.lp.frequency.setTargetAtTime(inJ ? 380 : 14000, now, 0.8);
