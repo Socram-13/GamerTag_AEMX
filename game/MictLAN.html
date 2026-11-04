@@ -8452,6 +8452,7 @@ function buildBaseAEMX(){
   function botGround(x, z) {
     var h = Math.max(0, terrainH(x, z)), i, j, d, c, dx, dz;
     if (COZ_BP && COZ_BP.on(x, z)) return COZ_BP.hAt((x - COZ_BP.g0.x) * COZ_BP.fx + (z - COZ_BP.g0.z) * COZ_BP.fz);
+    if (cozInIsl(x, z)) h = Math.max(h, 0.07);   /* el suelo continuo de Cozumel está ~5-7 cm sobre el terreno base */
     for (i = 0; i < districts.length; i++) {
       d = districts[i];
       if (Math.abs(x - d.cx) > d.r + 12 || Math.abs(z - d.cz) > d.r + 12) continue;
