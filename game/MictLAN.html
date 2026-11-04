@@ -748,7 +748,8 @@ window.startMap = function (RAW, AUTH) {
   var scene = new THREE.Scene();
   var VILD = null, VILT = null, vilReq = null, vilNext = 240, vilN = 0;
   var CHI_LL = [-88.568, 20.683], CHI_D = null, CHI_G = null;
-  var COZ_LL = [-86.90, 20.43], COZ_D = null, COZ_G = null, COZ_S = 0.5;   /* Sede AEMX: centro en Cozumel y escala de la mansión */
+  var COZ_LL = [-86.89948, 20.45847], COZ_R = 4.18879, COZ_D = null, COZ_G = null, COZ_S = 0.5;   /* Sede AEMX: centro en Cozumel (calculado para caber en la isla), giro (240°: la fachada mira al oeste-noroeste, el ancho sigue el eje largo de la isla) y escala */
+  function cozOff(lx, lz) { return [lx * Math.cos(COZ_R) + lz * Math.sin(COZ_R), -lx * Math.sin(COZ_R) + lz * Math.cos(COZ_R)]; }   /* coordenadas locales de la mansión (x ancho, z frente) → desplazamiento en el mundo */
   var invLock = null;
   function invOut(x, z) {
     var L = invLock, r, m, a, q, ins = false;
@@ -2741,11 +2742,12 @@ window.startMap = function (RAW, AUTH) {
     })();
     (function () { /* sin vegetación en la Sede AEMX (Cozumel) */
       var g2 = geo(COZ_LL[0], COZ_LL[1]), bx, bz, kk2;
-      var kz = COZ_S / 0.7, ex = 12 * kz, ez = 16 * kz;   /* la zona libre sigue a la escala de la mansión */
-      for (bx = -ex; bx <= ex; bx += 1.2) for (bz = -ez; bz <= ez; bz += 1.2) {
-        if ((bx / ex) * (bx / ex) + (bz / ez) * (bz / ez) > 1) continue;
-        kk2 = gk(Math.floor((g2.x + bx) / PCELL), Math.floor((g2.z + bz) / PCELL));
-        (placed[kk2] || (placed[kk2] = [])).push([g2.x + bx, g2.z + bz]);
+      var ea = 24 * COZ_S, eb = 19 * COZ_S, ll0, lx, lz, w;   /* zona libre: elipse alineada con la mansión (ancho ea, fondo eb) */
+      for (lx = -ea; lx <= ea; lx += 1.2) for (lz = -eb; lz <= eb; lz += 1.2) {
+        if ((lx / ea) * (lx / ea) + (lz / eb) * (lz / eb) > 1) continue;
+        w = cozOff(lx, lz + 0.9);
+        kk2 = gk(Math.floor((g2.x + w[0]) / PCELL), Math.floor((g2.z + w[1]) / PCELL));
+        (placed[kk2] || (placed[kk2] = [])).push([g2.x + w[0], g2.z + w[1]]);
       }
     })();
     var occGrid = {}, invGrid = {}, invList = [], lastCover = 0, lastHexH = null, A_PAD = HEX_PAD_R * 0.8660254, A_IN = A_PAD - 0.45, A_BAND = HEX_R * 0.8660254 + 0.6;
@@ -4906,10 +4908,10 @@ function buildBaseAEMX(){
   function buildMansion() {
     var g0 = geo(COZ_LL[0], COZ_LL[1]), y0 = Math.max(0, terrainH(g0.x, g0.z)) + 0.03, A = buildBaseAEMX(), outer = new THREE.Group(), i, j;
     aemxMerge(A.group); aemxMerge(A.logo.ring);
-    A.group.position.z = 1.5; outer.add(A.group); outer.scale.setScalar(COZ_S); outer.rotation.y = -Math.PI / 2; outer.position.set(g0.x, y0, g0.z);
+    A.group.position.z = 1.5; outer.add(A.group); outer.scale.setScalar(COZ_S); outer.rotation.y = COZ_R; outer.position.set(g0.x, y0, g0.z);
     outer.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
     scene.add(outer); COZ_G = outer;
-    var kz = COZ_S / 0.7; for (i = -2; i <= 2; i++) for (j = -3; j <= 3; j++) monBlk.push({ x: g0.x + i * 4.5 * kz, z: g0.z + j * 4.5 * kz, r: 3.2 * kz });
+    for (i = -3; i <= 3; i++) for (j = -2; j <= 2; j++) { var wo = cozOff(i * 6.4 * COZ_S, j * 6.4 * COZ_S + 0.9); monBlk.push({ x: g0.x + wo[0], z: g0.z + wo[1], r: 4.6 * COZ_S }); }
     COZ_D = { name: 'Sede AEMX', cx: g0.x, cz: g0.z, r: 18, list: [{}], coz: true };
     var e = document.createElement('div'); e.className = 'dist'; e.setAttribute('role', 'button'); e.tabIndex = 0; e.addEventListener('click', function () { flyToDistrict(COZ_D); }); e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') flyToDistrict(COZ_D); }); e.appendChild(document.createTextNode('Sede AEMX'));
     var sm = document.createElement('small'); sm.textContent = 'Cuartel del clan'; e.appendChild(sm); document.getElementById('labels').appendChild(e);
@@ -4917,13 +4919,13 @@ function buildBaseAEMX(){
     var lt = 0, mt = null;   /* comando "mansion": el robot viaja a la Sede AEMX y, pasado un rato, regresa a su ruta */
     window.__mansGo = function () {
       if (!bot || !COZ_G) return false;
-      var b = bot, cand = [[g0.x - 14, g0.z], [g0.x - 16, g0.z + 4], [g0.x - 16, g0.z - 4], [g0.x - 13, g0.z + 7], [g0.x - 13, g0.z - 7]], i, q = null;
-      for (i = 0; i < cand.length && !q; i++) if (botFree(cand[i][0], cand[i][1])) q = cand[i];
-      if (!q) q = botFreeSpot(g0.x - 14, g0.z);
+      var b = bot, cl = [[13, 2], [-13, 2], [15, 0], [-15, 0], [12, 6], [-12, 6], [17, 0], [-17, 0]], i, q = null, w;
+      for (i = 0; i < cl.length && !q; i++) { w = cozOff(cl[i][0], cl[i][1]); if (botFree(g0.x + w[0], g0.z + w[1])) q = [g0.x + w[0], g0.z + w[1]]; }
+      if (!q) q = botFreeSpot(g0.x + cozOff(13, 2)[0], g0.z + cozOff(13, 2)[1]);
       if (!q) return false;
       if (!mt) mt = { x: b.x, z: b.z, until: 0 };
       b.x = q[0]; b.z = q[1]; b.y = botGround(q[0], q[1]); b.mode = 'walk'; b.goal = null; b.gtype = ''; b.path = null; b.v = 0; b.vy = 0; b.bh = 0; b.bvy = 0;
-      b.ju = null; b.jd = null; b.hop = null; b.air = 0; b.flame = 0; b.kneel = 0; b.yaw = Math.PI / 2; b.aimYaw = b.yaw; b.idle = 1e3;
+      b.ju = null; b.jd = null; b.hop = null; b.air = 0; b.flame = 0; b.kneel = 0; b.yaw = Math.atan2(g0.x - q[0], g0.z - q[1]); b.aimYaw = b.yaw; b.idle = 1e3;
       mt.until = lt + 45; window.__botSayQ = 'Llegué a la Sede AEMX…';
       return true;
     };
