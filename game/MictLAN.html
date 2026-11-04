@@ -8562,7 +8562,7 @@ window.startMap = function (RAW, AUTH) {
     document.getElementById('dvs').hidden = true;
     duelFloorClear(D); duelCoverClear(D);
     if (D.bar) { scene.remove(D.bar.m); D.bar.m.geometry.dispose(); D.bar.m.material.dispose(); D.bar.tex.dispose(); }
-    DUEL = null; document.getElementById('dbar').hidden = true; duelBanner(''); stage.classList.remove('duel-on');
+    DUEL = null; window.__duelMus = null; document.getElementById('dbar').hidden = true; duelBanner(''); stage.classList.remove('duel-on');
   }
   function duelStart(p) {
     var b = bot, g = geo(-110.97, 18.78), sp, sp2, an, rs;
@@ -9046,6 +9046,7 @@ window.startMap = function (RAW, AUTH) {
       }
       spd = 0;
     }
+    window.__duelMus = D.ph === 'out' ? null : { ph: (D.ph === 'fight' || D.ph === 'count' || D.ph === 'end') ? D.ph : 'intro', left: D.ph === 'fight' ? 90 - (now - D.tf) : 99, me: (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax), foe: (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax), win: D.win }; /* música del duelo */
     if (F && D.ph !== 'out' && !F.dead) {
       var mdx = F.x - (F.px === undefined ? F.x : F.px), mdz = F.z - (F.pz === undefined ? F.z : F.pz), mv = Math.hypot(mdx, mdz) / Math.max(dt, 0.001), moving2 = D.ph === 'fight' && (mv > 0.5 || D.dF || D.jF), va = moving2 ? Math.max(8, Math.min(14, mv * 1.8)) : 0, am2, kf2, la2, sg2, hd2, back2 = false;
       F.px = F.x; F.pz = F.z; F.gk = (F.gk || 0) + ((va > 0 ? 1 : 0) - (F.gk || 0)) * Math.min(1, dt * 8);
