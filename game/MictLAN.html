@@ -8936,36 +8936,62 @@ window.startMap = function (RAW, AUTH) {
       p.o.position.copy(p.pos); p.o.rotation.set(p.e.x, p.e.y, p.e.z);
     }
   }
+  function duelBoltSet(B, pts, w) { /* coloca una cadena de segmentos (núcleo blanco + resplandor azul) entre los puntos */
+    var i, s, p0, p1, len;
+    for (i = 0; i < B.segs.length; i++) {
+      s = B.segs[i];
+      if (i >= pts.length - 1) { s.c.visible = false; s.g.visible = false; continue; }
+      p0 = pts[i]; p1 = pts[i + 1]; len = p0.distanceTo(p1) || 0.01;
+      s.c.position.copy(p0).add(p1).multiplyScalar(0.5); s.c.scale.set(w, w, len); s.c.lookAt(p1); s.c.visible = true;
+      s.g.position.copy(s.c.position); s.g.scale.set(w * 3.2, w * 3.2, len); s.g.quaternion.copy(s.c.quaternion); s.g.visible = true;
+    }
+  }
   function duelOverTick(D, G, el, dt) {
-    var O = D.ov, ramp = Math.max(0, Math.min(1, (el - 0.4) / 8.6)), k, i, n, ln, ps, a, e, sx, sy, sz, j, vx, vy, vz;
+    var O = D.ov, ramp = Math.max(0, Math.min(1, (el - 0.4) / 8.6)), k, i, n, a, e, j, m, B, pts, sx, sy, sz, ex, ey, ez, mx, my, mz, bp, jt;
     if (!O) {
-      O = D.ov = { glow: new THREE.Mesh(uSphere, new THREE.MeshBasicMaterial({ color: 0xff1010, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })), lines: [], eye0: G.eyeMat.color.getHex(), ph: 0, t: 0, G: G, ramp: 0 };
-      O.glow.frustumCulled = false; scene.add(O.glow);
+      O = D.ov = { red: new THREE.MeshBasicMaterial({ color: 0xff2010 }), meshes: [], bolts: [], eye0: G.eyeMat.color.getHex(), ph: 0, t: 0, G: G, ramp: 0, on: -1, coreM: new THREE.MeshBasicMaterial({ color: 0xffffff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 1 }), glowM: new THREE.MeshBasicMaterial({ color: 0x6fb8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.45 }) };
+      G.g.traverse(function (o) { if (o.isMesh && o.visible && o.material && !o.material.transparent && o.material !== G.eyeMat && o.material.blending !== THREE.AdditiveBlending) O.meshes.push({ m: o, mat: o.material }); });
       for (i = 0; i < 6; i++) {
-        ln = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(8 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
-        ln.frustumCulled = false; ln.visible = false; scene.add(ln); O.lines.push(ln);
+        B = { segs: [], t: 0 };
+        for (j = 0; j < 12; j++) {
+          B.segs.push({ c: new THREE.Mesh(uBox, O.coreM), g: new THREE.Mesh(uBox, O.glowM) });
+          B.segs[j].c.visible = false; B.segs[j].g.visible = false; B.segs[j].c.frustumCulled = false; B.segs[j].g.frustumCulled = false; noRay(B.segs[j].c); noRay(B.segs[j].g); scene.add(B.segs[j].c); scene.add(B.segs[j].g);
+        }
+        O.bolts.push(B);
       }
     }
-    O.ramp = ramp; O.ph += (1.5 + ramp * ramp * 11) * dt; k = (O.ph % 1) < 0.5 ? 1 : 0.12;
-    O.glow.position.set(G.x, G.y + 0.9, G.z); O.glow.scale.set(0.75, 1.05, 0.75); O.glow.material.opacity = k * (0.08 + 0.42 * ramp) * (ramp > 0 ? 1 : 0);
-    if (G.eyeMat) G.eyeMat.color.setHex(k > 0.5 ? 0xff3030 : 0x330000);
+    O.ramp = ramp; O.ph += (1.5 + ramp * ramp * 11) * dt; k = (O.ph % 1) < 0.5 ? 1 : 0;
+    if (ramp > 0 && k !== O.on) { /* parpadeo: todo el robot pasa de su color a rojo brillante */
+      O.on = k; for (i = 0; i < O.meshes.length; i++) O.meshes[i].m.material = k ? O.red : O.meshes[i].mat;
+    }
+    if (G.eyeMat) G.eyeMat.color.setHex(k ? 0xffffff : 0x330000);
     if (ramp > 0 && Math.random() < dt * (6 + 44 * ramp)) { a = Math.random() * 6.2832; fxSpawn(G.x + Math.cos(a) * 0.3, G.y + 0.3 + Math.random() * 1.3, G.z + Math.sin(a) * 0.3, Math.cos(a) * (1 + Math.random() * 2), 1 + Math.random() * 3.5, Math.sin(a) * (1 + Math.random() * 2), 0.3 + Math.random() * 0.4, 0.07, 0.02, 0xffd860, 1, true); }
     O.t += dt;
-    if (O.t > 0.06) {
-      O.t = 0; n = ramp > 0 ? 1 + Math.floor(ramp * 5.99) : 0;
-      for (i = 0; i < O.lines.length; i++) {
-        ln = O.lines[i]; ln.visible = i < n; if (!ln.visible) continue;
-        ps = ln.geometry.attributes.position.array; sx = G.x + (Math.random() - 0.5) * 0.5; sy = G.y + 0.3 + Math.random() * 1.3; sz = G.z + (Math.random() - 0.5) * 0.5;
-        a = Math.random() * 6.2832; e = 0.7 + Math.random() * 1.1; vx = Math.cos(a) * e; vz = Math.sin(a) * e; vy = (Math.random() < 0.6 ? G.y + 0.05 - sy : (Math.random() - 0.5) * 1.2);
-        for (j = 0; j < 8; j++) { ps[j * 3] = sx + vx * j / 7 + (j && j < 7 ? (Math.random() - 0.5) * 0.3 : 0); ps[j * 3 + 1] = sy + vy * j / 7 + (j && j < 7 ? (Math.random() - 0.5) * 0.3 : 0); ps[j * 3 + 2] = sz + vz * j / 7 + (j && j < 7 ? (Math.random() - 0.5) * 0.3 : 0); }
-        ln.geometry.attributes.position.needsUpdate = true;
+    if (O.t > 0.055) { /* rayos: zigzag con ramificación, del cuerpo al suelo o al aire */
+      O.t = 0; n = ramp > 0 ? 2 + Math.floor(ramp * 3.99) : 0;
+      for (i = 0; i < O.bolts.length; i++) {
+        B = O.bolts[i];
+        if (i >= n || Math.random() < 0.25) { duelBoltSet(B, [], 0); continue; }
+        sx = G.x + (Math.random() - 0.5) * 0.5; sy = G.y + 0.2 + Math.random() * 1.5; sz = G.z + (Math.random() - 0.5) * 0.5;
+        a = Math.random() * 6.2832; e = 0.9 + Math.random() * 1.6;
+        ex = sx + Math.cos(a) * e; ez = sz + Math.sin(a) * e; ey = Math.random() < 0.6 ? G.y + 0.05 : sy + (Math.random() - 0.3) * 1.6;
+        pts = [new THREE.Vector3(sx, sy, sz)];
+        for (j = 1; j < 8; j++) { m = j / 7; jt = (j < 7 ? 0.28 : 0); pts.push(new THREE.Vector3(sx + (ex - sx) * m + (Math.random() - 0.5) * jt, sy + (ey - sy) * m + (Math.random() - 0.5) * jt, sz + (ez - sz) * m + (Math.random() - 0.5) * jt)); }
+        bp = pts[3]; /* rama que sale a la mitad */
+        pts.push(bp.clone()); mx = bp.x + (Math.random() - 0.5) * 0.9; my = bp.y + (Math.random() - 0.5) * 0.9; mz = bp.z + (Math.random() - 0.5) * 0.9;
+        pts.push(new THREE.Vector3((bp.x + mx) / 2 + (Math.random() - 0.5) * 0.18, (bp.y + my) / 2 + (Math.random() - 0.5) * 0.18, (bp.z + mz) / 2 + (Math.random() - 0.5) * 0.18)); pts.push(new THREE.Vector3(mx, my, mz));
+        duelBoltSet(B, pts.slice(0, 8), 0.035 + 0.02 * ramp);
+        if (B.segs.length > 8) { /* la rama: segmentos 8-10 */
+          for (j = 0; j < 2; j++) { var s2 = B.segs[8 + j], p0 = pts[8 + j], p1 = pts[9 + j], l2 = p0.distanceTo(p1) || 0.01; s2.c.position.copy(p0).add(p1).multiplyScalar(0.5); s2.c.scale.set(0.03, 0.03, l2); s2.c.lookAt(p1); s2.c.visible = true; s2.g.position.copy(s2.c.position); s2.g.scale.set(0.09, 0.09, l2); s2.g.quaternion.copy(s2.c.quaternion); s2.g.visible = true; }
+        }
       }
     }
   }
   function duelOverClear(D) {
-    var O = D.ov, i; if (!O) return;
-    scene.remove(O.glow); O.glow.material.dispose();
-    for (i = 0; i < O.lines.length; i++) { scene.remove(O.lines[i]); O.lines[i].geometry.dispose(); O.lines[i].material.dispose(); }
+    var O = D.ov, i, j, B; if (!O) return;
+    for (i = 0; i < O.meshes.length; i++) O.meshes[i].m.material = O.meshes[i].mat;
+    for (i = 0; i < O.bolts.length; i++) { B = O.bolts[i]; for (j = 0; j < B.segs.length; j++) { scene.remove(B.segs[j].c); scene.remove(B.segs[j].g); } }
+    O.red.dispose(); O.coreM.dispose(); O.glowM.dispose();
     if (O.G && O.G.eyeMat) O.G.eyeMat.color.setHex(O.eye0);
     D.ov = null;
   }
@@ -9077,13 +9103,13 @@ window.startMap = function (RAW, AUTH) {
       if (!D.boomed) { /* final dramático: el ganador se acerca, el perdedor se sobrecarga (rojo, chispas, rayos) y recibe el tiro de gracia */
         var ldx = LG.x - WG.x, ldz = LG.z - WG.z, ld = Math.hypot(ldx, ldz) || 1, wyaw = Math.atan2(ldx, ldz), apx, apz, apS;
         if (D.loser === 'me') {
-          if (ld > 2.8 && el2 < 9) { apx = WG.x + ldx / ld * 4.4 * dt; apz = WG.z + ldz / ld * 4.4 * dt; if (botFree(apx, apz)) { WG.x = apx; WG.z = apz; } }
+          if (ld > 1.7 && el2 < 9) { apx = WG.x + ldx / ld * 4.4 * dt; apz = WG.z + ldz / ld * 4.4 * dt; if (botFree(apx, apz)) { WG.x = apx; WG.z = apz; } }
           WG.y = botGround(WG.x, WG.z); WG.yaw += nAng(wyaw - WG.yaw) * Math.min(1, dt * 6);
         } else {
           /* tu robot camina directo hacia el rival, apuntándole, hasta quedar muy cerca */
           D.aimT = D.aimT || { x: 0, y: 0, z: 0 }; D.aimT.x = LG.x; D.aimT.y = LG.y + 0.8; D.aimT.z = LG.z;
           WG.yaw += nAng(wyaw - WG.yaw) * Math.min(1, dt * 10); WG.aimYaw = WG.yaw;
-          if (ld > 2.8 && el2 < 9) {
+          if (ld > 1.7 && el2 < 9) {
             apx = WG.x + ldx / ld * 4.4 * dt; apz = WG.z + ldz / ld * 4.4 * dt;
             if (!botFree(apx, apz)) { apx = WG.x + (ldx + ldz * 0.8) / ld * 4.4 * dt; apz = WG.z + (ldz - ldx * 0.8) / ld * 4.4 * dt; }
             if (!botFree(apx, apz)) { apx = WG.x + (ldx - ldz * 0.8) / ld * 4.4 * dt; apz = WG.z + (ldz + ldx * 0.8) / ld * 4.4 * dt; }
