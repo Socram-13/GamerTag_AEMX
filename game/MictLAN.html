@@ -750,6 +750,7 @@ window.startMap = function (RAW, AUTH) {
   var CHI_LL = [-88.568, 20.683], CHI_D = null, CHI_G = null;
   var COZ_LL = [-86.89948, 20.45847], COZ_R = 4.18879, COZ_D = null, COZ_G = null, COZ_S = 0.5;   /* Sede AEMX: centro en Cozumel (calculado para caber en la isla), giro (240°: la fachada mira al oeste-noroeste, el ancho sigue el eje largo de la isla) y escala */
   var COZ_ISL = [[-86.7275, 20.5927], [-86.7237, 20.5825], [-86.7575, 20.5265], [-86.7705, 20.4956], [-86.816, 20.44], [-86.8299, 20.4381], [-86.9324, 20.312], [-86.9889, 20.2714], [-86.9951, 20.2753], [-87.0217, 20.3395], [-87.0246, 20.3584], [-87.0169, 20.4115], [-86.9256, 20.5526], [-86.8976, 20.5661], [-86.8367, 20.5395], [-86.8116, 20.5535], [-86.7749, 20.5545], [-86.7657, 20.5699]];   /* contorno de la isla en el mapa (lon, lat) */
+  function cozInIsl(px, pz) { var c = false, i, j, a, b, ip = cozInIsl.p; if (!ip) ip = cozInIsl.p = COZ_ISL.map(function (q) { var g3 = geo(q[0], q[1]); return [g3.x, g3.z]; }); for (i = 0, j = ip.length - 1; i < ip.length; j = i++) { a = ip[i]; b = ip[j]; if ((a[1] > pz) !== (b[1] > pz) && px < (b[0] - a[0]) * (pz - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
   function cozOff(lx, lz) { return [lx * Math.cos(COZ_R) + lz * Math.sin(COZ_R), -lx * Math.sin(COZ_R) + lz * Math.cos(COZ_R)]; }   /* coordenadas locales de la mansión (x ancho, z frente) → desplazamiento en el mundo */
   var invLock = null;
   function invOut(x, z) {
@@ -2934,12 +2935,11 @@ window.startMap = function (RAW, AUTH) {
       VMAX += n;
     })();
     (function () { /* vegetación de Cozumel: palmeras en la costa, selva baja tropical al interior; libre alrededor de la Sede AEMX (zona reservada arriba) */
-      var c0 = geo(COZ_LL[0], COZ_LL[1]), R1 = 44, gx, gz, x, z, p, patch, k2, rr2, tp, n = 0, e, ip = COZ_ISL.map(function (q) { var g3 = geo(q[0], q[1]); return [g3.x, g3.z]; });
-      function inIsl(px, pz) { var c = false, i, j = ip.length - 1; for (i = 0; i < ip.length; j = i++) if ((ip[i][1] > pz) !== (ip[j][1] > pz) && px < (ip[j][0] - ip[i][0]) * (pz - ip[i][1]) / (ip[j][1] - ip[i][1]) + ip[i][0]) c = !c; return c; }
+      var c0 = geo(COZ_LL[0], COZ_LL[1]), R1 = 44, gx, gz, x, z, p, patch, k2, rr2, tp, n = 0, e;
       for (gx = c0.x - R1; gx <= c0.x + R1; gx += 1.0) {
         for (gz = c0.z - R1; gz <= c0.z + R1; gz += 1.0) {
           x = gx + (vr() - 0.5) * 1.0; z = gz + (vr() - 0.5) * 1.0;
-          if (!inIsl(x, z)) continue;   /* solo la isla: nada en la costa de enfrente */
+          if (!cozInIsl(x, z)) continue;   /* solo la isla: nada en la costa de enfrente */
           if (crowded(x, z) || trailNear(x, z, 2.5)) continue;
           if (!onLand(x, z, 1.1)) continue;
           e = lastEdge;
@@ -3108,6 +3108,13 @@ window.startMap = function (RAW, AUTH) {
       });
 
       plants.forEach(function (pl) { addCell(Math.floor(pl.x / G), Math.floor(pl.z / G), true); });
+      (function () { /* Cozumel: suelo continuo en toda la isla (sin cuadros sueltos bajo cada árbol) */
+        var g4 = geo(COZ_LL[0], COZ_LL[1]), R = 44, ix, iz, x, z;
+        for (ix = Math.floor((g4.x - R) / G); ix <= Math.floor((g4.x + R) / G); ix++) for (iz = Math.floor((g4.z - R) / G); iz <= Math.floor((g4.z + R) / G); iz++) {
+          x = (ix + 0.5) * G; z = (iz + 0.5) * G;
+          if (cozInIsl(x, z) && onLand(x, z, 0.03)) addCell(ix, iz, true);
+        }
+      })();
       districts._rng.forEach(function (r) { fillHoles(r[0], r[1], r[2], r[3]); });
 
       (function () {
@@ -4657,7 +4664,8 @@ function aemxMat(o){ var m=new THREE.MeshLambertMaterial({color:o.color!==undefi
 /* fusiona en pocas mallas (una por material) todo lo opaco de un grupo; deja intactas las mallas transparentes o marcadas userData.keep */
 function aemxMerge(group){
   group.updateMatrixWorld(true); var inv=new THREE.Matrix4().copy(group.matrixWorld).invert(), buckets=new Map(), rm=[], mm;
-  group.traverse(function(o){ if(!o.isMesh||o.userData.keep||o.material.transparent||o.material.map) return; mm=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
+  function blocked(o){ for(var q=o;q&&q!==group;q=q.parent) if(q.userData&&q.userData.noMerge) return true; return false; }
+  group.traverse(function(o){ if(!o.isMesh||o.userData.keep||o.material.transparent||o.material.map||blocked(o)) return; mm=new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld);
     var g=(o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone()); g.applyMatrix4(mm); var k=buckets.get(o.material); if(!k){ k=[]; buckets.set(o.material,k); } k.push(g); rm.push(o); });
   rm.forEach(function(o){ o.parent.remove(o); });
   buckets.forEach(function(list,mat){ var n=0,i; list.forEach(function(g){ n+=g.attributes.position.count; });
@@ -4915,7 +4923,7 @@ function buildBaseAEMX(){
     [-1,1].forEach(function(sx){ box(.3,.85,RD-.2,mWall,sx*17.8,1.32,RC); box(.3,.1,RD,mWall2,sx*17.8,1.78,RC); });
   })();
   /* logo AEMX flotando sobre el domo */
-  var LG=buildLogoAEMX({size:1.7}); LG.group.position.set(FX,4.1,FZZ); B.add(LG.group);
+  var LG=buildLogoAEMX({size:1.7}); LG.group.userData.noMerge=true; LG.group.position.set(FX,4.1,FZZ); B.add(LG.group);
   var beam=cyl(1.5,.5,2.5,mBeam,FX,2.8,FZZ,20);   // haz desde el pedestal
   var baseY=LG.group.position.y, t=0, sway=true;
   var out={group:B, logo:LG, sway:true,
