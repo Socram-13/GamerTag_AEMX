@@ -4690,7 +4690,7 @@ function buildLogoAEMX(opts){
     for(var j=-1;j<=1;j+=2){ var pa=a+j*(w*.42)/1.0; var bx=Math.cos(a)*.985 - Math.sin(a)*j*w*.40, by=Math.sin(a)*.985 + Math.cos(a)*j*w*.40;
       ring.add(cyl(.013,.03,mDark,bx,by,.13)); ring.add(cyl(.013,.03,mDark,bx,by,-.13)); }
   });
-  for(k=0;k<4;k++){
+  for(var k=0;k<4;k++){
     var a2=k*Math.PI/2+Math.PI/4;
     ring.add(plate(a2,.30,.10,.21,.965,mDark));                 // base
     ring.add(plate(a2,.22,.07,.24,.975,VAR[(k*2+2)%6]));                 // tapa
