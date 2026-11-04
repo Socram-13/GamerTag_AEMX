@@ -2933,6 +2933,27 @@ window.startMap = function (RAW, AUTH) {
       }
       VMAX += n;
     })();
+    (function () { /* vegetación de Cozumel: palmeras en la costa, selva baja tropical al interior; libre alrededor de la Sede AEMX (zona reservada arriba) */
+      var c0 = geo(COZ_LL[0], COZ_LL[1]), R1 = 44, gx, gz, x, z, p, patch, k2, rr2, tp, n = 0, e;
+      for (gx = c0.x - R1; gx <= c0.x + R1; gx += 1.3) {
+        for (gz = c0.z - R1; gz <= c0.z + R1; gz += 1.3) {
+          x = gx + (vr() - 0.5) * 1.2; z = gz + (vr() - 0.5) * 1.2;
+          if (crowded(x, z) || trailNear(x, z, 2.5)) continue;
+          if (!onLand(x, z, 1.1)) continue;
+          e = lastEdge;
+          patch = 0.5 + 0.5 * Math.sin(x * 0.33 + 0.4) * Math.sin(z * 0.29 - 0.9);
+          p = (0.5 + 0.45 * patch) * (e < 2.2 ? 0.7 : 1);
+          if (vr() > p) continue;
+          k2 = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
+          (placed[k2] || (placed[k2] = [])).push([x, z]);
+          rr2 = vr();
+          if (e < 3.5) tp = rr2 < 0.55 ? 'palm' : rr2 < 0.7 ? 'bush' : rr2 < 0.85 ? 'grass' : rr2 < 0.93 ? 'flower' : 'round';
+          else tp = rr2 < 0.22 ? 'palm' : rr2 < 0.42 ? 'round' : rr2 < 0.57 ? 'oak' : rr2 < 0.72 ? 'bush' : rr2 < 0.82 ? 'grass' : rr2 < 0.88 ? 'flower' : rr2 < 0.93 ? 'flamboyan' : rr2 < 0.97 ? 'mayo' : 'rock';
+          plants.push({ type: tp, x: x, z: z, y: 0, zone: 'trop', edge: e }); n++;
+        }
+      }
+      VMAX += n;
+    })();
     (function () {
       var withP = {}, deadL = [], q, j, tmp;
       districts.forEach(function (d) { if (d.list.length) withP[d.name] = 1; });
