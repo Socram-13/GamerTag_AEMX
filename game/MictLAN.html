@@ -8943,7 +8943,7 @@ window.startMap = function (RAW, AUTH) {
       if (i >= pts.length - 1) { s.c.visible = false; s.g.visible = false; continue; }
       p0 = pts[i]; p1 = pts[i + 1]; len = p0.distanceTo(p1) || 0.01;
       s.c.position.copy(p0).add(p1).multiplyScalar(0.5); s.c.scale.set(w, w, len); s.c.lookAt(p1); s.c.visible = true;
-      s.g.position.copy(s.c.position); s.g.scale.set(w * 3.2, w * 3.2, len); s.g.quaternion.copy(s.c.quaternion); s.g.visible = true;
+      s.g.position.copy(s.c.position); s.g.scale.set(w * 2.6, w * 2.6, len); s.g.quaternion.copy(s.c.quaternion); s.g.visible = true;
     }
   }
   function duelOverTick(D, G, el, dt) {
@@ -8987,9 +8987,9 @@ window.startMap = function (RAW, AUTH) {
         bp = pts[3]; /* rama que sale a la mitad */
         pts.push(bp.clone()); mx = bp.x + (Math.random() - 0.5) * 0.9; my = bp.y + (Math.random() - 0.5) * 0.9; mz = bp.z + (Math.random() - 0.5) * 0.9;
         pts.push(new THREE.Vector3((bp.x + mx) / 2 + (Math.random() - 0.5) * 0.18, (bp.y + my) / 2 + (Math.random() - 0.5) * 0.18, (bp.z + mz) / 2 + (Math.random() - 0.5) * 0.18)); pts.push(new THREE.Vector3(mx, my, mz));
-        duelBoltSet(B, pts.slice(0, 8), 0.035 + 0.02 * ramp);
+        duelBoltSet(B, pts.slice(0, 8), 0.011 + 0.008 * ramp);
         if (B.segs.length > 8) { /* la rama: segmentos 8-10 */
-          for (j = 0; j < 2; j++) { var s2 = B.segs[8 + j], p0 = pts[8 + j], p1 = pts[9 + j], l2 = p0.distanceTo(p1) || 0.01; s2.c.position.copy(p0).add(p1).multiplyScalar(0.5); s2.c.scale.set(0.03, 0.03, l2); s2.c.lookAt(p1); s2.c.visible = true; s2.g.position.copy(s2.c.position); s2.g.scale.set(0.09, 0.09, l2); s2.g.quaternion.copy(s2.c.quaternion); s2.g.visible = true; }
+          for (j = 0; j < 2; j++) { var s2 = B.segs[8 + j], p0 = pts[8 + j], p1 = pts[9 + j], l2 = p0.distanceTo(p1) || 0.01; s2.c.position.copy(p0).add(p1).multiplyScalar(0.5); s2.c.scale.set(0.01, 0.01, l2); s2.c.lookAt(p1); s2.c.visible = true; s2.g.position.copy(s2.c.position); s2.g.scale.set(0.026, 0.026, l2); s2.g.quaternion.copy(s2.c.quaternion); s2.g.visible = true; }
         }
       }
     }
