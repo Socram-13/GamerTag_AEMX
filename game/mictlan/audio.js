@@ -333,6 +333,7 @@ window.MictlanAudio = function (E) {
         if (ph === 'count') { mNz(t0, 0.07, 600, 2.8, 'bandpass', 1.5); for (k = 0; k < 3; k++) { mTom(t0 + k, 70, 0.32, 0.4); mNote('sawtooth', mFreq(R, -7 + k * 2), t0 + k, 0.5, 0.05, 0.01, mSes.g, 500); } }
         else if (ph === 'fight') { mTom(t0, 58, 0.55, 0.7); mNz(t0, 0.3, 1800, 0.6, 'lowpass', 0.8); for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, [0, 4, 7][k] + 7) * (1 + k * 0.004), t0, 1.4, 0.05, 0.01, mSes.g, 2400); }
         else if (ph === 'end') {
+          t0 += 2; /* la fanfarria llega junto con el letrero de resultado */
           if (D.win) { for (k = 0; k < 4; k++) mNote('square', mFreq(R, [7, 9, 11, 14][k]), t0 + k * 0.13, 0.5, 0.045, 0.006, mSes.g, 3200); for (k = 0; k < 3; k++) mNote('sawtooth', mFreq(R, [7, 9, 11][k] + 7), t0 + 0.55, 2.2, 0.04, 0.02, mSes.g, 2600); mTom(t0 + 0.55, 80, 0.4, 0.6); }
           else { for (k = 0; k < 4; k++) mNote('sawtooth', mFreq(R, [7, 6, 4, 0][k]), t0 + k * 0.45, 1.2, 0.05, 0.02, mSes.g, 700 - k * 120); mNote('sine', 49, t0 + 1.2, 3.5, 0.09, 0.3, mSes.g, 200); }
         }
@@ -342,6 +343,13 @@ window.MictlanAudio = function (E) {
         if (st === 0 || st === 3) mTom(t0, 68, 0.22, 0.32);
         if (st === 0) mNote('sawtooth', mFreq(R, -7), t0, sd * 8, 0.07, 0.4, mSes.g, 280);
         if (st === 4 || st === 7) mNote('sine', mFreq(R, 14 + (bar % 3) * 2 + (st === 7 ? 1 : 0)), t0, sd * 2, 0.02, 0.01, mSes.g, 1800);
+      } else if (ph === 'over') { /* sobrecarga: latido y pitidos cada vez más rápidos */
+        var ov = D.ov || 0;
+        R.bpm = 148;
+        if (st % (ov > 0.6 ? 2 : 4) === 0) mTom(t0, 62, 0.14 + 0.2 * ov, 0.3);
+        if (st % (ov > 0.85 ? 1 : 2) === 0) mNote('square', 1400 + 2400 * ov, t0, sd * 0.4, 0.012 + 0.02 * ov, 0.002, mSes.g, 5000);
+        if (st === 0) mNote('sawtooth', mFreq(R, -7 + Math.floor(ov * 5)), t0, sd * 8, 0.05, 0.5, mSes.g, 240 + 900 * ov);
+        if (ov > 0.15 && Math.random() < 0.5) mNz(t0, 0.03 + 0.05 * ov, 3000 + 4000 * ov, 0.07, 'highpass');
       } else if (ph === 'fight') {
         R.bpm = hot ? 168 : 148;
         if (st % 2 === 0) mTom(t0, 120, hot ? 0.3 : 0.26, 0.22);
