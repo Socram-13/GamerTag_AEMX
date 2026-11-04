@@ -749,6 +749,7 @@ window.startMap = function (RAW, AUTH) {
   var VILD = null, VILT = null, vilReq = null, vilNext = 240, vilN = 0;
   var CHI_LL = [-88.568, 20.683], CHI_D = null, CHI_G = null;
   var COZ_LL = [-86.89948, 20.45847], COZ_R = 4.18879, COZ_D = null, COZ_G = null, COZ_S = 0.5;   /* Sede AEMX: centro en Cozumel (calculado para caber en la isla), giro (240°: la fachada mira al oeste-noroeste, el ancho sigue el eje largo de la isla) y escala */
+  var COZ_ISL = [[-86.7275, 20.5927], [-86.7237, 20.5825], [-86.7575, 20.5265], [-86.7705, 20.4956], [-86.816, 20.44], [-86.8299, 20.4381], [-86.9324, 20.312], [-86.9889, 20.2714], [-86.9951, 20.2753], [-87.0217, 20.3395], [-87.0246, 20.3584], [-87.0169, 20.4115], [-86.9256, 20.5526], [-86.8976, 20.5661], [-86.8367, 20.5395], [-86.8116, 20.5535], [-86.7749, 20.5545], [-86.7657, 20.5699]];   /* contorno de la isla en el mapa (lon, lat) */
   function cozOff(lx, lz) { return [lx * Math.cos(COZ_R) + lz * Math.sin(COZ_R), -lx * Math.sin(COZ_R) + lz * Math.cos(COZ_R)]; }   /* coordenadas locales de la mansión (x ancho, z frente) → desplazamiento en el mundo */
   var invLock = null;
   function invOut(x, z) {
@@ -2742,10 +2743,9 @@ window.startMap = function (RAW, AUTH) {
     })();
     (function () { /* sin vegetación en la Sede AEMX (Cozumel) */
       var g2 = geo(COZ_LL[0], COZ_LL[1]), bx, bz, kk2;
-      var ea = 24 * COZ_S, eb = 19 * COZ_S, ll0, lx, lz, w;   /* zona libre: elipse alineada con la mansión (ancho ea, fondo eb) */
-      for (lx = -ea; lx <= ea; lx += 1.2) for (lz = -eb; lz <= eb; lz += 1.2) {
-        if ((lx / ea) * (lx / ea) + (lz / eb) * (lz / eb) > 1) continue;
-        w = cozOff(lx, lz + 0.9);
+      var ea = 18.6 * COZ_S, w, lx, lz;   /* solo la huella del edificio + fuente (ancho ±ea; fondo de -11.8 a +15.5 en unidades del modelo); los jardines quedan libres */
+      for (lx = -ea; lx <= ea; lx += 1.2) for (lz = -11.8 * COZ_S + 0.75; lz <= 15.5 * COZ_S + 0.75; lz += 1.2) {
+        w = cozOff(lx, lz);
         kk2 = gk(Math.floor((g2.x + w[0]) / PCELL), Math.floor((g2.z + w[1]) / PCELL));
         (placed[kk2] || (placed[kk2] = [])).push([g2.x + w[0], g2.z + w[1]]);
       }
@@ -2934,15 +2934,17 @@ window.startMap = function (RAW, AUTH) {
       VMAX += n;
     })();
     (function () { /* vegetación de Cozumel: palmeras en la costa, selva baja tropical al interior; libre alrededor de la Sede AEMX (zona reservada arriba) */
-      var c0 = geo(COZ_LL[0], COZ_LL[1]), R1 = 44, gx, gz, x, z, p, patch, k2, rr2, tp, n = 0, e;
-      for (gx = c0.x - R1; gx <= c0.x + R1; gx += 1.3) {
-        for (gz = c0.z - R1; gz <= c0.z + R1; gz += 1.3) {
-          x = gx + (vr() - 0.5) * 1.2; z = gz + (vr() - 0.5) * 1.2;
+      var c0 = geo(COZ_LL[0], COZ_LL[1]), R1 = 44, gx, gz, x, z, p, patch, k2, rr2, tp, n = 0, e, ip = COZ_ISL.map(function (q) { var g3 = geo(q[0], q[1]); return [g3.x, g3.z]; });
+      function inIsl(px, pz) { var c = false, i, j = ip.length - 1; for (i = 0; i < ip.length; j = i++) if ((ip[i][1] > pz) !== (ip[j][1] > pz) && px < (ip[j][0] - ip[i][0]) * (pz - ip[i][1]) / (ip[j][1] - ip[i][1]) + ip[i][0]) c = !c; return c; }
+      for (gx = c0.x - R1; gx <= c0.x + R1; gx += 1.0) {
+        for (gz = c0.z - R1; gz <= c0.z + R1; gz += 1.0) {
+          x = gx + (vr() - 0.5) * 1.0; z = gz + (vr() - 0.5) * 1.0;
+          if (!inIsl(x, z)) continue;   /* solo la isla: nada en la costa de enfrente */
           if (crowded(x, z) || trailNear(x, z, 2.5)) continue;
           if (!onLand(x, z, 1.1)) continue;
           e = lastEdge;
           patch = 0.5 + 0.5 * Math.sin(x * 0.33 + 0.4) * Math.sin(z * 0.29 - 0.9);
-          p = (0.5 + 0.45 * patch) * (e < 2.2 ? 0.7 : 1);
+          p = (0.55 + 0.4 * patch) * (e < 2.2 ? 0.75 : 1);
           if (vr() > p) continue;
           k2 = gk(Math.floor(x / PCELL), Math.floor(z / PCELL));
           (placed[k2] || (placed[k2] = [])).push([x, z]);
