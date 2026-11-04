@@ -5034,7 +5034,8 @@ function buildBaseAEMX(){
     outer.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
     scene.add(outer); COZ_G = outer;
     try { buildCozBridge(); } catch (e) { console.warn('No se pudo crear el puente AEMX', e); }
-    for (i = -3; i <= 3; i++) for (j = -2; j <= 2; j++) { var wo = cozOff(i * 6.4 * COZ_S, j * 6.4 * COZ_S + 0.9); monBlk.push({ x: g0.x + wo[0], z: g0.z + wo[1], r: 4.6 * COZ_S }); }
+    for (i = -3; i <= 3; i++) for (j = -2; j <= 0; j++) { var wo = cozOff(i * 6.4 * COZ_S, j * 6.4 * COZ_S + 0.9); monBlk.push({ x: g0.x + wo[0], z: g0.z + wo[1], r: 4.6 * COZ_S }); }
+    (function () { var wf = cozOff(0, 5.4); monBlk.push({ x: g0.x + wf[0], z: g0.z + wf[1], r: 2.4 }); })();   /* fuente: se rodea; el jardín delantero queda libre */
     COZ_D = { name: 'Sede AEMX', cx: g0.x, cz: g0.z, r: 18, list: [{}], coz: true };
     var e = document.createElement('div'); e.className = 'dist'; e.setAttribute('role', 'button'); e.tabIndex = 0; e.addEventListener('click', function () { flyToDistrict(COZ_D); }); e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') flyToDistrict(COZ_D); }); e.appendChild(document.createTextNode('Sede AEMX'));
     var sm = document.createElement('small'); sm.textContent = 'Cuartel del clan'; e.appendChild(sm); document.getElementById('labels').appendChild(e);
