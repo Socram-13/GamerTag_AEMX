@@ -4913,7 +4913,27 @@ function buildBaseAEMX(){
     var e = document.createElement('div'); e.className = 'dist'; e.setAttribute('role', 'button'); e.tabIndex = 0; e.addEventListener('click', function () { flyToDistrict(COZ_D); }); e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') flyToDistrict(COZ_D); }); e.appendChild(document.createTextNode('Sede AEMX'));
     var sm = document.createElement('small'); sm.textContent = 'Cuartel del clan'; e.appendChild(sm); document.getElementById('labels').appendChild(e);
     COZ_D.el = e; COZ_D.wpos = new THREE.Vector3(g0.x, y0 + 9 * COZ_S + 2.5, g0.z);
-    var lt = 0; window.__mansTick = function (t) { var dt = Math.min(0.1, Math.max(0, t - lt)); lt = t; A.update(dt); };
+    var lt = 0, mt = null;   /* comando "mansion": el robot viaja a la Sede AEMX y, pasado un rato, regresa a su ruta */
+    window.__mansGo = function () {
+      if (!bot || !COZ_G) return false;
+      var b = bot, cand = [[g0.x - 14, g0.z], [g0.x - 16, g0.z + 4], [g0.x - 16, g0.z - 4], [g0.x - 13, g0.z + 7], [g0.x - 13, g0.z - 7]], i, q = null;
+      for (i = 0; i < cand.length && !q; i++) if (botFree(cand[i][0], cand[i][1])) q = cand[i];
+      if (!q) q = botFreeSpot(g0.x - 14, g0.z);
+      if (!q) return false;
+      if (!mt) mt = { x: b.x, z: b.z, until: 0 };
+      b.x = q[0]; b.z = q[1]; b.y = botGround(q[0], q[1]); b.mode = 'walk'; b.goal = null; b.gtype = ''; b.path = null; b.v = 0; b.vy = 0; b.bh = 0; b.bvy = 0;
+      b.ju = null; b.jd = null; b.hop = null; b.air = 0; b.flame = 0; b.kneel = 0; b.yaw = Math.PI / 2; b.aimYaw = b.yaw; b.idle = 1e3;
+      mt.until = lt + 45; window.__botSayQ = 'Llegué a la Sede AEMX…';
+      return true;
+    };
+    window.__mansTick = function (t) {
+      var dt = Math.min(0.1, Math.max(0, t - lt)); lt = t; A.update(dt);
+      if (mt && lt >= mt.until && mt.until > 0) {
+        var b = bot, q2 = b ? botFreeSpot(mt.x, mt.z) : null;
+        if (b && q2) { b.x = q2[0]; b.z = q2[1]; b.y = botGround(q2[0], q2[1]); b.goal = null; b.path = null; b.v = 0; b.idle = 0.5; window.__botSayQ = 'Regreso a mi ruta.'; }
+        mt = null;
+      }
+    };
   }
   function buildVolcano() {
     var g0 = geo(VOLC_LL[0], VOLC_LL[1]), th0 = terrainH, N = 60, S = 160, nv = (N + 1) * S, pos = new Float32Array(nv * 3), col = new Float32Array(nv * 4), idx = [], c = new THREE.Color(), c2 = new THREE.Color();
@@ -6665,6 +6685,7 @@ function buildBaseAEMX(){
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'invasion') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'inv') { window.__botSayQ = 'La invasión solo existe en el Modo Invasión.'; return; } if (typeof ALN !== 'undefined') ALN.startHere(); return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'dialogos') { q.value = ''; resEl.hidden = true; matches = []; try { window.__DX.preview(); AT.fx = 1; AT.gap = 0; AT.rep = null; } catch (eDx) { } return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'infeccion') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'inv') { window.__botSayQ = 'La infección solo existe en el Modo Invasión.'; return; } if (typeof ALN !== 'undefined') ALN.startHere('inf'); return; }
+    if (e.key === 'Enter' && (q.value.trim().toLowerCase() === 'mansion' || q.value.trim().toLowerCase() === 'sede')) { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode === 'inv') { window.__botSayQ = 'Ahora no, hay una invasión.'; return; } if (!window.__mansGo || !window.__mansGo()) window.__botSayQ = 'No encuentro la Sede AEMX todavía…'; return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'llorona') { q.value = ''; resEl.hidden = true; matches = []; if (GM.mode !== 'exp') { window.__botSayQ = 'Solo puedo ir a verla en el Modo Exploración.'; return; } if (!window.__llGo || !window.__llGo(true)) window.__botSayQ = 'No la encuentro todavía…'; return; }
     if (e.key === 'Enter' && q.value.trim().toLowerCase() === 'olvidar') { q.value = ''; resEl.hidden = true; matches = []; if (window.__BM) window.__BM.reset(); window.__botSayQ = 'Memoria borrada. Empiezo de cero.'; return; }
     if (e.key === 'Enter' && matches.length) choose(matches[0]);
