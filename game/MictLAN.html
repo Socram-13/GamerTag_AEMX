@@ -748,7 +748,7 @@ window.startMap = function (RAW, AUTH) {
   var scene = new THREE.Scene();
   var VILD = null, VILT = null, vilReq = null, vilNext = 240, vilN = 0;
   var CHI_LL = [-88.568, 20.683], CHI_D = null, CHI_G = null;
-  var COZ_LL = [-86.90, 20.43], COZ_D = null, COZ_G = null, COZ_S = 0.7;   /* Sede AEMX: centro en Cozumel y escala de la mansión */
+  var COZ_LL = [-86.90, 20.43], COZ_D = null, COZ_G = null, COZ_S = 0.6;   /* Sede AEMX: centro en Cozumel y escala de la mansión */
   var invLock = null;
   function invOut(x, z) {
     var L = invLock, r, m, a, q, ins = false;
@@ -2741,8 +2741,9 @@ window.startMap = function (RAW, AUTH) {
     })();
     (function () { /* sin vegetación en la Sede AEMX (Cozumel) */
       var g2 = geo(COZ_LL[0], COZ_LL[1]), bx, bz, kk2;
-      for (bx = -12; bx <= 12; bx += 1.2) for (bz = -16; bz <= 16; bz += 1.2) {
-        if ((bx / 12) * (bx / 12) + (bz / 16) * (bz / 16) > 1) continue;
+      var kz = COZ_S / 0.7, ex = 12 * kz, ez = 16 * kz;   /* la zona libre sigue a la escala de la mansión */
+      for (bx = -ex; bx <= ex; bx += 1.2) for (bz = -ez; bz <= ez; bz += 1.2) {
+        if ((bx / ex) * (bx / ex) + (bz / ez) * (bz / ez) > 1) continue;
         kk2 = gk(Math.floor((g2.x + bx) / PCELL), Math.floor((g2.z + bz) / PCELL));
         (placed[kk2] || (placed[kk2] = [])).push([g2.x + bx, g2.z + bz]);
       }
@@ -4908,7 +4909,7 @@ function buildBaseAEMX(){
     A.group.position.z = 1.5; outer.add(A.group); outer.scale.setScalar(COZ_S); outer.rotation.y = -Math.PI / 2; outer.position.set(g0.x, y0, g0.z);
     outer.traverse(function (o) { if (o.isMesh) o.raycast = function () {}; });
     scene.add(outer); COZ_G = outer;
-    for (i = -2; i <= 2; i++) for (j = -3; j <= 3; j++) monBlk.push({ x: g0.x + i * 4.5, z: g0.z + j * 4.5, r: 3.2 });
+    var kz = COZ_S / 0.7; for (i = -2; i <= 2; i++) for (j = -3; j <= 3; j++) monBlk.push({ x: g0.x + i * 4.5 * kz, z: g0.z + j * 4.5 * kz, r: 3.2 * kz });
     COZ_D = { name: 'Sede AEMX', cx: g0.x, cz: g0.z, r: 18, list: [{}], coz: true };
     var e = document.createElement('div'); e.className = 'dist'; e.setAttribute('role', 'button'); e.tabIndex = 0; e.addEventListener('click', function () { flyToDistrict(COZ_D); }); e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') flyToDistrict(COZ_D); }); e.appendChild(document.createTextNode('Sede AEMX'));
     var sm = document.createElement('small'); sm.textContent = 'Cuartel del clan'; e.appendChild(sm); document.getElementById('labels').appendChild(e);
