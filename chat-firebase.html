@@ -303,6 +303,7 @@
             .btn-marco { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
             .btn-visor { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
             .btn-visor-cartas { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
+            .btn-mictland { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
             .btn-transacciones { width:30px;height:30px;font-size:14px;padding:0;flex-shrink:0; }
             .btn-presencia .pr-text { display:inline;font-size:8px;letter-spacing:1px; }
             .btn-presencia { padding:6px 10px;font-size:13px;flex-shrink:0;background:rgba(0,255,157,.12);box-shadow:0 0 10px rgba(0,255,157,.25); }
@@ -331,6 +332,8 @@
         .btn-visor-cartas { display:flex;align-items:center;justify-content:center;background:none;border:1px solid #ff6ec7;border-radius:8px;color:#ff6ec7;font-size:16px;width:32px;height:32px;cursor:pointer;transition:all .2s;flex-shrink:0; }
         .btn-visor-cartas:hover { background:#ff6ec7;color:#060b14;box-shadow:0 0 16px rgba(255,110,199,.4); }
         .btn-visor-cartas.hidden { display:none; }
+        .btn-mictland { display:flex;align-items:center;justify-content:center;background:none;border:1px solid #a78bfa;border-radius:8px;color:#a78bfa;font-size:16px;width:32px;height:32px;cursor:pointer;transition:all .2s;flex-shrink:0; }
+        .btn-mictland:hover { background:#a78bfa;color:#060b14;box-shadow:0 0 16px rgba(167,139,250,.4); }
         .denied-modal { display:none;position:fixed;inset:0;background:rgba(10,14,26,.92);z-index:3000;align-items:center;justify-content:center; }
         .denied-modal.active { display:flex; }
         .denied-box { background:#0f1419;border:1px solid #ff0066;border-radius:16px;padding:36px 32px;max-width:340px;width:90%;text-align:center;box-shadow:0 0 40px rgba(255,0,102,.2); }
@@ -517,6 +520,7 @@
                     <a class="btn-guias" href="https://atlasreality.helpshift.com/hc/es/3-atlas-earth/" target="_top" title="Soporte técnico">🎧</a>
                     <button class="btn-visor" id="btnVisor" onclick="abrirVisor()" title="Visor HUD">👁</button>
                     <button class="btn-visor-cartas" id="btnVisorCartas" onclick="abrirVisorCartas()" title="Visor de Cartas">🃏</button>
+                    <button class="btn-mictland" id="btnMictland" onclick="abrirMictland()" title="MictLAND">🎮</button>
                     <a class="btn-leaderboard" href="leaderboard.html" target="_top">🏆</a>
                     <a class="btn-guias" href="guias.html" target="_top">📚</a>
                     <a class="btn-transacciones hidden" id="btnTransacciones" href="transactions.html" target="_top">🪙</a>
@@ -1108,6 +1112,34 @@ const userRef = ref(database, 'chat_presence/' + userId);
                     window.top.location.href = new URL('visor_cartas.html', window.location.href).href;
                 } else {
                     avisoDenegado('al visor de cartas');
+                }
+            } catch(e) {
+                console.error('Error verificando membresía:', e);
+                avisoErrorVerificacion();
+            }
+        };
+
+        // ── Botón MictLAND (juego) ──
+        // Solo miembros del clan (misma validación que el visor de cartas); abre game/MictLAN.html.
+        window.abrirMictland = async function() {
+            if (huboClanParam) {
+                if (esMiembroDesdeParent) {
+                    window.top.location.href = new URL('game/MictLAN.html', window.location.href).href;
+                } else {
+                    avisoDenegado('a MictLAND');
+                }
+                return;
+            }
+            const user = await esperarSesion();
+            if (!user) { avisoSinSesion(); return; }
+            try {
+                const snap = await get(ref(database, 'users/' + user.uid));
+                const data = snap.exists() ? snap.val() : {};
+                const esMiembro = data.clanMember === true || data.role === 'admin' || data.role === 'moderator';
+                if (esMiembro) {
+                    window.top.location.href = new URL('game/MictLAN.html', window.location.href).href;
+                } else {
+                    avisoDenegado('a MictLAND');
                 }
             } catch(e) {
                 console.error('Error verificando membresía:', e);
@@ -3432,6 +3464,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
         { selector: 'a.btn-guias[href*="helpshift"]', text: 'Soporte técnico' },
         { selector: '#btnVisor',                       text: 'Visor HUD' },
         { selector: '#btnVisorCartas',                  text: 'Visor de Cartas' },
+        { selector: '#btnMictland',                     text: 'MictLAND' },
         { selector: 'a.btn-leaderboard',               text: 'Ranking' },
         { selector: 'a.btn-guias[href="guias.html"]',  text: 'Guías' },
         { selector: '#btnTransacciones',               text: 'Coins' },
