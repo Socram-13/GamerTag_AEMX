@@ -14843,4 +14843,23 @@ onAuthStateChanged(auth, async (user) => {
 });
 </script>
 
+<script>
+/* Pantalla siempre encendida mientras el juego está abierto (Screen Wake Lock). Se pide al cargar y, si el navegador exige un gesto, en el primer toque;
+   el sistema lo libera al ocultar la pestaña, por eso se vuelve a pedir al volver. Sin soporte no hace nada. */
+(function () {
+  var lock = null, pidiendo = false;
+  function pedir() {
+    if (!('wakeLock' in navigator) || lock || pidiendo || document.visibilityState !== 'visible') return;
+    pidiendo = true;
+    navigator.wakeLock.request('screen').then(function (l) {
+      lock = l; pidiendo = false;
+      l.addEventListener('release', function () { lock = null; });
+    }).catch(function () { pidiendo = false; });
+  }
+  pedir();
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') pedir(); });
+  ['pointerdown', 'touchend', 'keydown'].forEach(function (ev) { window.addEventListener(ev, pedir, { passive: true }); });
+  window.addEventListener('focus', pedir);
+})();
+</script>
 </body></html>
