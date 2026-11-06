@@ -509,14 +509,14 @@ window.MictlanAudio = function (E) {
         o.start(t0); o2.start(t0); lf.start(t0); o.stop(t0 + 2.8); o2.stop(t0 + 2.8); lf.stop(t0 + 2.8);
         noise(2.4, 0.07, 1800, 600, 'bandpass', 0.1, b);
       },
-      llorona: function (pos) { /* "Aaaaaay, mis hijooooos": sierra con formantes de vocal (a, i, m, o), vibrato creciente y eco */
+      llorona: function (pos) { /* "Aaaaaay, mis hi-jooooos" (m-i-s / i / j / o-s): sierra con formantes de vocal (a, i, m, o), vibrato creciente y eco */
         var b = shotBus(pos, 'llorona'), t0, o, o2, vib, vg, mx, ev, dl, fb, dg, i, V, P, F, E, fl = [], Q = [7, 9, 11], G = [1, 0.5, 0.28];
         if (!b) return;
         t0 = ctx.currentTime + 0.05;
         V = { a: [850, 1220, 2810], i: [310, 2790, 3310], o: [500, 900, 2830], m: [270, 1100, 2500] };
-        P = [[0, 300], [0.5, 335], [1.1, 560], [2.0, 520], [2.7, 390], [3.2, 340], [3.9, 410], [4.8, 365], [5.8, 450], [6.8, 580], [7.6, 430], [8.6, 250]];
-        F = [[0, 'a'], [2.55, 'a'], [3.2, 'i'], [3.6, 'm'], [4.1, 'm'], [4.3, 'i'], [5.1, 'i'], [5.8, 'i'], [6.3, 'o'], [8.0, 'o'], [8.6, 'o']];
-        E = [[0, 0.0001], [0.25, 0.5], [2.9, 0.45], [3.3, 0.25], [3.55, 0.02], [3.8, 0.22], [4.3, 0.42], [4.95, 0.35], [5.1, 0.02], [5.55, 0.02], [5.8, 0.4], [6.4, 0.5], [8.2, 0.38], [8.6, 0.0001]];
+        P = [[0, 300], [0.5, 335], [1.1, 560], [2.0, 520], [2.7, 390], [3.2, 340], [3.9, 410], [4.8, 365], [5.5, 470], [5.95, 440], [6.3, 420], [6.8, 580], [7.6, 430], [8.6, 250]];
+        F = [[0, 'a'], [2.55, 'a'], [3.2, 'i'], [3.6, 'm'], [4.1, 'm'], [4.3, 'i'], [5.1, 'i'], [5.55, 'i'], [5.95, 'i'], [6.25, 'o'], [8.0, 'o'], [8.6, 'o']];
+        E = [[0, 0.0001], [0.25, 0.5], [2.9, 0.45], [3.3, 0.25], [3.55, 0.02], [3.8, 0.22], [4.3, 0.42], [4.95, 0.35], [5.1, 0.02], [5.5, 0.02], [5.62, 0.4], [5.95, 0.34], [6.05, 0.03], [6.3, 0.03], [6.45, 0.5], [8.2, 0.38], [8.6, 0.0001]];
         o = ctx.createOscillator(); o.type = 'sawtooth'; o2 = ctx.createOscillator(); o2.type = 'triangle';
         o.frequency.setValueAtTime(P[0][1], t0); o2.frequency.setValueAtTime(P[0][1] * 1.006, t0);
         for (i = 1; i < P.length; i++) { o.frequency.linearRampToValueAtTime(P[i][1], t0 + P[i][0]); o2.frequency.linearRampToValueAtTime(P[i][1] * 1.006, t0 + P[i][0]); }
@@ -535,6 +535,7 @@ window.MictlanAudio = function (E) {
         o.start(t0); o2.start(t0); vib.start(t0); o.stop(t0 + 8.8); o2.stop(t0 + 8.8); vib.stop(t0 + 8.8);
         noise(0.9, 0.04, 1400, 900, 'bandpass', 0.05, b);
         noise(0.3, 0.1, 6500, 6500, 'highpass', 4.95, b); noise(0.22, 0.06, 2500, 2500, 'bandpass', 5.5, b); noise(0.45, 0.12, 6500, 6500, 'highpass', 8.3, b);
+        noise(0.24, 0.12, 1800, 2600, 'bandpass', 6.04, b);   /* la "j" de hijos: aire entre la i y la o */
       },
       scare: function (pos) {
 
