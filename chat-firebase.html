@@ -1120,31 +1120,15 @@ const userRef = ref(database, 'chat_presence/' + userId);
         };
 
         // ── Botón MictLAND (juego) ──
-        // Solo miembros del clan (misma validación que el visor de cartas); abre game/MictLAN.html.
+        // Abierto a cualquier persona con sesión (ya no exige ser miembro del clan); abre game/MictLAN.html.
         window.abrirMictland = async function() {
             if (huboClanParam) {
-                if (esMiembroDesdeParent) {
-                    window.top.location.href = new URL('game/MictLAN.html', window.location.href).href;
-                } else {
-                    avisoDenegado('a MictLAND');
-                }
+                window.top.location.href = new URL('game/MictLAN.html', window.location.href).href;
                 return;
             }
             const user = await esperarSesion();
             if (!user) { avisoSinSesion(); return; }
-            try {
-                const snap = await get(ref(database, 'users/' + user.uid));
-                const data = snap.exists() ? snap.val() : {};
-                const esMiembro = data.clanMember === true || data.role === 'admin' || data.role === 'moderator';
-                if (esMiembro) {
-                    window.top.location.href = new URL('game/MictLAN.html', window.location.href).href;
-                } else {
-                    avisoDenegado('a MictLAND');
-                }
-            } catch(e) {
-                console.error('Error verificando membresía:', e);
-                avisoErrorVerificacion();
-            }
+            window.top.location.href = new URL('game/MictLAN.html', window.location.href).href;
         };
 
         // ── Botón Marco (comportamiento sin cambios; solo fija su propio texto) ──
