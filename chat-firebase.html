@@ -1944,7 +1944,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
             keys: ['pase de temporada', 'season pass', 'sp ', ' sp', 'el sp', 'aura sp', 'que es el sp', 'qué es el sp'],
             clan: false,
             resp: '🎫 <strong>Pase de Temporada (SP):</strong> Es una suscripción premium de Atlas Earth que te da recompensas exclusivas durante una temporada. A diferencia del EC, el SP tiene misiones y objetivos que completar para desbloquear sus recompensas.<br><br>' +
-                  '💡 Consulta la sección 📚 <a href="https://socram-13.github.io/GamerTag_AEMX/guias.html#pase-temporada" target="_blank" style="color:#ffd700;text-decoration:underline;">Guías → Pase de Temporada</a> para ver todos los detalles y estrategias.'
+                  '💡 Consulta la sección 📚 <a href="guias.html#pase-temporada" target="_blank" style="color:#ffd700;text-decoration:underline;">Guías → Pase de Temporada</a> para ver todos los detalles y estrategias.'
         },
         {
             keys: ['cuanto genera el ec gratis', 'ec gratis cuanto', 'genera ec gratis', 'ab gratis ec', 'ec sin premium'],
@@ -3249,7 +3249,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
 
                 // Buscar en guías si hay más info
                 if (!window._auraGuiasCache) {
-                    window._auraGuiasCache = fetch('https://socram-13.github.io/GamerTag_AEMX/guias.html')
+                    window._auraGuiasCache = fetch('guias.html')
                         .then(r => r.text()).catch(() => null);
                 }
                 window._auraGuiasCache.then(html => {
@@ -3264,7 +3264,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
                             if (pts > mejorPts) { mejorPts = pts; mejorSec = sec; mejorAncla = sec.id || ''; }
                         });
                         if (mejorSec && mejorPts > 0) {
-                            const url = 'https://socram-13.github.io/GamerTag_AEMX/guias.html' + (mejorAncla ? '#' + mejorAncla : '');
+                            const url = 'guias.html' + (mejorAncla ? '#' + mejorAncla : '');
                             extra = '<br><br>📘 Si quieres más detalle: <a href="' + url + '" target="_blank" style="color:#ffd700;text-decoration:underline;">Ver en Guías AEMX</a>';
                         }
                     }
@@ -3299,7 +3299,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
                 const srbHour  = parseFloat(localStorage.getItem('aura_srb_hour'));
                 const srbEvent = parseFloat(localStorage.getItem('aura_srb_event'));
                 if (!srbHour || !srbEvent || isNaN(srbHour) || isNaN(srbEvent)) {
-                    setTimeout(() => { addAuraMessage('No tengo tus datos de renta aún, <strong>' + nombre + '</strong>. Abre el <a href="https://socram-13.github.io/GamerTag_AEMX/" target="_blank" style="color:#ffd700;text-decoration:underline;">GamerTag</a> primero para que pueda calcular tu SRB. 💙'); }, _d);
+                    setTimeout(() => { addAuraMessage('No tengo tus datos de renta aún, <strong>' + nombre + '</strong>. Abre el <a href="./" target="_blank" style="color:#ffd700;text-decoration:underline;">GamerTag</a> primero para que pueda calcular tu SRB. 💙'); }, _d);
                 } else {
                     const msgHTML = '🚀 <strong>Tu SRB (50× boost · 32h):</strong><br><br>' +
                         '⚡ Por hora: <strong>$' + srbHour + ' USD</strong><br>' +
@@ -3310,7 +3310,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
             } else if (entry._guiasSearch) {
                 const _d = 1000 + Math.floor(Math.random() * 1500);
                 if (!window._auraGuiasCache) {
-                    window._auraGuiasCache = fetch('https://socram-13.github.io/GamerTag_AEMX/guias.html').then(r => r.text()).catch(() => null);
+                    window._auraGuiasCache = fetch('guias.html').then(r => r.text()).catch(() => null);
                 }
                 window._auraGuiasCache.then(html => {
                     if (!html) { setTimeout(() => { addAuraMessage('No pude cargar las guías en este momento. Intenta más tarde 😔'); }, _d); return; }
@@ -3347,7 +3347,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
                     }
 
                     if (!mejorFragmento) { setTimeout(() => { addAuraMessage('No encontré información específica sobre eso en las guías. Intenta con otro término 🔍'); }, _d); return; }
-                    const url = 'https://socram-13.github.io/GamerTag_AEMX/guias.html#' + mejorAncla;
+                    const url = 'guias.html#' + mejorAncla;
                     const respHTML = '📘 Encontré en guías sobre <strong>' + mejorTitulo + '</strong>:<br><br><em>' + mejorFragmento + '...</em><br><br>👉 <a href="' + url + '" target="_blank" style="color:#ffd700;text-decoration:underline;">Ver en Guías AEMX</a>';
                     const respVoz = 'Encontré en guías sobre ' + mejorTitulo + '. ' + mejorFragmento + '. Te recomiendo abrir el enlace para ver más detalles.';
                     setTimeout(() => { addAuraMessage(respHTML, respVoz); }, _d);
@@ -3387,7 +3387,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
 
             // Cachear el HTML de guías
             if (!window._auraGuiasCache) {
-                window._auraGuiasCache = fetch('https://socram-13.github.io/GamerTag_AEMX/guias.html')
+                window._auraGuiasCache = fetch('guias.html')
                     .then(r => r.text())
                     .catch(() => null);
             }
@@ -3431,7 +3431,7 @@ const userRef = ref(database, 'chat_presence/' + userId);
                     return;
                 }
 
-                const url = 'https://socram-13.github.io/GamerTag_AEMX/guias.html#' + mejorAncla;
+                const url = 'guias.html#' + mejorAncla;
                 const respHTML = '📘 Encontré algo en las guías sobre <strong>' + mejorTitulo + '</strong>:<br><br><em>' + mejorFragmento + '...</em><br><br>👉 <a href="' + url + '" target="_blank" style="color:#ffd700;text-decoration:underline;">Ver en Guías AEMX</a>';
                 const respVoz = 'Encontré algo en las guías sobre ' + mejorTitulo + '. ' + mejorFragmento + '. Te recomiendo abrir el enlace para ver más detalles.';
                 setTimeout(() => { addAuraMessage(respHTML, respVoz); }, _d);
