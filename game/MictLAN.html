@@ -8306,8 +8306,9 @@ function buildBaseAEMX(){
   var bkBlack = new THREE.MeshLambertMaterial({ color: 0x15181d }), bkGray = new THREE.MeshLambertMaterial({ color: 0x80878f });
   var bkDark = new THREE.MeshLambertMaterial({ color: 0x0a0c0f }), bkJoint = new THREE.MeshLambertMaterial({ color: 0x3a414b });
   /* colores del robot del jugador: materiales propios para no pintar rivales, Aura ni el dron */
+  var BKS = { black: new THREE.MeshPhongMaterial({ color: 0x15181d, specular: 0x2c3036, shininess: 34 }), gray: new THREE.MeshPhongMaterial({ color: 0x80878f, specular: 0x24272b, shininess: 28 }), dark: new THREE.MeshPhongMaterial({ color: 0x0a0c0f, specular: 0x22262b, shininess: 30 }), joint: new THREE.MeshPhongMaterial({ color: 0x3a414b, specular: 0x34383e, shininess: 36 }) };
   var BK0 = { black: bkBlack, gray: bkGray, dark: bkDark, joint: bkJoint }, BOT_PAL_KEY = 'aemx-bot-colors', BOT_PAL_DEF = { base: '#15181d', sec: '#80878f', eye: '#3dff7a' };
-  var botMine = { black: bkBlack.clone(), gray: bkGray.clone(), dark: bkDark.clone(), joint: bkJoint.clone(), eye: 0x3dff7a, eyeHi: 0xc8ffe0, flame: 0x6dffc2, flameHi: 0x5ad8ff, eyeMats: [], beams: [] };
+  var botMine = { black: BKS.black.clone(), gray: BKS.gray.clone(), dark: BKS.dark.clone(), joint: BKS.joint.clone(), eye: 0x3dff7a, eyeHi: 0xc8ffe0, flame: 0x6dffc2, flameHi: 0x5ad8ff, eyeMats: [], beams: [] };
   function botPalRead() { var P = { base: BOT_PAL_DEF.base, sec: BOT_PAL_DEF.sec, eye: BOT_PAL_DEF.eye }, r; try { r = JSON.parse(localStorage.getItem(BOT_PAL_KEY) || 'null'); if (r) ['base', 'sec', 'eye'].forEach(function (k) { if (/^#[0-9a-f]{6}$/i.test(r[k])) P[k] = r[k].toLowerCase(); }); } catch (e) { } return P; }
   function bkBeamPaint(geo, rgb) { var p = geo.attributes.position, c = geo.attributes.color, i, t; for (i = 0; i < p.count; i++) { t = Math.max(0, 1 + p.getY(i) / 28); t *= t; c.setXYZ(i, t * rgb[0], t * rgb[1], t * rgb[2]); } c.needsUpdate = true; }
   function botPalApply(P) {
@@ -8358,12 +8359,40 @@ function buildBaseAEMX(){
   var bkFlameGeo = (function () { var q = new THREE.ConeGeometry(0.07, 0.5, 8); q.rotateX(Math.PI); q.translate(0, -0.25, 0); return q; })();
   var bkTmpA = new THREE.Vector3(), bkTmpB = new THREE.Vector3(), bkMuz = new THREE.Vector3();
 
-  function makeBot(pal) {
+  var bkChamC = {}, bkMergeC = {}, bkPV = new THREE.Vector3(), bkPD = new THREE.Vector3(), bkPY = new THREE.Vector3(0, 1, 0), bkPQ = new THREE.Quaternion();
+  function bkChamfer(w, h, d, b) {
+    var key = [w, h, d, b].join('|'); if (bkChamC[key]) return bkChamC[key];
+    var P = [], N = [], H = [w / 2, h / 2, d / 2], ax, s, u, v, su, sv, sa, sx, sy, sz;
+    function tri(a, c, e, n) { var ab = new THREE.Vector3(c[0] - a[0], c[1] - a[1], c[2] - a[2]), ac = new THREE.Vector3(e[0] - a[0], e[1] - a[1], e[2] - a[2]), cr = ab.cross(ac), q = (cr.x * n[0] + cr.y * n[1] + cr.z * n[2]) < 0; [a, q ? e : c, q ? c : e].forEach(function (p) { P.push(p[0], p[1], p[2]); N.push(n[0], n[1], n[2]); }); }
+    function quad(a, c, e, f, n) { tri(a, c, e, n); tri(a, e, f, n); }
+    function pt(a, va, ub, vb, cc, vc) { var o = [0, 0, 0]; o[a] = va; o[ub] = vb; o[cc] = vc; return o; }
+    for (ax = 0; ax < 3; ax++) { u = (ax + 1) % 3; v = (ax + 2) % 3;
+      for (s = -1; s <= 1; s += 2) { var n0 = [0, 0, 0], iu = H[u] - b, iv = H[v] - b; n0[ax] = s; quad(pt(ax, s * H[ax], u, -iu, v, -iv), pt(ax, s * H[ax], u, iu, v, -iv), pt(ax, s * H[ax], u, iu, v, iv), pt(ax, s * H[ax], u, -iu, v, iv), n0); }
+      for (su = -1; su <= 1; su += 2) for (sv = -1; sv <= 1; sv += 2) { var n1 = [0, 0, 0], ia = H[ax] - b; n1[u] = su * Math.SQRT1_2; n1[v] = sv * Math.SQRT1_2; quad(pt(ax, -ia, u, su * H[u], v, sv * (H[v] - b)), pt(ax, ia, u, su * H[u], v, sv * (H[v] - b)), pt(ax, ia, u, su * (H[u] - b), v, sv * H[v]), pt(ax, -ia, u, su * (H[u] - b), v, sv * H[v]), n1); }
+    }
+    for (sx = -1; sx <= 1; sx += 2) for (sy = -1; sy <= 1; sy += 2) for (sz = -1; sz <= 1; sz += 2) { var r3 = 1 / Math.sqrt(3); tri([sx * H[0], sy * (H[1] - b), sz * (H[2] - b)], [sx * (H[0] - b), sy * H[1], sz * (H[2] - b)], [sx * (H[0] - b), sy * (H[1] - b), sz * H[2]], [sx * r3, sy * r3, sz * r3]); }
+    var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(N), 3));
+    return (bkChamC[key] = g);
+  }
+  function makeBot(pal, opt) {
     var g = new THREE.Group(), body = new THREE.Group(), upper = new THREE.Group(), head = new THREE.Group(), rifle = new THREE.Group(), m, legs = [], arms = [], flames = [], nozzles = [];
-    var bkM = pal || BK0, bkBlack = bkM.black, bkGray = bkM.gray, bkDark = bkM.dark, bkJoint = bkM.joint;
+    var plain = !!(opt && opt.plain), bkM = pal || (plain ? BK0 : BKS), bkBlack = bkM.black, bkGray = bkM.gray, bkDark = bkM.dark, bkJoint = bkM.joint;
     var eyeMat = new THREE.MeshBasicMaterial({ color: pal ? pal.eye : 0x3dff7a });
     if (pal) pal.eyeMats.push(eyeMat);
-    function bx(mat, px, py, pz, sx, sy, sz, par) { var q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx, sy, sz); (par || g).add(q); return q; }
+    function bx(mat, px, py, pz, sx, sy, sz, par) { var mn = Math.min(sx, sy, sz), q; if (plain || mat === eyeMat || mn < 0.02) { q = new THREE.Mesh(uBox, mat); q.scale.set(sx, sy, sz); } else q = new THREE.Mesh(bkChamfer(sx, sy, sz, Math.min(0.014, mn * 0.25)), mat); q.position.set(px, py, pz); (par || g).add(q); return q; }
+    var pistons = [];
+    /* pistón entre dos piezas: parB es hija de parA. Su pose sale solo del ángulo real de la articulación, cada vez que se dibuja. */
+    function piston(parA, A, parB, B, ra, rr, la, lr) {
+      var barrel = new THREE.Mesh(uCyl, bkJoint), rod = new THREE.Mesh(uCyl, bkGray), PA = new THREE.Vector3(A[0], A[1], A[2]), PB = new THREE.Vector3(B[0], B[1], B[2]);
+      barrel.scale.set(ra, la, ra); rod.scale.set(rr, lr, rr); barrel.userData.dyn = rod.userData.dyn = 1; barrel.frustumCulled = rod.frustumCulled = false; parA.add(barrel); parA.add(rod);
+      function up() { if (parB.parent !== parA) return; /* en la explosión del duelo las piezas se separan: el pistón se queda quieto */
+        bkPV.copy(PB).applyQuaternion(parB.quaternion).add(parB.position); bkPD.copy(bkPV).sub(PA).normalize(); bkPQ.setFromUnitVectors(bkPY, bkPD);
+        barrel.quaternion.copy(bkPQ); rod.quaternion.copy(bkPQ);
+        barrel.position.copy(PA).addScaledVector(bkPD, la / 2); rod.position.copy(bkPV).addScaledVector(bkPD, -lr / 2);
+        barrel.updateMatrix(); rod.updateMatrix(); barrel.matrixWorld.multiplyMatrices(parA.matrixWorld, barrel.matrix); rod.matrixWorld.multiplyMatrices(parA.matrixWorld, rod.matrix);
+      }
+      barrel.onBeforeRender = rod.onBeforeRender = up; pistons.push(up);
+    }
     function cy(mat, px, py, pz, r, len, rx, rz, par) { var q = new THREE.Mesh(uCyl, mat); q.position.set(px, py, pz); q.scale.set(r, len, r); q.rotation.set(rx || 0, 0, rz || 0); (par || g).add(q); return q; }
     function ball(mat, px, py, pz, r, par) { var q = new THREE.Mesh(uSphere, mat); q.position.set(px, py, pz); q.scale.setScalar(r); par.add(q); return q; }
     g.rotation.order = 'YXZ'; body.rotation.order = 'YXZ'; upper.rotation.order = 'YXZ';
@@ -8391,6 +8420,11 @@ function buildBaseAEMX(){
       bx(bkDark, 0, -0.075, 0.17, 0.1, 0.04, 0.08, ft).rotation.x = -0.12;
       bx(bkDark, 0, -0.065, -0.07, 0.1, 0.06, 0.06, ft);
       legs.push({ th: th, kn: kn, ft: ft });
+      if (!plain) { var xp = sx * 0.084;
+        bx(bkDark, sx * 0.074, -0.16, -0.06, 0.03, 0.035, 0.035, th); ball(bkJoint, xp, -0.16, -0.06, 0.024, th);
+        bx(bkDark, sx * 0.056, -0.13, -0.05, 0.03, 0.03, 0.03, kn); ball(bkJoint, sx * 0.066, -0.13, -0.05, 0.017, kn);
+        piston(th, [xp, -0.16, -0.06], kn, [sx * 0.066, -0.13, -0.05], 0.018, 0.01, 0.19, 0.19);
+      }
     });
 
     upper.position.set(0, 0.1, 0); body.add(upper);
@@ -8506,6 +8540,32 @@ function buildBaseAEMX(){
     solveArm(-1, new THREE.Vector3(-0.105, 0.39, 0.541)); /* izquierda: guardamano (parte delantera) */
     solveArm(1, new THREE.Vector3(0.077, 0.39, 0.208)); /* derecha: empuñadura / gatillo */
 
+    if (!plain) {
+      [-1, 1].forEach(function (sx, i) {
+        bx(bkDark, sx * 0.24, 0.5, -0.1, 0.05, 0.035, 0.035, shell); ball(bkJoint, sx * 0.25, 0.5, -0.1, 0.022, shell);
+        bx(bkDark, 0, -0.2, -0.066, 0.034, 0.034, 0.022, arms[i].sh); ball(bkJoint, 0, -0.2, -0.074, 0.018, arms[i].sh);
+        piston(shell, [sx * 0.25, 0.5, -0.1], arms[i].sh, [0, -0.2, -0.074], 0.019, 0.01, 0.17, 0.17);
+      });
+      pistons.forEach(function (u) { u(); });
+      /* una malla por pieza móvil y material: menos llamadas de dibujo, misma geometría */
+      var live = [g, body, upper, shell, head, rifle], slots = { black: bkM.black, gray: bkM.gray, dark: bkM.dark, joint: bkM.joint, eye: eyeMat }, slotOf = function (mt) { for (var k in slots) if (slots[k] === mt) return k; return null; }, todo = {}, inv = new THREE.Matrix4(), M = new THREE.Matrix4();
+      legs.forEach(function (l) { live.push(l.th, l.kn, l.ft); }); arms.forEach(function (a) { live.push(a.sh, a.el, a.wr); }); nozzles.forEach(function (n) { live.push(n); });
+      g.updateMatrixWorld(true);
+      g.traverse(function (o) { if (!o.isMesh || o.userData.dyn) return; var sl = slotOf(o.material), an = o.parent; if (!sl) return; while (live.indexOf(an) < 0) an = an.parent; var key = live.indexOf(an) + '|' + sl; (todo[key] || (todo[key] = { an: an, sl: sl, list: [] })).list.push(o); });
+      Object.keys(todo).forEach(function (key) {
+        var T = todo[key], geo = bkMergeC[key];
+        if (!geo) {
+          var parts = [], n = 0, o2 = 0; inv.copy(T.an.matrixWorld).invert();
+          T.list.forEach(function (o) { var q = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); M.multiplyMatrices(inv, o.matrixWorld); q.applyMatrix4(M); parts.push(q); n += q.attributes.position.count; });
+          var PP = new Float32Array(n * 3), NN = new Float32Array(n * 3); parts.forEach(function (q) { PP.set(q.attributes.position.array, o2 * 3); NN.set(q.attributes.normal.array, o2 * 3); o2 += q.attributes.position.count; q.dispose(); });
+          geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(PP, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(NN, 3)); bkMergeC[key] = geo;
+        }
+        T.list.forEach(function (o) { o.parent.remove(o); });
+        T.an.add(new THREE.Mesh(geo, slots[T.sl]));
+      });
+      /* grupos fijos que quedaron vacíos */
+      var quito = true; while (quito) { quito = false; var vac = []; g.traverse(function (o) { if (!o.isMesh && !o.children.length && live.indexOf(o) < 0 && o !== g) vac.push(o); }); vac.forEach(function (o) { o.parent.remove(o); quito = true; }); }
+    }
     g.scale.setScalar(0.3662); /* escala compensada: la altura del cuerpo queda igual que antes */
     noRay(g); scene.add(g);
 
@@ -10888,7 +10948,7 @@ function buildBaseAEMX(){
       grF.addColorStop(0, 'rgba(255,255,255,0.9)'); grF.addColorStop(0.5, 'rgba(255,255,255,0.45)'); grF.addColorStop(1, 'rgba(255,255,255,0)'); cF.fillStyle = grF; cF.fillRect(0, 0, 64, 64);
       cvB.width = cvB.height = 64; cB = cvB.getContext('2d'); grB = cB.createRadialGradient(32, 32, 0, 32, 32, 32);
       grB.addColorStop(0, 'rgba(0,0,0,0.85)'); grB.addColorStop(0.6, 'rgba(0,0,0,0.4)'); grB.addColorStop(1, 'rgba(0,0,0,0)'); cB.fillStyle = grB; cB.fillRect(0, 0, 64, 64);
-      b.g.traverse(function (o) { if (o.isMesh && o.material && o.material.isMeshLambertMaterial) o.castShadow = true; });
+      b.g.traverse(function (o) { if (o.isMesh && o.material && (o.material.isMeshLambertMaterial || o.material.isMeshPhongMaterial)) o.castShadow = true; });
       b.fxo = { fk: 0, blob: new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cvB), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })) };
       b.fxo.blob.rotation.x = -Math.PI / 2; noRay(b.fxo.blob); scene.add(b.fxo.blob);
 
@@ -11565,7 +11625,7 @@ function buildBaseAEMX(){
   }
   window.__kassTick = kassTick;
   function buildRepairLegs() { /* piernas y panza del robot acostadas en el piso, saliendo de la Versant (como si estuviera reparándola por dentro) */
-    var a = makeBot(), G = new THREE.Group(), jean = new THREE.MeshLambertMaterial({ color: 0x2e5fa3, emissive: 0x08162b }), jeanD = new THREE.MeshLambertMaterial({ color: 0x244d85 }), jeanJ = new THREE.MeshLambertMaterial({ color: 0x1d3d6b }), shoe = new THREE.MeshLambertMaterial({ color: 0x15181d, emissive: 0x050607 }), keep = [], w;
+    var a = makeBot(undefined, { plain: true }), G = new THREE.Group(), jean = new THREE.MeshLambertMaterial({ color: 0x2e5fa3, emissive: 0x08162b }), jeanD = new THREE.MeshLambertMaterial({ color: 0x244d85 }), jeanJ = new THREE.MeshLambertMaterial({ color: 0x1d3d6b }), shoe = new THREE.MeshLambertMaterial({ color: 0x15181d, emissive: 0x050607 }), keep = [], w;
     function anc(o, p) { while (o) { if (o === p) return true; o = o.parent; } return false; }
     a.body.parent.remove(a.body); a.body.remove(a.upper);
     a.body.children.slice().forEach(function (c) { if (!c.isMesh && a.legs.every(function (l) { return l.th !== c; })) a.body.remove(c); });
