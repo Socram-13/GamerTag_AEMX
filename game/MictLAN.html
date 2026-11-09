@@ -323,7 +323,7 @@
   #gate.picking { overflow-y: auto; }
   #gate .gt-bot { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; margin: 0 0 12px; padding: 8px 12px; box-sizing: border-box; border: 1px solid rgba(255,228,77,0.55); border-radius: 6px 18px 6px 18px; background: rgba(16,9,30,0.72); }
   #gate .gt-bot[hidden] { display: none; }
-  #gate .gt-bot canvas { flex: 0 0 auto; width: 128px; height: 176px; display: block; }
+  #gate .gt-bot canvas { flex: 0 0 auto; width: 150px; height: 206px; display: block; }
   #gate .gt-bot-ctl { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; text-align: left; }
   #gate .gt-bot-t { font: 800 12px 'GtOxa', var(--f-body), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #ffe44d; }
   #gate .gt-bot-pals { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -337,10 +337,10 @@
     #gate.picking .gt-mid { display: grid; grid-template-columns: minmax(230px, auto) minmax(0, 1fr); column-gap: 28px; align-items: center; justify-items: center; flex: 0 1 780px; width: 100%; max-width: 780px; }
     #gate.picking .gt-met { grid-column: 1 / -1; grid-row: 1; }
     #gate.picking .gt-ttl { grid-column: 1 / -1; grid-row: 2; }
-    #gate.picking #gate-msg { grid-column: 1 / -1; grid-row: 3; color: #ffe44d; font-weight: 700; text-shadow: 0 1px 6px #000; }
-    #gate.picking .gt-modes { grid-column: 1; grid-row: 4; flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 100%; margin: 0; }
-    #gate.picking .gt-bot { grid-column: 2; grid-row: 4; margin: 0; }
-    #gate.picking .gt-bot canvas { width: 170px; height: 234px; }
+    #gate.picking #gate-msg { grid-column: 1; grid-row: 3; align-self: end; margin: 0 0 10px; color: #ffe44d; font-weight: 700; text-shadow: 0 1px 6px #000; }
+    #gate.picking .gt-modes { grid-column: 1; grid-row: 4; align-self: start; flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 100%; margin: 0; }
+    #gate.picking .gt-bot { grid-column: 2; grid-row: 3 / 5; margin: 0; }
+    #gate.picking .gt-bot canvas { width: 200px; height: 276px; }
     #gate.picking #gate-err { grid-column: 1 / -1; grid-row: 5; }
   }
   @media (min-width: 720px) and (min-height: 621px) { #gate.picking { overflow: hidden; } }
@@ -375,9 +375,9 @@
     #gate #gate-msg, #gate #gate-btn, #gate #gate-err { grid-column: 1 / -1; grid-row: auto; }
     #gate.picking { align-items: flex-start; }
     #gate.picking .gt-fig, #gate.picking .gt-met { display: none; }
-    #gate.picking #gate-msg { grid-row: 3; margin-bottom: 2px; }
-    #gate .gt-bot { grid-column: 1 / -1; grid-row: 4; margin-bottom: 0; }
-    #gate.picking .gt-modes { grid-row: 5; }
+    #gate .gt-bot { grid-column: 1 / -1; grid-row: 3; margin-bottom: 0; }
+    #gate.picking #gate-msg { grid-row: 4; margin-bottom: 0; color: #ffe44d; font-weight: 700; }
+    #gate.picking .gt-modes { grid-row: 5; margin-top: 0; }
   }
   @media (prefers-reduced-motion: reduce) { #gate .gt-fig, #gate .gt-met, #gate .gt-boom, #gate .gt-flash, #gate h1.gt-title, #gate h1.gt-title .gp i, #gate h1.gt-title .gp b, #gate h1.gt-title .gk i, #gate h1.gt-title .gk b, #gate .gt-petals i { animation: none; } #gate .gt-by { animation: none; opacity: 0.95; } }
 </style>
@@ -464,7 +464,6 @@
         <div class="gt-bar"><div class="gt-fill" id="gt-fill"></div></div>
         <ul class="gt-log" id="gt-log"></ul>
       </div>
-      <p id="gate-msg">Inicia sesión con Google para ver a los jugadores en el mapa.</p>
       <div class="gt-bot" id="gt-bot" hidden>
         <canvas id="gt-bot-cv" aria-label="Vista previa de tu robot"></canvas>
         <div class="gt-bot-ctl">
@@ -475,6 +474,7 @@
           <label>Luces <input type="color" id="gt-c-eye"></label>
         </div>
       </div>
+      <p id="gate-msg">Inicia sesión con Google para ver a los jugadores en el mapa.</p>
       <div class="gt-modes" id="gt-modes" hidden>
         <button type="button" id="gm-inv" class="inv"><b>Modo Invasión</b><small>Caza OVNIs e invasores</small></button>
         <button type="button" id="gm-exp"><b>Modo Explorador</b><small>Paz permanente · viaja y reta</small></button>
@@ -8327,10 +8327,13 @@ function buildBaseAEMX(){
     var rd = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }), sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(24, 1, 0.05, 20), b = makeBot(botMine), raf = 0, t0 = performance.now(), el = b.eyeMat, bm = b.beam.geometry, dl;
     rd.outputEncoding = renderer.outputEncoding; rd.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); rd.setClearColor(0x000000, 0);
     scene.remove(b.g); sc.add(b.g);
-    sc.add(new THREE.HemisphereLight(0xffffff, 0x6a5a80, 1.05));
-    dl = new THREE.DirectionalLight(0xffffff, 0.95); dl.position.set(2, 3, 4); sc.add(dl);
+    /* de pie y sin apuntar: se oculta el arma y los brazos cuelgan a los costados (solo en esta vista previa) */
+    b.rifle.visible = false; b.head.rotation.y = 0;
+    b.arms.forEach(function (a, i) { var sx = i ? 1 : -1; a.sh.quaternion.setFromEuler(new THREE.Euler(0, 0, sx * 0.12)); a.el.quaternion.setFromEuler(new THREE.Euler(-0.12, 0, 0)); });
+    sc.add(new THREE.HemisphereLight(0xffffff, 0x6a5a80, 0.7));
+    dl = new THREE.DirectionalLight(0xffffff, 0.45); dl.position.set(2, 3, 4); sc.add(dl);
     function size() { var w = cv.clientWidth || 140, h = cv.clientHeight || 190; rd.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
-    size(); cam.position.set(0, 0.42, 2.05); cam.lookAt(0, 0.36, 0);
+    size(); cam.position.set(0, 0.42, 1.8); cam.lookAt(0, 0.35, 0);
     (function loop(now) { raf = requestAnimationFrame(loop); b.g.rotation.y = (now - t0) * 0.0009; rd.render(sc, cam); })(t0);
     window.addEventListener('resize', size);
     return { close: function () { cancelAnimationFrame(raf); window.removeEventListener('resize', size); sc.remove(b.g); botMine.eyeMats.splice(botMine.eyeMats.indexOf(el), 1); botMine.beams.splice(botMine.beams.indexOf(bm), 1); rd.dispose(); if (rd.forceContextLoss) rd.forceContextLoss(); } };
