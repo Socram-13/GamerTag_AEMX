@@ -9767,7 +9767,7 @@ function buildBaseAEMX(){
       if (D.me.hp <= 0 || D.foe.hp <= 0 || left <= 0) {
         var rM = (D.me.hp + D.me.sh) / (D.me.hpMax + D.me.shMax), rF = (D.foe.hp + D.foe.sh) / (D.foe.hpMax + D.foe.shMax);
         win = (D.foe.hp <= 0 && D.me.hp <= 0) ? Math.random() < 0.5 : D.foe.hp <= 0 ? true : D.me.hp <= 0 ? false : (rM === rF ? Math.random() < 0.5 : rM > rF); /* gana quien conserve más porcentaje de vida; el empate se sortea */
-        D.win = win; D.ph = 'end'; D.tb = now; D.apr = false; D.fin = false; D.rg = null; D.dR = null; D.jR = null; D.insp = false; D.aimT = null; D.te = now + 10 + (win ? 8.15 : 4.55); D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
+        D.win = win; D.ph = 'end'; b.jy = 0; F.jy = 0; D.tb = now; D.apr = false; D.fin = false; D.rg = null; D.dR = null; D.jR = null; D.insp = false; D.aimT = null; D.te = now + 10 + (win ? 8.15 : 4.55); D.boomed = false; D.banShown = false; D.loser = win ? 'foe' : 'me';
         D.tgt = null;
       }
     } else if (D.ph === 'end') {
