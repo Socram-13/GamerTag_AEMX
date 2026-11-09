@@ -1,6 +1,7 @@
 // Lee /users de Firebase (llave de servicio) y escribe game/mictlan/users.json solo con los campos que usa el mapa
 import admin from 'firebase-admin';
 import { writeFileSync, mkdirSync } from 'node:fs';
+import { estadoDe } from './estados.mjs';
 
 const sa = JSON.parse(process.env.FIREBASE_SA);
 admin.initializeApp({
@@ -15,7 +16,7 @@ for (const [uid, u] of Object.entries(all)) {
   out[uid] = {
     username: u.username || '',
     country: u.country || '',
-    city: u.city || '',
+    city: estadoDe(u.city, u.country),
     bannedLeaderboard: u.bannedLeaderboard === true,
     clanMember: u.clanMember === true,
     common: Number(u.common) || 0,
