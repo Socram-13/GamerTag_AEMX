@@ -2637,6 +2637,7 @@
     async function loadUsers() {
   const snapshot = await get(ref(db, 'users'));
   allUsers = [];
+  const limpiar = v => String(v ?? '').replace(/[<>"'`&\\]/g, '');
 
   if (snapshot.exists()) {
     snapshot.forEach((child) => {
@@ -2650,10 +2651,10 @@
 
       allUsers.push({
         uid:               child.key,
-        username:          d.username,
-        borderColor:       d.borderColor || '',
-        country:           d.country || '',
-        city:              d.city || '',
+        username:          limpiar(d.username),
+        borderColor:       limpiar(d.borderColor),
+        country:           limpiar(d.country),
+        city:              limpiar(d.city),
         total:             common + rare + epic + legendary,
         coins:             parseInt(d.coins) || 0,
         updatedAt:         d.updatedAt || null,
