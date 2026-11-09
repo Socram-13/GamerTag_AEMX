@@ -323,7 +323,7 @@
   #gate.picking { overflow-y: auto; }
   #gate .gt-bot { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; margin: 0 0 12px; padding: 8px 12px; box-sizing: border-box; border: 1px solid rgba(255,228,77,0.55); border-radius: 6px 18px 6px 18px; background: rgba(16,9,30,0.72); }
   #gate .gt-bot[hidden] { display: none; }
-  #gate .gt-bot canvas { flex: 0 0 auto; width: 150px; height: 206px; display: block; }
+  #gate .gt-bot canvas { flex: 0 0 auto; width: 176px; height: 250px; display: block; }
   #gate .gt-bot-ctl { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; text-align: left; }
   #gate .gt-bot-t { font: 800 12px 'GtOxa', var(--f-body), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #ffe44d; }
   #gate .gt-bot-pals { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -340,7 +340,7 @@
     #gate.picking #gate-msg { grid-column: 1; grid-row: 3; align-self: end; margin: 0 0 10px; color: #ffe44d; font-weight: 700; text-shadow: 0 1px 6px #000; }
     #gate.picking .gt-modes { grid-column: 1; grid-row: 4; align-self: start; flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 100%; margin: 0; }
     #gate.picking .gt-bot { grid-column: 2; grid-row: 3 / 5; margin: 0; }
-    #gate.picking .gt-bot canvas { width: 200px; height: 276px; }
+    #gate.picking .gt-bot canvas { width: 250px; height: 345px; }
     #gate.picking #gate-err { grid-column: 1 / -1; grid-row: 5; }
   }
   @media (min-width: 720px) and (min-height: 621px) { #gate.picking { overflow: hidden; } }
@@ -375,6 +375,7 @@
     #gate #gate-msg, #gate #gate-btn, #gate #gate-err { grid-column: 1 / -1; grid-row: auto; }
     #gate.picking { align-items: flex-start; }
     #gate.picking .gt-fig, #gate.picking .gt-met { display: none; }
+    #gate h1.gt-title, #gate.picking h1.gt-title { font-size: clamp(30px, 10vw, 46px); }
     #gate .gt-bot { grid-column: 1 / -1; grid-row: 3; margin-bottom: 0; }
     #gate.picking #gate-msg { grid-row: 4; margin-bottom: 0; color: #ffe44d; font-weight: 700; }
     #gate.picking .gt-modes { grid-row: 5; margin-top: 0; }
@@ -8333,8 +8334,20 @@ function buildBaseAEMX(){
     sc.add(new THREE.HemisphereLight(0xffffff, 0x6a5a80, 0.7));
     dl = new THREE.DirectionalLight(0xffffff, 0.45); dl.position.set(2, 3, 4); sc.add(dl);
     function size() { var w = cv.clientWidth || 140, h = cv.clientHeight || 190; rd.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
-    size(); cam.position.set(0, 0.42, 1.8); cam.lookAt(0, 0.35, 0);
-    (function loop(now) { raf = requestAnimationFrame(loop); b.g.rotation.y = (now - t0) * 0.0009; rd.render(sc, cam); })(t0);
+    size(); cam.position.set(0, 0.42, 1.75); cam.lookAt(0, 0.35, 0);
+    var still = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches), eu = new THREE.Euler(), upY = b.upper.position.y;
+    function idle(s) { /* movimientos ligeros: respira, mueve el torso y la cabeza, y mece los brazos; los pies no se mueven */
+      var br = Math.sin(s * 1.6);
+      b.upper.position.y = upY + 0.006 * br;
+      b.upper.rotation.set(0.02 * br, 0.05 * Math.sin(s * 0.5), 0.015 * Math.sin(s * 0.7));
+      b.head.rotation.set(0.05 * Math.sin(s * 0.9 + 1), 0.3 * Math.sin(s * 0.6), 0.02 * Math.sin(s * 0.8));
+      b.arms.forEach(function (a, i) {
+        var sx = i ? 1 : -1;
+        a.sh.quaternion.setFromEuler(eu.set(0.06 * Math.sin(s * 0.8 + i * Math.PI), 0, sx * (0.12 + 0.025 * Math.sin(s * 1.6 + i))));
+        a.el.quaternion.setFromEuler(eu.set(-0.14 - 0.08 * (0.5 + 0.5 * Math.sin(s * 1.1 + i * 1.7)), 0, 0));
+      });
+    }
+    (function loop(now) { raf = requestAnimationFrame(loop); b.g.rotation.y = (now - t0) * 0.0009; if (!still) idle((now - t0) / 1000); rd.render(sc, cam); })(t0);
     window.addEventListener('resize', size);
     return { close: function () { cancelAnimationFrame(raf); window.removeEventListener('resize', size); sc.remove(b.g); botMine.eyeMats.splice(botMine.eyeMats.indexOf(el), 1); botMine.beams.splice(botMine.beams.indexOf(bm), 1); rd.dispose(); if (rd.forceContextLoss) rd.forceContextLoss(); } };
   }
