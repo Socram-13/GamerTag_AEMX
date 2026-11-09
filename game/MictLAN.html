@@ -331,6 +331,19 @@
   #gate .gt-bot-pals button.on { border-color: #ffe44d; box-shadow: 0 0 10px rgba(255,228,77,0.8); }
   #gate .gt-bot label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 700 13px var(--f-body); color: var(--ink); }
   #gate .gt-bot input[type=color] { width: 44px; height: 26px; padding: 0; border: 1px solid rgba(255,228,77,0.6); border-radius: 6px; background: none; cursor: pointer; }
+  /* PC: al terminar la carga se quitan el robot y el alien; modos a la izquierda y colores a la derecha */
+  @media (min-width: 720px) {
+    #gate.picking .gt-fig { display: none; }
+    #gate.picking .gt-mid { display: grid; grid-template-columns: minmax(230px, auto) minmax(0, 1fr); column-gap: 28px; align-items: center; justify-items: center; flex: 0 1 780px; width: 100%; max-width: 780px; }
+    #gate.picking .gt-met { grid-column: 1 / -1; grid-row: 1; }
+    #gate.picking .gt-ttl { grid-column: 1 / -1; grid-row: 2; }
+    #gate.picking #gate-msg { grid-column: 1 / -1; grid-row: 3; color: #ffe44d; font-weight: 700; text-shadow: 0 1px 6px #000; }
+    #gate.picking .gt-modes { grid-column: 1; grid-row: 4; flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 100%; margin: 0; }
+    #gate.picking .gt-bot { grid-column: 2; grid-row: 4; margin: 0; }
+    #gate.picking .gt-bot canvas { width: 170px; height: 234px; }
+    #gate.picking #gate-err { grid-column: 1 / -1; grid-row: 5; }
+  }
+  @media (min-width: 720px) and (min-height: 621px) { #gate.picking { overflow: hidden; } }
   @media (max-height: 620px) { #gate.picking { align-items: flex-start; } #gate.picking .gt-fig, #gate.picking .gt-met, #gate.picking .gt-boom { display: none; } #gate.picking h1.gt-title { font-size: 22px; margin-bottom: 6px; } }
   #gate .gt-bar { height: 14px; border-radius: 99px; border: 1px solid #ffe44d; background: rgba(255,228,77,0.08); overflow: hidden; box-shadow: 0 0 14px rgba(255,228,77,0.25); }
   #gate .gt-fill { height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, #d9232f, #ff9a1f 45%, #ffe44d); box-shadow: 0 0 12px #ffcf2a; transition: width 0.25s linear; }
@@ -14907,7 +14920,7 @@ function gtPush(t) { const li = document.createElement('li'); li.textContent = t
 const gtFmt = (n) => n.toLocaleString('es-MX');
 let gtOut = false, gtModeShown = false;
 const gtModes = document.getElementById('gt-modes');
-function gtAskMode() { if (gtModeShown || gtOut) return; gtModeShown = true; cancelAnimationFrame(gtRaf); gtRaf = 0; gtLoad.hidden = true; msg.textContent = 'Elige tu modo'; msg.hidden = false; gtModes.hidden = false; gtBotOpen(); }
+function gtAskMode() { if (gtModeShown || gtOut) return; gtModeShown = true; cancelAnimationFrame(gtRaf); gtRaf = 0; gtLoad.hidden = true; msg.textContent = 'Elige tu modo'; msg.hidden = false; gtModes.hidden = false; gate.classList.add('picking'); gtBotOpen(); }
 /* selector de colores del robot junto a "Elige tu modo" (solo aquí, no dentro de la partida) */
 const GT_PALS = [['Original', '#15181d', '#80878f', '#3dff7a'], ['Ártico', '#d9dfe6', '#7a8794', '#33d6ff'], ['Carmesí', '#2a0d12', '#a3232f', '#ffb02e'], ['Jade', '#0f2e26', '#3f8f76', '#a6ff4d'], ['Oro', '#2b2417', '#c49a2e', '#fff06a'], ['Neón', '#1a1030', '#7a3ff0', '#ff3fa4']];
 let gtPrev = null, gtBotTry = 0;
