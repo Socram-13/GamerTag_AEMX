@@ -10246,10 +10246,12 @@ function buildBaseAEMX(){
   function uvxCam(dt, on, pb) { /* acerca la cámara a la escena dentro de UVXpress y la devuelve al terminar */
     var C = window.__uvxC || (window.__uvxC = { on: 0, save: new THREE.Vector3() }), th, k;
     if (!botFollow || fly || !pb) { C.on = 0; window.__uvxCam = 0; return; }
-    if (on && !C.on) { C.on = 1; C.save.copy(camera.position).sub(controls.target); }
+    if (on && !C.on) { C.on = 1; C.save.copy(camera.position).sub(controls.target); C.yw = botYawCam; }
     if (!C.on) return;
     window.__uvxCam = 1; botCamUser = clock.elapsedTime;
-    th = pb.rotation.y; if (on) uvxW.set(Math.sin(botYawCam + Math.PI) * 1.4, 0.8, Math.cos(botYawCam + Math.PI) * 1.4); else uvxW.copy(C.save);
+    if (C.yw === undefined) C.yw = botYawCam;
+    C.yw += nAng(botYawCam - C.yw) * Math.min(1, dt * 0.7); /* giro propio y lento de la cámara: sigue al robot sin copiar cada pequeña corrección de su mirada */
+    th = pb.rotation.y; if (on) uvxW.set(Math.sin(C.yw + Math.PI) * 1.4, 0.8, Math.cos(C.yw + Math.PI) * 1.4); else uvxW.copy(C.save);
     uvxO.copy(camera.position).sub(controls.target); k = Math.min(1, dt * 2.2); uvxO.lerp(uvxW, k);
     camera.position.copy(controls.target).add(uvxO);
     if (!on && uvxO.distanceTo(C.save) < 0.15) { C.on = 0; window.__uvxCam = 0; }
