@@ -11236,7 +11236,7 @@ function buildBaseAEMX(){
     /* cadera en tiempo con el paso: gira junto con la pierna que avanza (sin), y se inclina y se desplaza hacia la pierna de apoyo cuando la otra pasa por debajo del cuerpo (cos) */
     b.body.rotation.y = (0.07 + 0.07 * b.runK) * hpK * Math.sin(b.ph); b.body.rotation.z += (0.03 + 0.03 * b.runK) * hpK * Math.cos(b.ph); b.body.position.x = 0.012 * (1 + b.runK) * hpK * Math.cos(b.ph);
     b.upper.rotation.y = nAng(b.aimYaw - b.yaw) + stA - b.body.rotation.y * 0.85;
-    b.upper.rotation.z = -((0.03 + 0.03 * b.runK) * hpK * Math.sin(b.ph)) * 0.85;
+    b.upper.rotation.z = -((0.03 + 0.03 * b.runK) * hpK * Math.cos(b.ph)) * 0.85; /* el torso contrarresta la inclinación de la cadera en el mismo tiempo (cos), así el pecho queda derecho */
     b.upper.rotation.x = 0.9 * bk + (b._sp || 0) * (0.05 + 0.05 * Math.sin(t * 6.1));
     if (b._sp) b.upper.rotation.y += b._sp * 0.12 * Math.sin(t * 2.7);
     b.head.rotation.z = -0.6 * b.upper.rotation.z;
