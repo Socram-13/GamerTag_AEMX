@@ -3819,8 +3819,8 @@ window.startMap = function (RAW, AUTH) {
       } else if (pl.type === 'grass') {
 
         c1 = z === 'arid' ? col(0.13 + vr() * 0.04, 0.4, 0.4 + vr() * 0.08) : col(0.24 + vr() * 0.07, 0.5, 0.32 + vr() * 0.1);
-        part('tuft', 0, 0, 0, 1.0 + vr() * 0.3, 0.8 + vr() * 0.5, 1.0 + vr() * 0.3, c1, 0, vr() * 6, 0);
-        if (vr() < 0.5) part('tuft', 0.28, 0, 0.1, 0.7, 0.6 + vr() * 0.4, 0.7, jit(c1, 0.08), 0, vr() * 6, 0);
+        part('tuft', 0, 0, 0, 1.0 + vr() * 0.3, (0.8 + vr() * 0.5) * 0.35, 1.0 + vr() * 0.3, c1, 0, vr() * 6, 0); /* césped bajo: llega a la espinilla del robot */
+        if (vr() < 0.5) part('tuft', 0.28, 0, 0.1, 0.7, (0.6 + vr() * 0.4) * 0.35, 0.7, jit(c1, 0.08), 0, vr() * 6, 0);
       } else if (pl.type === 'bush') {
         if (z === 'arid') c1 = col(0.14 + vr() * 0.05, 0.3, 0.34 + vr() * 0.08);
         else if (z === 'trop') c1 = col(0.35 + vr() * 0.04, 0.6, 0.26 + vr() * 0.08);
