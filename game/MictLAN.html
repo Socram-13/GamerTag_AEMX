@@ -8336,7 +8336,7 @@ function buildBaseAEMX(){
     dl = new THREE.DirectionalLight(0xffffff, 0.45); dl.position.set(2, 3, 4); sc.add(dl);
     function size() { var w = cv.clientWidth || 140, h = cv.clientHeight || 190; rd.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
     size(); cam.position.set(0, 0.42, 1.75); cam.lookAt(0, 0.35, 0);
-    var still = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches), eu = new THREE.Euler(), upY = b.upper.position.y;
+    var still = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches), eu = new THREE.Euler(), upY = b.upper.position.y, by0 = b.body.position.y;
     function idle(s) { /* movimientos ligeros: respira, mueve el torso y la cabeza, y mece los brazos; los pies no se mueven */
       var br = Math.sin(s * 1.6);
       b.upper.position.y = upY + 0.006 * br;
@@ -8345,8 +8345,15 @@ function buildBaseAEMX(){
       b.arms.forEach(function (a, i) {
         var sx = i ? 1 : -1;
         a.sh.quaternion.setFromEuler(eu.set(0.06 * Math.sin(s * 0.8 + i * Math.PI), 0, sx * (0.12 + 0.025 * Math.sin(s * 1.6 + i))));
-        a.el.quaternion.setFromEuler(eu.set(-0.14 - 0.08 * (0.5 + 0.5 * Math.sin(s * 1.1 + i * 1.7)), 0, 0));
+        a.el.quaternion.setFromEuler(eu.set(-0.25 - 0.35 * (0.5 + 0.5 * Math.sin(s * 1.1 + i * 1.7)), 0, 0));
+        if (a.fingers) { a.fingers.forEach(function (f, j) { f.rotation.z = -sx * (0.3 + 0.6 * (0.5 + 0.5 * Math.sin(s * 1.3 + i * 2 + j * 0.7))); }); a.knuckles.forEach(function (k, j) { k.rotation.z = -sx * (0.35 + 0.7 * (0.5 + 0.5 * Math.sin(s * 1.3 + i * 2 + j * 0.7 - 0.4))); }); a.thumb.rotation.z = -sx * (0.3 + 0.35 * (0.5 + 0.5 * Math.sin(s * 1.1 + i))); a.wr.rotation.x = 0.18 * Math.sin(s * 0.9 + i); }
       });
+      /* cambia el peso de una pierna a otra con las rodillas flexionadas; el cuerpo baja lo que bajan las rodillas, así los pies no se mueven */
+      var w = Math.sin(s * 0.7), kl = 0.1 + 0.05 * (0.5 + 0.5 * br) - 0.06 * Math.abs(w), hl = kl * 0.5;
+      b.body.rotation.z = 0.025 * w; b.body.position.y = by0 - (0.4 * (1 - Math.cos(hl)) + 0.39 * (1 - Math.cos(kl - hl))) * 1.15;
+      b.upper.rotation.z += -0.035 * w; b.upper.rotation.y += 0.14 * Math.sin(s * 0.35); b.head.rotation.y += 0.18 * Math.sin(s * 0.45 + 0.5); b.head.rotation.z += 0.05 * Math.sin(s * 0.6 + 1);
+      b.legs.forEach(function (L, i) { var sd = i ? 1 : -1, ld = Math.max(0, -sd * w), un = Math.max(0, sd * w), k = 0.1 + 0.05 * (0.5 + 0.5 * br) + 0.28 * un - 0.06 * ld; L.th.rotation.z = -0.025 * w; L.kn.rotation.x = k; L.th.rotation.x = -k * 0.5 - 0.03 * un; L.ft.rotation.x = -(L.th.rotation.x + L.kn.rotation.x); });
+      if (b.eyes) { var bl = s % 3.7, kb = 1; if (bl < 0.2) kb = 1 - 0.92 * Math.sin(bl / 0.2 * Math.PI); else if (s % 11.1 > 7.4 && bl > 0.32 && bl < 0.52) kb = 1 - 0.92 * Math.sin((bl - 0.32) / 0.2 * Math.PI); b.eyes.scale.y = Math.max(0.08, kb); }
     }
     (function loop(now) { raf = requestAnimationFrame(loop); b.g.rotation.y = (now - t0) * 0.0009; if (!still) idle((now - t0) / 1000); rd.render(sc, cam); })(t0);
     window.addEventListener('resize', size);
@@ -8374,7 +8381,7 @@ function buildBaseAEMX(){
     var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(N), 3));
     return (bkChamC[key] = g);
   }
-  function makeBot(pal, opt) {
+  function makeBotV1(pal, opt) {
     var g = new THREE.Group(), body = new THREE.Group(), upper = new THREE.Group(), head = new THREE.Group(), rifle = new THREE.Group(), m, legs = [], arms = [], flames = [], nozzles = [];
     var plain = !!(opt && opt.plain), bkM = pal || (plain ? BK0 : BKS), bkBlack = bkM.black, bkGray = bkM.gray, bkDark = bkM.dark, bkJoint = bkM.joint;
     var eyeMat = new THREE.MeshBasicMaterial({ color: pal ? pal.eye : 0x3dff7a });
@@ -8579,6 +8586,295 @@ function buildBaseAEMX(){
     if (pal) { pal.beams.push(beamG); if (pal.eye !== 0x3dff7a) { var bce = new THREE.Color(pal.eye); bkBeamPaint(beamG, [bce.r, bce.g, bce.b]); } }
     return { g: g, body: body, upper: upper, shell: shell, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat, beam: beam };
   }
+  /* ===== Robot v2 (MictLAND): blindaje en placas anguladas sobre un esqueleto delgado, mecánica a la vista =====
+     Misma jerarquía, pivotes, escala y objeto devuelto que makeBot v1: las animaciones del juego no cambian. */
+  var bk2C = {}, bk2MergeC = {};
+  function bk2(key, fn) { return bk2C[key] || (bk2C[key] = fn()); }
+  function bk2Flat(q) { q = q.index ? q.toNonIndexed() : q; q.computeVertexNormals(); return q; }
+  function bk2Mir(pts) { return pts.map(function (p) { return [-p[0], p[1]]; }).reverse(); }
+  /* placa: polígono extruido con chaflán; side=true la pone de perfil (forma en el plano z-y, grosor en x);
+     top=true la acuesta (forma en el plano x-z, grosor en y) */
+  function bk2Plate(key, pts, d, b, mode) {
+    return bk2('P' + key, function () {
+      var s = new THREE.Shape(); pts.forEach(function (p, i) { if (i) s.lineTo(p[0], p[1]); else s.moveTo(p[0], p[1]); }); s.closePath();
+      var dep = Math.max(0.002, d - 2 * b), q = new THREE.ExtrudeGeometry(s, { depth: dep, bevelEnabled: b > 0, bevelThickness: b, bevelSize: b * 0.8, bevelSegments: 1, curveSegments: 1 });
+      q.translate(0, 0, -dep / 2); if (mode === 'side') q.rotateY(-Math.PI / 2); else if (mode === 'top') q.rotateX(Math.PI / 2); return bk2Flat(q);
+    });
+  }
+  /* prisma facetado que cuelga de y=0 hasta y=-len, con una cara al frente */
+  function bk2Prism(rT, rB, len, seg) { seg = seg || 8; return bk2('Z' + [rT, rB, len, seg].join('|'), function () { var q = new THREE.CylinderGeometry(rT, rB, len, seg); q.rotateY(Math.PI / seg); q.translate(0, -len / 2, 0); return bk2Flat(q); }); }
+  var bk2Ball = function () { return bk2('B', function () { return new THREE.SphereGeometry(1, 12, 8); }); };
+  var bk2Hex = function () { return bk2('H', function () { return bk2Flat(new THREE.CylinderGeometry(1, 1, 1, 6)); }); };
+
+  function makeBotV2(pal, opt) {
+    var g = new THREE.Group(), body = new THREE.Group(), upper = new THREE.Group(), head = new THREE.Group(), rifle = new THREE.Group(), legs = [], arms = [], flames = [], nozzles = [];
+    var bkM = pal || BKS, bkBlack = bkM.black, bkGray = bkM.gray, bkDark = bkM.dark, bkJoint = bkM.joint;
+    var eyeMat = new THREE.MeshBasicMaterial({ color: pal ? pal.eye : 0x3dff7a });
+    if (pal) pal.eyeMats.push(eyeMat);
+    function bx(mat, px, py, pz, sx, sy, sz, par) { var mn = Math.min(sx, sy, sz), q; if (mat === eyeMat || mn < 0.02) { q = new THREE.Mesh(uBox, mat); q.scale.set(sx, sy, sz); } else q = new THREE.Mesh(bkChamfer(sx, sy, sz, Math.min(0.01, mn * 0.2)), mat); q.position.set(px, py, pz); (par || g).add(q); return q; }
+    function cy(mat, px, py, pz, r, len, rx, rz, par) { var q = new THREE.Mesh(uCyl, mat); q.position.set(px, py, pz); q.scale.set(r, len, r); q.rotation.set(rx || 0, 0, rz || 0); (par || g).add(q); return q; }
+    function ball(mat, px, py, pz, r, par) { var q = new THREE.Mesh(bk2Ball(), mat); q.position.set(px, py, pz); q.scale.setScalar(r); par.add(q); return q; }
+    function pc(geo, mat, par, p, r, s) { var q = new THREE.Mesh(geo, mat); if (p) q.position.set(p[0], p[1], p[2]); if (r) q.rotation.set(r[0], r[1], r[2]); if (s) q.scale.set(s[0], s[1], s[2]); par.add(q); return q; }
+    /* tambor de actuador con eje en x y dos tapas */
+    function drum(par, p, r, len) { cy(bkJoint, p[0], p[1], p[2], r, len, 0, Math.PI / 2, par); cy(bkDark, p[0] - len / 2, p[1], p[2], r * 1.08, 0.012, 0, Math.PI / 2, par); cy(bkDark, p[0] + len / 2, p[1], p[2], r * 1.08, 0.012, 0, Math.PI / 2, par); }
+    function bolt(par, p, ax) { var q = cy(bkJoint, p[0], p[1], p[2], 0.007, 0.008, ax === 'z' ? Math.PI / 2 : 0, ax === 'x' ? Math.PI / 2 : 0, par); return q; }
+    function rod(mat, par, a, b, r) {
+      var A = new THREE.Vector3(a[0], a[1], a[2]), B = new THREE.Vector3(b[0], b[1], b[2]), d = B.clone().sub(A), q = new THREE.Mesh(uCyl, mat);
+      q.position.copy(A).add(B).multiplyScalar(0.5); q.scale.set(r, d.length(), r); q.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); par.add(q); return q;
+    }
+    /* X de refuerzo: dos barras cruzadas sobre una placa lateral */
+    function xBrace(par, p, w, h, ax) { var a = Math.atan2(h, w), L = Math.hypot(w, h);
+      [a, -a].forEach(function (an) { var q = bx(bkDark, p[0], p[1], p[2], ax === 'x' ? 0.006 : L, ax === 'x' ? 0.012 : 0.012, ax === 'x' ? L : 0.006, par); if (ax === 'x') { q.scale.set(0.006, 0.012, L); q.rotation.x = an; } else { q.scale.set(L, 0.012, 0.006); q.rotation.z = an; } }); }
+    var pistons = [];
+    function piston(parA, A, parB, B, ra, rr, la, lr) {
+      var barrel = new THREE.Mesh(uCyl, bkJoint), rd = new THREE.Mesh(uCyl, bkGray), PA = new THREE.Vector3(A[0], A[1], A[2]), PB = new THREE.Vector3(B[0], B[1], B[2]);
+      barrel.scale.set(ra, la, ra); rd.scale.set(rr, lr, rr); barrel.userData.dyn = rd.userData.dyn = 1; barrel.frustumCulled = rd.frustumCulled = false; parA.add(barrel); parA.add(rd);
+      function up() { if (parB.parent !== parA) return;
+        bkPV.copy(PB).applyQuaternion(parB.quaternion).add(parB.position); bkPD.copy(bkPV).sub(PA).normalize(); bkPQ.setFromUnitVectors(bkPY, bkPD);
+        barrel.quaternion.copy(bkPQ); rd.quaternion.copy(bkPQ);
+        barrel.position.copy(PA).addScaledVector(bkPD, la / 2); rd.position.copy(bkPV).addScaledVector(bkPD, -lr / 2);
+        barrel.updateMatrix(); rd.updateMatrix(); barrel.matrixWorld.multiplyMatrices(parA.matrixWorld, barrel.matrix); rd.matrixWorld.multiplyMatrices(parA.matrixWorld, rd.matrix);
+      }
+      barrel.onBeforeRender = rd.onBeforeRender = up; pistons.push(up);
+    }
+    g.rotation.order = 'YXZ'; body.rotation.order = 'YXZ'; upper.rotation.order = 'YXZ';
+    body.position.y = 0.93; g.add(body);
+
+    /* ---- pelvis angulada con placa frontal ---- */
+    pc(bk2Plate('pelv', [[-0.13, 0.06], [0.13, 0.06], [0.145, 0.0], [0.09, -0.075], [-0.09, -0.075], [-0.145, 0.0]], 0.19, 0.012), bkBlack, body);
+    var cod = pc(bk2Plate('cod', [[-0.06, 0.045], [0.06, 0.045], [0.045, -0.04], [0, -0.065], [-0.045, -0.04]], 0.026, 0.006), bkGray, body, [0, 0, 0.103], [-0.12, 0, 0]);
+    bx(eyeMat, 0, 0.012, 0.016, 0.07, 0.01, 0.006, cod);
+    [-1, 1].forEach(function (sx) { bolt(cod, [sx * 0.042, 0.032, 0.014], 'z'); });
+
+    [-1, 1].forEach(function (sx) {
+      var th = new THREE.Group(), kn = new THREE.Group(), ft = new THREE.Group();
+      th.rotation.order = 'YXZ'; th.position.set(sx * 0.11, -0.04, 0); body.add(th);
+      ball(bkJoint, 0, 0, 0, 0.06, th);
+      /* muslo: núcleo facetado, caja superior, placa frontal y refuerzo lateral en X */
+      pc(bk2Prism(0.062, 0.05, 0.34), bkBlack, th, [0, -0.025, 0], null, [1, 1, 1.15]);
+      pc(bk2Plate('thBox', [[-0.052, 0], [0.052, 0], [0.056, -0.1], [-0.05, -0.105]], 0.045, 0.008), bkBlack, th, [0, -0.04, 0.085]);
+      bx(bkDark, 0, -0.092, 0.11, 0.055, 0.055, 0.006, th);
+      var tp = pc(bk2Plate('thF', [[-0.05, 0], [0.05, 0], [0.046, -0.17], [0.03, -0.2], [-0.03, -0.2], [-0.046, -0.17]], 0.024, 0.006), bkGray, th, [0, -0.15, 0.077], [0.05, 0, 0]);
+      bx(eyeMat, 0, -0.095, 0.013, 0.012, 0.13, 0.006, tp);
+      pc(bk2Plate('thS', [[-0.045, 0], [0.05, 0], [0.04, -0.24], [-0.04, -0.24]], 0.016, 0.005, 'side'), bkGray, th, [sx * 0.062, -0.06, 0.012]);
+      xBrace(th, [sx * 0.072, -0.18, 0.012], 0.07, 0.17, 'x');
+      bolt(th, [sx * 0.071, -0.07, 0.05], 'x'); bolt(th, [sx * 0.071, -0.07, -0.025], 'x');
+      /* rodilla: tambor del actuador y rodillera angulada */
+      kn.position.y = -0.4; th.add(kn);
+      drum(kn, [0, 0, 0], 0.048, 0.1);
+      pc(bk2Plate('kc', [[-0.045, 0.045], [0.045, 0.045], [0.052, -0.015], [0, -0.06], [-0.052, -0.015]], 0.03, 0.007), bkGray, kn, [0, 0.0, 0.062], [0.2, 0, 0]);
+      /* pantorrilla facetada con espinillera */
+      pc(bk2Prism(0.056, 0.04, 0.34), bkBlack, kn, [0, -0.025, 0], null, [1, 1, 1.15]);
+      var sp = pc(bk2Plate('shin', [[-0.046, 0], [0.046, 0], [0.042, -0.24], [0, -0.275], [-0.042, -0.24]], 0.024, 0.006), bkGray, kn, [0, -0.05, 0.062], [-0.035, 0, 0]);
+      bx(eyeMat, 0, -0.13, 0.013, 0.011, 0.17, 0.006, sp);
+      bx(bkDark, 0, -0.25, -0.058, 0.05, 0.08, 0.012, kn);
+      /* pie: empeine angulado, dos dedos y talón */
+      ft.position.y = -0.39; kn.add(ft);
+      ball(bkJoint, 0, 0, 0, 0.042, ft);
+      pc(bk2Plate('foot', [[-0.085, -0.015], [0.035, -0.02], [0.105, -0.05], [0.12, -0.08], [-0.095, -0.08]], 0.1, 0.01, 'side'), bkBlack, ft);
+      [-1, 1].forEach(function (tx) { pc(bk2Plate('toe', [[0, -0.05], [0.07, -0.068], [0.08, -0.095], [0, -0.095]], 0.044, 0.006, 'side'), bkDark, ft, [tx * 0.026, 0, 0.115]); });
+      pc(bk2Plate('heel', [[-0.1, -0.06], [-0.04, -0.06], [-0.04, -0.095], [-0.11, -0.095]], 0.08, 0.006, 'side'), bkDark, ft);
+      pc(bk2Plate('sole', [[-0.105, -0.08], [0.12, -0.08], [0.12, -0.095], [-0.105, -0.095]], 0.096, 0.004, 'side'), bkDark, ft);
+      legs.push({ th: th, kn: kn, ft: ft });
+      /* pistón de rodilla montado al centro de la parte trasera, con soportes que salen de la carcasa */
+      bx(bkDark, 0, -0.16, -0.077, 0.03, 0.03, 0.026, th); ball(bkJoint, 0, -0.16, -0.09, 0.02, th);
+      bx(bkDark, 0, -0.12, -0.068, 0.028, 0.028, 0.02, kn); ball(bkJoint, 0, -0.12, -0.08, 0.016, kn);
+      piston(th, [0, -0.16, -0.09], kn, [0, -0.12, -0.08], 0.017, 0.009, 0.19, 0.19);
+    });
+
+    upper.position.set(0, 0.1, 0); body.add(upper);
+    var shell = new THREE.Group(); upper.add(shell);
+    /* ---- cintura a la vista: columna, discos, tambores y varillas ---- */
+    cy(bkJoint, 0, 0.0, 0, 0.04, 0.22, 0, 0, shell);
+    [-0.055, 0, 0.055].forEach(function (wy) { pc(bk2Hex(), bkDark, shell, [0, wy, 0], null, [0.075, 0.018, 0.075]); });
+    [-1, 1].forEach(function (sx) { rod(bkGray, shell, [sx * 0.06, -0.08, -0.03], [sx * 0.075, 0.11, -0.03], 0.008); cy(bkJoint, sx * 0.07, 0.04, 0.03, 0.03, 0.045, 0, Math.PI / 2, shell); });
+    /* ---- abdomen con ranuras ---- */
+    pc(bk2Plate('abd', [[-0.14, 0.285], [0.14, 0.285], [0.105, 0.2], [0.07, 0.1], [-0.07, 0.1], [-0.105, 0.2]], 0.18, 0.01), bkDark, shell);
+    pc(bk2Plate('abdF', [[-0.12, 0.27], [0.12, 0.27], [0.09, 0.19], [0.06, 0.14], [-0.06, 0.14], [-0.09, 0.19]], 0.03, 0.006), bkBlack, shell, [0, 0, 0.088]);
+    [-0.05, 0, 0.05].forEach(function (vx) { bx(bkDark, vx, 0.205, 0.105, 0.028, 0.07, 0.006, shell); });
+    /* ---- pecho en placas superpuestas ---- */
+    pc(bk2Plate('chest', [[-0.15, 0.5], [0.15, 0.5], [0.185, 0.45], [0.18, 0.33], [0.13, 0.275], [-0.13, 0.275], [-0.18, 0.33], [-0.185, 0.45]], 0.25, 0.014), bkBlack, shell);
+    /* blindaje del pecho partido a la mitad: cada mitad gira hacia atrás desde el centro, formando una V */
+    [-1, 1].forEach(function (sx) {
+      var pu = [[0, 0.49], [0.124, 0.49], [0.159, 0.445], [0.144, 0.385], [0, 0.385]], pl = [[0, 0.37], [0.144, 0.37], [0.114, 0.29], [0, 0.29]];
+      var gu = new THREE.Group(); gu.position.set(sx * 0.006, 0, 0.152); gu.rotation.y = sx * 0.18; shell.add(gu);
+      pc(bk2Plate('chU' + sx, sx > 0 ? pu : bk2Mir(pu), 0.03, 0.007), bkGray, gu);
+      bolt(gu, [sx * 0.129, 0.47, 0.016], 'z'); bolt(gu, [sx * 0.129, 0.4, 0.016], 'z');
+      var gl = new THREE.Group(); gl.position.set(sx * 0.006, 0, 0.148); gl.rotation.y = sx * 0.18; shell.add(gl);
+      pc(bk2Plate('chL' + sx, sx > 0 ? pl : bk2Mir(pl), 0.03, 0.007), bkGray, gl);
+      bx(bkDark, sx * 0.079, 0.33, 0.016, 0.045, 0.04, 0.006, gl);
+      bx(eyeMat, sx * 0.034, 0.315, 0.016, 0.05, 0.009, 0.006, gl).rotation.z = sx * 0.45;
+      pc(bk2Plate('chS', [[-0.1, 0.48], [0.1, 0.48], [0.08, 0.31], [-0.08, 0.31]], 0.02, 0.005, 'side'), bkGray, shell, [sx * 0.19, 0, 0]);
+    });
+    /* núcleo hexagonal sobrepuesto encima de la unión de las dos mitades */
+    pc(bk2Hex(), eyeMat, shell, [0, 0.438, 0.176], [Math.PI / 2, 0, 0], [0.026, 0.012, 0.026]);
+    pc(bk2Hex(), bkDark, shell, [0, 0.438, 0.171], [Math.PI / 2, 0, 0], [0.036, 0.01, 0.036]);
+    /* cuello: eje, collarín y cables */
+    cy(bkJoint, 0, 0.56, 0, 0.032, 0.12, 0, 0, shell);
+    pc(bk2Plate('collar', [[-0.07, 0.535], [0.07, 0.535], [0.09, 0.5], [-0.09, 0.5]], 0.14, 0.006), bkDark, shell);
+    [-1, 1].forEach(function (sx) { rod(bkGray, shell, [sx * 0.05, 0.52, -0.04], [sx * 0.03, 0.61, -0.015], 0.007); });
+    /* hombros: tambor del actuador bajo un alero de blindaje inclinado */
+    [-1, 1].forEach(function (sx) {
+      drum(shell, [sx * 0.19, 0.43, 0], 0.06, 0.06);
+      var ev = [[0, -0.085], [0.15, -0.065], [0.15, 0.065], [0, 0.085]];
+      pc(bk2Plate('eave' + sx, sx > 0 ? ev : bk2Mir(ev), 0.022, 0.006, 'top'), bkGray, shell, [sx * 0.13, 0.535, 0], [0, 0, -sx * 0.42]);
+      var ev2 = [[0, -0.06], [0.09, -0.05], [0.09, 0.05], [0, 0.06]];
+      pc(bk2Plate('eave2' + sx, sx > 0 ? ev2 : bk2Mir(ev2), 0.018, 0.005, 'top'), bkBlack, shell, [sx * 0.135, 0.552, 0], [0, 0, -sx * 0.42]);
+    });
+    /* escáner propio sobre el hombro derecho: cápsula giratoria con lente; apunta sola al objetivo, sin levantar el brazo */
+    pc(bk2Hex(), bkDark, shell, [0.2, 0.537, -0.03], null, [0.034, 0.018, 0.034]);
+    cy(bkJoint, 0.2, 0.57, -0.03, 0.013, 0.06, 0, 0, shell);
+    var pod = new THREE.Group(); pod.position.set(0.2, 0.612, -0.03); shell.add(pod); var podB = new THREE.Group(); podB.scale.setScalar(1.35); pod.add(podB);
+    bx(bkBlack, 0, 0, -0.006, 0.056, 0.042, 0.072, podB);
+    bx(bkGray, 0, 0.025, -0.006, 0.044, 0.008, 0.06, podB);
+    [-1, 1].forEach(function (k) { bx(bkDark, k * 0.031, 0, -0.01, 0.008, 0.03, 0.05, podB); });
+    pc(bk2Hex(), bkDark, podB, [0, 0, 0.031], [Math.PI / 2, 0, 0], [0.02, 0.008, 0.02]);
+    pc(bk2Hex(), eyeMat, podB, [0, 0, 0.036], [Math.PI / 2, 0, 0], [0.013, 0.006, 0.013]);
+
+    /* ---- cabeza: casco facetado, pantalla de la cara, lentes y placas escalonadas ---- */
+    head.position.set(0, 0.60, 0); head.rotation.y = -0.3; shell.add(head);
+    var hd = new THREE.Group(); hd.scale.setScalar(1.12); head.add(hd); /* cabeza 12% más grande para leerse de lejos */
+    pc(bk2Plate('helm', [[-0.095, 0.0], [-0.1, 0.12], [-0.07, 0.165], [0.03, 0.175], [0.09, 0.14], [0.1, 0.11], [0.095, 0.03], [0.055, -0.005], [-0.06, -0.005]], 0.13, 0.01, 'side'), bkBlack, hd);
+    bx(bkGray, 0, -0.005, 0.08, 0.076, 0.045, 0.063, hd).rotation.x = 0.4; /* mandíbula gris con la misma forma y tamaño que en el robot actual (la cabeza va escalada 1.12) */
+    bx(bkDark, 0, 0.162, 0.07, 0.05, 0.032, 0.05, hd); /* caja del faro de niebla en la frente; el foco y el haz los pone el juego */
+    var lamp = { bulb: [0, 0.181, 0.113], bulbS: [0.8, 0.7, 0.3], beam: [0, 0.181, 0.12] }; /* coordenadas de la cabeza (ya con la escala 1.12) */
+    pc(bk2Plate('face', [[-0.056, 0.108], [0.056, 0.108], [0.05, 0.03], [0.03, 0.012], [-0.03, 0.012], [-0.05, 0.03]], 0.02, 0.004), bkDark, hd, [0, 0, 0.098]);
+    var eyes = new THREE.Group(); eyes.position.set(0, 0.085, 0.109); hd.add(eyes); /* grupo propio: al encogerlo en vertical, parpadea */
+    [-1, 1].forEach(function (sx) {
+      bx(eyeMat, sx * 0.026, 0, 0, 0.035, 0.028, 0.004, eyes); /* ojos rectangulares, sin inclinación */
+      pc(bk2Plate('cheek', [[-0.05, 0.12], [0.075, 0.12], [0.075, 0.09], [0.055, 0.09], [0.055, 0.06], [0.035, 0.06], [0.035, 0.03], [-0.045, 0.03]], 0.014, 0.004, 'side'), bkGray, hd, [sx * 0.068, 0, 0]); /* placa escalonada, como greca */
+    });
+    cy(bkDark, 0, -0.008, 0, 0.042, 0.03, 0, 0, hd);
+    var lg = s13Decal(1, 0.075, 0, 0.085); lg.rotation.set(0, Math.PI, 0); lg.position.set(0, 0.085, -0.111); hd.add(lg); /* logo S13 en la nuca */
+    [-1, 1].forEach(function (sx) {
+      var an = new THREE.Group();
+      an.position.set(sx * 0.094, 0.07, 0); an.rotation.set(-0.35, 0, -sx * 0.04); hd.add(an); /* orejas pegadas al casco */
+      bx(bkDark, -sx * 0.022, 0.0, 0, 0.05, 0.07, 0.07, an);
+      cy(bkJoint, 0, 0.0, 0, 0.026, 0.045, Math.PI / 2, 0, an);
+      var pn = new THREE.Group(); pn.rotation.y = sx * Math.PI / 2; pn.scale.y = 0.6; an.add(pn);
+      pc(bk2Plate('ear', [[-0.045, 0.03], [0.045, 0.03], [0.04, 0.2], [0.024, 0.3], [-0.024, 0.3], [-0.04, 0.2]], 0.02, 0.004), bkBlack, pn);
+      pc(bk2Plate('earI', [[-0.027, 0.06], [0.027, 0.06], [0.023, 0.2], [0.013, 0.265], [-0.013, 0.265], [-0.023, 0.2]], 0.008, 0.002), bkGray, pn, [0, 0, 0.012]);
+      bx(eyeMat, 0, 0.15, 0.0175, 0.012, 0.12, 0.004, pn);
+    });
+
+    /* ---- mochila angulada con toberas facetadas ---- */
+    var pg = bk2('pack', function () { var s = new THREE.Shape(); s.moveTo(-0.13, 0.54); s.lineTo(-0.27, 0.5); s.lineTo(-0.36, 0.3); s.lineTo(-0.35, 0.06); s.lineTo(-0.27, -0.04); s.lineTo(-0.13, 0.0); s.closePath();
+      var q = new THREE.ExtrudeGeometry(s, { depth: 0.24, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 });
+      q.translate(0.13, 0, 0); q.scale(0.6, 1, 1); q.translate(-0.13, 0, 0); q.scale(0.75, 0.75, 0.75); q.rotateY(-Math.PI / 2); q.translate(0.1, 0, -0.02); return bk2Flat(q); });
+    var pack = new THREE.Group(); pack.position.y = 0.08; shell.add(pack);
+    pack.add(new THREE.Mesh(pg, bkBlack));
+    bx(eyeMat, 0, 0.24, -0.222, 0.026, 0.22, 0.012, pack);
+    bx(bkGray, 0, 0.4, -0.165, 0.12, 0.025, 0.1, pack).rotation.x = -0.25;
+    [-1, 1].forEach(function (sx) {
+      var fn = bx(bkGray, sx * 0.14, 0.25, -0.19, 0.022, 0.22, 0.1, pack); fn.rotation.z = sx * 0.28;
+      var nz = new THREE.Group(), fl;
+      nz.position.set(sx * 0.075, 0.02, -0.2); nz.rotation.x = 0.6; nz.scale.setScalar(0.75); pack.add(nz);
+      pc(bk2Prism(0.055, 0.085, 0.2, 8), bkGray, nz);
+      cy(bkDark, 0, -0.2, 0, 0.07, 0.02, 0, 0, nz);
+      fl = new THREE.Mesh(bkFlameGeo, new THREE.MeshBasicMaterial({ color: 0x6dffc2, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+      fl.position.y = -0.21; fl.scale.set(0.01, 0.01, 0.01); fl.visible = false; nz.add(fl);
+      flames.push(fl); nozzles.push(nz);
+    });
+
+    /* ---- arma: igual que v1 ---- */
+    rifle.position.set(0.125, 0.49, 0.17); rifle.rotation.y = -0.5; upper.add(rifle);
+    bx(bkBlack, 0, -0.005, 0.08, 0.09, 0.13, 0.44, rifle);
+    bx(bkGray, 0, -0.01, -0.15, 0.1, 0.14, 0.03, rifle);
+    bx(bkGray, 0, 0.085, 0.15, 0.07, 0.05, 0.36, rifle);
+    bx(bkDark, 0, 0.075, 0.36, 0.04, 0.035, 0.1, rifle);
+    bx(bkGray, 0, -0.01, 0.46, 0.085, 0.12, 0.28, rifle);
+    for (var ri = 0; ri < 3; ri++) bx(bkDark, 0, -0.08, 0.38 + ri * 0.08, 0.05, 0.03, 0.05, rifle);
+    bx(bkBlack, 0, -0.1, 0.38, 0.05, 0.14, 0.06, rifle).rotation.x = 0.25;
+    bx(bkDark, 0, -0.1, 0.056, 0.06, 0.15, 0.08, rifle).rotation.x = 0.3;
+    bx(eyeMat, 0.047, 0.01, 0.1, 0.012, 0.05, 0.26, rifle);
+    cy(bkDark, 0, -0.075, 0.58, 0.02, 0.08, Math.PI / 2, 0, rifle);
+    cy(bkJoint, 0, 0.01, 0.68, 0.02, 0.14, Math.PI / 2, 0, rifle);
+    cy(bkDark, 0, 0.01, 0.745, 0.032, 0.06, Math.PI / 2, 0, rifle);
+    cy(eyeMat, 0, 0.01, 0.782, 0.026, 0.016, Math.PI / 2, 0, rifle);
+    var fR = new THREE.Group(), fL = new THREE.Group();
+    fR.position.set(0, -0.1, 0.056); fR.rotation.x = 0.3; rifle.add(fR);
+    bx(bkJoint, 0, 0, 0, 0.088, 0.1, 0.105, fR); bx(bkJoint, -0.052, 0.03, 0.0, 0.03, 0.05, 0.065, fR); bx(bkJoint, 0, 0.04, 0.085, 0.022, 0.022, 0.08, fR);
+    fL.position.set(0, -0.1, 0.38); fL.rotation.x = 0.25; rifle.add(fL);
+    bx(bkJoint, 0, -0.01, 0, 0.088, 0.085, 0.105, fL); bx(bkJoint, 0.056, 0.02, 0, 0.026, 0.07, 0.095, fL); bx(bkJoint, -0.052, 0.03, 0.0, 0.026, 0.05, 0.07, fL);
+
+    /* ---- brazos: misma cinemática que v1; esqueleto facetado con blindaje exterior ---- */
+    function solveArm(sx, T) {
+      var sh = new THREE.Group(), el = new THREE.Group(), S = new THREE.Vector3(sx * 0.22, 0.43, 0), l1 = 0.31, l2 = 0.29;
+      var d = T.clone().sub(S), L = d.length(), dist = Math.min(L, l1 + l2 - 0.005), dir = d.clone().normalize(), A, pole, E, Tc, q1, q2, down = new THREE.Vector3(0, -1, 0);
+      A = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist))));
+      pole = new THREE.Vector3(sx * 0.6, -1, -0.3); pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
+      E = S.clone().add(dir.clone().multiplyScalar(l1 * Math.cos(A))).add(pole.multiplyScalar(l1 * Math.sin(A)));
+      Tc = S.clone().add(dir.clone().multiplyScalar(dist));
+      q1 = new THREE.Quaternion().setFromUnitVectors(down, E.clone().sub(S).normalize());
+      q2 = new THREE.Quaternion().setFromUnitVectors(down, Tc.clone().sub(E).normalize());
+      sh.position.copy(S); sh.quaternion.copy(q1); shell.add(sh);
+      el.position.y = -l1; el.quaternion.copy(q1.clone().conjugate().multiply(q2)); sh.add(el);
+      ball(bkJoint, 0, 0, 0, 0.058, sh);
+      pc(bk2Prism(0.046, 0.04, 0.27), bkBlack, sh, [0, -0.03, 0], null, [1, 1, 1.1]);
+      pc(bk2Plate('armS', [[-0.055, 0], [0.055, 0], [0.058, -0.06], [0.045, -0.21], [-0.045, -0.21], [-0.058, -0.06]], 0.018, 0.005, 'side'), bkGray, sh, [sx * 0.051, -0.04, 0], [0, 0, -sx * 0.025]);
+      bolt(sh, [sx * 0.062, -0.055, 0.04], 'x'); bolt(sh, [sx * 0.062, -0.055, -0.04], 'x');
+      if (sx < 0) { bx(eyeMat, sx * 0.0625, -0.075, 0, 0.004, 0.05, 0.014, sh); sh.add(s13Decal(-1, 0.1, -0.064, -0.16)); } else bx(eyeMat, sx * 0.0625, -0.14, 0, 0.004, 0.12, 0.014, sh);
+      drum(el, [0, 0, 0], 0.042, 0.09);
+      pc(bk2Prism(0.05, 0.04, 0.24), bkBlack, el, [0, -0.025, 0], null, [1, 1, 1.12]);
+      var fp = pc(bk2Plate('foreP', [[-0.045, 0], [0.045, 0], [0.05, -0.05], [0.036, -0.17], [-0.036, -0.17], [-0.05, -0.05]], 0.02, 0.005), bkGray, el, [0, -0.04, 0.06], [0.041, 0, 0]); /* sigue la conicidad del antebrazo: apoyada en toda su altura */
+      bx(eyeMat, 0, -0.1, 0.012, 0.011, 0.11, 0.004, fp);
+      pc(bk2Plate('foreS', [[-0.04, 0], [0.04, 0], [0.03, -0.16], [-0.03, -0.16]], 0.014, 0.004, 'side'), bkGray, el, [sx * 0.052, -0.05, 0], [0, 0, -sx * 0.04]);
+      pc(bk2Hex(), bkDark, el, [0, -0.235, 0], null, [0.046, 0.02, 0.046]);
+      ball(bkJoint, 0, -0.255, 0, 0.032, el);
+      var wr = new THREE.Group(); wr.position.set(0, -0.255, 0); el.add(wr);
+      pc(bk2Plate('palm', [[-0.045, -0.012], [0.045, -0.012], [0.048, -0.08], [0.035, -0.097], [-0.045, -0.097]], 0.05, 0.006, 'side'), bkBlack, wr);
+      pc(bk2Plate('back', [[-0.035, -0.025], [0.035, -0.025], [0.03, -0.085], [-0.03, -0.085]], 0.01, 0.003, 'side'), bkGray, wr, [-sx * 0.028, 0, 0]);
+      var fgs = [], kns = [], thb; /* dedos como piezas propias para poder moverlos */
+      (function () { var fi, fg, k; for (fi = 0; fi < 2; fi++) { fg = new THREE.Group(); fg.position.set(0, -0.097, -0.021 + fi * 0.042); fg.rotation.z = -sx * 0.6; wr.add(fg); pc(bk2Prism(0.015, 0.013, 0.066, 6), bkJoint, fg, null, null, [1, 1, 1.2]); k = new THREE.Group(); k.position.y = -0.064; k.rotation.z = -sx * 0.7; fg.add(k); pc(bk2Prism(0.013, 0.011, 0.046, 6), bkJoint, k, null, null, [1, 1, 1.2]); fgs.push(fg); kns.push(k); }
+        var th = new THREE.Group(); th.position.set(0, -0.035, 0.05); th.rotation.set(-0.5, 0, -sx * 0.45); wr.add(th); pc(bk2Prism(0.013, 0.011, 0.06, 6), bkJoint, th); thb = th; })();
+      arms.push({ wr: wr, sh: sh, el: el, hs: sh.quaternion.clone(), he: el.quaternion.clone(), fingers: fgs, knuckles: kns, thumb: thb });
+    }
+    solveArm(-1, new THREE.Vector3(-0.105, 0.39, 0.541));
+    solveArm(1, new THREE.Vector3(0.077, 0.39, 0.208));
+
+    [-1, 1].forEach(function (sx, i) {
+      /* pistón del codo por el frente del brazo (como un bíceps): el codo dobla hacia adelante, así que se encoge y se estira de verdad */
+      var A = arms[i];
+      bx(bkDark, 0, -0.075, 0.054, 0.026, 0.026, 0.02, A.sh); ball(bkJoint, 0, -0.075, 0.066, 0.016, A.sh); /* anclaje alto, cerca del hombro */
+      bx(bkDark, 0, -0.04, 0.062, 0.024, 0.02, 0.014, A.el); ball(bkJoint, 0, -0.04, 0.072, 0.014, A.el); /* anclaje en el antebrazo, justo debajo del codo */
+      piston(A.sh, [0, -0.075, 0.066], A.el, [0, -0.04, 0.072], 0.015, 0.008, 0.19, 0.095);
+    });
+    pistons.forEach(function (u) { u(); });
+
+    /* una malla por pieza móvil y material */
+    var live = [g, body, upper, shell, head, rifle], slots = { black: bkM.black, gray: bkM.gray, dark: bkM.dark, joint: bkM.joint, eye: eyeMat }, slotOf = function (mt) { for (var k in slots) if (slots[k] === mt) return k; return null; }, todo = {}, inv = new THREE.Matrix4(), M = new THREE.Matrix4();
+    legs.forEach(function (l) { live.push(l.th, l.kn, l.ft); }); arms.forEach(function (a) { live.push(a.sh, a.el, a.wr, a.thumb); a.fingers.forEach(function (f) { live.push(f); }); a.knuckles.forEach(function (f) { live.push(f); }); }); live.push(eyes); nozzles.forEach(function (n) { live.push(n); }); live.push(pod);
+    g.updateMatrixWorld(true);
+    g.traverse(function (o) { if (!o.isMesh || o.userData.dyn) return; var sl = slotOf(o.material), an = o.parent; if (!sl) return; while (live.indexOf(an) < 0) an = an.parent; var key = live.indexOf(an) + '|' + sl; (todo[key] || (todo[key] = { an: an, sl: sl, list: [] })).list.push(o); });
+    Object.keys(todo).forEach(function (key) {
+      var T = todo[key], geo = bk2MergeC[key];
+      if (!geo) {
+        var parts = [], n = 0, o2 = 0; inv.copy(T.an.matrixWorld).invert();
+        T.list.forEach(function (o) { var q = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); M.multiplyMatrices(inv, o.matrixWorld); q.applyMatrix4(M); parts.push(q); n += q.attributes.position.count; });
+        var PP = new Float32Array(n * 3), NN = new Float32Array(n * 3); parts.forEach(function (q) { PP.set(q.attributes.position.array, o2 * 3); NN.set(q.attributes.normal.array, o2 * 3); o2 += q.attributes.position.count; q.dispose(); });
+        geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(PP, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(NN, 3)); bk2MergeC[key] = geo;
+      }
+      T.list.forEach(function (o) { o.parent.remove(o); });
+      T.an.add(new THREE.Mesh(geo, slots[T.sl]));
+    });
+    var quito = true; while (quito) { quito = false; var vac = []; g.traverse(function (o) { if (!o.isMesh && !o.children.length && live.indexOf(o) < 0 && o !== g) vac.push(o); }); vac.forEach(function (o) { o.parent.remove(o); quito = true; }); }
+
+    g.scale.setScalar(0.3662);
+    noRay(g); scene.add(g);
+
+    var beamG = new THREE.ConeGeometry(5, 28, 20, 1, true), beam, bgp, bgc, bgi, bgt;
+    beamG.translate(0, -14, 0);
+    bgp = beamG.attributes.position; bgc = new Float32Array(bgp.count * 3);
+    for (bgi = 0; bgi < bgp.count; bgi++) { bgt = Math.max(0, 1 + bgp.getY(bgi) / 28); bgt *= bgt; bgc[bgi * 3] = bgt * 0.3; bgc[bgi * 3 + 1] = bgt; bgc[bgi * 3 + 2] = bgt * 0.55; }
+    beamG.setAttribute('color', new THREE.BufferAttribute(bgc, 3));
+    beam = new THREE.Mesh(beamG, new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    beam.position.set(0, 0, 0.054); beam.rotation.x = -Math.PI / 2; beam.visible = false; beam.frustumCulled = false; noRay(beam); pod.add(beam); /* el haz sale de la lente del escáner del hombro */
+    if (pal) { pal.beams.push(beamG); if (pal.eye !== 0x3dff7a) { var bce = new THREE.Color(pal.eye); bkBeamPaint(beamG, [bce.r, bce.g, bce.b]); } }
+    return { g: g, body: body, upper: upper, shell: shell, head: head, rifle: rifle, legs: legs, arms: arms, flames: flames, nozzles: nozzles, eyeMat: eyeMat, beam: beam, lamp: lamp, scanPod: pod, eyes: eyes };
+  }
+
+  function makeBot(pal, opt) { return (opt && opt.plain) ? makeBotV1(pal, opt) : makeBotV2(pal, opt); } /* robot v2; el v1 queda para el reparador */
+
 
   function botInitObs() {
     botObs = {}; botList = []; bfC.clear();
@@ -10915,7 +11211,7 @@ function buildBaseAEMX(){
       if (b._sp > 0.02) { bkSpE.set(-0.55 * b._sp * (0.6 + 0.4 * Math.sin(t * 4.6 + i * 1.9)), 0, (i === 0 ? -1 : 1) * 0.12 * b._sp); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set(-0.7 * b._sp * (0.5 + 0.5 * Math.sin(t * 5.7 + i)), 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* gesticula al hablar */
       if (b.jk > 0.02) { bkSpE.set((i === 1 ? -1.15 * (0.7 + 0.3 * Math.sin(t * 2.6)) : -0.35 * (0.6 + 0.4 * Math.sin(t * 1.9 + 1))) * b.jk, 0, (i === 0 ? -1 : 1) * 0.1 * b.jk); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set((i === 1 ? -0.55 * (0.5 + 0.5 * Math.sin(t * 3.1)) : -0.2) * b.jk, 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* extiende el brazo y remueve las piezas */
       if (b.fr > 0.02) { bkSpE.set(-0.85 * b.fr, 0, (i === 0 ? -1 : 1) * 0.28 * b.fr); bkQ1.multiply(bkSpQ.setFromEuler(bkSpE)); bkSpE.set(-1.25 * b.fr, 0, 0); bkQ2.multiply(bkSpQ.setFromEuler(bkSpE)); } /* manos al pecho, encogido */
-      if (i === 1 && b.scanK > 0.01) { bkQ1.slerp(b.scQs, b.scanK); bkQ2.slerp(b.scQe, b.scanK); }
+      if (i === 1 && b.scanK > 0.01 && (!b.scanPod || liftOn || b.hfOn)) { bkQ1.slerp(b.scQs, b.scanK); bkQ2.slerp(b.scQe, b.scanK); }
       b.arms[i].sh.quaternion.copy(bkQ1); b.arms[i].el.quaternion.copy(bkQ2);
       b.arms[i].wr.rotation.y = (i === 0 ? -1 : 1) * 1.45 * Math.max(fK, b.gK || 0) * (1 - b.hold) * (1 - bk); /* en vuelo e hiperimpulso/planeo: palmas hacia adelante */
     }
@@ -10955,9 +11251,9 @@ function buildBaseAEMX(){
       var lgm = new THREE.ConeGeometry(5, 28, 20, 1, true); lgm.rotateX(-Math.PI / 2); lgm.translate(0, 0, 14);
       (function () { var ps = lgm.attributes.position, cs = new Float32Array(ps.count * 3), q, tt; for (q = 0; q < ps.count; q++) { tt = Math.max(0, 1 - ps.getZ(q) / 28); tt *= tt; cs[q * 3] = tt; cs[q * 3 + 1] = tt * 0.94; cs[q * 3 + 2] = tt * 0.72; } lgm.setAttribute('color', new THREE.BufferAttribute(cs, 3)); })();
       b.fxo.beam = new THREE.Mesh(lgm, new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
-      b.fxo.beam.position.set(0, 0.2, 0.12); b.fxo.beam.rotation.x = 0.26;  noRay(b.fxo.beam); b.head.add(b.fxo.beam);
+      b.fxo.beam.position.set(0, b.lamp ? b.lamp.beam[1] : 0.2, b.lamp ? b.lamp.beam[2] : 0.12); b.fxo.beam.rotation.x = 0.26;  noRay(b.fxo.beam); b.head.add(b.fxo.beam);
       b.fxo.bulb = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.05), new THREE.MeshBasicMaterial({ color: 0xffe9a0, fog: false }));
-      b.fxo.bulb.position.set(0, 0.19, 0.1); noRay(b.fxo.bulb); b.head.add(b.fxo.bulb);
+      b.fxo.bulb.position.set(0, b.lamp ? b.lamp.bulb[1] : 0.19, b.lamp ? b.lamp.bulb[2] : 0.1); if (b.lamp) b.fxo.bulb.scale.set(b.lamp.bulbS[0], b.lamp.bulbS[1], b.lamp.bulbS[2]); noRay(b.fxo.bulb); b.head.add(b.fxo.bulb);
     }
     var FXo = b.fxo, onGnd = (b.mode === 'walk' || b.mode === 'perch') && b.shell.visible, fxBase = onGnd ? b.y - (b.bh || 0) : 0, fxFl = onGnd ? Math.max(0, 1 - (b.bh || 0) / 1.5) * (1 - bk) : 0, fxI;
     FXo.fk += (((b.inFog || b.inJunk) && onGnd ? 1 : 0) - FXo.fk) * Math.min(1, dt * 1.5);
@@ -10982,13 +11278,13 @@ function buildBaseAEMX(){
       bkSc4.set(0, 1, 0).cross(bkSc3).normalize();
       bkSc5.copy(bkSc3).negate();
       bkM.makeBasis(bkSc4, bkSc5, bkSc6.crossVectors(bkSc4, bkSc5));
-      bkQw.setFromRotationMatrix(bkM); b.arms[1].el.getWorldQuaternion(bkQe); b.beam.quaternion.copy(bkQe.invert()).multiply(bkQw);
+      if (b.scanPod) b.scanPod.lookAt(bkSc2); else { bkQw.setFromRotationMatrix(bkM); b.arms[1].el.getWorldQuaternion(bkQe); b.beam.quaternion.copy(bkQe.invert()).multiply(bkQw); }
       wa = dl * 1.45 / 0.33;
       b.beam.visible = true; b.beam.scale.set(1, 1, 1); b.beam.material.opacity = (0.55 + 0.05 * Math.sin(t * 28)) * b.scanK;
       b.spot.visible = false; b.spot.position.set(b.wk.x, wk2 + 0.12, b.wk.z); /* el círculo verde del suelo se quitó: queda solo el haz de luz */ b.spot.material.opacity = (0.28 + 0.12 * Math.sin(t * 9)) * b.scanK;
       b.wkFx -= dt;
       if (b.wkFx <= 0) { b.wkFx = 0.2; fxSpawn(b.wk.x + (Math.random() - 0.5) * 3, terrainH(b.wk.x, b.wk.z) + 0.4, b.wk.z + (Math.random() - 0.5) * 3, 0, 0.8, 0, 0.7, 0.1, 0.03, 0x7dffa0, 0.7, true); }
-    } else { b.beam.visible = false; b.spot.visible = false; }
+    } else { b.beam.visible = false; b.spot.visible = false; if (b.scanPod) b.scanPod.rotation.set(0, 0, 0); }
 
     var fT = (b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop') ? (b.mode === 'jetUp' && b.jph === 0 ? 1 : b.mode === 'hop' ? 0.8 : (b.jcush ? 0.9 : 0)) : (b.boostT > 0 ? 0.85 : 0);
     b.flame += (fT - b.flame) * Math.min(1, dt * 9);
@@ -11001,6 +11297,7 @@ function buildBaseAEMX(){
       } else fl.visible = false;
     }
     b.eyeMat.color.setHex(b.boostT > 0 ? botMine.eyeHi : botMine.eye);
+    if (b.eyes) { var bkBl = t % 3.7; b.eyes.scale.y = bkBl < 0.2 ? Math.max(0.08, 1 - 0.92 * Math.sin(bkBl / 0.2 * Math.PI)) : 1; } /* parpadeo */
     b.g.updateMatrixWorld(true);
     if (Math.abs(b.sideK) > 0.12) {
       var sgn = b.sideK > 0 ? 1 : -1, srx = -Math.cos(b.yaw) * sgn, srz = Math.sin(b.yaw) * sgn, sj, nzI = b.nozzles[sgn > 0 ? 0 : 1], sLen = 2 + Math.round(Math.abs(b.sideK) * 3);
