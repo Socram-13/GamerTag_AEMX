@@ -8072,7 +8072,7 @@ function buildBaseAEMX(){
     return true;
   }
 
-  function makeCar() {
+  function makeCarV1() {
     var g = new THREE.Group(), wheels = [], m, i, k, pv, tur, bar, a, lampM, ring, cam, flag, sx, sz, ang, cv, cx2, nm;
     function bx(mat, px, py, pz, sx2, sy2, sz2, par) { var q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx2, sy2, sz2); (par || g).add(q); return q; }
     function cy(mat, px, py, pz, r, len, rx, rz, par) { var q = new THREE.Mesh(uCyl, mat); q.position.set(px, py, pz); q.scale.set(r, len, r); q.rotation.set(rx || 0, 0, rz || 0); (par || g).add(q); return q; }
@@ -8173,6 +8173,148 @@ function buildBaseAEMX(){
     }
     return { g: g, wheels: wheels, tur: tur, bar: bar, cannons: cannons, lamp: lampM, ring: ring, cam: cam, flag: flag, ast: a, path: null, next: null, s: 0, v: 0, x: 0, z: 0, yaw: 0, tw: 0, state: 'drive', city: 0, T: 0, rt: 0, pt: 0, pi: 0 };
   }
+
+  /* Rover v2 de MictLAND: cabina cerrada, 6 ruedas, panel solar, antena de plato y torreta en el techo. Misma interfaz que makeCar(). */
+  function makeCarV2() {
+    var g = new THREE.Group(), wheels = [], m, i, k, pv, tur, bar, a, lampM, ring, cam, flag, sx, sz, ang, cv, cx2, nm, s;
+    function bx(mat, px, py, pz, sx2, sy2, sz2, par) { var q = new THREE.Mesh(uBox, mat); q.position.set(px, py, pz); q.scale.set(sx2, sy2, sz2); (par || g).add(q); return q; }
+    function cy(mat, px, py, pz, r, len, rx, rz, par) { var q = new THREE.Mesh(uCyl, mat); q.position.set(px, py, pz); q.scale.set(r, len, r); q.rotation.set(rx || 0, 0, rz || 0); (par || g).add(q); return q; }
+    /* perfil lateral (z, y) extruido a lo ancho, con bisel para los cantos achaflanados */
+    function hull(mat, pts, w, bev) {
+      var sh = new THREE.Shape(), geo, j;
+      sh.moveTo(pts[0][0], pts[0][1]); for (j = 1; j < pts.length; j++) sh.lineTo(pts[j][0], pts[j][1]); sh.closePath();
+      geo = new THREE.ExtrudeGeometry(sh, { depth: w, bevelEnabled: bev > 0, bevelSize: bev, bevelThickness: bev, bevelSegments: 1 });
+      geo.rotateY(-Math.PI / 2); geo.translate(w / 2, 0, 0); geo.computeVertexNormals();
+      var q = new THREE.Mesh(geo, mat); g.add(q); return q;
+    }
+    var cBlue = new THREE.MeshLambertMaterial({ color: 0x2f6bff }), cTire = new THREE.MeshLambertMaterial({ color: 0x20232b });
+    var cOrange = new THREE.MeshLambertMaterial({ color: 0xf26a1b }), cWhite = new THREE.MeshLambertMaterial({ color: 0xeeeeee });
+    var cLight = new THREE.MeshBasicMaterial({ color: 0xfff3b0 }), cTail = new THREE.MeshBasicMaterial({ color: 0xff3b5c });
+    var cGlass = new THREE.MeshPhongMaterial({ color: 0x1b2230, specular: 0x8aa0c0, shininess: 60, transparent: true, opacity: 0.62, depthWrite: false });
+    var cSolar = (typeof solarMat !== 'undefined') ? solarMat : carDark;
+    g.rotation.order = 'YXZ';
+
+    /* casco: parte baja hasta la línea de cintura, caja trasera con techo, y cabina de vidrio al frente */
+    hull(carBody, [[-1.0, 0.42], [-1.0, 0.82], [0.86, 0.82], [1.02, 0.74], [1.06, 0.54], [0.99, 0.42]], 0.9, 0.05);
+    hull(carBody, [[-1.0, 0.82], [-1.0, 1.08], [-0.93, 1.16], [0.47, 1.16], [0.52, 1.1], [0.0, 1.1], [0.0, 0.82]], 0.9, 0.05);
+    hull(cGlass, [[0.0, 0.84], [0.0, 1.1], [0.5, 1.1], [0.86, 0.84]], 0.88, 0.04).renderOrder = 2;
+    /* postes del parabrisas */
+    for (i = -1; i <= 1; i += 2) {
+      m = bx(carBody, i * 0.47, 0.97, 0.68, 0.05, 0.05, 0.46); m.rotation.x = 0.63;
+      /* dos tonos: faldón gris oscuro abajo, línea azul en la cintura y logo S13 al frente */
+      bx(carTur, i * 0.504, 0.55, 0.0, 0.02, 0.2, 1.96);
+      bx(carDark, i * 0.507, 0.66, 0.0, 0.015, 0.03, 1.96);
+      bx(cBlue, i * 0.507, 0.83, -0.25, 0.015, 0.035, 1.5);
+      bx(cOrange, i * 0.507, 0.83, 0.62, 0.015, 0.035, 0.18);
+      m = s13Decal(i, 0.27, 0, 0); m.position.set(i * 0.507, 0.97, -0.2); g.add(m);
+    }
+    bx(carTur, 0, 1.212, -0.24, 0.84, 0.014, 1.28);
+    bx(cBlue, 0, 1.222, -0.24, 0.06, 0.012, 1.28);
+    bx(carDark, 0, 0.62, 1.075, 0.4, 0.12, 0.03);
+    for (i = 0; i < 4; i++) bx(cOrange, -0.12 + i * 0.08, 0.62, 1.09, 0.03, 0.1, 0.01).rotation.z = 0.5;
+    bx(carDark, 0, 0.37, 0, 0.8, 0.1, 1.9);
+    bx(carDark, 0, 0.44, 1.07, 0.96, 0.08, 0.06); bx(carDark, 0, 0.44, -1.06, 0.96, 0.08, 0.06);
+    bx(cLight, -0.34, 0.66, 1.06, 0.16, 0.07, 0.04); bx(cLight, 0.34, 0.66, 1.06, 0.16, 0.07, 0.04);
+    bx(cTail, -0.4, 0.95, -1.06, 0.1, 0.12, 0.03); bx(cTail, 0.4, 0.95, -1.06, 0.1, 0.12, 0.03);
+    bx(carTur, 0, 0.72, -1.06, 0.5, 0.36, 0.03);
+    m = s13Decal(1, 0.3, 0, 0); m.rotation.y = Math.PI; m.position.set(0, 0.74, -1.08); g.add(m);
+    for (i = 0; i < 2; i++) bx(cOrange, (i ? 1 : -1) * 0.4, 0.55, -1.065, 0.12, 0.05, 0.02);
+
+    cv = document.createElement('canvas'); cv.width = 128; cv.height = 64;
+    cx2 = cv.getContext('2d'); cx2.fillStyle = '#2f6bff'; cx2.font = 'bold 46px sans-serif'; cx2.textAlign = 'center'; cx2.textBaseline = 'middle'; cx2.fillText('3113', 64, 34);
+    nm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true });
+    m = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.24), nm); m.position.set(0.506, 0.97, -0.6); m.rotation.y = Math.PI / 2; g.add(m);
+    m = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.24), nm); m.position.set(-0.506, 0.97, -0.6); m.rotation.y = -Math.PI / 2; g.add(m);
+
+    /* tanques laterales con punta */
+    for (i = -1; i <= 1; i += 2) {
+      cy(cWhite, i * 0.56, 0.76, -0.1, 0.055, 0.9, Math.PI / 2, 0);
+      m = new THREE.Mesh(new THREE.CylinderGeometry(0.0, 0.055, 0.14, 12), cWhite); m.rotation.x = Math.PI / 2; m.position.set(i * 0.56, 0.76, 0.42); g.add(m);
+      cy(carHub, i * 0.56, 0.76, -0.12, 0.062, 0.04, Math.PI / 2, 0); cy(carHub, i * 0.56, 0.76, -0.4, 0.062, 0.04, Math.PI / 2, 0);
+    }
+
+    /* seis ruedas con guardafango achaflanado y brazo de suspensión */
+    for (i = 0; i < 6; i++) {
+      sx = i % 2 ? 1 : -1; sz = [0.7, 0, -0.7][i >> 1];
+      pv = new THREE.Group(); pv.position.set(sx * 0.62, 0.28, sz);
+      cy(cTire, 0, 0, 0, 0.28, 0.17, 0, Math.PI / 2, pv);
+      for (k = 0; k < 10; k++) {
+        ang = k / 10 * Math.PI * 2;
+        bx(cTire, 0, Math.cos(ang) * 0.28, Math.sin(ang) * 0.28, 0.18, 0.05, 0.07, pv).rotation.x = -ang;
+      }
+      cy(carHub, sx * 0.01, 0, 0, 0.16, 0.19, 0, Math.PI / 2, pv);
+      for (k = 0; k < 3; k++) bx(carDark, sx * 0.01, 0, 0, 0.2, 0.04, 0.3, pv).rotation.x = k * Math.PI / 3;
+      cy(cWhite, sx * 0.1, 0, 0, 0.06, 0.03, 0, Math.PI / 2, pv);
+      g.add(pv); wheels.push(pv);
+      bx(carHub, sx * 0.52, 0.3, sz, 0.14, 0.06, 0.08);
+      bx(carBody, sx * 0.63, 0.6, sz, 0.26, 0.05, 0.36);
+      s = bx(carBody, sx * 0.63, 0.54, sz + 0.25, 0.26, 0.05, 0.2); s.rotation.x = 0.75;
+      s = bx(carBody, sx * 0.63, 0.54, sz - 0.25, 0.26, 0.05, 0.2); s.rotation.x = -0.75;
+      bx(carDark, sx * 0.52, 0.58, sz, 0.05, 0.09, 0.62);
+    }
+
+    /* techo: panel solar con marco, antenas, cámara y bandera */
+    bx(carHub, 0, 1.225, 0.17, 0.6, 0.03, 0.42);
+    bx(cSolar, 0, 1.245, 0.17, 0.54, 0.02, 0.36);
+    cy(carHub, -0.12, 1.36, -0.02, 0.012, 0.26); cy(carHub, -0.07, 1.33, -0.02, 0.012, 0.2);
+    bx(carHub, -0.095, 1.22, -0.02, 0.1, 0.04, 0.05);
+    cy(carHub, -0.38, 1.3, 0.38, 0.02, 0.2);
+    cam = new THREE.Group(); cam.position.set(-0.38, 1.42, 0.38); g.add(cam);
+    bx(carDark, 0, 0, 0, 0.12, 0.1, 0.1, cam); cy(cTire, 0, 0, 0.07, 0.035, 0.05, Math.PI / 2, 0, cam);
+    cy(carHub, 0.4, 1.5, -0.86, 0.012, 0.66);
+    flag = new THREE.Group(); flag.position.set(0.4, 1.74, -0.86); g.add(flag);
+    bx(new THREE.MeshLambertMaterial({ color: 0x1f9d55 }), 0, 0, -0.06, 0.012, 0.18, 0.1, flag);
+    bx(cWhite, 0, 0, -0.16, 0.012, 0.18, 0.1, flag);
+    bx(new THREE.MeshLambertMaterial({ color: 0xd62839 }), 0, 0, -0.26, 0.012, 0.18, 0.1, flag);
+    m = new THREE.Mesh(uCyl, new THREE.MeshBasicMaterial({ color: 0xffd23f })); m.scale.set(0.04, 0.016, 0.04); m.rotation.z = Math.PI / 2; m.position.set(0, 0, -0.16); flag.add(m);
+
+    /* antena de plato que gira (usa el campo ring) */
+    cy(carHub, -0.3, 1.27, -0.78, 0.035, 0.14);
+    ring = new THREE.Group(); ring.position.set(-0.3, 1.36, -0.78); g.add(ring);
+    m = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.05, 0.07, 10, 1, true), new THREE.MeshLambertMaterial({ color: 0xe6e8ee, side: THREE.DoubleSide }));
+    m.position.set(0, 0.06, 0.02); m.rotation.x = 0.45; ring.add(m);
+    cy(carHub, 0, 0.12, 0.08, 0.008, 0.18, 0.45, 0, ring);
+    bx(carDark, 0, 0.0, 0, 0.08, 0.04, 0.08, ring);
+
+    /* torreta sobre el techo */
+    cy(carTur, 0, 1.24, -0.34, 0.22, 0.06);
+    cy(carDark, 0, 1.28, -0.34, 0.17, 0.05);
+    tur = new THREE.Group(); tur.position.set(0, 1.37, -0.34); g.add(tur);
+    bx(carTur, 0, 0, 0, 0.32, 0.14, 0.32, tur);
+    bx(carTur, 0, 0.09, -0.02, 0.22, 0.05, 0.22, tur);
+    bx(carDark, -0.19, 0, 0.02, 0.07, 0.11, 0.2, tur); bx(carDark, 0.19, 0, 0.02, 0.07, 0.11, 0.2, tur);
+    bar = new THREE.Group(); bar.position.set(0, 0.02, 0.1); tur.add(bar);
+    var cnL = new THREE.Group(), cnR = new THREE.Group(), cannons = [cnL, cnR];
+    cnL.position.set(-0.22, 0, 0); cnR.position.set(0.22, 0, 0); bar.add(cnL); bar.add(cnR);
+    cannons.forEach(function (cn) {
+      bx(carDark, 0, 0, 0.1, 0.09, 0.09, 0.26, cn);
+      cy(carHub, 0, 0, 0.27, 0.055, 0.22, Math.PI / 2, 0, cn);
+      cy(carDark, 0, 0, 0.42, 0.036, 0.56, Math.PI / 2, 0, cn);
+      bx(carHub, 0, 0, 0.71, 0.07, 0.07, 0.05, cn);
+    });
+    lampM = new THREE.Mesh(uLamp, carLamp); lampM.position.set(0, 0.15, -0.08); lampM.scale.setScalar(0.5); tur.add(lampM);
+
+    /* piloto sentado dentro de la cabina, se ve tras el vidrio */
+    bx(carDark, 0, 0.96, -0.02, 0.4, 0.22, 0.05);
+    bx(carDark, 0, 0.9, 0.72, 0.7, 0.08, 0.12).rotation.x = -0.4;
+    a = makeAstronaut('blue', true);
+    a.g.position.set(0, 0.12, 0.2);
+    a.parts.legL.rotation.x = -1.4; a.parts.legR.rotation.x = -1.4;
+    a.parts.armL.rotation.x = -1.0; a.parts.armR.rotation.x = -1.0;
+    g.add(a.g);
+    a.g.scale.setScalar(0.425 / 0.75);
+    g.scale.setScalar(0.75);
+    noRay(g);
+    scene.add(g);
+    for (i = 0; i < 240; i++) {
+      m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color: 0xc8b48a, transparent: true, opacity: 0, depthWrite: false }));
+      m.visible = false; m.raycast = function () {}; scene.add(m);
+      carPuffs.push({ m: m, life: 9 });
+    }
+    return { g: g, wheels: wheels, tur: tur, bar: bar, cannons: cannons, lamp: lampM, ring: ring, cam: cam, flag: flag, ast: a, path: null, next: null, s: 0, v: 0, x: 0, z: 0, yaw: 0, tw: 0, state: 'drive', city: 0, T: 0, rt: 0, pt: 0, pi: 0 };
+  }
+
+  function makeCar() { return makeCarV2(); }
 
   function updateCar(t, dt) {
     var i, U, path, seg, f, x, z, tx, tz, ds = districts, k, dF, dB, p, hd, el, pts;
@@ -14990,8 +15132,8 @@ function buildBaseAEMX(){
       tcT.set(0, 0.09 - 3.6, 40); bot.head.localToWorld(tcT); camera.lookAt(tcT);
     } else if (turretCam && car) {
       car.g.updateMatrixWorld(true);
-      tcP.set(0, 0.85, -0.35); car.bar.localToWorld(tcP); camera.position.copy(tcP);
-      tcT.set(0, 0.15, 10); car.bar.localToWorld(tcT); camera.lookAt(tcT);
+      tcP.set(0, 1.6, -3.8); car.bar.localToWorld(tcP); /* detrás y arriba: se ve el rover */ camera.position.copy(tcP);
+      tcT.set(0, -2.2, 10); car.bar.localToWorld(tcT); camera.lookAt(tcT);
     }
     (function () {
       var hud = document.getElementById('botHud'), on = !!(botFollow && bot), S, nm, lvl, tk, el;
