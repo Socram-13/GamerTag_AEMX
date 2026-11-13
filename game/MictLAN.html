@@ -322,6 +322,12 @@
   #xib { position: absolute; inset: 0; pointer-events: none; z-index: 30; display: none; }
   .stage.gm-xib #xib { display: block; }
   .stage.gm-xib #dFeed, .stage.gm-xib #aSay, .stage.gm-xib #bSay { display: none !important; }
+  /* acomodo de Xibalba: arriba el usuario (nombre y foto) y el minimapa; abajo quedan libres los botones */
+  .stage.gm-xib .me { display: flex !important; order: -1; margin-right: auto; }
+  @media (max-width: 700px) { .stage.gm-xib .me { order: 2; } }
+  .stage.gm-xib .top { flex-wrap: wrap; row-gap: 8px; }
+  .stage.gm-xib #bMini { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 46px); bottom: auto; }
+  .stage.gm-xib #xib { --xib-up: 0px; }
   #xib .joy { position: absolute; left: max(18px, env(safe-area-inset-left)); bottom: calc(max(26px, env(safe-area-inset-bottom)) + 40px); width: 136px; height: 136px; border-radius: 50%; background: rgba(10,16,28,0.38); border: 2px solid rgba(61,255,122,0.55); pointer-events: auto; touch-action: none; }
   #xib .joy i { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: rgba(61,255,122,0.75); box-shadow: 0 0 14px rgba(61,255,122,0.6); }
   #xib .btns { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(24px, env(safe-area-inset-bottom)) + var(--xib-up, 200px)); display: grid; grid-template-columns: 66px 66px; grid-template-rows: 66px 66px; gap: 10px; pointer-events: none; }
@@ -11123,11 +11129,11 @@ function buildBaseAEMX(){
 
       if (b.boostT > 0) { b.bh = (b.bh || 0) + (((thr && b.gtype === 'hunt') ? Math.max(3, Math.min(35, U.y - botGround(b.x, b.z) + 1.0)) : Math.min(35, 5 + 0.13 * (b.bdist || 0))) - (b.bh || 0)) * Math.min(1, dt * 2.2); b.bvy = 0; b.bdist = (b.bdist || 0) + b.v * dt; b.glr = 0; }
       else if ((b.bh || 0) > 0 && (b.bdist || 0) > 20 && !b.glr0) {
-        if (b.wxBad || !b.goal) { b.bdist = 0; } else { b.glr0 = b.glr = Math.max(8, b.bdist * 0.25); b.bh0 = b.bh; b.bdist = 0; b.flew = true; }
+        if ((b.wxBad && b.gtype !== 'man') || !b.goal) { b.bdist = 0; } else { b.glr0 = b.glr = Math.max(8, b.bdist * (b.gtype === 'man' ? 0.7 : 0.25)); b.bh0 = b.bh; b.bdist = 0; b.flew = true; }
       }
       if (b.boostT <= 0 && (b.glr || 0) > 0 && (b.bh || 0) > 0) {
         b.glr -= b.v * dt;
-        if (b.wxBad || !b.goal || Math.hypot(b.goal.x - b.x, b.goal.z - b.z) < 15 || ((b.bh || 0) < 12 && botCityDist(b.x + Math.sin(b.yaw) * 12, b.z + Math.cos(b.yaw) * 12) < 8) || !botLandAhead(b.x, b.z, b.yaw, 24)) b.glr = 0;
+        if ((b.wxBad && b.gtype !== 'man') || !b.goal || Math.hypot(b.goal.x - b.x, b.goal.z - b.z) < 15 || ((b.bh || 0) < 12 && botCityDist(b.x + Math.sin(b.yaw) * 12, b.z + Math.cos(b.yaw) * 12) < 8) || !botLandAhead(b.x, b.z, b.yaw, 24)) b.glr = 0;
         if (b.glr > 0) { var gu = 1 - b.glr / b.glr0, bhO = b.bh; b.bh = Math.max(0.05, b.bh0 * (1 - Math.pow(gu, 4))); b.bvy = 0; if (b.flew && (b.bh - bhO) / Math.max(dt, 0.001) < -6) b.ball = true;  } else { b.glr0 = 0; }
       } else if (b.boostT <= 0 && !(b.glr > 0)) { b.glr0 = 0; if ((b.bh || 0) <= 0) b.bdist = 0; }
       if (b.boostT > 0) { }
@@ -11269,7 +11275,7 @@ function buildBaseAEMX(){
       swx = sdx * Math.cos(b.yaw); var swzz = -sdx * Math.sin(b.yaw); b.g.position.set(b.x + swx, b.y + swy, b.z + swzz);
     } else b.g.position.set(b.x, b.y + (b.jy || 0), b.z);
     b.g.rotation.y = b.yaw; b.g.rotation.z = swz;
-    if (thr && (d3 <= (GM.xib ? (b.alienT ? 32 : 58) : botRng() + 5) || (b.mode === 'walk' && b.gtype === 'hunt' && d3 < 260)) && b.boostT <= 0 && !b.ball && !((b.glr || 0) > 0) && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch' || b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop' || (b.mode === 'ride' && b.ride && b.ride.ph === 1))) {
+    if (thr && (d3 <= (GM.xib ? (b.alienT ? 45 : 58) : botRng() + 5) || (b.mode === 'walk' && b.gtype === 'hunt' && d3 < 260)) && b.boostT <= 0 && !b.ball && !((b.glr || 0) > 0) && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch' || b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop' || (b.mode === 'ride' && b.ride && b.ride.ph === 1))) {
       pd = d3 / BOT_LASER_V * 0.85;
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
       b.aiming = true;
@@ -11501,7 +11507,7 @@ function buildBaseAEMX(){
       fxSpawn(b.x - Math.sin(b.yaw) * 0.3, b.y + 0.06, b.z - Math.cos(b.yaw) * 0.3, 0, 0.25, 0, 0.5, 0.05, 0.18, 0xc8b48a, 0.3, false);
     }
 
-    if (b.aiming && pred && !b.ball && !(typeof ALN !== 'undefined' && ALN.watching && ALN.watching()) && d3 <= (b.alienT ? (GM.xib ? 30 : Math.min(botRng(), 24)) : (GM.xib ? 55 : botRng())) && (b.alienT || (now >= (ufo.noFireUntil || 0) && !ufoOverVolc()))) {
+    if (b.aiming && pred && !b.ball && !(typeof ALN !== 'undefined' && ALN.watching && ALN.watching()) && d3 <= (b.alienT ? (GM.xib ? 42 : Math.min(botRng(), 24)) : (GM.xib ? 55 : botRng())) && (b.alienT || (now >= (ufo.noFireUntil || 0) && !ufoOverVolc()))) {
       b.fireT -= dt;
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
@@ -11512,7 +11518,7 @@ function buildBaseAEMX(){
         if (DUEL) { duelRobotShot(); b.burstN = (b.burstN || 0) + 1; if (b.burstN >= 3) { b.burstN = 0; b.fireT = 0.8; } else b.fireT = 0.13; if (b.burstN === 1 && DUEL.fg && !DUEL.fg.burstN) DUEL.fg.fireT = 0.05; }
       }
     }
-    if (GM.xib && XIB.fire && !canShoot && !b.ball && b.boostT <= 0) {
+    if (GM.xib && XIB.fire && !(b.aiming && pred) && !b.ball && b.boostT <= 0) { /* solo sin blanco en rango: con blanco, espera a tenerlo en la mira */
       b.xfT = (b.xfT || 0) - dt;
       if (b.xfT <= 0) { b.xfT = 0.28; b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78)); botShoot(bkMuz, bkTmpA.set(b.x + Math.sin(b.aimYaw) * 60, b.y + 0.6 + Math.tan(b.aimPitch) * 60, b.z + Math.cos(b.aimYaw) * 60)); }
     }
@@ -11545,6 +11551,23 @@ function buildBaseAEMX(){
     document.addEventListener('keydown', function (e) { if (typing()) return; var c = e.code; XIB.k[c] = true; if (c === 'Space') { XIB.jump = true; e.preventDefault(); } if (c === 'ShiftLeft' || c === 'ShiftRight') XIB.turbo = true; if (c === 'KeyF') XIB.fire = true; if (/^Arrow/.test(c)) e.preventDefault(); });
     document.addEventListener('keyup', function (e) { XIB.k[e.code] = false; if (e.code === 'KeyF') XIB.fire = false; });
     window.addEventListener('blur', function () { XIB.k = {}; XIB.fire = false; jend(); });
+    /* cámara táctil propia: el dedo del joystick no cuenta. Un dedo fuera del joystick gira la cámara; dos dedos fuera del joystick, zoom.
+       Los toques sobre el mapa no llegan al control de órbita (que contaba todos los dedos y hacía zoom con el del joystick). */
+    var cvs = renderer.domElement, ct = {}, pinch0 = 0, sph = new THREE.Spherical(), off = new THREE.Vector3();
+    function camRot(dx, dy) { off.copy(camera.position).sub(controls.target); sph.setFromVector3(off); sph.theta -= 2 * Math.PI * dx / (cvs.clientHeight || 800); sph.phi = Math.max(0.15, Math.min(1.5, sph.phi - 2 * Math.PI * dy / (cvs.clientHeight || 800))); off.setFromSpherical(sph); camera.position.copy(controls.target).add(off); camera.lookAt(controls.target); }
+    function camZoom(k) { off.copy(camera.position).sub(controls.target); var l = off.length() || 1, nl = Math.max(controls.minDistance || 1, Math.min(Math.min(controls.maxDistance || 60, 60), l * k)); off.multiplyScalar(nl / l); camera.position.copy(controls.target).add(off); }
+    function tH(e) {
+      var mine = false, i, t, ids, q, a, c, d;
+      for (i = 0; i < e.changedTouches.length; i++) {
+        t = e.changedTouches[i]; q = ct[t.identifier];
+        if (e.type === 'touchstart') { if (t.target === cvs) { ct[t.identifier] = { x: t.clientX, y: t.clientY }; mine = true; } }
+        else if (q) { mine = true; if (e.type === 'touchmove') { if (Object.keys(ct).length === 1) camRot(t.clientX - q.x, t.clientY - q.y); q.x = t.clientX; q.y = t.clientY; } else delete ct[t.identifier]; }
+      }
+      ids = Object.keys(ct);
+      if (e.type === 'touchmove' && ids.length === 2) { a = ct[ids[0]]; c = ct[ids[1]]; d = Math.hypot(a.x - c.x, a.y - c.y) || 1; if (pinch0) camZoom(pinch0 / d); pinch0 = d; } else if (ids.length < 2) pinch0 = 0;
+      if (mine) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); botDrag = ids.length > 0; }
+    }
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (n) { window.addEventListener(n, tH, { capture: true, passive: false }); });
     /* en Xibalba no hay diálogos entre el robot y Aura: sin globos ni sonido de voz */
     if (AUD && AUD.talk) AUD.talk = function () { };
   }
@@ -11594,22 +11617,27 @@ function buildBaseAEMX(){
     m = Math.min(1, Math.hypot(ix, iy));
     /* la IA de caza no debe apagar la puntería (noHunt) ni fijar metas propias; al presionar DISPARO con un blanco, se planta y apunta */
     b.noHunt = 0; b.huntHold = now + 1;
-    if (XIB.fire && b.aiming && b.mode === 'walk') m = 0;
+    /* dispara corriendo; solo se planta para girar si el blanco queda de lado o atrás (fuera de ±60° del frente) */
+    if (XIB.fire && b.aiming && b.hasUp && b.mode === 'walk' && Math.abs(nAng(Math.atan2(b.up.x - b.x, b.up.z - b.z) - b.yaw)) > 1.05) m = 0;
     if (XIB.jump) { XIB.jump = false; if (b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && !b.scan) { b.bh = 0.06; b.bvy = 6.5; b.xj = true; AUD.servo(bkMuz.set(b.x, b.y + 0.6, b.z)); } }
     if (XIB.tb) XIB.tb.classList.toggle('cd', b.boostCD > 0 || b.boostT > 0);
     /* el jugador manda: sin recorridos, visitas ni escenas automáticas */
     b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; b.xs = null; b.tallRoof = false;
+    if (b.isc) { b.isc = false; b.scan = false; b.wk = null; } /* la IA marca una vaca para escanear al entrar a la invasión y eso bloquea apuntar a los aliens */
     if (m > 0.15) {
       if (b.scan) { b.scan = false; b.isc = false; } b.circ = false;
       cy = Math.atan2(controls.target.x - camera.position.x, controls.target.z - camera.position.z);
       dir = cy - Math.atan2(ix, iy);
       if (XIB.turbo) { XIB.turbo = false; if (b.boostT <= 0 && b.boostCD <= 0 && (b.bh || 0) <= 0.05) { b.boostT = b.bMax = 3; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); } }
-      far = b.boostT > 0 ? 40 : 6;
+      far = (b.boostT > 0 || (b.glr || 0) > 0 || ((b.bh || 0) > 0.5 && !b.xj)) ? 40 : 6; /* en vuelo y planeo la meta va lejos: el planeo se corta si la meta queda a menos de 15 m */
       b.goal = { x: b.x + Math.sin(dir) * far, z: b.z + Math.cos(dir) * far }; b.gtype = 'man'; b.path = null; b.idle = 1; b.hopGoal = null;
       b.manSpd = kb ? BOT_RUN : (m < 0.55 ? BOT_WALK * (0.6 + m) : BOT_WALK + (BOT_RUN - BOT_WALK) * (m - 0.55) / 0.45);
     } else {
       XIB.turbo = false;
-      b.goal = null; b.gtype = ''; b.path = null; b.idle = 1;
+      if (b.mode === 'walk' && !b.xj && ((b.glr || 0) > 0 || (b.boostT <= 0 && (b.bh || 0) > 0.5))) {
+        /* sin joystick pero en el aire tras el turbo: sigue planeando hacia el frente hasta aterrizar */
+        b.goal = { x: b.x + Math.sin(b.yaw) * 40, z: b.z + Math.cos(b.yaw) * 40 }; b.gtype = 'man'; b.path = null; b.idle = 1;
+      } else { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; }
       if (b.boostT > 0) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; }
     }
   }
