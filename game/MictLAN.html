@@ -9060,7 +9060,7 @@ function buildBaseAEMX(){
         mb.setFromObject(o);
         if (mb.isEmpty() || mb.min.y > BASE + 2.0 || mb.max.y < BASE + 0.1) return;
         bb.union(mb);
-        if (mb.max.y >= BASE + 0.35) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); p._obb.push({ m: o.matrixWorld.clone().invert(), b: o.geometry.boundingBox, s: o.matrixWorld.getMaxScaleOnAxis() }); }
+        if (mb.max.y >= BASE + 0.35 && !(o.material && o.material.isMeshBasicMaterial && o.material.vertexColors)) { /* fuera la pieza decorativa de luces, más ancha que el edificio */ if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); p._obb.push({ m: o.matrixWorld.clone().invert(), b: o.geometry.boundingBox, s: o.matrixWorld.getMaxScaleOnAxis() }); }
       });
       p._x0 = Math.max(p.x - lim, Math.min(bb.min.x, p.x - W / 2)) - 0.3; p._x1 = Math.min(p.x + lim, Math.max(bb.max.x, p.x + W / 2)) + 0.3;
       p._z0 = Math.max(p.z - lim, Math.min(bb.min.z, p.z - W / 2)) - 0.3; p._z1 = Math.min(p.z + lim, Math.max(bb.max.z, p.z + W / 2)) + 0.3;
@@ -11556,7 +11556,7 @@ function buildBaseAEMX(){
     if (botCrater(x, z)) return false;
     if (COZ_BP && COZ_BP.on(x, z)) return true;
     for (var i = 0; i < monBlk.length; i++) if (Math.hypot(x - monBlk[i].x, z - monBlk[i].z) < monBlk[i].r) return false;
-    if (landAt && !landAt(x, z)) return false;
+    if (landAt && !landAt(x, z) && !cozInIsl(x, z)) return false; /* la isla de la mansión tiene su propio suelo: se puede recorrer */
     if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false;
     return !xibBld(x, z) && !xibVeg(x, z);
   }
@@ -15143,19 +15143,18 @@ function buildBaseAEMX(){
         controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
 
         if (botDrag) botCamUser = clock.elapsedTime;
-        if (!turretCam && clock.elapsedTime - botCamUser > (GM.xib ? 1.5 : 4) && !(window.__cityC && window.__cityC.on && !GM.xib)) {
-          var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng((bot.aiming ? bot.aimYaw : bot.yaw) + Math.PI - bcur) * Math.min(1, dt * (GM.xib ? (bot.aiming && XIB.fire ? 3 : bot.v > 0.5 ? 1.6 : 0.3) : 4));
+        if (!GM.xib && !turretCam && clock.elapsedTime - botCamUser > 4 && !(window.__cityC && window.__cityC.on)) {
+          var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng((bot.aiming ? bot.aimYaw : bot.yaw) + Math.PI - bcur) * Math.min(1, dt * 4);
           if (brr > 0.01) { camera.position.x = controls.target.x + Math.sin(bnew) * brr; camera.position.z = controls.target.z + Math.cos(bnew) * brr; }
         }
         /* reajuste automático: si la cámara se fue alejando/inclinando y el usuario no la toca, vuelve a la vista por defecto (como el botón Alinear) */
-        if (!turretCam && !window.__uvxCam && !(window.__cityC && window.__cityC.on) && !botDrag && clock.elapsedTime - botCamUser > 10 && clock.elapsedTime - (window.__bAlT || 0) > 10) {
+        if (!GM.xib && !turretCam && !window.__uvxCam && !botDrag && clock.elapsedTime - botCamUser > 10 && clock.elapsedTime - (window.__bAlT || 0) > 10) {
           var aox = camera.position.x - controls.target.x, aoy = camera.position.y - controls.target.y, aoz = camera.position.z - controls.target.z, adr = Math.hypot(aox, aoy, aoz), apol = Math.acos(clamp(aoy / (adr || 1), -1, 1));
           if (Math.abs(adr - 6) > 0.8 || Math.abs(apol - 1.2) > 0.12) { window.__bAlT = clock.elapsedTime; botStartFollow(bot); }
         }
       }
     }
-    /* cityCam desactivada: la cámara del robot queda siempre alineada, sin acercamientos (salvo en el modo Xibalba) */
-    if (GM.xib && botFollow && bot) cityCam(dt);
+    /* cityCam desactivada: la cámara del robot queda siempre alineada, sin acercamientos */
     controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !auraFollow && !botFollow && !turretCam;
     controls.update();
     controls.target.x = clamp(controls.target.x, -1750 * GK, 1750 * GK);
@@ -15163,7 +15162,7 @@ function buildBaseAEMX(){
     controls.target.y = clamp(controls.target.y, 0, 200);
 
     (function () {
-      var on = botFollow && botCamFree && bot && !fly && !turretCam, tg = controls.target, cp = camera.position, tx = tg.x, ty = tg.y, tz = tg.z, ox, oy, oz, r, ang, cand, i, j, f, best = null, cx, cy, cz, bad;
+      var on = !GM.xib && botFollow && botCamFree && bot && !fly && !turretCam, tg = controls.target, cp = camera.position, tx = tg.x, ty = tg.y, tz = tg.z, ox, oy, oz, r, ang, cand, i, j, f, best = null, cx, cy, cz, bad;
       if (!on || !botObs) { bcAdj.multiplyScalar(Math.max(0, 1 - dt * 5)); cp.add(bcAdj); return; }
       var ownB = (bot.mode === 'walk' || bot.mode === 'perch') && bot.y > 3 ? botBld(bot.x, bot.z, -0.55) : null; if (ownB && bot.y < botTop(ownB) - 4) ownB = null; /* sobre una azotea: el propio edificio no cuenta como obstáculo, así la cámara no sube */
       function free(x, y, z) { return window.__uvxCam ? true : botLOS(tx, ty, tz, x, y, z, ownB); }
@@ -15186,7 +15185,7 @@ function buildBaseAEMX(){
       cp.add(bcAdj);
     })();
 
-    var bcT = (botFollow && bot && !turretCam && !fly && bot.aiming && !botDrag && clock.elapsedTime - botCamUser > 4) ? clamp((bot.aimPitch || 0) * 0.4, 0, 0.28) : 0;
+    var bcT = (!GM.xib && botFollow && bot && !turretCam && !fly && bot.aiming && !botDrag && clock.elapsedTime - botCamUser > 4) ? clamp((bot.aimPitch || 0) * 0.4, 0, 0.28) : 0;
     bcTilt += (bcT - bcTilt) * Math.min(1, dt * 6);
     if (bcTilt > 0.003) {
       bcV1.copy(controls.target).sub(camera.position); var bcL = bcV1.length() || 1; bcV1.divideScalar(bcL);
