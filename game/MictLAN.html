@@ -11053,7 +11053,8 @@ function buildBaseAEMX(){
           }
 
           var airFly = (b.bh || 0) > 2 && (b.boostT > 0 || (b.glr || 0) > 0);
-          if (b.boostT <= 0 && (b.bh || 0) > 0.15 && b.v > 6) { hd = b.yaw; b.blockD = 99; }
+          if (b.gtype === 'man' && !airFly) { hd = xibHead(b, want); b.blockD = 99; }
+          else if (b.boostT <= 0 && (b.bh || 0) > 0.15 && b.v > 6) { hd = b.yaw; b.blockD = 99; }
           else if (airFly) { hd = want; b.blockD = 99; }
           else if (b.path && b.path[b.pi] && dw < 40 && botLineFree(b.x, b.z, tw.x, tw.z, 0.3, true)) { hd = want; b.blockD = 99; }
           else if (now < (b.fineT || 0)) { hd = want; b.blockD = 99; }
@@ -11267,7 +11268,7 @@ function buildBaseAEMX(){
       swx = sdx * Math.cos(b.yaw); var swzz = -sdx * Math.sin(b.yaw); b.g.position.set(b.x + swx, b.y + swy, b.z + swzz);
     } else b.g.position.set(b.x, b.y + (b.jy || 0), b.z);
     b.g.rotation.y = b.yaw; b.g.rotation.z = swz;
-    if (thr && (d3 <= botRng() + 5 || (b.mode === 'walk' && b.gtype === 'hunt' && d3 < 260)) && b.boostT <= 0 && !b.ball && !((b.glr || 0) > 0) && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch' || b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop' || (b.mode === 'ride' && b.ride && b.ride.ph === 1))) {
+    if (thr && (d3 <= (GM.xib ? (b.alienT ? 32 : 58) : botRng() + 5) || (b.mode === 'walk' && b.gtype === 'hunt' && d3 < 260)) && b.boostT <= 0 && !b.ball && !((b.glr || 0) > 0) && (b.ballK || 0) < 0.2 && (b.mode === 'walk' || b.mode === 'perch' || b.mode === 'jetUp' || b.mode === 'jetDown' || b.mode === 'hop' || (b.mode === 'ride' && b.ride && b.ride.ph === 1))) {
       pd = d3 / BOT_LASER_V * 0.85;
       pred = bkTmpB.set(U.x + b.uv.x * pd, U.y + b.uv.y * pd, U.z + b.uv.z * pd);
       b.aiming = true;
@@ -11275,6 +11276,9 @@ function buildBaseAEMX(){
       pT = Math.atan2(pred.y - (b.y + 0.52), Math.hypot(pred.x - b.x, pred.z - b.z));
       pT = Math.max(-0.5, Math.min(1.1, pT));
       if (b.mode === 'ride') yT = b.yaw;
+    } else if (GM.xib && XIB.fire && U && d3 < 150 && !b.ball && b.boostT <= 0) {
+      b.aiming = true; yT = Math.atan2(U.x - b.x, U.z - b.z);
+      pT = Math.max(-0.5, Math.min(1.1, Math.atan2(U.y - (b.y + 0.52), Math.hypot(U.x - b.x, U.z - b.z))));
     } else if (b.trk && !b.ball) {
       b.aiming = true; yT = Math.atan2(b.trk.x - b.x, b.trk.z - b.z);
       pT = Math.max(-0.5, Math.min(1.1, Math.atan2(b.trk.y - (b.y + 0.52), Math.hypot(b.trk.x - b.x, b.trk.z - b.z))));
@@ -11496,7 +11500,7 @@ function buildBaseAEMX(){
       fxSpawn(b.x - Math.sin(b.yaw) * 0.3, b.y + 0.06, b.z - Math.cos(b.yaw) * 0.3, 0, 0.25, 0, 0.5, 0.05, 0.18, 0xc8b48a, 0.3, false);
     }
 
-    if (b.aiming && pred && !b.ball && !(typeof ALN !== 'undefined' && ALN.watching && ALN.watching()) && d3 <= (b.alienT ? Math.min(botRng(), 24) : botRng()) && (b.alienT || (now >= (ufo.noFireUntil || 0) && !ufoOverVolc()))) {
+    if (b.aiming && pred && !b.ball && !(typeof ALN !== 'undefined' && ALN.watching && ALN.watching()) && d3 <= (b.alienT ? (GM.xib ? 30 : Math.min(botRng(), 24)) : (GM.xib ? 55 : botRng())) && (b.alienT || (now >= (ufo.noFireUntil || 0) && !ufoOverVolc()))) {
       b.fireT -= dt;
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
@@ -11543,11 +11547,20 @@ function buildBaseAEMX(){
     /* en Xibalba no hay diálogos entre el robot y Aura: sin globos ni sonido de voz */
     if (AUD && AUD.talk) AUD.talk = function () { };
   }
+  function xibHead(b, want) { /* el rumbo pedido, o el más parecido que esté libre justo enfrente */
+    var o = [0, 0.3, -0.3, 0.6, -0.6, 0.95, -0.95, 1.35, -1.35], i, a, x1, z1, x2, z2;
+    for (i = 0; i < o.length; i++) { a = want + o[i]; x1 = b.x + Math.sin(a) * 0.5; z1 = b.z + Math.cos(a) * 0.5; x2 = b.x + Math.sin(a) * 1.0; z2 = b.z + Math.cos(a) * 1.0;
+      if (botFree(x1, z1) && botFree(x2, z2) && botSlopeOK(b.x, b.z, x1, z1)) return a; }
+    return null;
+  }
   function xibSteer(b, now, dt) {
     var K = XIB.k, ix = XIB.jx, iy = XIB.jy, kb = false, m, cy, dir, far;
     if (K.KeyW || K.ArrowUp) { iy += 1; kb = true; } if (K.KeyS || K.ArrowDown) { iy -= 1; kb = true; }
     if (K.KeyD || K.ArrowRight) { ix += 1; kb = true; } if (K.KeyA || K.ArrowLeft) { ix -= 1; kb = true; }
     m = Math.min(1, Math.hypot(ix, iy));
+    /* la IA de caza no debe apagar la puntería (noHunt) ni fijar metas propias; al presionar DISPARO con un blanco, se planta y apunta */
+    b.noHunt = 0; b.huntHold = now + 1;
+    if (XIB.fire && b.aiming && b.mode === 'walk') m = 0;
     if (XIB.jump) { XIB.jump = false; if (b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && !b.scan) { b.bh = 0.06; b.bvy = 6.5; b.xj = true; AUD.servo(bkMuz.set(b.x, b.y + 0.6, b.z)); } }
     if (XIB.tb) XIB.tb.classList.toggle('cd', b.boostCD > 0 || b.boostT > 0);
     if (m > 0.15 && !b.scan) {
@@ -15094,7 +15107,7 @@ function buildBaseAEMX(){
 
         if (botDrag) botCamUser = clock.elapsedTime;
         if (!turretCam && clock.elapsedTime - botCamUser > (GM.xib ? 1.5 : 4) && !(window.__cityC && window.__cityC.on && !GM.xib)) {
-          var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng((bot.aiming ? bot.aimYaw : bot.yaw) + Math.PI - bcur) * Math.min(1, dt * (GM.xib ? (bot.v > 0.5 ? 1.6 : 0.3) : 4));
+          var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng((bot.aiming ? bot.aimYaw : bot.yaw) + Math.PI - bcur) * Math.min(1, dt * (GM.xib ? (bot.aiming && XIB.fire ? 3 : bot.v > 0.5 ? 1.6 : 0.3) : 4));
           if (brr > 0.01) { camera.position.x = controls.target.x + Math.sin(bnew) * brr; camera.position.z = controls.target.z + Math.cos(bnew) * brr; }
         }
         /* reajuste automático: si la cámara se fue alejando/inclinando y el usuario no la toca, vuelve a la vista por defecto (como el botón Alinear) */
