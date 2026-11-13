@@ -334,6 +334,12 @@
   /* letrero de invasión minimizado: una pastilla pequeña bajo la barra superior */
   .stage.gm-xib #invAl { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 48px); gap: 6px; padding: 4px 12px; font-size: 12px; letter-spacing: 0.08em; border-radius: 999px; box-shadow: none; animation: none; text-shadow: 0 0 6px rgba(255,40,40,0.8); }
   .stage.gm-xib #invAl small { display: none; }
+  /* botón para minimizar: la pastilla se vuelve una señal ⚠ pequeña y se calla la música de invasión */
+  .stage.gm-xib #invAl { pointer-events: auto; cursor: pointer; }
+  #invAl .xmin { display: none; margin-left: 4px; padding: 0 6px; border-radius: 8px; background: rgba(0,0,0,0.35); font-size: 12px; line-height: 16px; }
+  .stage.gm-xib #invAl .xmin { display: inline-block; }
+  .stage.gm-xib #invAl.min { padding: 0; width: 26px; height: 26px; justify-content: center; gap: 0; font-size: 13px; animation: invPulse 1.6s ease-in-out infinite; }
+  .stage.gm-xib #invAl.min > span:not(:first-child), .stage.gm-xib #invAl.min .xmin { display: none; }
   @media (max-width: 700px) {
     .stage.gm-xib #invAl { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 258px); font-size: 11px; }
     .stage.gm-xib #bMini { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 100px); }
@@ -11592,6 +11598,15 @@ function buildBaseAEMX(){
       if (mine) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); botDrag = ids.length > 0; }
     }
     ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (n) { window.addEventListener(n, tH, { capture: true, passive: false }); });
+    /* letrero de invasión: botón ▾ para minimizarlo a una señal ⚠ y quitar la música/sirena de invasión; tocarlo de nuevo lo restaura */
+    var ial = document.getElementById('invAl');
+    if (ial) {
+      var mb = document.createElement('span'); mb.className = 'xmin'; mb.textContent = '▾'; mb.setAttribute('aria-label', 'Minimizar alerta'); ial.appendChild(mb);
+      var setMin = function (on) { XIB.invMin = on; ial.classList.toggle('min', on); if (on) window.__invSim = -1; else delete window.__invSim; ial.title = on ? 'Mostrar la alerta y su sonido' : 'Minimizar la alerta y quitar su sonido'; };
+      ial.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+      ial.addEventListener('click', function (e) { e.stopPropagation(); setMin(!XIB.invMin); });
+      setMin(false);
+    }
     /* avisos breves del modo (por ejemplo, del reto 1 vs 1) en el recuadro de ayuda */
     var hintT = 0;
     window.__xibMsg = function (t) { hint.textContent = t; hint.classList.remove('off'); clearTimeout(hintT); hintT = setTimeout(function () { hint.classList.add('off'); }, 3500); };
