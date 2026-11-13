@@ -328,6 +328,16 @@
   .stage.gm-xib .top { flex-wrap: wrap; row-gap: 8px; }
   .stage.gm-xib #bMini { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 46px); bottom: auto; }
   .stage.gm-xib #xib { --xib-up: 0px; }
+  /* letrero de invasión minimizado: una pastilla pequeña bajo la barra superior */
+  .stage.gm-xib #invAl { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 48px); gap: 6px; padding: 4px 12px; font-size: 12px; letter-spacing: 0.08em; border-radius: 999px; box-shadow: none; animation: none; text-shadow: 0 0 6px rgba(255,40,40,0.8); }
+  .stage.gm-xib #invAl small { display: none; }
+  @media (max-width: 700px) {
+    .stage.gm-xib #invAl { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 150px); font-size: 11px; }
+    .stage.gm-xib #bMini { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 82px); }
+  }
+  /* duelos en Xibalba: buscador (solo jugadores) y panel de reto */
+  .stage.gm-xib .search { display: block !important; }
+  .stage.gm-xib .xact { display: flex; }
   #xib .joy { position: absolute; left: max(18px, env(safe-area-inset-left)); bottom: calc(max(26px, env(safe-area-inset-bottom)) + 40px); width: 136px; height: 136px; border-radius: 50%; background: rgba(10,16,28,0.38); border: 2px solid rgba(61,255,122,0.55); pointer-events: auto; touch-action: none; }
   #xib .joy i { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: rgba(61,255,122,0.75); box-shadow: 0 0 14px rgba(61,255,122,0.6); }
   #xib .btns { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(24px, env(safe-area-inset-bottom)) + var(--xib-up, 200px)); display: grid; grid-template-columns: 66px 66px; grid-template-rows: 66px 66px; gap: 10px; pointer-events: none; }
@@ -502,7 +512,7 @@
       <div class="gt-modes" id="gt-modes" hidden>
         <button type="button" id="gm-inv" class="inv"><b>Modo Invasión</b><small>Caza OVNIs e invasores</small></button>
         <button type="button" id="gm-exp"><b>Modo Explorador</b><small>Paz permanente · viaja y reta</small></button>
-        <button type="button" id="gm-xib" class="xib"><b>Modo Xibalba</b><small>Tú manejas al robot · defiende el mapa</small></button>
+        <button type="button" id="gm-xib" class="xib"><b>Xibalba</b></button>
       </div>
       <button type="button" id="gate-btn">Iniciar con Google</button>
       <p id="gate-err" hidden></p>
@@ -6796,7 +6806,7 @@ function buildBaseAEMX(){
   var RAR = [['Común', 'common', 'var(--common)'], ['Rara', 'rare', 'var(--rare)'], ['Épica', 'epic', 'var(--epic)'], ['Legendaria', 'legendary', 'var(--legend)']];
 
   function select(p) {
-    if (GM.mode === 'inv') return;
+    if (GM.mode === 'inv' && !GM.xib) return;
     if (selected && selected.pill) selected.pill.classList.remove('sel');
     selected = p;
     p.pill.classList.add('sel');
@@ -6881,6 +6891,7 @@ function buildBaseAEMX(){
 
   var q = document.getElementById('q'), resEl = document.getElementById('res'), matches = [];
   function choose(m) {
+    if (GM.xib) { if (m.kind === 'p') select(m.p); resEl.hidden = true; q.value = ''; q.blur(); return; }
     ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; botFollow = false; turretCam = false;
     if (m.kind === 'u') {
       if (ufo) {
@@ -6955,6 +6966,7 @@ function buildBaseAEMX(){
     players.forEach(function (p) {
       if (matches.length < 6 && (p.name.toLowerCase().indexOf(v) > -1 || p.city.toLowerCase().indexOf(v) > -1)) matches.push({ kind: 'p', p: p, label: '' + p.name, sub: p.city });
     });
+    if (GM.xib) matches = matches.filter(function (m) { return m.kind === 'p'; });
     matches = matches.slice(0, 6);
     if (!matches.length) {
       var none = el('li');
@@ -9686,10 +9698,11 @@ function buildBaseAEMX(){
     return true;
   }
 
-  function xsCan() { return GM.mode === 'exp' && GM.rel && bot && !bot.tpj && !bot.isl && bot.mode !== 'lift' && !DUEL; }
+  function xsCan() { return (GM.mode === 'exp' || GM.xib) && GM.rel && bot && !bot.tpj && !bot.isl && bot.mode !== 'lift' && !DUEL; }
   function xsRefresh() {
-    var X = bot && bot.xs, p = (typeof selected !== 'undefined') ? selected : null, act = document.getElementById('x-act'), go = document.getElementById('x-go'), fi = document.getElementById('x-fight'), bar = document.getElementById('xbar'), tx = document.getElementById('x-txt'), fb = document.getElementById('x-fb'), here = !!(X && X.arr && p && X.p === p);
-    if (act) act.hidden = !(GM.mode === 'exp' && p && !p.banned);
+    var X = bot && bot.xs, p = (typeof selected !== 'undefined') ? selected : null, act = document.getElementById('x-act'), go = document.getElementById('x-go'), fi = document.getElementById('x-fight'), bar = document.getElementById('xbar'), tx = document.getElementById('x-txt'), fb = document.getElementById('x-fb'), here = GM.xib ? xibNear(p) : !!(X && X.arr && p && X.p === p);
+    if (act) act.hidden = !((GM.mode === 'exp' || GM.xib) && p && !p.banned);
+    if (GM.xib) { if (go) { go.hidden = here; go.disabled = true; go.textContent = '🚶 Camina hasta su edificio para retarlo'; } if (fi) fi.hidden = !here; if (bar) bar.hidden = true; return; }
     if (go) { go.hidden = !!here; go.textContent = (X && X.p === p && !X.arr) ? '🤖 El robot va en camino…' : '🤖 Enviar al robot'; go.disabled = !!(X && X.p === p && !X.arr); }
     if (fi) fi.hidden = !here;
     if (bar) { bar.hidden = !X; if (X) { tx.textContent = X.arr ? '🤖 El robot está en el edificio de ' + X.p.name : '🤖 El robot va a @' + X.p.name; fb.hidden = !X.arr; } }
@@ -9752,7 +9765,7 @@ function buildBaseAEMX(){
   }
   function duelStart(p) {
     var b = bot, g = geo(-110.97, 18.78), sp, sp2, an, rs;
-    if (!xsCan() || DUEL || !b.xs || !b.xs.arr) return false;
+    if (!xsCan() || DUEL || (!GM.xib && (!b.xs || !b.xs.arr))) return false;
     if (!MYP || !isFinite(MYP.x)) { window.__botSayQ = 'Necesitas tener edificio para retar.'; return false; }
     sp = botFreeSpot(g.x - 7, g.z); an = Math.random() * 6.283; sp2 = sp ? botFreeSpot(sp[0] + 14, sp[1] + (Math.random() - 0.5) * 4) : null;
     rs = botFreeSpot(MYP.x, MYP.z + 9);
@@ -9817,7 +9830,7 @@ function buildBaseAEMX(){
     if (D.dF && (d < 2.8 || !duelDashStep(F, D.dF, dt))) D.dF = null;
     if (D.jR) { b.goal = null; b.gtype = ''; b.path = null; if (!duelJumpStep(b, D.jR, dt)) { D.jR = null; b.jy = 0; } }
     if (D.jF && !duelJumpStep(F, D.jF, dt)) { D.jF = null; F.jy = 0; }
-    if (!D.jR && !D.dR && !lowR && d < 8 && b.mode === 'walk' && !b.tpj && b.boostCD <= 0 && now >= D.dodgeR && Math.random() < 0.4) {
+    if (!GM.xib && !D.jR && !D.dR && !lowR && d < 8 && b.mode === 'walk' && !b.tpj && b.boostCD <= 0 && now >= D.dodgeR && Math.random() < 0.4) {
       D.jR = duelJumpGo(b, F); D.dodgeR = now + 7 + Math.random() * 3;
       if (D.jR) { b.boostCD = BOT_BOOST_CD; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
     }
@@ -9826,7 +9839,7 @@ function buildBaseAEMX(){
       if (D.jF) { F.bcd = now + 6; AUD.shot(bkMuz.set(F.x, F.y + 1, F.z)); }
     }
 
-    if (!D.dR && !D.jR && b.mode === 'walk' && !b.tpj && b.boostCD <= 0 && (lowR || now >= D.dodgeR)) {
+    if (!GM.xib && !D.dR && !D.jR && b.mode === 'walk' && !b.tpj && b.boostCD <= 0 && (lowR || now >= D.dodgeR)) {
       sg = Math.random() < 0.5 ? 1 : -1;
       for (tries = 0, ok = false; tries < 4 && !ok; tries++) {
         if (lowR && tries < 2) { dx = -ux * 0.5 - uz * sg * 0.5; dz = -uz * 0.5 + ux * sg * 0.5; } else { dx = -uz * sg; dz = ux * sg; }
@@ -9862,7 +9875,7 @@ function buildBaseAEMX(){
         if (botFree(px, pz) && !duelEdge(px, pz) && !duelCoverHit(b.x, b.z, px, pz) && Math.hypot(px - b.x, pz - b.z) > 2.5) D.rg = { x: px, z: pz };
       }
     }
-    if (!D.jR && !D.dR && b.mode === 'walk' && !b.tpj && now >= D.hopR) {
+    if (!GM.xib && !D.jR && !D.dR && b.mode === 'walk' && !b.tpj && now >= D.hopR) {
       D.hopR = now + 4 + Math.random() * 3; ang = Math.atan2(b.x - F.x, b.z - F.z) + (Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1) * 1.5708) + (Math.random() - 0.5) * 0.6;
       px = b.x + Math.sin(ang) * 6; pz = b.z + Math.cos(ang) * 6;
       if (botFree(px, pz) && !duelEdge(px, pz) && !duelCoverHit(b.x, b.z, px, pz)) { D.jR = { sx: b.x, sz: b.z, ex: px, ez: pz, t: 0, T: 0.7 }; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
@@ -10232,7 +10245,7 @@ function buildBaseAEMX(){
   }
   function duelTick(dt, now) {
     var D = DUEL, b = bot, F = D.fg, d, dx, dz, ux, uz, spd, nx, nz, k, mz, tg, lg, i, hs, left, win;
-    if (GM.mode !== 'exp') { duelClear(); return; }
+    if (GM.mode !== 'exp' && !GM.xib) { duelClear(); return; }
     duelBarrierTick(D, dt);
     b.liftCD = Math.max(b.liftCD || 0, now + 60);
     if (D.ph === 'in' || D.ph === 'intro' || D.ph === 'count' || D.ph === 'end') { b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; if (!b.tpj && !D.insp) b.v = 0; b.boostT = 0; b.hopGoal = null; }
@@ -10275,7 +10288,7 @@ function buildBaseAEMX(){
       if (!moved) F.side = -F.side;
       if (d < 2.2 && botFree(F.x - ux * (2.2 - d), F.z - uz * (2.2 - d))) { F.x -= ux * (2.2 - d); F.z -= uz * (2.2 - d); }
 
-      if (duelEdge(b.x, b.z) && b.v < 0.6 && b.mode === 'walk') { D.rt += dt; if (D.rt > 2 && !b.tpj) { D.rt = 0; var cs = botFreeSpot(D.cx - 4, D.cz); if (cs) botSetGoal(cs[0], cs[1], 'patrol'); } } else D.rt = 0;
+      if (!GM.xib && duelEdge(b.x, b.z) && b.v < 0.6 && b.mode === 'walk') { D.rt += dt; if (D.rt > 2 && !b.tpj) { D.rt = 0; var cs = botFreeSpot(D.cx - 4, D.cz); if (cs) botSetGoal(cs[0], cs[1], 'patrol'); } } else D.rt = 0;
       duelMoves(D, b, F, d, ux, uz, now, dt);
       F.y = botGround(F.x, F.z);
       F.fireT -= dt;
@@ -10349,7 +10362,7 @@ function buildBaseAEMX(){
     }
   }
   function botXsFight() {
-    var X = bot && bot.xs, p = X && X.p, ok = !!(AUTH && AUTH.uid);
+    var X = GM.xib ? { p: selected, arr: xibNear(selected) } : (bot && bot.xs), p = X && X.p, ok = !!(AUTH && AUTH.uid);
     if (!p || !X.arr) return;
     if (!ok) { window.__botSayQ = 'Para retar necesitas iniciar sesión.'; return; }
     if (p === MYP || p.uid === AUTH.uid) { window.__botSayQ = 'No puedo retarte a ti mismo.'; return; }
@@ -11260,7 +11273,7 @@ function buildBaseAEMX(){
       } else if ((!b.alert && b.perchT > 3) || (b.perchT > b.maxPerch && (!thr || b.perchT > (b.tallRoof ? 70 : 25)))) { botPickDescent(b.rp); b.mode = 'jetDown'; b.jph = 0; b.tallRoof = false; }
     }
 
-    if (DUEL && (DUEL.ph === 'fight' || (DUEL.ph === 'end' && DUEL.insp))) duelRobotStep(dt);
+    if (DUEL && ((DUEL.ph === 'fight' && !GM.xib) || (DUEL.ph === 'end' && DUEL.insp))) duelRobotStep(dt);
 
     if (window.__uvxD && (window.__uvx || (window.__uvxC && window.__uvxC.on))) { try { window.__uvxD(b, t, dt); } catch (eUv) { window.__uvx = null; if (window.__uvxC) window.__uvxC.on = 0; window.__uvxCam = 0; } }
     if (!window.__uvx && GM.mode === 'exp' && GM.rel && now >= GM.go) { /* de vez en cuando el robot decide ir solo a UVXpress */
@@ -11568,6 +11581,10 @@ function buildBaseAEMX(){
       if (mine) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); botDrag = ids.length > 0; }
     }
     ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (n) { window.addEventListener(n, tH, { capture: true, passive: false }); });
+    /* avisos breves del modo (por ejemplo, del reto 1 vs 1) en el recuadro de ayuda */
+    var hintT = 0;
+    window.__xibMsg = function (t) { hint.textContent = t; hint.classList.remove('off'); clearTimeout(hintT); hintT = setTimeout(function () { hint.classList.add('off'); }, 3500); };
+    document.getElementById('x-fight').addEventListener('click', function () { if (window.__botSayQ) { window.__xibMsg(window.__botSayQ); window.__botSayQ = null; } if (DUEL) deselect(); });
     /* en Xibalba no hay diálogos entre el robot y Aura: sin globos ni sonido de voz */
     if (AUD && AUD.talk) AUD.talk = function () { };
   }
@@ -11605,6 +11622,7 @@ function buildBaseAEMX(){
     }
     return false;
   }
+  function xibNear(p) { return !!(p && bot && !p.banned && Math.hypot(bot.x - p.x, bot.z - p.z) < 9); }
   function xibHead(b, want) { /* el rumbo pedido; solo se corrige un poco (±14°) para no rozar esquinas; si no cabe, se detiene */
     var o = [0, 0.25, -0.25], i, a;
     for (i = 0; i < o.length; i++) { a = want + o[i]; if (xibFree(b.x + Math.sin(a) * 0.45, b.z + Math.cos(a) * 0.45) && xibFree(b.x + Math.sin(a) * 0.9, b.z + Math.cos(a) * 0.9)) return a; }
@@ -11615,6 +11633,10 @@ function buildBaseAEMX(){
     if (K.KeyW || K.ArrowUp) { iy += 1; kb = true; } if (K.KeyS || K.ArrowDown) { iy -= 1; kb = true; }
     if (K.KeyD || K.ArrowRight) { ix += 1; kb = true; } if (K.KeyA || K.ArrowLeft) { ix -= 1; kb = true; }
     m = Math.min(1, Math.hypot(ix, iy));
+    /* duelo: quieto en la entrada, cuenta regresiva y final; en la pelea, sin turbo y sin salir de la arena */
+    if (DUEL && DUEL.ph !== 'fight') m = 0;
+    if (DUEL) XIB.turbo = false;
+    if (now >= (XIB.rfT || 0)) { XIB.rfT = now + 0.5; xsRefresh(); }
     /* la IA de caza no debe apagar la puntería (noHunt) ni fijar metas propias; al presionar DISPARO con un blanco, se planta y apunta */
     b.noHunt = 0; b.huntHold = now + 1;
     /* dispara corriendo; solo se planta para girar si el blanco queda de lado o atrás (fuera de ±60° del frente) */
@@ -11630,6 +11652,7 @@ function buildBaseAEMX(){
       dir = cy - Math.atan2(ix, iy);
       if (XIB.turbo) { XIB.turbo = false; if (b.boostT <= 0 && b.boostCD <= 0 && (b.bh || 0) <= 0.05) { b.boostT = b.bMax = 3; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); } }
       far = (b.boostT > 0 || (b.glr || 0) > 0 || ((b.bh || 0) > 0.5 && !b.xj)) ? 40 : 6; /* en vuelo y planeo la meta va lejos: el planeo se corta si la meta queda a menos de 15 m */
+      if (DUEL && DUEL.bar) { var ex = b.x + Math.sin(dir) * 1.2, ez = b.z + Math.cos(dir) * 1.2; if (duelEdge(ex, ez) && Math.hypot(ex - DUEL.cx, ez - DUEL.cz) > Math.hypot(b.x - DUEL.cx, b.z - DUEL.cz)) dir = Math.atan2(DUEL.cx - b.x, DUEL.cz - b.z) + (nAng(dir - Math.atan2(DUEL.cx - b.x, DUEL.cz - b.z)) > 0 ? 1.4 : -1.4); far = 3; }
       b.goal = { x: b.x + Math.sin(dir) * far, z: b.z + Math.cos(dir) * far }; b.gtype = 'man'; b.path = null; b.idle = 1; b.hopGoal = null;
       b.manSpd = kb ? BOT_RUN : (m < 0.55 ? BOT_WALK * (0.6 + m) : BOT_WALK + (BOT_RUN - BOT_WALK) * (m - 0.55) / 0.45);
     } else {
