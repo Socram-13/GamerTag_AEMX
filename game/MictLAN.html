@@ -9052,6 +9052,7 @@ function buildBaseAEMX(){
     });
     items.forEach(function (it) {
       var b = it[0], p = it[1], W, bb = new THREE.Box3(), mb = new THREE.Box3(), a, c, k, x0, x1, z0, z1, lim;
+      p._obb = [];
       W = TIER_W[p.tier] || 3.4; lim = W / 2 + 1.0;
       b.updateMatrixWorld(true);
       b.traverse(function (o) {
@@ -9059,6 +9060,7 @@ function buildBaseAEMX(){
         mb.setFromObject(o);
         if (mb.isEmpty() || mb.min.y > BASE + 2.0 || mb.max.y < BASE + 0.1) return;
         bb.union(mb);
+        if (mb.max.y >= BASE + 0.35) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); p._obb.push({ m: o.matrixWorld.clone().invert(), b: o.geometry.boundingBox, s: o.matrixWorld.getMaxScaleOnAxis() }); }
       });
       p._x0 = Math.max(p.x - lim, Math.min(bb.min.x, p.x - W / 2)) - 0.3; p._x1 = Math.min(p.x + lim, Math.max(bb.max.x, p.x + W / 2)) + 0.3;
       p._z0 = Math.max(p.z - lim, Math.min(bb.min.z, p.z - W / 2)) - 0.3; p._z1 = Math.min(p.z + lim, Math.max(bb.max.z, p.z + W / 2)) + 0.3;
@@ -11556,7 +11558,29 @@ function buildBaseAEMX(){
     for (var i = 0; i < monBlk.length; i++) if (Math.hypot(x - monBlk[i].x, z - monBlk[i].z) < monBlk[i].r) return false;
     if (landAt && !landAt(x, z)) return false;
     if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false;
-    return !botBld(x, z, -0.15) && !botVeg(x, z);
+    return !xibBld(x, z) && !xibVeg(x, z);
+  }
+  /* árboles y rocas: radio cercano al tronco real (la IA usa uno más amplio) */
+  function xibVeg(x, z) {
+    var cx = Math.floor(x / 4), cz = Math.floor(z / 4), a, c, l, i, q, dx, dz, r;
+    if (!botVG) { if (!vegObs) return false; botBuildVeg(); }
+    for (a = -1; a <= 1; a++) for (c = -1; c <= 1; c++) {
+      l = botVG[(cx + a) + ',' + (cz + c)]; if (!l) continue;
+      for (i = 0; i < l.length; i++) { q = l[i]; if (q[3] && q[3].sunk) continue; r = (BOT_VR[q[3].type] || 0.2) * 0.6 + 0.12; dx = x - q[0]; dz = z - q[1]; if (dx * dx + dz * dz < r * r) return true; }
+    }
+    return false;
+  }
+  /* edificios con su forma real: cada pieza se prueba en su propio marco (con su giro), con 18 cm de holgura; la caja amplia de la IA solo filtra */
+  var xibV = new THREE.Vector3();
+  function xibBld(x, z) {
+    var l = botObs && botObs[Math.floor(x / BOT_CELL) + ',' + Math.floor(z / BOT_CELL)], i, j, p, q, r;
+    if (!l) return false;
+    for (i = 0; i < l.length; i++) {
+      p = l[i]; if (p.sunk || x < p._x0 || x > p._x1 || z < p._z0 || z > p._z1) continue;
+      if (!p._obb || !p._obb.length) return true;
+      for (j = 0; j < p._obb.length; j++) { q = p._obb[j]; r = 0.18 / (q.s || 1); xibV.set(x, BASE + 0.6, z).applyMatrix4(q.m); if (xibV.x > q.b.min.x - r && xibV.x < q.b.max.x + r && xibV.z > q.b.min.z - r && xibV.z < q.b.max.z + r) return true; }
+    }
+    return false;
   }
   function xibHead(b, want) { /* el rumbo pedido; solo se corrige un poco (±14°) para no rozar esquinas; si no cabe, se detiene */
     var o = [0, 0.25, -0.25], i, a;
