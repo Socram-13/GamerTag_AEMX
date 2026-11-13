@@ -330,6 +330,7 @@
   .stage.gm-xib #invCd, .stage.gm-xib #peaceCd { top: -16px; } /* el reloj va arriba del círculo, sin tapar los objetivos */
   .stage.gm-xib .search { flex: 0 1 300px; min-width: 0; }
   .stage.gm-xib #xib { --xib-up: 0px; }
+  @media (max-width: 700px) { .stage.gm-xib #xib { --xib-up: 34px; } } /* en celular, sobre las etiquetas de estado */
   /* letrero de invasión minimizado: una pastilla pequeña bajo la barra superior */
   .stage.gm-xib #invAl { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 48px); gap: 6px; padding: 4px 12px; font-size: 12px; letter-spacing: 0.08em; border-radius: 999px; box-shadow: none; animation: none; text-shadow: 0 0 6px rgba(255,40,40,0.8); }
   .stage.gm-xib #invAl small { display: none; }
@@ -343,7 +344,10 @@
   #xib .joy { position: absolute; left: max(18px, env(safe-area-inset-left)); bottom: calc(max(26px, env(safe-area-inset-bottom)) + 40px); width: 136px; height: 136px; border-radius: 50%; background: rgba(10,16,28,0.38); border: 2px solid rgba(61,255,122,0.55); pointer-events: auto; touch-action: none; }
   #xib .joy i { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: rgba(61,255,122,0.75); box-shadow: 0 0 14px rgba(61,255,122,0.6); }
   #xib .btns { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(24px, env(safe-area-inset-bottom)) + var(--xib-up, 200px)); display: grid; grid-template-columns: 66px 66px; grid-template-rows: 66px 66px; gap: 10px; pointer-events: none; }
-  #xib .btns button { pointer-events: auto; touch-action: none; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); background: rgba(10,16,28,0.55); color: #fff; font: 700 11px var(--f-body), sans-serif; letter-spacing: 0.04em; padding: 0; -webkit-user-select: none; user-select: none; }
+  #xib .btns button { pointer-events: auto; touch-action: none; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); background: rgba(10,16,28,0.55); color: #fff; font: 700 11px var(--f-body), sans-serif; letter-spacing: 0.04em; padding: 0; -webkit-user-select: none; user-select: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+  #xib .btns button svg { width: 28px; height: 28px; pointer-events: none; }
+  #xib .btns button span { font-size: 8.5px; letter-spacing: 0.06em; pointer-events: none; }
+  #xib .btns .fire svg { width: 34px; height: 34px; }
   #xib .btns .fire { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: 78px; height: 78px; border-color: #ff5a5a; background: rgba(160,20,30,0.6); font-size: 12px; }
   #xib .btns .jump { grid-column: 1; grid-row: 2; }
   #xib .btns .turbo { grid-column: 1; grid-row: 1; border-color: #5ad8ff; }
@@ -11547,7 +11551,10 @@ function buildBaseAEMX(){
   var XIB = { jx: 0, jy: 0, k: {}, fire: false, jump: false, turbo: false, hintT: 0 };
   function xibInit() {
     var w = document.createElement('div'); w.id = 'xib';
-    w.innerHTML = '<div class="joy" aria-label="Joystick"><i></i></div><div class="btns"><button type="button" class="turbo">TURBO</button><button type="button" class="jump">SALTO</button><button type="button" class="fire">DISPARO</button></div><div class="hint"></div>';
+    w.innerHTML = '<div class="joy" aria-label="Joystick"><i></i></div><div class="btns">' +
+      '<button type="button" class="turbo" aria-label="Turbo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5c1.2 3.6 5.6 5.9 5.6 11.4A5.6 5.6 0 0 1 6.4 13c0-2.3 1.1-4.1 2.7-5.5-.1 1.8.7 3.3 2.1 4 .3-3.3-.8-6.4.8-10z" fill="#ffb347"/><path d="M12 11.5c.6 1.8 2.8 2.9 2.8 5.6a2.8 2.8 0 0 1-5.6.1c0-1.4.8-2.4 1.8-3.2 0 .9.4 1.5 1 1.8.1-1.5-.5-3 0-4.3z" fill="#ffe680"/></svg><span>TURBO</span></button>' +
+      '<button type="button" class="jump" aria-label="Salto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="15" cy="3.8" r="2.3" fill="#fff"/><path d="M13.8 7.2 10.6 12l3 2.2-1.9 5.6M10.6 12 6.3 11M13.8 8.6l3.6 3 3-1.9M4 22h6" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>SALTO</span></button>' +
+      '<button type="button" class="fire" aria-label="Disparo"><svg viewBox="0 0 24 24" aria-hidden="true"><g transform="rotate(45 12 12)"><path d="M12 1.8c2.3 1.7 3.1 4.2 3.1 6.8v5.6H8.9V8.6c0-2.6.8-5.1 3.1-6.8z" fill="#ffd36b"/><rect x="8.4" y="15" width="7.2" height="6.8" rx="1.1" fill="#d99a2b"/><rect x="8.4" y="14.2" width="7.2" height="1.6" fill="#7a5414"/></g></svg><span>DISPARO</span></button></div><div class="hint"></div>';
     stage.appendChild(w);
     var joy = w.querySelector('.joy'), kn = joy.querySelector('i'), jid = null, hint = w.querySelector('.hint');
     var pc = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -11668,8 +11675,7 @@ function buildBaseAEMX(){
     if (now >= (XIB.rfT || 0)) { XIB.rfT = now + 0.5; xsRefresh(); }
     /* la IA de caza no debe apagar la puntería (noHunt) ni fijar metas propias; al presionar DISPARO con un blanco, se planta y apunta */
     b.noHunt = 0; b.huntHold = now + 1;
-    /* dispara corriendo; solo se planta para girar si el blanco queda de lado o atrás (fuera de ±60° del frente) */
-    if (XIB.fire && b.aiming && b.hasUp && b.mode === 'walk' && Math.abs(nAng(Math.atan2(b.up.x - b.x, b.up.z - b.z) - b.yaw)) > 1.05) m = 0;
+    /* apuntar y disparar nunca frena al robot: dispara mientras camina o corre */
     xibRoofTick(b);
     if (b.roofP) XIB.turbo = false;
     if (XIB.jump && !b.roofP && !DUEL && b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && xibClimb(b)) { XIB.jump = false; return; }
