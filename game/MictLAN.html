@@ -10753,7 +10753,7 @@ function buildBaseAEMX(){
     if (typeof ALN !== 'undefined' && ALN && ALN.entered && !HFL) {
       var iE = ALN.entered(), iCw;
       if (iE && b.iscInv !== iE && b.mode === 'walk' && !b.ball && b.boostT <= 0) { b.iscInv = iE; iCw = ALN.cowAt(b.x, b.z); if (iCw) { b.isc = true; b.iscT0 = now; b.wk = { x: iCw.x, z: iCw.z }; b.wkC = null; b.wkT = 0; b.circ = false; } }
-      if (b.isc && iE && b.wk && !b.scan && b.mode === 'walk' && b.gtype !== 'wreck' && now >= (b.iscG || 0)) {
+      if (b.isc && iE && b.wk && !b.scan && b.mode === 'walk' && b.gtype !== 'wreck' && b.gtype !== 'man' && now >= (b.iscG || 0)) {
         b.iscG = now + 1.5; var iA = Math.atan2(b.x - b.wk.x, b.z - b.wk.z), iK, iR, iX, iZ;
         if (Math.hypot(b.wk.x - b.x, b.wk.z - b.z) < 9.5) { b.scan = true; b.scanT = 0; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; }
         else for (iK = 0; iK < 12; iK++) { iR = iA + (iK % 2 ? 1 : -1) * Math.ceil(iK / 2) * 0.5; iX = b.wk.x + Math.sin(iR) * 8; iZ = b.wk.z + Math.cos(iR) * 8; if (botFree(iX, iZ) && botSetGoal(iX, iZ, 'wreck')) break; }
@@ -10772,7 +10772,7 @@ function buildBaseAEMX(){
     thr = !!U && now >= b.noHunt && !(!AT && typeof SNK !== 'undefined' && SNK.active()); /* con una ciudad sellada o surgiendo no persigue OVNIs: se queda a verla volver */
     (function () {
       var Dd = (typeof ALN !== 'undefined' && ALN && ALN.dis) ? ALN.dis() : null, free = !HFL && ufoDown() && !U && !(typeof ALN !== 'undefined' && ALN.state && ALN.state()), dist, SCR, tt, ln;
-      if (!Dd || Dd.k < 0.5 || !free) { if (b.disTalk || b.disMeet) { b.disTalk = 0; b.disMeet = 0; b.disForce = 0; b.disCD = now + 90; } return; }
+      if (GM.xib || !Dd || Dd.k < 0.5 || !free) { if (b.disTalk || b.disMeet) { b.disTalk = 0; b.disMeet = 0; b.disForce = 0; b.disCD = now + 90; } return; }
       dist = Math.hypot(Dd.x - b.x, Dd.z - b.z);
       if (b.disTalk) {
         tt = now - b.disTalk; b.goal = null; b.gtype = ''; b.path = null; b.idle = 3; b.v *= Math.max(0, 1 - dt * 6);
@@ -10811,7 +10811,7 @@ function buildBaseAEMX(){
         }
       }
     }
-    if (b.trk && b.mode === 'walk') { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; if (!(DUEL && DUEL.aimT)) b.v *= Math.max(0, 1 - dt * 5); }
+    if (b.trk && b.mode === 'walk' && !GM.xib) { b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 2; if (!(DUEL && DUEL.aimT)) b.v *= Math.max(0, 1 - dt * 5); }
     if (thr) { dh = Math.hypot(U.x - b.x, U.z - b.z); d3 = Math.hypot(dh, U.y - (b.y + 1.0)); }
     b.alert = thr && d3 <= botRng() + 25;
     b.sameCity = false;
@@ -10874,7 +10874,7 @@ function buildBaseAEMX(){
         if (ci3 === 3) b.circDir = -b.circDir;
       }
     }
-    if (b.wk && b.mode === 'walk' && !b.scan && !b.circ && b.gtype !== 'wreck' && b.gtype !== 'roof' && now >= b.wkT) {
+    if (b.wk && b.mode === 'walk' && !b.scan && !b.circ && b.gtype !== 'wreck' && b.gtype !== 'roof' && b.gtype !== 'man' && now >= b.wkT) {
       b.wkT = now + 1.5; wd = Math.hypot(b.wk.x - b.x, b.wk.z - b.z);
       if (wd < 220 || now - b.hitT < 15) {
         wa = Math.atan2(b.x - b.wk.x, b.z - b.wk.z);
@@ -10885,7 +10885,7 @@ function buildBaseAEMX(){
         }
       }
     }
-    if (thr && b.mode === 'walk' && (b.boostT > 0 || (b.glr || 0) > 0) && U.y <= 40 && (!landAt || landAt(U.x, U.z)) && !ufoOverVolc() && !b.alienT && Math.hypot(dh, U.y - (b.y + 1.0)) < 14) botStartRide();
+    if (!GM.xib && thr && b.mode === 'walk' && (b.boostT > 0 || (b.glr || 0) > 0) && U.y <= 40 && (!landAt || landAt(U.x, U.z)) && !ufoOverVolc() && !b.alienT && Math.hypot(dh, U.y - (b.y + 1.0)) < 14) botStartRide();
     if (!GM.xib && invLock && thr && b.mode === 'walk' && !b.tpj && !b.ride && dh > 14 && !orbOn && (dh > BOT_HUNT_D || !b.los)) { /* invasión: si no logra acercarse al alien o al meteoro (queda del otro lado de la barrera), salta junto a él */
       if (b.stkD === undefined || dh < b.stkD - 3) { b.stkT0 = now; b.stkD = dh; }
       else if (now - b.stkT0 > 6 || (b.hfail || 0) >= 2) {
@@ -10933,11 +10933,11 @@ function buildBaseAEMX(){
       }
       if (!b.goal && !thr && !b.scan && !b.circ && !HFL) { b.idle -= dt; if (b.idle <= 0) botPick(); }
 
-      if (thr && b.sameCity && !b.alienT && dh <= 110 && b.gtype !== 'roof' && now >= (b.tallCD || 0) && botCityDist(b.x, b.z) < 12) { b.tallCD = now + 6; if (botPickRoof(250, null, true)) b.tallRoof = true; }
+      if (!GM.xib && thr && b.sameCity && !b.alienT && dh <= 110 && b.gtype !== 'roof' && now >= (b.tallCD || 0) && botCityDist(b.x, b.z) < 12) { b.tallCD = now + 6; if (botPickRoof(250, null, true)) b.tallRoof = true; }
 
-      if (thr && b.sameCity && !b.alienT && dh <= 70 && U.y > 9 && b.gtype !== 'roof' && now >= b.roofCD && !b.tallRoof) { b.roofCD = now + 8; if (!botPickRoof(250, null, true)) botPickRoof(30); }
+      if (!GM.xib && thr && b.sameCity && !b.alienT && dh <= 70 && U.y > 9 && b.gtype !== 'roof' && now >= b.roofCD && !b.tallRoof) { b.roofCD = now + 8; if (!botPickRoof(250, null, true)) botPickRoof(30); }
 
-      if (thr && (b.sameCity || b.alienT) && dh <= BOT_HUNT_D && (!b.goal || b.gtype === 'flank')) {
+      if (!GM.xib && thr && (b.sameCity || b.alienT) && dh <= BOT_HUNT_D && (!b.goal || b.gtype === 'flank')) {
         b.losT -= dt;
         if (b.losT <= 0) {
           b.losT = 0.25; b.los = botLOS(b.x, b.y + 1.0, b.z, U.x, U.y, U.z, null);
@@ -11059,7 +11059,6 @@ function buildBaseAEMX(){
           else if (b.path && b.path[b.pi] && dw < 40 && botLineFree(b.x, b.z, tw.x, tw.z, 0.3, true)) { hd = want; b.blockD = 99; }
           else if (now < (b.fineT || 0)) { hd = want; b.blockD = 99; }
           else hd = botSteer(b, want, b.path && b.path[b.pi] && b.path[b.pi][2] ? Math.min(3 + b.v * 0.8, Math.max(1.3, dw + 0.3)) : 3 + b.v * 0.8);
-          if (hd === null && b.gtype === 'man') { var xs2 = [0.5, -0.5, 1.0, -1.0, 1.5, -1.5], xa; for (var xi = 0; xi < xs2.length; xi++) { xa = want + xs2[xi]; if (xibFree(b.x + Math.sin(xa) * 0.9, b.z + Math.cos(xa) * 0.9) && xibFree(b.x + Math.sin(xa) * 0.45, b.z + Math.cos(xa) * 0.45)) { hd = xa; b.blockD = 1.6; break; } } }
           if (hd === null) {
             b.v *= Math.max(0, 1 - dt * 6); b.yaw += nAng(want - b.yaw) * Math.min(1, dt * 3); b.nullT = (b.nullT || 0) + dt;
             if (b.nullT > 0.6 && b.gtype !== 'man') {
@@ -11301,7 +11300,7 @@ function buildBaseAEMX(){
     b.aimPitch += (pT - b.aimPitch) * Math.min(1, dt * 14);
     var TW = 1.3;
     if (Math.abs(nAng(b.aimYaw - b.yaw)) > TW) b.aimYaw = b.yaw + (nAng(b.aimYaw - b.yaw) > 0 ? TW : -TW);
-    if ((b.mode === 'perch' || (b.mode === 'walk' && b.v < 0.6)) && b.aiming) b.yaw += nAng(b.aimYaw - b.yaw) * Math.min(1, dt * 3);
+    if ((b.mode === 'perch' || (b.mode === 'walk' && b.v < 0.6)) && b.aiming && (!GM.xib || XIB.fire)) b.yaw += nAng(b.aimYaw - b.yaw) * Math.min(1, dt * 3);
     errY = Math.abs(nAng(yT - b.aimYaw)); errP = Math.abs(pT - b.aimPitch);
 
     moving = b.mode === 'walk' && b.v > 0.3;
@@ -11559,8 +11558,8 @@ function buildBaseAEMX(){
     if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false;
     return !botBld(x, z, -0.15) && !botVeg(x, z);
   }
-  function xibHead(b, want) { /* el rumbo pedido, o el más parecido que esté libre justo enfrente */
-    var o = [0, 0.3, -0.3, 0.6, -0.6, 0.95, -0.95, 1.35, -1.35], i, a;
+  function xibHead(b, want) { /* el rumbo pedido; solo se corrige un poco (±14°) para no rozar esquinas; si no cabe, se detiene */
+    var o = [0, 0.25, -0.25], i, a;
     for (i = 0; i < o.length; i++) { a = want + o[i]; if (xibFree(b.x + Math.sin(a) * 0.45, b.z + Math.cos(a) * 0.45) && xibFree(b.x + Math.sin(a) * 0.9, b.z + Math.cos(a) * 0.9)) return a; }
     return null;
   }
@@ -11574,7 +11573,10 @@ function buildBaseAEMX(){
     if (XIB.fire && b.aiming && b.mode === 'walk') m = 0;
     if (XIB.jump) { XIB.jump = false; if (b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && !b.scan) { b.bh = 0.06; b.bvy = 6.5; b.xj = true; AUD.servo(bkMuz.set(b.x, b.y + 0.6, b.z)); } }
     if (XIB.tb) XIB.tb.classList.toggle('cd', b.boostCD > 0 || b.boostT > 0);
-    if (m > 0.15 && !b.scan) {
+    /* el jugador manda: sin recorridos, visitas ni escenas automáticas */
+    b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; b.xs = null; b.tallRoof = false;
+    if (m > 0.15) {
+      if (b.scan) { b.scan = false; b.isc = false; } b.circ = false;
       cy = Math.atan2(controls.target.x - camera.position.x, controls.target.z - camera.position.z);
       dir = cy - Math.atan2(ix, iy);
       if (XIB.turbo) { XIB.turbo = false; if (b.boostT <= 0 && b.boostCD <= 0 && (b.bh || 0) <= 0.05) { b.boostT = b.bMax = 3; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); } }
@@ -11583,7 +11585,7 @@ function buildBaseAEMX(){
       b.manSpd = kb ? BOT_RUN : (m < 0.55 ? BOT_WALK * (0.6 + m) : BOT_WALK + (BOT_RUN - BOT_WALK) * (m - 0.55) / 0.45);
     } else {
       XIB.turbo = false;
-      if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; b.path = null; } b.idle = 1;
+      b.goal = null; b.gtype = ''; b.path = null; b.idle = 1;
       if (b.boostT > 0) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; }
     }
   }
