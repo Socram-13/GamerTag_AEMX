@@ -317,6 +317,23 @@
   #gate .gt-modes[hidden] { display: none; }
   #gate .gt-modes button { height: auto; min-width: 190px; padding: 12px 22px 11px; border-radius: 6px 18px 6px 18px; border: 1px solid #ffe44d; background: rgba(16,9,30,0.84); color: #ffe44d; text-align: center; transition: transform 0.15s, box-shadow 0.15s; }
   #gate .gt-modes button.inv { background: #d9232f; box-shadow: 0 0 16px rgba(217,35,47,0.55); }
+  #gate .gt-modes button.xib { background: #123d2c; border-color: #3dff7a; color: #3dff7a; box-shadow: 0 0 16px rgba(61,255,122,0.45); }
+  /* Modo Xibalba: joystick y botones */
+  #xib { position: absolute; inset: 0; pointer-events: none; z-index: 30; display: none; }
+  .stage.gm-xib #xib { display: block; }
+  .stage.gm-xib #dFeed, .stage.gm-xib #aSay, .stage.gm-xib #bSay { display: none !important; }
+  #xib .joy { position: absolute; left: max(18px, env(safe-area-inset-left)); bottom: calc(max(26px, env(safe-area-inset-bottom)) + 40px); width: 136px; height: 136px; border-radius: 50%; background: rgba(10,16,28,0.38); border: 2px solid rgba(61,255,122,0.55); pointer-events: auto; touch-action: none; }
+  #xib .joy i { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: rgba(61,255,122,0.75); box-shadow: 0 0 14px rgba(61,255,122,0.6); }
+  #xib .btns { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(24px, env(safe-area-inset-bottom)) + var(--xib-up, 200px)); display: grid; grid-template-columns: 66px 66px; grid-template-rows: 66px 66px; gap: 10px; pointer-events: none; }
+  #xib .btns button { pointer-events: auto; touch-action: none; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); background: rgba(10,16,28,0.55); color: #fff; font: 700 11px var(--f-body), sans-serif; letter-spacing: 0.04em; padding: 0; -webkit-user-select: none; user-select: none; }
+  #xib .btns .fire { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: 78px; height: 78px; border-color: #ff5a5a; background: rgba(160,20,30,0.6); font-size: 12px; }
+  #xib .btns .jump { grid-column: 1; grid-row: 2; }
+  #xib .btns .turbo { grid-column: 1; grid-row: 1; border-color: #5ad8ff; }
+  #xib .btns button.on { background: rgba(61,255,122,0.55); }
+  #xib .btns .turbo.cd { opacity: 0.4; }
+  #xib .hint { position: absolute; left: 50%; bottom: 222px; transform: translateX(-50%); background: rgba(10,16,28,0.72); color: #dfffe9; font: 600 13px var(--f-body), sans-serif; padding: 7px 14px; border-radius: 8px; white-space: nowrap; transition: opacity 1s; }
+  #xib .hint.off { opacity: 0; }
+  @media (hover: hover) and (pointer: fine) { #xib .joy { display: none; } }
   #gate .gt-modes button:hover { transform: translateY(-2px); box-shadow: 0 0 18px rgba(255,228,77,0.5); }
   #gate .gt-modes b { display: block; font: 800 16px 'GtOxa', var(--f-body), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; }
   #gate .gt-modes small { display: block; margin-top: 3px; font: 600 12px var(--f-body); color: var(--ink); opacity: 0.85; }
@@ -479,6 +496,7 @@
       <div class="gt-modes" id="gt-modes" hidden>
         <button type="button" id="gm-inv" class="inv"><b>Modo Invasión</b><small>Caza OVNIs e invasores</small></button>
         <button type="button" id="gm-exp"><b>Modo Explorador</b><small>Paz permanente · viaja y reta</small></button>
+        <button type="button" id="gm-xib" class="xib"><b>Modo Xibalba</b><small>Tú manejas al robot · defiende el mapa</small></button>
       </div>
       <button type="button" id="gate-btn">Iniciar con Google</button>
       <p id="gate-err" hidden></p>
@@ -10833,7 +10851,7 @@ function buildBaseAEMX(){
       } else b.nfT = 0;
       if (b.goal && b.gtype && !b.vilWatch) {
         if (b.pgT === undefined || Math.hypot(b.x - b.pgX, b.z - b.pgZ) > 1.5) { b.pgX = b.x; b.pgZ = b.z; b.pgT = now; b.pgR = 0; }
-        else if (now - b.pgT > 8) { b.pgT = now; b.stuck = 0; b.boostT = 0; if (!b.pgR) { b.pgR = 1; if (!botSetGoal(b.goal.x, b.goal.z, b.gtype)) { b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.3; } } else { b.pgR = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.3; } }
+        else if (now - b.pgT > 8 && b.gtype !== 'man') { b.pgT = now; b.stuck = 0; b.boostT = 0; if (!b.pgR) { b.pgR = 1; if (!botSetGoal(b.goal.x, b.goal.z, b.gtype)) { b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.3; } } else { b.pgR = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 0.3; } }
       } else b.pgT = undefined;
     } else { b.nfT = 0; b.pgT = undefined; }
     if (b.mode === 'walk' && !b.ride && !b.ball && b.boostT <= 0 && craterPush(b, dt, 3)) { b.v = 3; b.stuck = 0; b.rec = 0; }
@@ -10868,7 +10886,7 @@ function buildBaseAEMX(){
       }
     }
     if (thr && b.mode === 'walk' && (b.boostT > 0 || (b.glr || 0) > 0) && U.y <= 40 && (!landAt || landAt(U.x, U.z)) && !ufoOverVolc() && !b.alienT && Math.hypot(dh, U.y - (b.y + 1.0)) < 14) botStartRide();
-    if (invLock && thr && b.mode === 'walk' && !b.tpj && !b.ride && dh > 14 && !orbOn && (dh > BOT_HUNT_D || !b.los)) { /* invasión: si no logra acercarse al alien o al meteoro (queda del otro lado de la barrera), salta junto a él */
+    if (!GM.xib && invLock && thr && b.mode === 'walk' && !b.tpj && !b.ride && dh > 14 && !orbOn && (dh > BOT_HUNT_D || !b.los)) { /* invasión: si no logra acercarse al alien o al meteoro (queda del otro lado de la barrera), salta junto a él */
       if (b.stkD === undefined || dh < b.stkD - 3) { b.stkT0 = now; b.stkD = dh; }
       else if (now - b.stkT0 > 6 || (b.hfail || 0) >= 2) {
         var tsx = b.x - U.x, tsz = b.z - U.z, tsl = Math.hypot(tsx, tsz) || 1, tsp = botFreeSpot(U.x + tsx / tsl * 6, U.z + tsz / tsl * 6);
@@ -10955,6 +10973,7 @@ function buildBaseAEMX(){
       if (b.gtype === 'trail' && !b.inFog && b.fogOut > 2) { b.goal = null; b.gtype = ''; b.path = null; b.trD = null; }
       else if (b.inFog && b.fogT > 1.5 && !U && !b.alienT && !(typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state()) && b.gtype !== 'roof' && b.gtype !== 'wreck' && b.gtype !== 'wreckp' && b.gtype !== 'flank' && !b.scan && !b.circ && now >= (b.trT || 0) && now >= (b.trOff || 0)) { b.trT = now + 0.8; botTrailStep(now); }
 
+      if (GM.xib) xibSteer(b, now, dt);
       if (b.goal) {
         gd = Math.hypot(b.goal.x - b.x, b.goal.z - b.z);
         if (gd < (b.gtype === 'roof' ? 0.55 : b.gtype === 'junk' ? 0.2 : (GM.mode === 'exp' && b.gtype === 'patrol') ? 2.5 : 1.4) && !(b.gtype === 'roof' && (b.ball || (b.ballK || 0) > 0.1 || (b.bh || 0) > 0.15))) {
@@ -10978,11 +10997,11 @@ function buildBaseAEMX(){
           }
           dw = Math.hypot(tw.x - b.x, tw.z - b.z);
           want = Math.atan2(tw.x - b.x, tw.z - b.z);
-          spd = (b.disForce && b.disMeet && gd > 8) ? BOT_RUN : b.gtype === 'wreckp' ? BOT_WALK : (b.gtype === 'hunt' || b.gtype === 'wreck' || b.gtype === 'flank') ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : b.gtype === 'trail' ? BOT_RUN * 0.75 : b.gtype === 'orbit' ? BOT_WALK * 1.7 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
+          spd = b.gtype === 'man' ? (b.manSpd || BOT_WALK) : (b.disForce && b.disMeet && gd > 8) ? BOT_RUN : b.gtype === 'wreckp' ? BOT_WALK : (b.gtype === 'hunt' || b.gtype === 'wreck' || b.gtype === 'flank') ? BOT_RUN : b.gtype === 'roof' ? BOT_RUN * 0.8 : b.gtype === 'trail' ? BOT_RUN * 0.75 : b.gtype === 'orbit' ? BOT_WALK * 1.7 : (b.jog ? BOT_RUN * 0.75 : BOT_WALK);
           if (gd < 3 && b.gtype !== 'orbit' && b.gtype !== 'wreckp') spd = Math.min(spd, 3.2);
           if (b.wxDense && b.gtype !== 'trail') spd = Math.min(spd, BOT_WALK * 1.4);
 
-          if (!invIn && b.fogT > (b.gtype === 'trail' ? 40 : 20) && !b.alert && now >= (b.liftCD || 0) && b.gtype !== 'roof' && gd > 25) {
+          if (b.gtype !== 'man' && !invIn && b.fogT > (b.gtype === 'trail' ? 40 : 20) && !b.alert && now >= (b.liftCD || 0) && b.gtype !== 'roof' && gd > 25) {
             b.liftCD = now + 8;
             var fx0 = b.x, fz0 = b.z, fdx = (b.goal.x - b.x) / gd, fdz = (b.goal.z - b.z) / gd, fs, fo = -1, fxx, fzz, fok = false;
             for (fs = 6; fs <= Math.min(gd, 500); fs += 4) { fxx = fx0 + fdx * fs; fzz = fz0 + fdz * fs; if (!(WX && WX.fogAt && WX.fogAt(fxx, fzz))) { fo = fs; break; } }
@@ -11008,10 +11027,10 @@ function buildBaseAEMX(){
           }
           if (now >= (b.wxT || 0)) { b.wxT = now + 0.15; b.wxFog = !!(WX && WX.fogAt && (WX.fogAt(b.x, b.z) || WX.fogAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxDense = !!(WX && WX.denseAt && (WX.denseAt(b.x, b.z) || WX.denseAt(b.x + Math.sin(b.yaw) * 6, b.z + Math.cos(b.yaw) * 6))); b.wxBad = !!(WX && WX.bad && (WX.bad(b.x, b.z) || WX.bad(b.x + Math.sin(b.yaw) * 18, b.z + Math.cos(b.yaw) * 18))); if (invIn) { b.wxFog = b.wxDense = b.wxBad = false; } }
           var chA = !!(b.alienT && invIn);
-          if (b.boostT <= 0 && b.boostCD <= 0 && gd > (chA ? 25 : 45) && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > (chA ? 12 : 30) && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > (chA ? 6 : 12) && botLandAhead(b.x, b.z, want, chA ? 60 : 80)) { b.boostT = b.bMax = invIn ? (chA ? 5 : 3) : 12;  AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
+          if (b.gtype !== 'man' && b.boostT <= 0 && b.boostCD <= 0 && gd > (chA ? 25 : 45) && !b.wxBad && b.gtype !== 'roof' && botCityDist(b.x, b.z) > (chA ? 12 : 30) && botCityDist(b.x + Math.sin(want) * 25, b.z + Math.cos(want) * 25) > (chA ? 6 : 12) && botLandAhead(b.x, b.z, want, chA ? 60 : 80)) { b.boostT = b.bMax = invIn ? (chA ? 5 : 3) : 12;  AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); }
           if (b.boostT > 0) {
             spd = BOT_BOOST;
-            if (b.wxBad || gd < 10 || ((b.bh || 0) < 12 && botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) || !botLandAhead(b.x, b.z, b.yaw, 32)) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
+            if (b.wxBad || (gd < 10 && b.gtype !== 'man') || ((b.bh || 0) < 12 && botCityDist(b.x + Math.sin(b.yaw) * 14, b.z + Math.cos(b.yaw) * 14) < 12) || !botLandAhead(b.x, b.z, b.yaw, 32)) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; spd = BOT_RUN; }
           }
           if (b.rec > 0) {
 
@@ -11039,9 +11058,10 @@ function buildBaseAEMX(){
           else if (b.path && b.path[b.pi] && dw < 40 && botLineFree(b.x, b.z, tw.x, tw.z, 0.3, true)) { hd = want; b.blockD = 99; }
           else if (now < (b.fineT || 0)) { hd = want; b.blockD = 99; }
           else hd = botSteer(b, want, b.path && b.path[b.pi] && b.path[b.pi][2] ? Math.min(3 + b.v * 0.8, Math.max(1.3, dw + 0.3)) : 3 + b.v * 0.8);
+          if (hd === null && b.gtype === 'man') { var xs2 = [0.5, -0.5, 1.0, -1.0, 1.5, -1.5], xa; for (var xi = 0; xi < xs2.length; xi++) { xa = want + xs2[xi]; if (botFree(b.x + Math.sin(xa) * 0.9, b.z + Math.cos(xa) * 0.9) && botFree(b.x + Math.sin(xa) * 0.45, b.z + Math.cos(xa) * 0.45)) { hd = xa; b.blockD = 1.6; break; } } }
           if (hd === null) {
             b.v *= Math.max(0, 1 - dt * 6); b.yaw += nAng(want - b.yaw) * Math.min(1, dt * 3); b.nullT = (b.nullT || 0) + dt;
-            if (b.nullT > 0.6) {
+            if (b.nullT > 0.6 && b.gtype !== 'man') {
               b.nullT = 0;
               if (b.nuX !== undefined && Math.hypot(b.x - b.nuX, b.z - b.nuZ) < 3 && now - b.nuT < 20) b.nuN++; else { b.nuN = 1; b.nuX = b.x; b.nuZ = b.z; }
               b.nuT = now;
@@ -11054,7 +11074,8 @@ function buildBaseAEMX(){
             b.nullT = 0;
             b.yaw += nAng(hd - b.yaw) * Math.min(1, dt * 12);
             tg = spd * Math.max(0.2, Math.cos(nAng(hd - b.yaw))) * Math.max(0.35, Math.min(1, (b.blockD - 1.2) / (b.v * 0.5 + 2)));
-            if ((b.bh || 0) > 0.15 && b.boostT <= 0) tg = Math.max(tg, (b.glr || 0) > 0 ? 30 - 15 * (1 - b.glr / Math.max(1, b.glr0)) : 16);
+            if ((b.bh || 0) <= 0.05) b.xj = false;
+            if ((b.bh || 0) > 0.15 && b.boostT <= 0 && !b.xj) tg = Math.max(tg, (b.glr || 0) > 0 ? 30 - 15 * (1 - b.glr / Math.max(1, b.glr0)) : 16);
             b.v += (tg - b.v) * Math.min(1, dt * 5);
           }
           steps = Math.max(1, Math.ceil(b.v * dt / 0.5));
@@ -11065,7 +11086,7 @@ function buildBaseAEMX(){
 
           b.st = (b.st || 0) + dt;
           if (b.st >= 0.8) {
-            if (b.sx !== undefined && Math.hypot(b.x - b.sx, b.z - b.sz) < 0.35 && spd > 1) {
+            if (b.gtype !== 'man' && b.sx !== undefined && Math.hypot(b.x - b.sx, b.z - b.sz) < 0.35 && spd > 1) {
               b.recN = (b.recN || 0) + 1; b.side = -b.side;
               if (b.recN >= 3) { b.recN = 0; if (b.gtype === 'hunt') b.noHunt = now + 4; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 0.3; }
               else { b.rec = 0.9; b.recDir = b.yaw + 3.1416 + b.side * 0.9; b.boostT = 0; }
@@ -11076,7 +11097,7 @@ function buildBaseAEMX(){
           b.cl = (b.cl || 0) + b.v * dt; b.cT = (b.cT || 0) + dt;
           if (b.cT >= 6) {
             if (b.cx === undefined) { b.cx = b.x; b.cz = b.z; }
-            if (b.cl > 12 && Math.hypot(b.x - b.cx, b.z - b.cz) < 3 && b.goal && !airFly && b.mode === 'walk') {
+            if (b.gtype !== 'man' && b.cl > 12 && Math.hypot(b.x - b.cx, b.z - b.cz) < 3 && b.goal && !airFly && b.mode === 'walk') {
               if (now - (b.circAt || -99) < 30) { b.circAt = now; b.fineT = 0; if (!botPickRoof(40)) { b.goal = null; b.gtype = ''; b.path = null; b.tour = null; b.idle = 0.3; } }
               else {
                 b.circAt = now; var fp2 = botFineAStar(b.x, b.z, b.goal.x, b.goal.z);
@@ -11089,7 +11110,7 @@ function buildBaseAEMX(){
           b.pt += dt;
           if (b.pt >= 1.2) {
             var stkC = (b.gtype === 'wreckp' || b.gtype === 'orbit') ? Math.hypot(b.x - (b.stX === undefined ? 1e9 : b.stX), b.z - (b.stZ || 0)) < 0.8 : (b.lastGD - dw < 0.5);  b.stX = b.x; b.stZ = b.z; b.stuck = stkC ? b.stuck + 1 : 0; b.lastGD = dw; b.pt = 0;
-            if (b.stuck >= 3) { b.stuck = 0; if (b.gtype === 'hunt') b.noHunt = now + 4; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 0.3; }
+            if (b.gtype === 'man') b.stuck = 0; if (b.stuck >= 3) { b.stuck = 0; if (b.gtype === 'hunt') b.noHunt = now + 4; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.idle = 0.3; }
           }
           }
         }
@@ -11480,15 +11501,68 @@ function buildBaseAEMX(){
       b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78));
       b.los = botLOS(bkMuz.x, bkMuz.y, bkMuz.z, U.x, U.y, U.z, b.mode === 'walk' ? null : (b.rp && b.rp.p));
       canShoot = b.los && errY < (b.alienT ? (orbOn ? 0.8 : 0.2) : 0.45) && errP < (b.alienT ? (orbOn ? 0.8 : 0.2) : 0.45) && b.hold > 0.5;
-      if (canShoot && b.fireT <= 0) {
+      if (canShoot && b.fireT <= 0 && (!GM.xib || XIB.fire)) {
         botShoot(bkMuz, b.alienT ? pred : U);
         b.fireT = b.alienT ? 0.35 : 0.12;
         if (DUEL) { duelRobotShot(); b.burstN = (b.burstN || 0) + 1; if (b.burstN >= 3) { b.burstN = 0; b.fireT = 0.8; } else b.fireT = 0.13; if (b.burstN === 1 && DUEL.fg && !DUEL.fg.burstN) DUEL.fg.fireT = 0.05; }
       }
     }
+    if (GM.xib && XIB.fire && !canShoot && !b.ball && b.boostT <= 0) {
+      b.xfT = (b.xfT || 0) - dt;
+      if (b.xfT <= 0) { b.xfT = 0.28; b.rifle.localToWorld(bkMuz.set(0, 0.01, 0.78)); botShoot(bkMuz, bkTmpA.set(b.x + Math.sin(b.aimYaw) * 60, b.y + 0.6 + Math.tan(b.aimPitch) * 60, b.z + Math.cos(b.aimYaw) * 60)); }
+    }
     botBolts(dt);
   }
 
+  /* ===== Modo Xibalba: el jugador maneja. El joystick no mueve al robot a la fuerza: le pone una meta unos metros adelante
+     (gtype 'man') y el robot usa su caminar, colisiones, terreno y animaciones de siempre. ===== */
+  var XIB = { jx: 0, jy: 0, k: {}, fire: false, jump: false, turbo: false, hintT: 0 };
+  function xibInit() {
+    var w = document.createElement('div'); w.id = 'xib';
+    w.innerHTML = '<div class="joy" aria-label="Joystick"><i></i></div><div class="btns"><button type="button" class="turbo">TURBO</button><button type="button" class="jump">SALTO</button><button type="button" class="fire">DISPARO</button></div><div class="hint"></div>';
+    stage.appendChild(w);
+    var joy = w.querySelector('.joy'), kn = joy.querySelector('i'), jid = null, hint = w.querySelector('.hint');
+    var pc = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
+    hint.textContent = pc ? 'WASD o flechas: mover · Shift: turbo · Espacio: salto · F: disparo' : 'Joystick: mover · arrastra la pantalla para girar la cámara';
+    setTimeout(function () { hint.classList.add('off'); }, 9000);
+    function jset(e) { var r = joy.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, dx = e.clientX - cx, dy = e.clientY - cy, R = r.width / 2, l = Math.hypot(dx, dy); if (l > R) { dx *= R / l; dy *= R / l; } XIB.jx = dx / R; XIB.jy = -dy / R; kn.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; }
+    function jend() { jid = null; XIB.jx = 0; XIB.jy = 0; kn.style.transform = ''; }
+    joy.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); jid = e.pointerId; try { joy.setPointerCapture(jid); } catch (er) { } jset(e); });
+    joy.addEventListener('pointermove', function (e) { if (e.pointerId === jid) { e.preventDefault(); jset(e); } });
+    joy.addEventListener('pointerup', function (e) { if (e.pointerId === jid) jend(); });
+    joy.addEventListener('pointercancel', jend);
+    function hold(sel, key) { var b = w.querySelector(sel);
+      b.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); XIB[key] = true; b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch (er) { } });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) { b.addEventListener(ev, function () { if (key === 'fire') XIB.fire = false; b.classList.remove('on'); }); });
+      b.addEventListener('contextmenu', function (e) { e.preventDefault(); }); return b; }
+    hold('.fire', 'fire'); hold('.jump', 'jump'); XIB.tb = hold('.turbo', 'turbo');
+    function typing() { var a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable); }
+    document.addEventListener('keydown', function (e) { if (typing()) return; var c = e.code; XIB.k[c] = true; if (c === 'Space') { XIB.jump = true; e.preventDefault(); } if (c === 'ShiftLeft' || c === 'ShiftRight') XIB.turbo = true; if (c === 'KeyF') XIB.fire = true; if (/^Arrow/.test(c)) e.preventDefault(); });
+    document.addEventListener('keyup', function (e) { XIB.k[e.code] = false; if (e.code === 'KeyF') XIB.fire = false; });
+    window.addEventListener('blur', function () { XIB.k = {}; XIB.fire = false; jend(); });
+    /* en Xibalba no hay diálogos entre el robot y Aura: sin globos ni sonido de voz */
+    if (AUD && AUD.talk) AUD.talk = function () { };
+  }
+  function xibSteer(b, now, dt) {
+    var K = XIB.k, ix = XIB.jx, iy = XIB.jy, kb = false, m, cy, dir, far;
+    if (K.KeyW || K.ArrowUp) { iy += 1; kb = true; } if (K.KeyS || K.ArrowDown) { iy -= 1; kb = true; }
+    if (K.KeyD || K.ArrowRight) { ix += 1; kb = true; } if (K.KeyA || K.ArrowLeft) { ix -= 1; kb = true; }
+    m = Math.min(1, Math.hypot(ix, iy));
+    if (XIB.jump) { XIB.jump = false; if (b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && !b.scan) { b.bh = 0.06; b.bvy = 6.5; b.xj = true; AUD.servo(bkMuz.set(b.x, b.y + 0.6, b.z)); } }
+    if (XIB.tb) XIB.tb.classList.toggle('cd', b.boostCD > 0 || b.boostT > 0);
+    if (m > 0.15 && !b.scan) {
+      cy = Math.atan2(controls.target.x - camera.position.x, controls.target.z - camera.position.z);
+      dir = cy - Math.atan2(ix, iy);
+      if (XIB.turbo) { XIB.turbo = false; if (b.boostT <= 0 && b.boostCD <= 0 && (b.bh || 0) <= 0.05) { b.boostT = b.bMax = 3; AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); } }
+      far = b.boostT > 0 ? 40 : 6;
+      b.goal = { x: b.x + Math.sin(dir) * far, z: b.z + Math.cos(dir) * far }; b.gtype = 'man'; b.path = null; b.idle = 1; b.hopGoal = null;
+      b.manSpd = kb ? BOT_RUN : (m < 0.55 ? BOT_WALK * (0.6 + m) : BOT_WALK + (BOT_RUN - BOT_WALK) * (m - 0.55) / 0.45);
+    } else {
+      XIB.turbo = false;
+      if (b.gtype !== 'roof') { b.goal = null; b.gtype = ''; b.path = null; } b.idle = 1;
+      if (b.boostT > 0) { b.boostT = 0; b.boostCD = BOT_BOOST_CD; }
+    }
+  }
   function botChasePos(out) {
     var hr = 8 * Math.sin(1.2), hy = 8 * Math.cos(1.2);
     out.set(bot.x - Math.sin(botYawCam) * hr, bot.y + 0.5 + hy, bot.z - Math.cos(botYawCam) * hr);
@@ -15019,18 +15093,19 @@ function buildBaseAEMX(){
         controls.target.x += bdx; controls.target.y += bdy; controls.target.z += bdz; camera.position.x += bdx; camera.position.y += bdy; camera.position.z += bdz;
 
         if (botDrag) botCamUser = clock.elapsedTime;
-        if (!turretCam && clock.elapsedTime - botCamUser > 4 && !(window.__cityC && window.__cityC.on)) {
-          var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng((bot.aiming ? bot.aimYaw : bot.yaw) + Math.PI - bcur) * Math.min(1, dt * 4);
+        if (!turretCam && clock.elapsedTime - botCamUser > (GM.xib ? 1.5 : 4) && !(window.__cityC && window.__cityC.on && !GM.xib)) {
+          var box = camera.position.x - controls.target.x, boz = camera.position.z - controls.target.z, bcur = Math.atan2(box, boz), brr = Math.hypot(box, boz), bnew = bcur + nAng((bot.aiming ? bot.aimYaw : bot.yaw) + Math.PI - bcur) * Math.min(1, dt * (GM.xib ? (bot.v > 0.5 ? 1.6 : 0.3) : 4));
           if (brr > 0.01) { camera.position.x = controls.target.x + Math.sin(bnew) * brr; camera.position.z = controls.target.z + Math.cos(bnew) * brr; }
         }
         /* reajuste automático: si la cámara se fue alejando/inclinando y el usuario no la toca, vuelve a la vista por defecto (como el botón Alinear) */
-        if (!turretCam && !window.__uvxCam && !botDrag && clock.elapsedTime - botCamUser > 10 && clock.elapsedTime - (window.__bAlT || 0) > 10) {
+        if (!turretCam && !window.__uvxCam && !(window.__cityC && window.__cityC.on) && !botDrag && clock.elapsedTime - botCamUser > 10 && clock.elapsedTime - (window.__bAlT || 0) > 10) {
           var aox = camera.position.x - controls.target.x, aoy = camera.position.y - controls.target.y, aoz = camera.position.z - controls.target.z, adr = Math.hypot(aox, aoy, aoz), apol = Math.acos(clamp(aoy / (adr || 1), -1, 1));
           if (Math.abs(adr - 6) > 0.8 || Math.abs(apol - 1.2) > 0.12) { window.__bAlT = clock.elapsedTime; botStartFollow(bot); }
         }
       }
     }
-    /* cityCam desactivada: la cámara del robot queda siempre alineada, sin acercamientos */
+    /* cityCam desactivada: la cámara del robot queda siempre alineada, sin acercamientos (salvo en el modo Xibalba) */
+    if (GM.xib && botFollow && bot) cityCam(dt);
     controls.autoRotate = rotOn && !fly && !selected && !ufoFollow && !carFollow && !wandFollow && !auraFollow && !botFollow && !turretCam;
     controls.update();
     controls.target.x = clamp(controls.target.x, -1750 * GK, 1750 * GK);
@@ -15349,7 +15424,7 @@ function buildBaseAEMX(){
     }
   }
   if (typeof ALN !== 'undefined' && ALN.hold) ALN.hold();
-  window.__aemxMode = function (m) { if (GM.mode || (m !== 'inv' && m !== 'exp')) return; GM.mode = m; if (m === 'exp') { stage.classList.add('gm-exp'); document.getElementById('b-align').hidden = false; } GM.go = clock.elapsedTime + 6; window.__gmode = m; if (m === 'inv') { stage.classList.add('gm-inv'); document.getElementById('b-align').hidden = false; deselect(); } };
+  window.__aemxMode = function (m) { if (GM.mode || (m !== 'inv' && m !== 'exp' && m !== 'xib')) return; if (m === 'xib') { m = 'inv'; GM.xib = true; stage.classList.add('gm-xib'); xibInit(); } GM.mode = m; if (m === 'exp') { stage.classList.add('gm-exp'); document.getElementById('b-align').hidden = false; } GM.go = clock.elapsedTime + 6; window.__gmode = GM.xib ? 'xib' : m; if (m === 'inv') { stage.classList.add('gm-inv'); document.getElementById('b-align').hidden = false; deselect(); } };
   if (window.__aemxPendingMode) window.__aemxMode(window.__aemxPendingMode);
   frame();
 };
@@ -15464,6 +15539,7 @@ function gtBotClose() { document.getElementById('gt-bot').hidden = true; if (gtP
 function gtPick(m) { if (gtOut) return; if (window.__aemxMode) window.__aemxMode(m); else window.__aemxPendingMode = m; gtModes.hidden = true; gtBotClose(); gtHide(); gtMusic.stop(); if (window.__aemxAudioInit) window.__aemxAudioInit(); }
 document.getElementById('gm-inv').addEventListener('click', () => gtPick('inv'));
 document.getElementById('gm-exp').addEventListener('click', () => gtPick('exp'));
+document.getElementById('gm-xib').addEventListener('click', () => gtPick('xib'));
 function gtHide() { if (gtOut || gate.hidden) return; gtOut = true; gate.classList.add('out'); setTimeout(() => { gate.hidden = true; }, 950); }
 function gtShow() { gtLoad.hidden = false; msg.hidden = true; }
 function gtTick(now) { /* avanza por tiempo hasta ~90 %; al terminar el mapa se completa */
