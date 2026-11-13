@@ -326,14 +326,16 @@
   .stage.gm-xib .me { display: flex !important; order: -1; margin-right: auto; }
   @media (max-width: 700px) { .stage.gm-xib .me { order: 2; } }
   .stage.gm-xib .top { flex-wrap: wrap; row-gap: 8px; }
-  .stage.gm-xib #bMini { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 46px); bottom: auto; }
+  .stage.gm-xib #bMini { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 66px); bottom: auto; }
+  .stage.gm-xib #invCd, .stage.gm-xib #peaceCd { top: -16px; } /* el reloj va arriba del círculo, sin tapar los objetivos */
+  .stage.gm-xib .search { flex: 0 1 300px; min-width: 0; }
   .stage.gm-xib #xib { --xib-up: 0px; }
   /* letrero de invasión minimizado: una pastilla pequeña bajo la barra superior */
   .stage.gm-xib #invAl { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 48px); gap: 6px; padding: 4px 12px; font-size: 12px; letter-spacing: 0.08em; border-radius: 999px; box-shadow: none; animation: none; text-shadow: 0 0 6px rgba(255,40,40,0.8); }
   .stage.gm-xib #invAl small { display: none; }
   @media (max-width: 700px) {
-    .stage.gm-xib #invAl { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 150px); font-size: 11px; }
-    .stage.gm-xib #bMini { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 82px); }
+    .stage.gm-xib #invAl { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 258px); font-size: 11px; }
+    .stage.gm-xib #bMini { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 100px); }
   }
   /* duelos en Xibalba: buscador (solo jugadores) y panel de reto */
   .stage.gm-xib .search { display: block !important; }
@@ -10764,7 +10766,7 @@ function buildBaseAEMX(){
         else { b.isl = { t0: now }; b.liftCD = now + 90; b.jDone = false; b.jRt = null; b.jIsl = !!(JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80); if (JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80) b.idle = 0; else if (botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0; }
       }
     }
-    if (b.isl && !b.tpj && b.mode === 'walk' && (now - b.isl.t0 > (b.jIsl && !b.jDone ? 360 : 40) || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()))) {
+    if (!GM.xib && b.isl && !b.tpj && b.mode === 'walk' && (now - b.isl.t0 > (b.jIsl && !b.jDone ? 360 : 40) || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()))) {
       var rs = MYP && isFinite(MYP.x) ? botFreeSpot(MYP.x, MYP.z + 9) : null, rd;
       if (!rs) { rd = districts.filter(function (q) { return q.list.length; })[0]; rs = rd ? botFreeSpot(rd.cx + rd.r + 8, rd.cz) : null; }
       if (rs) { b.tpj = { x: rs[0], z: rs[1], gx: rs[0], gz: rs[1], t: 0, done: false, back: true }; b.isl = null; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
@@ -11152,7 +11154,7 @@ function buildBaseAEMX(){
       if (b.boostT > 0) { }
       else if ((b.bh || 0) > 0 && !(b.glr > 0)) { if (b.flew && !b.ball && b.bh > 1.0) b.ball = true; b.bvy = (b.bvy || 0) - (b.ball ? 32 : 9) * dt; b.bh = Math.max(0, b.bh + b.bvy * dt);  if (b.bh <= 0) b.bvy = 0; }
       if (b.boostT <= 0 && (b.bh || 0) <= 0.05 && !(b.glr > 0)) { b.ball = false; b.flew = false; }
-      b.y += (botGround(b.x, b.z) + (b.bh || 0) - b.y) * Math.min(1, dt * 14);
+      b.y += ((b.roofP ? b.roofP.y : botGround(b.x, b.z)) + (b.bh || 0) - b.y) * Math.min(1, dt * 14);
       b.air += (0 - b.air) * Math.min(1, dt * 6);
     } else if (b.mode === 'jetUp' || b.mode === 'jetDown') {
 
@@ -11166,7 +11168,7 @@ function buildBaseAEMX(){
         if (us < 1 && ud === 0) b.y = ju.y0 + (rp.roofY + 1.0 - ju.y0) * Math.sin(uh * 1.5708);
         else if (ud > 0) b.y = rp.roofY + 1.0 - ud * ud * (3 - 2 * ud);
         b.yaw += nAng(Math.atan2(rp.lx - ju.x0, rp.lz - ju.z0) - b.yaw) * Math.min(1, dt * 10);
-        if (us >= 1) { b.ju = null; b.x = rp.lx; b.z = rp.lz; b.y = rp.roofY; b.mode = 'perch'; b.perchT = 0; b.maxPerch = 7 + Math.random() * 6; b.vy = 0; b.losT = 0; }
+        if (us >= 1) { b.ju = null; b.x = rp.lx; b.z = rp.lz; b.y = rp.roofY; b.mode = 'perch'; b.perchT = 0; b.maxPerch = 7 + Math.random() * 6; b.vy = 0; b.losT = 0; if (GM.xib) { b.mode = 'walk'; b.roofP = { p: rp.p, y: rp.roofY }; b.rp = null; b.bh = 0; b.bvy = 0; b.v = 0; } }
       } else {
 
         var jd = b.jd;
@@ -11305,6 +11307,8 @@ function buildBaseAEMX(){
     } else if (b.wk && b.mode === 'walk' && !b.scan && (b.circ || b.gtype === 'wreck' || b.gtype === 'wreckp') && !b.ball && b.boostT <= 0) {
       b.aiming = true; yT = Math.atan2(b.wk.x - b.x, b.wk.z - b.z);
       pT = Math.max(-0.6, Math.min(0.3, Math.atan2(terrainH(b.wk.x, b.wk.z) + 0.3 - (b.y + 0.52), Math.hypot(b.wk.x - b.x, b.wk.z - b.z))));
+    } else if (GM.xib && XIB.fire && !b.ball && (b.mode === 'walk' || b.mode === 'perch')) {
+      b.aiming = true; yT = b.yaw; pT = 0.06;
     } else if (b.wxDense && b.mode === 'walk' && !b.scan && !b.ball && b.boostT <= 0 && b.v > 0.3) {
       b.aiming = true; yT = b.yaw; pT = 0.06;
     } else if (b.scan && b.wk && b.mode === 'walk') {
@@ -11591,6 +11595,7 @@ function buildBaseAEMX(){
   /* colisión del manejo manual: solo objetos reales (edificios a su tamaño, sin el margen de la IA; árboles, rocas, monumentos,
      cráteres, meteoro, volcán, agua y la pared de invasión). Sin límite de pendiente, para recorrer cerros, la isla y las ciudades. */
   function xibFree(x, z) {
+    if (bot && bot.roofP) return xibRoofOK(x, z);
     if (invLock && invOut(x, z)) return false;
     if (metBlock && Math.hypot(x - metBlock.x, z - metBlock.z) < metBlock.r) return false;
     if (botCrater(x, z)) return false;
@@ -11612,15 +11617,39 @@ function buildBaseAEMX(){
   }
   /* edificios con su forma real: cada pieza se prueba en su propio marco (con su giro), con 18 cm de holgura; la caja amplia de la IA solo filtra */
   var xibV = new THREE.Vector3();
-  function xibBld(x, z) {
+  function xibBld(x, z) { return !!xibBldP(x, z); }
+  function xibBldP(x, z) { /* el edificio cuya forma real contiene el punto (o null) */
     var l = botObs && botObs[Math.floor(x / BOT_CELL) + ',' + Math.floor(z / BOT_CELL)], i, j, p, q, r;
-    if (!l) return false;
+    if (!l) return null;
     for (i = 0; i < l.length; i++) {
       p = l[i]; if (p.sunk || x < p._x0 || x > p._x1 || z < p._z0 || z > p._z1) continue;
-      if (!p._obb || !p._obb.length) return true;
-      for (j = 0; j < p._obb.length; j++) { q = p._obb[j]; r = 0.18 / (q.s || 1); xibV.set(x, BASE + 0.6, z).applyMatrix4(q.m); if (xibV.x > q.b.min.x - r && xibV.x < q.b.max.x + r && xibV.z > q.b.min.z - r && xibV.z < q.b.max.z + r) return true; }
+      if (!p._obb || !p._obb.length) return p;
+      for (j = 0; j < p._obb.length; j++) { q = p._obb[j]; r = 0.18 / (q.s || 1); xibV.set(x, BASE + 0.6, z).applyMatrix4(q.m); if (xibV.x > q.b.min.x - r && xibV.x < q.b.max.x + r && xibV.z > q.b.min.z - r && xibV.z < q.b.max.z + r) return p; }
     }
-    return false;
+    return null;
+  }
+  /* ---- azoteas: el robot sube con SALTO junto a un muro y camina sobre el techo; al pasar el borde, cae ---- */
+  var xibRC = new THREE.Raycaster(), xibDn = new THREE.Vector3(0, -1, 0), xibO = new THREE.Vector3();
+  function xibRoofAt(p, x, y0, z, far) { xibRC.set(xibO.set(x, y0, z), xibDn); xibRC.far = far; var h = xibRC.intersectObject(p._broot, true); return h.length ? h[0].point.y : null; }
+  function xibRoofOK(x, z) { /* sobre el techo: libre si hay techo a la altura (o el borde, para caer); un muro más alto bloquea */
+    var R = bot.roofP, y = xibRoofAt(R.p, x, bot.y + 0.7, z, 3);
+    return y === null || y <= bot.y + 0.5;
+  }
+  function xibClimb(b) { /* SALTO pegado a un edificio: salto con propulsores hasta su azotea */
+    var a = b.yaw, d, x, z, p = null, i, y, top;
+    for (d = 0.5; d <= 1.6 && !p; d += 0.25) p = xibBldP(b.x + Math.sin(a) * d, b.z + Math.cos(a) * d);
+    if (!p || !p._broot || p.noRoof || p.isPres || p._duel) return false;
+    top = BASE + (p.topY || 6) + 30;
+    for (i = 1; i <= 24; i++) { d = 0.6 + i * 0.35; x = b.x + Math.sin(a) * d; z = b.z + Math.cos(a) * d; y = xibRoofAt(p, x, top, z, 80); if (y !== null && y > b.y + 1.2) { x += Math.sin(a) * 0.5; z += Math.cos(a) * 0.5; y = xibRoofAt(p, x, top, z, 80); if (y === null) return false; break; } }
+    if (i > 24 || y === null) return false;
+    b.rp = { p: p, cx: b.x, cz: b.z, lx: x, lz: z, roofY: y }; b.ju = null; b.goal = null; b.gtype = ''; b.path = null; b.mode = 'jetUp'; b.jph = 0; b.v = 0; b.bh = 0; b.bvy = 0;
+    AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); return true;
+  }
+  function xibRoofTick(b) { /* altura del techo bajo el robot; si ya no hay techo, cae al suelo */
+    var R = b.roofP, y; if (!R) return;
+    y = xibRoofAt(R.p, b.x, b.y + 0.7, b.z, 3);
+    if (y === null) { b.bh = Math.max(0, b.y - botGround(b.x, b.z)); b.bvy = 0; b.xj = true; b.roofP = null; }
+    else R.y = y;
   }
   function xibNear(p) { return !!(p && bot && !p.banned && Math.hypot(bot.x - p.x, bot.z - p.z) < 9); }
   function xibHead(b, want) { /* el rumbo pedido; solo se corrige un poco (±14°) para no rozar esquinas; si no cabe, se detiene */
@@ -11641,6 +11670,9 @@ function buildBaseAEMX(){
     b.noHunt = 0; b.huntHold = now + 1;
     /* dispara corriendo; solo se planta para girar si el blanco queda de lado o atrás (fuera de ±60° del frente) */
     if (XIB.fire && b.aiming && b.hasUp && b.mode === 'walk' && Math.abs(nAng(Math.atan2(b.up.x - b.x, b.up.z - b.z) - b.yaw)) > 1.05) m = 0;
+    xibRoofTick(b);
+    if (b.roofP) XIB.turbo = false;
+    if (XIB.jump && !b.roofP && !DUEL && b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && xibClimb(b)) { XIB.jump = false; return; }
     if (XIB.jump) { XIB.jump = false; if (b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && !b.scan) { b.bh = 0.06; b.bvy = 6.5; b.xj = true; AUD.servo(bkMuz.set(b.x, b.y + 0.6, b.z)); } }
     if (XIB.tb) XIB.tb.classList.toggle('cd', b.boostCD > 0 || b.boostT > 0);
     /* el jugador manda: sin recorridos, visitas ni escenas automáticas */
@@ -11655,6 +11687,7 @@ function buildBaseAEMX(){
       if (DUEL && DUEL.bar) { var ex = b.x + Math.sin(dir) * 1.2, ez = b.z + Math.cos(dir) * 1.2; if (duelEdge(ex, ez) && Math.hypot(ex - DUEL.cx, ez - DUEL.cz) > Math.hypot(b.x - DUEL.cx, b.z - DUEL.cz)) dir = Math.atan2(DUEL.cx - b.x, DUEL.cz - b.z) + (nAng(dir - Math.atan2(DUEL.cx - b.x, DUEL.cz - b.z)) > 0 ? 1.4 : -1.4); far = 3; }
       b.goal = { x: b.x + Math.sin(dir) * far, z: b.z + Math.cos(dir) * far }; b.gtype = 'man'; b.path = null; b.idle = 1; b.hopGoal = null;
       b.manSpd = kb ? BOT_RUN : (m < 0.55 ? BOT_WALK * (0.6 + m) : BOT_WALK + (BOT_RUN - BOT_WALK) * (m - 0.55) / 0.45);
+      if (b.roofP) b.manSpd = Math.min(b.manSpd, 3.4); /* en la azotea camina despacio para no caerse por accidente */
     } else {
       XIB.turbo = false;
       if (b.mode === 'walk' && !b.xj && ((b.glr || 0) > 0 || (b.boostT <= 0 && (b.bh || 0) > 0.5))) {
@@ -12775,7 +12808,7 @@ function buildBaseAEMX(){
     function watch(d, until, so) {
       var b = bot, dist, base, k, a, sp = null;
       if (b && b.cwS) return true;
-      if (!b || DUEL) return false;
+      if (!b || DUEL || GM.xib) return false;
       if (b.mode === 'lift' || b.ride || b.tpj) return false;
       dist = Math.max(d.r * 1.7, 26); base = Math.atan2(b.x - d.cx, b.z - d.cz);
       var gap = function (x, z) { var gm = 1e9, gq, gd, gi, gc, gl, all; for (gl = 0; gl < districts.length; gl++) { gd = districts[gl]; if (!gd.list.length) continue; all = gd._bh || (gd._bh = gd.cells.concat(gd.extra)); for (gi = 0; gi < all.length; gi++) { gc = all[gi]; gq = Math.hypot(gd.cx + gc.x - x, gd.cz + gc.z - z); if (gq < gm) gm = gq; } } return gm; }, mi, mul = [1, 1.3, 1.7, 2.2];
