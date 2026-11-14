@@ -10539,6 +10539,7 @@ function buildBaseAEMX(){
     return true;
   }
   function botPick() {
+    if (GM.xib) { bot.idle = 1; bot.jRt = null; bot.jTgt = null; return; }
     var b = bot, i, a, r, x, z, Up = (ufo && !ufoDown()) ? ufo.g.position : null, toward = !!Up && Math.hypot(Up.x - b.x, Up.z - b.z) < 500 && Math.random() < 0.7;
     var freeT = ufoDown() && !(typeof ALN !== 'undefined' && ALN && ALN.state && ALN.state());
     if (!freeT) { b.tour = null; b.vilTour = null; b.vilWatch = 0; b.cwS = null; }
@@ -10789,7 +10790,7 @@ function buildBaseAEMX(){
       if (Tp.done && Tp.t >= 0.6) {
         b.g.visible = true; if (b.fxg) b.fxg.g.visible = false; b.tpj = null; b.idle = 0.5;
         if (Tp.back) { b.isl = null; b.liftCD = 0; }
-        else { b.isl = { t0: now }; b.liftCD = now + 90; b.jDone = false; b.jRt = null; b.jIsl = !!(JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80); if (JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80) b.idle = 0; else if (botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0; }
+        else { b.isl = { t0: now }; b.liftCD = now + 90; b.jDone = false; b.jRt = null; b.jIsl = !!(JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80); if (JUNKC && Math.hypot(Tp.gx - JUNKC.x, Tp.gz - JUNKC.z) < 80) b.idle = 0; else if (!GM.xib && botSetGoal(Tp.gx, Tp.gz, 'patrol')) b.idle = 0; }
       }
     }
     if (!GM.xib && b.isl && !b.tpj && b.mode === 'walk' && (now - b.isl.t0 > (b.jIsl && !b.jDone ? 360 : 40) || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()))) {
@@ -11618,6 +11619,18 @@ function buildBaseAEMX(){
     var hpb = document.createElement('div'); hpb.className = 'hpb'; hpb.innerHTML = '<b>ENERGÍA</b><span><i></i></span>'; w.appendChild(hpb);
     var hitf = document.createElement('div'); hitf.className = 'hitf'; w.appendChild(hitf);
     XIB.hp = 100; XIB.hitT = -99; XIB.stun = 0; XIB.hpEl = hpb;
+    /* islas (chatarra o Socorro): botón para volver al continente; en Xibalba no hay regreso automático */
+    var xbk = document.createElement('button'); xbk.type = 'button'; xbk.className = 'xback'; xbk.textContent = '⟲ Volver al continente';
+    xbk.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);top:calc(max(10px, env(safe-area-inset-top, 0px)) + 96px);display:none;pointer-events:auto;padding:8px 16px;border-radius:20px;border:1px solid rgba(120,200,255,0.7);background:rgba(10,16,28,0.78);color:#dff3ff;font:700 13px var(--f-body),sans-serif;cursor:pointer;z-index:5';
+    xbk.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    xbk.addEventListener('click', function (e) {
+      e.stopPropagation(); var b = bot; if (!b || !b.isl || b.tpj) return;
+      if (b.mode !== 'walk') botForceLand(b);
+      var rs = MYP && isFinite(MYP.x) ? botFreeSpot(MYP.x, MYP.z + 9) : null, rd;
+      if (!rs) { rd = districts.filter(function (q) { return q.list.length; })[0]; rs = rd ? botFreeSpot(rd.cx + rd.r + 8, rd.cz) : null; }
+      if (rs) { b.goal = null; b.gtype = ''; b.path = null; b.jTgt = null; b.jRt = null; b.tpj = { x: rs[0], z: rs[1], gx: rs[0], gz: rs[1], t: 0, done: false, back: true }; AUD.glitch(0.4, 0.6, { x: b.x, y: b.y + 0.4, z: b.z }); }
+    });
+    w.appendChild(xbk); XIB.backEl = xbk;
     window.__xibHit = function (dmg) {
       if (XIB.stun > 0 || clock.elapsedTime < (XIB.safeT || 0)) return;
       XIB.hp = Math.max(0, XIB.hp - dmg); XIB.hitT = clock.elapsedTime;
@@ -11713,7 +11726,7 @@ function buildBaseAEMX(){
   }
   function xibNear(p) { return !!(p && bot && !p.banned && Math.hypot(bot.x - p.x, bot.z - p.z) < 9); }
   function xibHead(b, want) { /* el rumbo pedido; solo se corrige un poco (±14°) para no rozar esquinas; si no cabe, se detiene */
-    var o = [0, 0.25, -0.25], i, a;
+    var o = [0, 0.25, -0.25, 0.6, -0.6], i, a; /* ±35°: se desliza a lo largo de cercas y muros en vez de quedarse pegado */
     for (i = 0; i < o.length; i++) { a = want + o[i]; if (xibFree(b.x + Math.sin(a) * 0.45, b.z + Math.cos(a) * 0.45) && xibFree(b.x + Math.sin(a) * 0.9, b.z + Math.cos(a) * 0.9)) return a; }
     return null;
   }
@@ -11726,6 +11739,8 @@ function buildBaseAEMX(){
     if (XIB.stun > 0) { XIB.stun -= dt; m = 0; b.fireT = Math.max(b.fireT || 0, 0.3); b.xfT = 0.3; XIB.turbo = false; XIB.jump = false; if (XIB.stun <= 0) { XIB.hp = 60; XIB.safeT = now + 2.5; } }
     else if (now - XIB.hitT > 4 && XIB.hp < 100) XIB.hp = Math.min(100, XIB.hp + 6 * dt);
     if (XIB.hpEl) { var inf0 = typeof ALN !== 'undefined' && ALN && ALN.isInf && ALN.isInf(); XIB.hpEl.classList.toggle('on', !!inf0 || XIB.hp < 100); XIB.hpEl.classList.toggle('low', XIB.hp < 35); XIB.hpEl.querySelector('i').style.width = XIB.hp.toFixed(1) + '%'; }
+    if (XIB.backEl) { var onI = !!(b.isl && !b.tpj); if (XIB.backOn !== onI) { XIB.backOn = onI; XIB.backEl.style.display = onI ? 'block' : 'none'; } }
+    b.jTgt = null; /* sin la animación automática de revisar montículos: el robot no se agacha ni gira solo */
     /* duelo: quieto en la entrada, cuenta regresiva y final; en la pelea, sin turbo y sin salir de la arena */
     if (DUEL && DUEL.ph !== 'fight') m = 0;
     if (DUEL) XIB.turbo = false;
@@ -14497,7 +14512,7 @@ function buildBaseAEMX(){
     function zRel(a) { grp.remove(a.o.g); if (a.bar) disposeBar(a); a.o.g.rotation.set(0, 0, 0); a.o.g.visible = false; ZP.push(a.zm); }
     function startInf(name, rings, bb) {
       var site, n = 6 + ((Math.random() * 4) | 0), a0 = rnd(0, 6.2832), i, an, r, k, x, z, dx, dz, zb, a, ok;
-      inv = { name: name, rings: rings, al: [], wall: null, wk: 0, end: false, t: 0, ph: 'alien', met: null, inf: true, cows: [], alarm: true, cx: 0, cz: 0, fog: null, lastZ: null };
+      inv = { name: name, rings: rings, al: [], wall: null, wk: 0, end: false, t: 0, ph: 'alien', met: null, inf: true, cows: [], alarm: true, cx: 0, cz: 0, fog: null, lastZ: null }; ZHP = GM.xib ? 8 : 45; FHP = GM.xib ? 16 : 45;
       site = metSite(rings, bb);
       if (!site) { stopNow(); return false; }
       inv.cx = site[0]; inv.cz = site[1];
