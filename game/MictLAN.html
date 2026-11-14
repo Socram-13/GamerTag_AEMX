@@ -317,7 +317,13 @@
   #gate .gt-modes[hidden] { display: none; }
   #gate .gt-modes button { height: auto; min-width: 190px; padding: 12px 22px 11px; border-radius: 6px 18px 6px 18px; border: 1px solid #ffe44d; background: rgba(16,9,30,0.84); color: #ffe44d; text-align: center; transition: transform 0.15s, box-shadow 0.15s; }
   #gate .gt-modes button.inv { background: #d9232f; box-shadow: 0 0 16px rgba(217,35,47,0.55); }
-  #gate .gt-modes button.xib { background: #123d2c; border-color: #3dff7a; color: #3dff7a; box-shadow: 0 0 16px rgba(61,255,122,0.45); }
+  #gate .gt-modes button.xib { background: #123d2c; border-color: #3dff7a; color: #3dff7a; box-shadow: 0 0 16px rgba(61,255,122,0.45); flex: 1 1 100%; max-width: 420px; min-width: 240px; padding: 16px 28px 15px; }
+  #gate .gt-modes button.xib b { font-size: 24px; letter-spacing: 0.16em; }
+  #gate .gt-modes { justify-content: center; }
+  #gate .gt-modes button.demo { min-width: 0; flex: 0 1 auto; padding: 6px 12px 5px; border-radius: 4px 12px 4px 12px; opacity: 0.92; }
+  #gate .gt-modes button.demo b { font-size: 11.5px; letter-spacing: 0.08em; }
+  #gate .gt-modes button.demo small { font-size: 9.5px; margin-top: 1px; }
+  #gate.picking .gt-modes button.demo { align-self: center; }
   /* Modo Xibalba: joystick y botones */
   #xib { position: absolute; inset: 0; pointer-events: none; z-index: 30; display: none; }
   .stage.gm-xib #xib { display: block; }
@@ -532,9 +538,9 @@
       </div>
       <p id="gate-msg">Inicia sesión con Google para ver a los jugadores en el mapa.</p>
       <div class="gt-modes" id="gt-modes" hidden>
-        <button type="button" id="gm-inv" class="inv"><b>Modo Invasión</b><small>Caza OVNIs e invasores</small></button>
-        <button type="button" id="gm-exp"><b>Modo Explorador</b><small>Paz permanente · viaja y reta</small></button>
         <button type="button" id="gm-xib" class="xib"><b>Xibalba</b></button>
+        <button type="button" id="gm-inv" class="inv demo"><b>Demo Invasión</b><small>Caza OVNIs e invasores</small></button>
+        <button type="button" id="gm-exp" class="demo"><b>Demo Explorador</b><small>Paz permanente · viaja y reta</small></button>
       </div>
       <button type="button" id="gate-btn">Iniciar con Google</button>
       <p id="gate-err" hidden></p>
@@ -15271,6 +15277,196 @@ function buildBaseAEMX(){
   })();
   window.__aemxAlien = ALN;
 
+  /* Pollo-camarón de MictLAND (v2, sin esferas): el cuello, el cuerpo y la cola son UNA pieza continua que sigue una curva;
+     los anillos de camarón son escalones del contorno (cada anillo se monta sobre el siguiente) y líneas de la textura.
+     Cabeza de pollo (cráneo facetado), cresta, pico, barbillas, abanico en la cola y patas con dedos.
+     makePolloCamaron() → P; polloPose(P, t, modo, dt): 'quieto' | 'caminar' | 'correr' | 'picotear'. Mide ~1.25 de alto. */
+  var PC_TEX = null, PC_NSEG = 9;
+  function pcShellTex() {
+    if (PC_TEX) return PC_TEX;
+    var c = document.createElement('canvas'), x, i, r, g;
+    c.width = 512; c.height = 256; x = c.getContext('2d');
+    g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, '#e9774c'); g.addColorStop(0.18, '#f39a6c'); g.addColorStop(0.7, '#f6ad86'); g.addColorStop(1, '#f2905f');
+    x.fillStyle = g; x.fillRect(0, 0, 512, 256);
+    for (i = 0; i < 40; i++) { x.fillStyle = 'rgba(255,236,226,' + (0.1 + Math.random() * 0.16) + ')'; x.beginPath(); x.ellipse(Math.random() * 512, 50 + Math.random() * 190, 20 + Math.random() * 46, 10 + Math.random() * 26, Math.random() * 3, 0, 6.3); x.fill(); } /* carne translúcida */
+    for (i = 0; i < 1800; i++) { r = 0.5 + Math.random() * 1.1; x.fillStyle = 'rgba(' + (185 + Math.random() * 55 | 0) + ',' + (40 + Math.random() * 30 | 0) + ',28,' + (0.4 + Math.random() * 0.45) + ')'; x.beginPath(); x.arc(Math.random() * 512, Math.random() * 256, r, 0, 6.3); x.fill(); } /* pecas */
+    g = x.createLinearGradient(0, 0, 0, 22); g.addColorStop(0, 'rgba(170,52,30,0.75)'); g.addColorStop(1, 'rgba(170,52,30,0)'); x.fillStyle = g; x.fillRect(0, 0, 512, 22); /* borde del anillo */
+    PC_TEX = new THREE.CanvasTexture(c); PC_TEX.wrapS = PC_TEX.wrapT = THREE.RepeatWrapping; return PC_TEX;
+  }
+  /* radio del cuerpo a lo largo de la curva (0 = cuello, 1 = punta de la cola) con escalón de anillo */
+  function pcRad(t) {
+    var base = t < 0.16 ? 0.115 + 0.75 * t : t < 0.4 ? 0.235 + (0.33 - 0.235) * Math.sin((t - 0.16) / 0.24 * 1.5708) : t < 0.57 ? 0.33 - (t - 0.4) / 0.17 * 0.08 : 0.25 - (t - 0.57) / 0.43 * 0.2;
+    var s0 = 0.12, k, f;
+    if (t < s0) return base;
+    k = (t - s0) / (1 - s0) * PC_NSEG; f = k - Math.floor(k);
+    return base * (0.93 + 0.1 * Math.pow(f, 0.6)); /* cada anillo crece hacia atrás y cae de golpe: se ven placas montadas */
+  }
+  function pcBuild(P) {
+    var C = P.curve, N = 72, R = 18, fr = C.computeFrenetFrames(N, false), pos = P.geo.attributes.position, nor = P.geo.attributes.normal, i, j, t, p, n, bnm, r, a, cs, sn, ix = 0, wx;
+    for (i = 0; i <= N; i++) {
+      t = i / N; p = C.getPointAt(t); n = fr.normals[i]; bnm = fr.binormals[i]; r = pcRad(t); wx = t < 0.55 ? 1.05 : 0.9;
+      for (j = 0; j <= R; j++) {
+        a = j / R * Math.PI * 2; cs = Math.cos(a); sn = Math.sin(a);
+        pos.setXYZ(ix, p.x + (n.x * cs + bnm.x * sn * wx) * r, p.y + (n.y * cs + bnm.y * sn * wx) * r, p.z + (n.z * cs + bnm.z * sn * wx) * r);
+        ix++;
+      }
+    }
+    pos.needsUpdate = true; P.geo.computeVertexNormals();
+    var pe = C.getPointAt(1), te = C.getTangentAt(1); P.fan.position.copy(pe); P.fan.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), te);
+    var p0 = C.getPointAt(0), t0 = C.getTangentAt(0); P.head.position.copy(p0).addScaledVector(t0, -0.03); if (P.cap) P.cap.position.copy(p0); /* tapa del cuello: no se ve el hueco al picotear */
+  }
+  function makePolloCamaron() {
+    var g = new THREE.Group(), P = { g: g, legs: [], wat: [] }, shell, red, beakM, legM, black, white, m, i, k;
+    shell = new THREE.MeshPhongMaterial({ map: pcShellTex(), color: 0xffffff, specular: 0x2a1a12, shininess: 28, side: THREE.DoubleSide });
+    red = new THREE.MeshLambertMaterial({ color: 0xd8262a, flatShading: true });
+    beakM = new THREE.MeshLambertMaterial({ color: 0xe9a24a, flatShading: true });
+    legM = new THREE.MeshLambertMaterial({ color: 0xe6a066 });
+    black = new THREE.MeshPhongMaterial({ color: 0x0a0a0c, specular: 0xffffff, shininess: 90 });
+    white = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    /* curva base del cuello a la cola (y arriba, z al frente); polloPose la mueve un poco al animar */
+    P.base = [[0, 1.04, 0.3], [0, 0.86, 0.27], [0, 0.69, 0.08], [0, 0.63, -0.13], [0, 0.72, -0.33], [0, 0.94, -0.45], [0, 1.17, -0.45], [0, 1.35, -0.41], [0, 1.49, -0.34]];
+    P.pts = P.base.map(function (q) { return new THREE.Vector3(q[0], q[1], q[2]); });
+    P.curve = new THREE.CatmullRomCurve3(P.pts, false, 'centripetal');
+    var N = 72, R = 18, posA = new Float32Array((N + 1) * (R + 1) * 3), uv = new Float32Array((N + 1) * (R + 1) * 2), idx = [], j;
+    for (i = 0; i <= N; i++) for (j = 0; j <= R; j++) { var q = i * (R + 1) + j; uv[q * 2] = j / R; uv[q * 2 + 1] = Math.max(0, (i / N - 0.12) / 0.88) * PC_NSEG; if (i < N && j < R) idx.push(q, q + R + 1, q + 1, q + 1, q + R + 1, q + R + 2); }
+    P.geo = new THREE.BufferGeometry(); P.geo.setAttribute('position', new THREE.BufferAttribute(posA, 3)); P.geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(posA.length), 3)); P.geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); P.geo.setIndex(idx);
+    P.bodyM = new THREE.Mesh(P.geo, shell); P.bodyM.frustumCulled = false; g.add(P.bodyM);
+    P.cap = new THREE.Mesh(new THREE.IcosahedronGeometry(0.125, 1), shell); g.add(P.cap);
+    /* abanico: aletas facetadas en la punta de la cola */
+    P.fan = new THREE.Group(); g.add(P.fan);
+    var finG = new THREE.ConeGeometry(0.09, 0.3, 4); finG.translate(0, 0.15, 0); finG.scale(1, 1, 0.28);
+    var finM = new THREE.MeshPhongMaterial({ color: 0xff6a1f, emissive: 0x3a0e00, specular: 0x552211, shininess: 35, flatShading: true, side: THREE.DoubleSide }), finM2 = new THREE.MeshPhongMaterial({ color: 0xe8461a, emissive: 0x2a0800, specular: 0x552211, shininess: 35, flatShading: true, side: THREE.DoubleSide });
+    [-0.6, -0.22, 0.22, 0.6].forEach(function (a) { var f = new THREE.Mesh(finG, finM); f.rotation.z = -a; f.position.x = Math.sin(a) * 0.03; P.fan.add(f); });
+    m = new THREE.Mesh(finG, finM2); m.scale.set(0.8, 1.15, 1); P.fan.add(m);
+    /* cabeza: cráneo facetado de pollo (icosaedro estirado), pico, ojos, cresta y barbillas */
+    P.head = new THREE.Group(); g.add(P.head);
+    var sk = new THREE.IcosahedronGeometry(1, 1); sk.scale(0.155, 0.165, 0.18);
+    m = new THREE.Mesh(sk, shell); P.head.add(m);
+    m = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.16, 5), beakM); m.rotation.x = Math.PI / 2; m.position.set(0, -0.02, 0.2); P.head.add(m);
+    m = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 5), beakM); m.rotation.x = Math.PI / 2 + 0.3; m.position.set(0, -0.06, 0.17); P.head.add(m);
+    [-1, 1].forEach(function (sx) {
+      var e = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 12), black); e.position.set(sx * 0.118, 0.04, 0.085); P.head.add(e);
+      var hl = new THREE.Mesh(new THREE.SphereGeometry(0.013, 6, 5), white); hl.position.set(sx * 0.14, 0.06, 0.115); P.head.add(hl);
+    });
+    var cr = new THREE.Shape(); cr.moveTo(-0.15, 0); [[-0.14, 0.08], [-0.1, 0.03], [-0.07, 0.12], [-0.03, 0.04], [0.0, 0.14], [0.04, 0.04], [0.07, 0.12], [0.1, 0.03], [0.13, 0.07], [0.14, 0]].forEach(function (q) { cr.lineTo(q[0], q[1]); }); cr.lineTo(-0.15, 0);
+    var crG = new THREE.ExtrudeGeometry(cr, { depth: 0.04, bevelEnabled: true, bevelSize: 0.008, bevelThickness: 0.008, bevelSegments: 1 }); crG.translate(0, 0, -0.02); crG.rotateY(Math.PI / 2);
+    m = new THREE.Mesh(crG, red); m.position.set(0, 0.12, -0.01); m.rotation.x = 0.15; P.head.add(m);
+    [-1, 1].forEach(function (sx) { var w = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), red); w.scale.set(0.03, 0.075, 0.045); w.position.set(sx * 0.03, -0.14, 0.17); P.head.add(w); P.wat.push(w); });
+    /* patas */
+    [-1, 1].forEach(function (sx) {
+      var L = new THREE.Group(); L.position.set(sx * 0.13, 0.5, -0.02); g.add(L);
+      var th = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.045, 0.12, 7), legM); th.position.y = -0.03; L.add(th); /* muslo corto que sale del cuerpo */
+      var sh = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.03, 0.42, 7), legM); sh.position.y = -0.27; L.add(sh);
+      for (var r = 0; r < 7; r++) { var ring = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.007, 4, 9), legM); ring.rotation.x = Math.PI / 2; ring.position.y = -0.12 - r * 0.052; L.add(ring); }
+      var kb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.042, 0), legM); kb.position.y = -0.48; L.add(kb); /* tobillo */
+      var ft = new THREE.Group(); ft.position.y = -0.48; L.add(ft);
+      [-0.45, 0, 0.45, Math.PI].forEach(function (a, jj) {
+        var len = jj === 3 ? 0.09 : 0.16, tt = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.021, len, 5), legM);
+        tt.rotation.order = 'YXZ'; tt.rotation.x = Math.PI / 2; tt.position.set(Math.sin(a) * len / 2, 0.012, Math.cos(a) * len / 2); tt.rotation.y = a; ft.add(tt);
+        var cl = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.035, 4), beakM); cl.rotation.order = 'YXZ'; cl.rotation.x = Math.PI / 2; cl.position.set(Math.sin(a) * (len + 0.012), 0.012, Math.cos(a) * (len + 0.012)); cl.rotation.y = a; ft.add(cl);
+      });
+      P.legs.push({ L: L, ft: ft });
+    });
+    g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+    P.ph = 0; P.peck = 0; pcBuild(P);
+    return P;
+  }
+  /* animación: mueve los puntos de la curva (cuello, cuerpo y cola) y reconstruye la pieza */
+  function polloPose(P, t, modo, dt) {
+    var run = modo === 'correr', walk = modo === 'caminar' || run, spd = run ? 13 : 7, i, s, bob, pk = 0, br = Math.sin(t * 2.2), lift, sway, B = P.base, v;
+    if (walk) P.ph += dt * spd;
+    if (modo === 'picotear') { P.peck += dt; s = P.peck % 2.4; if (s < 0.9) pk = Math.max(0, Math.sin(s / 0.45 * Math.PI)); } else P.peck = 0;
+    lift = walk ? Math.abs(Math.sin(P.ph)) * (run ? 0.05 : 0.025) : 0.008 * br;
+    bob = walk ? Math.sin(P.ph * 2) : 0;
+    for (i = 0; i < B.length; i++) {
+      v = P.pts[i]; v.set(B[i][0], B[i][1] + lift, B[i][2]);
+      if (i >= 4) { sway = (walk ? 0.05 : 0.03) * Math.sin((walk ? P.ph : t * 1.8) - i * 0.5) * (i - 3) / 5; v.x += sway; } /* la cola se mece */
+      if (run && i >= 4) { v.y -= (i - 3) * 0.04; v.z -= (i - 3) * 0.02; } /* al correr la cola se echa hacia atrás */
+    }
+    /* cuello: cabeceo de pollo al caminar, se inclina al correr, baja al picotear */
+    P.pts[0].z += bob * (run ? 0.03 : 0.05) + (run ? 0.08 : 0) + pk * 0.2; P.pts[0].y -= (run ? 0.08 : 0) + pk * 0.2;
+    P.pts[1].z += bob * 0.02 + pk * 0.1; P.pts[1].y -= pk * 0.08; P.pts[2].z += pk * 0.05;
+    pcBuild(P);
+    P.head.rotation.x = pk * 1.6 + (run ? 0.25 : 0);
+    P.head.rotation.y = walk || pk > 0.05 ? 0 : 0.6 * Math.sin(t * 0.7) * (Math.sin(t * 0.33) > 0 ? 1 : 0.2);
+    P.head.rotation.z = walk ? 0 : 0.12 * Math.sin(t * 1.1);
+    P.legs.forEach(function (Lg, j) {
+      var p = P.ph + j * Math.PI, sw = walk ? (run ? 0.75 : 0.5) : 0, lf = walk ? Math.max(0, Math.sin(p)) : 0;
+      Lg.L.rotation.x = walk ? sw * Math.cos(p) : 0; /* pierna en el aire va de atrás hacia adelante: avanza hacia el frente (+z) */
+      Lg.L.position.y = 0.5 + lf * (run ? 0.06 : 0.035) + lift * 0.3;
+      Lg.ft.rotation.x = walk ? -sw * Math.cos(p) * 0.9 - lf * 0.5 : 0;
+    });
+    P.fan.rotateY(0); P.wat.forEach(function (w, j) { w.rotation.x = (walk ? 0.4 : 0.15) * Math.sin((walk ? P.ph * 2 : t * 3) + j); });
+  }
+
+  /* ===== Fauna: pollo-camarones en las costas. Pasean, picotean y huyen corriendo si el robot pasa cerca.
+     Escala 0.15: la cola llega a ~0.28 y la cabeza a ~0.17 (a la rodilla-cadera del robot), junto al robot (~0.7) y los astronautas (~0.68). ===== */
+  var PCF = { list: [], init: false, S: 0.15 };
+  function pcfSpot() { /* punto de tierra a 1.5–6 de la orilla, fuera de ciudades y libre */
+    var k, q, ax, az, bx, bz, f, nx, nz, l, s, d, x, z;
+    for (k = 0; k < 40; k++) {
+      q = ((Math.random() * coastSegs.length / 4) | 0) * 4; ax = coastSegs[q]; az = coastSegs[q + 1]; bx = coastSegs[q + 2]; bz = coastSegs[q + 3];
+      if (ax === undefined) return null;
+      f = Math.random(); nx = -(bz - az); nz = bx - ax; l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+      for (s = -1; s <= 1; s += 2) {
+        d = 1.5 + Math.random() * 4.5; x = ax + (bx - ax) * f + nx * d * s; z = az + (bz - az) * f + nz * d * s;
+        if (landAt(x, z) && landAt(x + 0.6, z) && landAt(x - 0.6, z) && botFree(x, z) && botCityDist(x, z) > 10) return [x, z];
+      }
+    }
+    return null;
+  }
+  function pcfInit() {
+    var n = 18, i, sp, g, P;
+    PCF.init = true;
+    for (i = 0; i < n; i++) {
+      sp = pcfSpot(); if (!sp) continue;
+      /* en grupitos de 1 a 3 */
+      var grp = 1 + ((Math.random() * 3) | 0), j;
+      for (j = 0; j < grp && PCF.list.length < n; j++) {
+        var x = sp[0] + (j ? (Math.random() - 0.5) * 2.4 : 0), z = sp[1] + (j ? (Math.random() - 0.5) * 2.4 : 0);
+        if (j && !(landAt(x, z) && botFree(x, z))) continue;
+        P = makePolloCamaron(); P.g.scale.setScalar(PCF.S); P.g.traverse(function (o) { o.raycast = function () {}; });
+        P.x = x; P.z = z; P.hx = x; P.hz = z; P.yaw = Math.random() * 6.28; P.st = 'quieto'; P.T = Math.random() * 3; P.tx = x; P.tz = z; P.t0 = Math.random() * 10;
+        P.g.position.set(x, botGround(x, z), z); P.g.rotation.y = P.yaw; scene.add(P.g); PCF.list.push(P);
+      }
+    }
+  }
+  function pcfStep(t, dt) {
+    if (!PCF.init) { if (bot && typeof landAt === 'function' && coastSegs.length > 8) pcfInit(); return; }
+    var i, P, B = bot, cp = camera.position, d, dc, sp, nx, nz, w, ax, az, l, k;
+    for (i = 0; i < PCF.list.length; i++) {
+      P = PCF.list[i];
+      dc = Math.hypot(P.x - cp.x, P.z - cp.z);
+      P.g.visible = dc < 160; if (!P.g.visible) continue;
+      d = B ? Math.hypot(B.x - P.x, B.z - P.z) : 99;
+      /* huye si el robot llega muy cerca o pasa corriendo */
+      if (B && P.st !== 'correr' && (d < 1.2 || (d < 3.2 && (B.v || 0) > 2.5))) {
+        ax = P.x - B.x; az = P.z - B.z; l = Math.hypot(ax, az) || 1;
+        P.st = 'correr'; P.T = 1.6 + Math.random(); P.tx = P.x + ax / l * 6; P.tz = P.z + az / l * 6;
+      }
+      P.T -= dt;
+      if (P.T <= 0) {
+        k = Math.random();
+        if (P.st === 'correr' || P.st === 'caminar' || k < 0.35) { P.st = Math.random() < 0.5 ? 'picotear' : 'quieto'; P.T = 2 + Math.random() * 4; }
+        else { /* nuevo paseo corto alrededor de su lugar */
+          for (k = 0; k < 6; k++) { nx = P.hx + (Math.random() - 0.5) * 9; nz = P.hz + (Math.random() - 0.5) * 9; if (landAt(nx, nz) && botFree(nx, nz)) break; }
+          P.tx = nx; P.tz = nz; P.st = 'caminar'; P.T = 4 + Math.random() * 4;
+        }
+      }
+      sp = P.st === 'correr' ? 1.35 : P.st === 'caminar' ? 0.25 : 0;
+      if (sp > 0) {
+        w = Math.atan2(P.tx - P.x, P.tz - P.z); P.yaw += nAng(w - P.yaw) * Math.min(1, dt * (P.st === 'correr' ? 9 : 4));
+        if (Math.hypot(P.tx - P.x, P.tz - P.z) < 0.25) { P.st = 'quieto'; P.T = 1 + Math.random() * 2; }
+        else {
+          nx = P.x + Math.sin(P.yaw) * sp * dt; nz = P.z + Math.cos(P.yaw) * sp * dt;
+          if (landAt(nx, nz) && botFree(nx, nz)) { P.x = nx; P.z = nz; } else { P.T = 0; if (P.st === 'correr') { P.st = 'quieto'; P.T = 0.6; } }
+        }
+      }
+      P.g.position.set(P.x, botGround(P.x, P.z), P.z); P.g.rotation.y = P.yaw;
+      if (dc < 55) polloPose(P, t + P.t0, P.st, dt); /* solo los cercanos se animan */
+    }
+  }
+
   function frame() {
     requestAnimationFrame(frame);
     if (document.hidden) return;
@@ -15438,6 +15634,7 @@ function buildBaseAEMX(){
     updateUfo(t, dt);
     ufoSpotStep(t, dt);
     updateCar(t, dt);
+    try { pcfStep(t, dt); } catch (ePc) { pcfStep = function () {}; console.warn('Pollos desactivados:', ePc); }
     updateBot(t, dt); updateAstJoints(); if (DEB.length) duelDebrisTick(dt); clanWallsTick(dt);
     updateWanderer(t, dt);
     updateAura(t, dt);
