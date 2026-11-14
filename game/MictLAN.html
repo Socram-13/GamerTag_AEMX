@@ -9796,7 +9796,7 @@ function buildBaseAEMX(){
     if (!xsCan() || DUEL || (!GM.xib && (!b.xs || !b.xs.arr))) return false;
     if (!MYP || !isFinite(MYP.x)) { window.__botSayQ = 'Necesitas tener edificio para retar.'; return false; }
     sp = botFreeSpot(g.x - 7, g.z); an = Math.random() * 6.283; sp2 = sp ? botFreeSpot(sp[0] + 14, sp[1] + (Math.random() - 0.5) * 4) : null;
-    rs = botFreeSpot(MYP.x, MYP.z + 9);
+    rs = GM.xib ? (botFreeSpot(b.x, b.z) || [b.x, b.z]) : botFreeSpot(MYP.x, MYP.z + 9);
     if (!sp || !sp2 || !rs) { window.__botSayQ = 'No encuentro un lugar para el duelo.'; return false; }
     DUEL = { cx: (sp[0] + sp2[0]) / 2, cz: (sp[1] + sp2[1]) / 2, rt: 0, dR: null, dF: null, dodgeR: 0, dodgeF: 0, mvR: 0, rfl: 0, p: p, me: duelStats(MYP), foe: duelStats(p), ph: 'in', sp: sp, sp2: sp2, rs: rs, fg: null, tgt: null, tc: 0, tf: 0, te: 0 };
     duelBalance(DUEL.me, DUEL.foe);
