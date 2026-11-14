@@ -15293,6 +15293,17 @@ function buildBaseAEMX(){
     g = x.createLinearGradient(0, 0, 0, 22); g.addColorStop(0, 'rgba(170,52,30,0.75)'); g.addColorStop(1, 'rgba(170,52,30,0)'); x.fillStyle = g; x.fillRect(0, 0, 512, 22); /* borde del anillo */
     PC_TEX = new THREE.CanvasTexture(c); PC_TEX.wrapS = PC_TEX.wrapT = THREE.RepeatWrapping; return PC_TEX;
   }
+  /* capeado (tempura): masa dorada con migas claras y partes tostadas */
+  var PC_TEX2 = null;
+  function pcBatterTex() {
+    if (PC_TEX2) return PC_TEX2;
+    var c = document.createElement('canvas'), x, i, r;
+    c.width = 512; c.height = 256; x = c.getContext('2d');
+    x.fillStyle = '#efb63e'; x.fillRect(0, 0, 512, 256);
+    for (i = 0; i < 260; i++) { x.fillStyle = 'rgba(' + (200 + Math.random() * 40 | 0) + ',' + (120 + Math.random() * 40 | 0) + ',30,' + (0.25 + Math.random() * 0.3) + ')'; x.beginPath(); x.ellipse(Math.random() * 512, Math.random() * 256, 6 + Math.random() * 16, 4 + Math.random() * 10, Math.random() * 3, 0, 6.3); x.fill(); } /* tostado */
+    for (i = 0; i < 1400; i++) { r = 1 + Math.random() * 3.2; x.fillStyle = 'rgba(255,' + (220 + Math.random() * 30 | 0) + ',' + (120 + Math.random() * 60 | 0) + ',' + (0.5 + Math.random() * 0.45) + ')'; x.beginPath(); x.arc(Math.random() * 512, Math.random() * 256, r, 0, 6.3); x.fill(); } /* migas */
+    PC_TEX2 = new THREE.CanvasTexture(c); PC_TEX2.wrapS = PC_TEX2.wrapT = THREE.RepeatWrapping; return PC_TEX2;
+  }
   /* radio del cuerpo a lo largo de la curva (0 = cuello, 1 = punta de la cola) con escalón de anillo */
   function pcRad(t) {
     var base = t < 0.16 ? 0.115 + 0.75 * t : t < 0.4 ? 0.235 + (0.33 - 0.235) * Math.sin((t - 0.16) / 0.24 * 1.5708) : t < 0.57 ? 0.33 - (t - 0.4) / 0.17 * 0.08 : 0.25 - (t - 0.57) / 0.43 * 0.2;
@@ -15301,30 +15312,43 @@ function buildBaseAEMX(){
     k = (t - s0) / (1 - s0) * PC_NSEG; f = k - Math.floor(k);
     return base * (0.93 + 0.1 * Math.pow(f, 0.6)); /* cada anillo crece hacia atrás y cae de golpe: se ven placas montadas */
   }
+  function pcRadSuave(t) { return t < 0.16 ? 0.115 + 0.75 * t : t < 0.4 ? 0.235 + (0.33 - 0.235) * Math.sin((t - 0.16) / 0.24 * 1.5708) : t < 0.57 ? 0.33 - (t - 0.4) / 0.17 * 0.08 : 0.25 - (t - 0.57) / 0.43 * 0.2; }
   function pcBuild(P) {
     var C = P.curve, N = 72, R = 18, fr = C.computeFrenetFrames(N, false), pos = P.geo.attributes.position, nor = P.geo.attributes.normal, i, j, t, p, n, bnm, r, a, cs, sn, ix = 0, wx;
     for (i = 0; i <= N; i++) {
-      t = i / N; p = C.getPointAt(t); n = fr.normals[i]; bnm = fr.binormals[i]; r = pcRad(t); wx = t < 0.55 ? 1.05 : 0.9;
+      t = i / N; p = C.getPointAt(t); n = fr.normals[i]; bnm = fr.binormals[i]; r = pcRad(t); wx = P.nz ? 1 : t < 0.55 ? 1.05 : 0.9;
       for (j = 0; j <= R; j++) {
-        a = j / R * Math.PI * 2; cs = Math.cos(a); sn = Math.sin(a);
+        a = j / R * Math.PI * 2 + (P.nz ? Math.PI : 0); cs = Math.cos(a); sn = Math.sin(a);
+        if (P.nz) { /* pollito capeado: cuerpo redondo y esponjoso (sin escalones de anillo), masa con grumos suaves */
+          var e = (t - 0.5) / 0.52; r = 0.36 * Math.sqrt(Math.max(0.02, 1 - e * e)) * (1 + P.nz[ix] * (t > 0.93 ? 0 : 0.02)); /* cuerpo ovalado y liso */
+        }
         pos.setXYZ(ix, p.x + (n.x * cs + bnm.x * sn * wx) * r, p.y + (n.y * cs + bnm.y * sn * wx) * r, p.z + (n.z * cs + bnm.z * sn * wx) * r);
         ix++;
       }
     }
     pos.needsUpdate = true; P.geo.computeVertexNormals();
-    var pe = C.getPointAt(1), te = C.getTangentAt(1); P.fan.position.copy(pe); P.fan.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), te);
+    for (i = 0; i <= N; i++) { /* costura del tubo: misma normal en ambos lados (sin línea de luz en la espalda) */
+      var s0 = i * (R + 1), s1 = s0 + R, nx = nor.getX(s0) + nor.getX(s1), ny = nor.getY(s0) + nor.getY(s1), nz2 = nor.getZ(s0) + nor.getZ(s1), nl = Math.hypot(nx, ny, nz2) || 1;
+      nor.setXYZ(s0, nx / nl, ny / nl, nz2 / nl); nor.setXYZ(s1, nx / nl, ny / nl, nz2 / nl);
+    }
+    nor.needsUpdate = true;
+    if (P.fluff) P.fluff.forEach(function (u) { var tt = u.userData.t, k = Math.round(tt * N), q = C.getPointAt(tt), nn = fr.normals[k], bb = fr.binormals[k], c2 = Math.cos(u.userData.a), s2 = Math.sin(u.userData.a), rr = pcRadSuave(tt) * (tt < 0.62 ? 1.2 : 1.2 - (tt - 0.62) / 0.18 * 0.32) * 0.97; u.position.set(q.x + (nn.x * c2 + bb.x * s2) * rr, q.y + (nn.y * c2 + bb.y * s2) * rr, q.z + (nn.z * c2 + bb.z * s2) * rr); });
+    var pe = C.getPointAt(1), te = C.getTangentAt(1); P.fan.position.copy(pe); P.fan.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), te); if (P.nz) P.fan.rotateX(0.85); /* pollito: abanico hacia arriba */
     var p0 = C.getPointAt(0), t0 = C.getTangentAt(0); P.head.position.copy(p0).addScaledVector(t0, -0.03); if (P.cap) P.cap.position.copy(p0); /* tapa del cuello: no se ve el hueco al picotear */
   }
-  function makePolloCamaron() {
-    var g = new THREE.Group(), P = { g: g, legs: [], wat: [] }, shell, red, beakM, legM, black, white, m, i, k;
-    shell = new THREE.MeshPhongMaterial({ map: pcShellTex(), color: 0xffffff, specular: 0x2a1a12, shininess: 28, side: THREE.DoubleSide });
+  function makePolloCamaron(opt) {
+    var cap = !!(opt && opt.capeado), g = new THREE.Group(), P = { g: g, legs: [], wat: [], capeado: cap }, shell, red, beakM, legM, black, white, m, i, k;
+    shell = cap ? new THREE.MeshPhongMaterial({ map: pcBatterTex(), color: 0xffffff, specular: 0x4a3a10, shininess: 18, side: THREE.DoubleSide })
+      : new THREE.MeshPhongMaterial({ map: pcShellTex(), color: 0xffffff, specular: 0x2a1a12, shininess: 28, side: THREE.DoubleSide });
+    if (cap) { P.nz = new Float32Array(73 * 19); for (i = 0; i < P.nz.length; i++) P.nz[i] = Math.random() * 2 - 1; for (i = 0; i < 73; i++) P.nz[i * 19 + 18] = P.nz[i * 19]; } /* grumos (la costura del tubo coincide) */
     red = new THREE.MeshLambertMaterial({ color: 0xd8262a, flatShading: true });
     beakM = new THREE.MeshLambertMaterial({ color: 0xe9a24a, flatShading: true });
     legM = new THREE.MeshLambertMaterial({ color: 0xe6a066 });
     black = new THREE.MeshPhongMaterial({ color: 0x0a0a0c, specular: 0xffffff, shininess: 90 });
     white = new THREE.MeshBasicMaterial({ color: 0xffffff });
     /* curva base del cuello a la cola (y arriba, z al frente); polloPose la mueve un poco al animar */
-    P.base = [[0, 1.04, 0.3], [0, 0.86, 0.27], [0, 0.69, 0.08], [0, 0.63, -0.13], [0, 0.72, -0.33], [0, 0.94, -0.45], [0, 1.17, -0.45], [0, 1.35, -0.41], [0, 1.49, -0.34]];
+    P.base = cap ? [[0, 0.88, 0.26], [0, 0.79, 0.19], [0, 0.72, 0.09], [0, 0.68, -0.02], [0, 0.67, -0.13], [0, 0.67, -0.24], [0, 0.68, -0.34], [0, 0.7, -0.43], [0, 0.73, -0.5]] /* pollito: colita corta */
+      : [[0, 1.04, 0.3], [0, 0.86, 0.27], [0, 0.69, 0.08], [0, 0.63, -0.13], [0, 0.72, -0.33], [0, 0.94, -0.45], [0, 1.17, -0.45], [0, 1.35, -0.41], [0, 1.49, -0.34]];
     P.pts = P.base.map(function (q) { return new THREE.Vector3(q[0], q[1], q[2]); });
     P.curve = new THREE.CatmullRomCurve3(P.pts, false, 'centripetal');
     var N = 72, R = 18, posA = new Float32Array((N + 1) * (R + 1) * 3), uv = new Float32Array((N + 1) * (R + 1) * 2), idx = [], j;
@@ -15351,7 +15375,10 @@ function buildBaseAEMX(){
     var cr = new THREE.Shape(); cr.moveTo(-0.15, 0); [[-0.14, 0.08], [-0.1, 0.03], [-0.07, 0.12], [-0.03, 0.04], [0.0, 0.14], [0.04, 0.04], [0.07, 0.12], [0.1, 0.03], [0.13, 0.07], [0.14, 0]].forEach(function (q) { cr.lineTo(q[0], q[1]); }); cr.lineTo(-0.15, 0);
     var crG = new THREE.ExtrudeGeometry(cr, { depth: 0.04, bevelEnabled: true, bevelSize: 0.008, bevelThickness: 0.008, bevelSegments: 1 }); crG.translate(0, 0, -0.02); crG.rotateY(Math.PI / 2);
     m = new THREE.Mesh(crG, red); m.position.set(0, 0.12, -0.01); m.rotation.x = 0.15; P.head.add(m);
-    [-1, 1].forEach(function (sx) { var w = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), red); w.scale.set(0.03, 0.075, 0.045); w.position.set(sx * 0.03, -0.14, 0.17); P.head.add(w); P.wat.push(w); });
+    [-1, 1].forEach(function (sx) { var w = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), red); w.scale.set(0.03, 0.075, 0.045); w.position.set(sx * 0.03, -0.14, 0.17); P.head.add(w); P.wat.push(w); if (cap) w.visible = false; });
+    if (cap) { /* pollito: cabeza grande, cresta de bebé, abanico chico y copetes de pelusa capeada */
+      P.head.scale.setScalar(1.4); m.scale.set(0.45, 0.45, 0.45); m.position.y = 0.14; P.fan.scale.setScalar(1.25); P.legY = 0.32;
+    }
     /* patas */
     [-1, 1].forEach(function (sx) {
       var L = new THREE.Group(); L.position.set(sx * 0.13, 0.5, -0.02); g.add(L);
@@ -15365,6 +15392,7 @@ function buildBaseAEMX(){
         tt.rotation.order = 'YXZ'; tt.rotation.x = Math.PI / 2; tt.position.set(Math.sin(a) * len / 2, 0.012, Math.cos(a) * len / 2); tt.rotation.y = a; ft.add(tt);
         var cl = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.035, 4), beakM); cl.rotation.order = 'YXZ'; cl.rotation.x = Math.PI / 2; cl.position.set(Math.sin(a) * (len + 0.012), 0.012, Math.cos(a) * (len + 0.012)); cl.rotation.y = a; ft.add(cl);
       });
+      if (cap) { L.scale.y = 0.64; L.position.y = 0.32; }
       P.legs.push({ L: L, ft: ft });
     });
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
@@ -15393,7 +15421,7 @@ function buildBaseAEMX(){
     P.legs.forEach(function (Lg, j) {
       var p = P.ph + j * Math.PI, sw = walk ? (run ? 0.75 : 0.5) : 0, lf = walk ? Math.max(0, Math.sin(p)) : 0;
       Lg.L.rotation.x = walk ? sw * Math.cos(p) : 0; /* pierna en el aire va de atrás hacia adelante: avanza hacia el frente (+z) */
-      Lg.L.position.y = 0.5 + lf * (run ? 0.06 : 0.035) + lift * 0.3;
+      Lg.L.position.y = (P.legY || 0.5) + lf * (run ? 0.06 : 0.035) + lift * 0.3;
       Lg.ft.rotation.x = walk ? -sw * Math.cos(p) * 0.9 - lf * 0.5 : 0;
     });
     P.fan.rotateY(0); P.wat.forEach(function (w, j) { w.rotation.x = (walk ? 0.4 : 0.15) * Math.sin((walk ? P.ph * 2 : t * 3) + j); });
@@ -15444,24 +15472,68 @@ function buildBaseAEMX(){
     return null;
   }
   function pcfInit() {
-    var n = 24, i, sp, g, P, spots = [];
+    var n = 36, i, sp, g, P, spots = [];
     PCF.init = true;
     /* ciudades costeras (con jugadores), en orden al azar: 2–3 pollo-camarones en la playa de cada una */
     var cs = districts.filter(function (d) { return d.list && d.list.length && !d.coz; });
     cs.sort(function () { return Math.random() - 0.5; });
-    cs.forEach(function (d) { if (spots.length * 2.5 < n) { var s0 = pcfBeach(d); if (s0) spots.push(s0); } });
+    cs.forEach(function (d) { if (spots.length * 4 < n) { var s0 = pcfBeach(d); if (s0) spots.push(s0); } });
     while (spots.length < 4) { sp = pcfSpot(); if (!sp) break; spots.push(sp); } /* respaldo: si casi no hay ciudades costeras */
     for (i = 0; i < spots.length && PCF.list.length < n; i++) {
       sp = spots[i];
-      /* en grupitos de 2 a 3 */
-      var grp = 2 + ((Math.random() * 2) | 0), j;
+      /* en grupitos de 3 a 5 */
+      var grp = 3 + ((Math.random() * 3) | 0), j;
       for (j = 0; j < grp && PCF.list.length < n; j++) {
         var x = sp[0] + (j ? (Math.random() - 0.5) * 2.4 : 0), z = sp[1] + (j ? (Math.random() - 0.5) * 2.4 : 0);
         if (j && !(landAt(x, z) && botFree(x, z))) continue;
         P = makePolloCamaron(); P.g.scale.setScalar(PCF.S); P.g.traverse(function (o) { o.raycast = function () {}; });
         P.x = x; P.z = z; P.hx = x; P.hz = z; P.yaw = Math.random() * 6.28; P.st = 'quieto'; P.T = Math.random() * 3; P.tx = x; P.tz = z; P.t0 = Math.random() * 10;
         P.g.position.set(x, botGround(x, z), z); P.g.rotation.y = P.yaw; scene.add(P.g); PCF.list.push(P);
+        P.sndT = 2 + Math.random() * 8;
+        if (j === 0) var mom = P;
       }
+      /* 1 o 2 pollitos capeados que siguen a la mamá del grupo */
+      var nc = 1 + ((Math.random() * 2) | 0), c;
+      for (c = 0; c < nc && mom; c++) {
+        var cx = mom.x + (Math.random() - 0.5) * 1.2, cz = mom.z + (Math.random() - 0.5) * 1.2;
+        if (!(landAt(cx, cz) && botFree(cx, cz))) { cx = mom.x; cz = mom.z; }
+        P = makePolloCamaron({ capeado: true }); P.g.scale.setScalar(PCF.S * 0.55); P.g.traverse(function (o) { o.raycast = function () {}; });
+        P.x = cx; P.z = cz; P.hx = cx; P.hz = cz; P.yaw = Math.random() * 6.28; P.st = 'quieto'; P.T = Math.random() * 2; P.tx = cx; P.tz = cz; P.t0 = Math.random() * 10;
+        P.mom = mom; P.ox = (Math.random() - 0.5) * 0.9; P.oz = -0.3 - Math.random() * 0.5; P.sndT = 1 + Math.random() * 5;
+        P.g.position.set(cx, botGround(cx, cz), cz); scene.add(P.g); PCF.list.push(P);
+      }
+      mom = null;
+    }
+  }
+  /* ===== sonidos sintetizados: cacareo (adultos), pío (pollitos) y graznido al huir; respetan el botón de sonido ===== */
+  var PCS = { ctx: null, last: 0 };
+  function pcsOn() { var b = document.getElementById('b-snd'); return !b || b.getAttribute('aria-pressed') !== 'false'; }
+  function pcsCtx() {
+    if (!PCS.ctx) { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; PCS.ctx = new AC(); var rs = function () { if (PCS.ctx && PCS.ctx.state !== 'running') PCS.ctx.resume(); }; ['pointerdown', 'keydown', 'touchstart'].forEach(function (e) { window.addEventListener(e, rs, { passive: true }); }); }
+    return PCS.ctx.state === 'running' ? PCS.ctx : null;
+  }
+  function pcsTone(C, out, type, f0, f1, t0, dur, vol, q) {
+    var o = C.createOscillator(), g = C.createGain(), bp = C.createBiquadFilter();
+    o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t0 + dur);
+    bp.type = 'bandpass'; bp.frequency.value = (f0 + f1) * 0.7; bp.Q.value = q || 1.5;
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(bp); bp.connect(g); g.connect(out); o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+  function pcsPlay(kind, dist) {
+    var C = pcsCtx(), now, out, v, i, p, n;
+    if (!C || !pcsOn() || dist > 26) return;
+    now = C.currentTime; if (now - PCS.last < 0.18) return; PCS.last = now;
+    v = 0.22 * Math.pow(1 - dist / 26, 1.5); out = C.createGain(); out.gain.value = 1; out.connect(C.destination);
+    p = 0.9 + Math.random() * 0.25;
+    if (kind === 'cluck') { /* buk… buk… ¡bukaaak! */
+      n = 2 + ((Math.random() * 3) | 0);
+      for (i = 0; i < n; i++) pcsTone(C, out, 'triangle', 560 * p, 380 * p, now + i * 0.16, 0.08, v, 2.2);
+      if (Math.random() < 0.45) pcsTone(C, out, 'sawtooth', 620 * p, 980 * p, now + n * 0.16 + 0.05, 0.28, v * 0.6, 3);
+    } else if (kind === 'peep') { /* pío pío */
+      n = 1 + ((Math.random() * 2) | 0);
+      for (i = 0; i < n; i++) pcsTone(C, out, 'sine', 3100 * p, 2300 * p, now + i * 0.17, 0.11, v * 0.55, 4);
+    } else { /* graznido al huir */
+      pcsTone(C, out, 'sawtooth', 700 * p, 1250 * p, now, 0.22, v * 0.7, 2.5); pcsTone(C, out, 'sawtooth', 900 * p, 600 * p, now + 0.2, 0.18, v * 0.5, 2.5);
     }
   }
   function pcfStep(t, dt) {
@@ -15476,6 +15548,17 @@ function buildBaseAEMX(){
       if (B && P.st !== 'correr' && (d < 1.2 || (d < 3.2 && (B.v || 0) > 2.5))) {
         ax = P.x - B.x; az = P.z - B.z; l = Math.hypot(ax, az) || 1;
         P.st = 'correr'; P.T = 1.6 + Math.random(); P.tx = P.x + ax / l * 6; P.tz = P.z + az / l * 6;
+        pcsPlay(P.capeado ? 'peep' : 'flee', dc);
+      }
+      /* sonidos de vez en cuando */
+      P.sndT -= dt; if (P.sndT <= 0) { P.sndT = (P.capeado ? 3 : 6) + Math.random() * (P.capeado ? 6 : 10); pcsPlay(P.capeado ? 'peep' : 'cluck', dc); }
+      /* pollito: sigue a su mamá (si ella huye, corre con ella) */
+      if (P.mom && P.st !== 'correr') {
+        var M = P.mom, mx = M.x + Math.sin(M.yaw) * P.oz + Math.cos(M.yaw) * P.ox, mz = M.z + Math.cos(M.yaw) * P.oz - Math.sin(M.yaw) * P.ox, md = Math.hypot(mx - P.x, mz - P.z);
+        if (M.st === 'correr' && md > 0.3) { P.st = 'correr'; P.T = 1.2; P.tx = mx; P.tz = mz; }
+        else if (md > 0.45) { P.st = 'caminar'; P.T = 2; P.tx = mx; P.tz = mz; }
+        else if (P.st === 'caminar') { P.st = M.st === 'picotear' ? 'picotear' : 'quieto'; P.T = 1 + Math.random() * 2; }
+        P.hx = M.x; P.hz = M.z;
       }
       P.T -= dt;
       if (P.T <= 0) {
@@ -15486,7 +15569,7 @@ function buildBaseAEMX(){
           P.tx = nx; P.tz = nz; P.st = 'caminar'; P.T = 4 + Math.random() * 4;
         }
       }
-      sp = P.st === 'correr' ? 1.35 : P.st === 'caminar' ? 0.25 : 0;
+      sp = P.st === 'correr' ? (P.capeado ? 1.45 : 1.35) : P.st === 'caminar' ? (P.capeado ? 0.34 : 0.25) : 0;
       if (sp > 0) {
         w = Math.atan2(P.tx - P.x, P.tz - P.z); P.yaw += nAng(w - P.yaw) * Math.min(1, dt * (P.st === 'correr' ? 9 : 4));
         if (Math.hypot(P.tx - P.x, P.tz - P.z) < 0.25) { P.st = 'quieto'; P.T = 1 + Math.random() * 2; }
