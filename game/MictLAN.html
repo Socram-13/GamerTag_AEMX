@@ -15415,13 +15415,46 @@ function buildBaseAEMX(){
     }
     return null;
   }
+  /* tramos de costa junto a una ciudad: a menos de 28 de su borde */
+  function pcfCitySegs(d) {
+    var q, mx, mz, dd, out = [];
+    for (q = 0; q < coastSegs.length; q += 4) { mx = (coastSegs[q] + coastSegs[q + 2]) / 2; mz = (coastSegs[q + 1] + coastSegs[q + 3]) / 2; dd = Math.hypot(mx - d.cx, mz - d.cz); if (dd < d.r + 28) out.push(q); }
+    return out;
+  }
+  function pcfSpotNear(segs) { /* en la playa junto a la ciudad: tierra a 1.2–4.5 de la orilla, sin pisar edificios */
+    var k, q, ax, az, bx, bz, f, nx, nz, l, s, d, x, z;
+    for (k = 0; k < 40; k++) {
+      q = segs[(Math.random() * segs.length) | 0]; ax = coastSegs[q]; az = coastSegs[q + 1]; bx = coastSegs[q + 2]; bz = coastSegs[q + 3];
+      f = Math.random(); nx = -(bz - az); nz = bx - ax; l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+      for (s = -1; s <= 1; s += 2) {
+        d = 1.2 + Math.random() * 3.3; x = ax + (bx - ax) * f + nx * d * s; z = az + (bz - az) * f + nz * d * s;
+        if (landAt(x, z) && landAt(x + 0.6, z) && landAt(x - 0.6, z) && botFree(x, z) && botCityDist(x, z) > 2) return [x, z];
+      }
+    }
+    return null;
+  }
+  function pcfBeach(d) { /* playa junto a la ciudad: tierra libre, a 3–50 del borde de la ciudad, con agua a menos de 4 */
+    var k, a, rr, x, z, j, wet;
+    for (k = 0; k < 260; k++) {
+      a = Math.random() * 6.2832; rr = d.r + 3 + Math.random() * 47; x = d.cx + Math.cos(a) * rr; z = d.cz + Math.sin(a) * rr;
+      if (!landAt(x, z) || !landAt(x + 0.6, z) || !landAt(x - 0.6, z) || !botFree(x, z) || botCityDist(x, z) < 2) continue;
+      wet = false; for (j = 0; j < 8 && !wet; j++) if (!landAt(x + Math.cos(j * 0.785) * 4, z + Math.sin(j * 0.785) * 4)) wet = true;
+      if (wet) return [x, z];
+    }
+    return null;
+  }
   function pcfInit() {
-    var n = 18, i, sp, g, P;
+    var n = 24, i, sp, g, P, spots = [];
     PCF.init = true;
-    for (i = 0; i < n; i++) {
-      sp = pcfSpot(); if (!sp) continue;
-      /* en grupitos de 1 a 3 */
-      var grp = 1 + ((Math.random() * 3) | 0), j;
+    /* ciudades costeras (con jugadores), en orden al azar: 2–3 pollo-camarones en la playa de cada una */
+    var cs = districts.filter(function (d) { return d.list && d.list.length && !d.coz; });
+    cs.sort(function () { return Math.random() - 0.5; });
+    cs.forEach(function (d) { if (spots.length * 2.5 < n) { var s0 = pcfBeach(d); if (s0) spots.push(s0); } });
+    while (spots.length < 4) { sp = pcfSpot(); if (!sp) break; spots.push(sp); } /* respaldo: si casi no hay ciudades costeras */
+    for (i = 0; i < spots.length && PCF.list.length < n; i++) {
+      sp = spots[i];
+      /* en grupitos de 2 a 3 */
+      var grp = 2 + ((Math.random() * 2) | 0), j;
       for (j = 0; j < grp && PCF.list.length < n; j++) {
         var x = sp[0] + (j ? (Math.random() - 0.5) * 2.4 : 0), z = sp[1] + (j ? (Math.random() - 0.5) * 2.4 : 0);
         if (j && !(landAt(x, z) && botFree(x, z))) continue;
@@ -15459,7 +15492,7 @@ function buildBaseAEMX(){
         if (Math.hypot(P.tx - P.x, P.tz - P.z) < 0.25) { P.st = 'quieto'; P.T = 1 + Math.random() * 2; }
         else {
           nx = P.x + Math.sin(P.yaw) * sp * dt; nz = P.z + Math.cos(P.yaw) * sp * dt;
-          if (landAt(nx, nz) && botFree(nx, nz)) { P.x = nx; P.z = nz; } else { P.T = 0; if (P.st === 'correr') { P.st = 'quieto'; P.T = 0.6; } }
+          if (landAt(nx, nz) && botFree(nx, nz)) { P.x = nx; P.z = nz; } else if (P.st === 'correr') { P.side = P.side || (Math.random() < 0.5 ? 1 : -1); P.yaw += P.side * 1.3; P.tx = P.x + Math.sin(P.yaw) * 5; P.tz = P.z + Math.cos(P.yaw) * 5; } else P.T = 0; /* al huir, si topa con agua u obstáculo, rodea */
         }
       }
       P.g.position.set(P.x, botGround(P.x, P.z), P.z); P.g.rotation.y = P.yaw;
