@@ -15609,7 +15609,7 @@ function buildBaseAEMX(){
     x.fillStyle = 'rgba(10,16,28,0.72)'; x.beginPath(); if (x.roundRect) x.roundRect(128 - w / 2, 10, w, 44, 22); else x.rect(128 - w / 2, 10, w, 44); x.fill();
     x.fillStyle = '#7fe8ff'; x.fillText(txt, 128, 33);
     tx = new THREE.CanvasTexture(c); sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false }));
-    sp.scale.set(2.4, 0.6, 1); sp.position.y = 2.05; sp.renderOrder = 5; return sp;
+    sp.scale.set(2.4, 0.6, 1); sp.position.y = 2.6; sp.renderOrder = 5; return sp;
   }
   /* colores del jugador: "c" = "base,secundario,ojos" en hex (los del selector de la pantalla de carga); se arma la paleta igual que botPalApply */
   function mpCol(s) { var m = /^([0-9a-f]{6}),([0-9a-f]{6}),([0-9a-f]{6})$/i.exec(s || ''); return m ? { base: '#' + m[1].toLowerCase(), sec: '#' + m[2].toLowerCase(), eye: '#' + m[3].toLowerCase() } : { base: BOT_PAL_DEF.base, sec: BOT_PAL_DEF.sec, eye: BOT_PAL_DEF.eye }; }
@@ -15639,7 +15639,7 @@ function buildBaseAEMX(){
   function mpUI() {
     var w = document.getElementById('xib'), b; if (!w) return;
     b = document.createElement('button'); b.type = 'button'; b.className = 'xmp';
-    b.style.cssText = 'position:absolute;left:max(16px, env(safe-area-inset-left));top:calc(max(10px, env(safe-area-inset-top, 0px)) + ' + (innerWidth <= 700 ? 152 : 98) + 'px);pointer-events:auto;padding:7px 12px;border-radius:18px;border:1px solid rgba(63,216,255,0.7);background:rgba(10,16,28,0.78);color:#dff8ff;font:700 12px var(--f-body),sans-serif;cursor:pointer;z-index:5';
+    b.style.cssText = 'position:absolute;left:max(16px, env(safe-area-inset-left));top:calc(max(10px, env(safe-area-inset-top, 0px)) + ' + (innerWidth <= 700 ? 128 : 72) + 'px);pointer-events:auto;padding:7px 12px;border-radius:18px;border:1px solid rgba(63,216,255,0.7);background:rgba(10,16,28,0.78);color:#dff8ff;font:700 12px var(--f-body),sans-serif;cursor:pointer;z-index:5';
     b.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
     b.addEventListener('click', function (e) {
       e.stopPropagation(); if (!window.__mp || window.__mp.user || MPG.busy) return;
@@ -15647,6 +15647,8 @@ function buildBaseAEMX(){
       window.__mp.connect().then(function () { MPG.busy = false; }, function (er) { MPG.busy = false; if (window.__xibMsg) window.__xibMsg('No se pudo conectar: ' + (er && (er.code || er.message))); });
     });
     w.appendChild(b); MPG.btn = b;
+    /* el botón va justo bajo la tarjeta del usuario; la barra de energía baja un renglón */
+    var st = document.createElement('style'); st.textContent = '#xib .hpb { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 106px) !important; } @media (max-width: 700px) { #xib .hpb { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 162px) !important; } }'; document.head.appendChild(st);
   }
   function mpStep(t, dt) {
     if (!GM.xib || !window.__mp || !bot) return;
@@ -15661,8 +15663,9 @@ function buildBaseAEMX(){
     if (!U) return;
     if (!MPG.sub) { MPG.sub = true; window.__mp.sub(function (v) { MPG.data = v || {}; }); }
     /* publicar mi robot: ~4 por segundo si se mueve; si está quieto, cada 5 s (para seguir "en línea") */
-    if ((now - MPG.last > 250 && (Math.abs(bot.x - MPG.lx) > 0.05 || Math.abs(bot.z - MPG.lz) > 0.05 || Math.abs(bot.y - MPG.ly) > 0.05)) || now - MPG.last > 5000) {
-      MPG.last = now; MPG.lx = bot.x; MPG.lz = bot.z; MPG.ly = bot.y;
+    var mvNow = (bot.v || 0) > 0.3;
+    if ((now - MPG.last > 250 && (Math.abs(bot.x - MPG.lx) > 0.05 || Math.abs(bot.z - MPG.lz) > 0.05 || Math.abs(bot.y - MPG.ly) > 0.05)) || (now - MPG.last > 100 && mvNow !== MPG.mv) || now - MPG.last > 5000) { /* al detenerse se avisa de inmediato */
+      MPG.last = now; MPG.lx = bot.x; MPG.lz = bot.z; MPG.ly = bot.y; MPG.mv = mvNow;
       window.__mp.pub({ x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), t: now, n: mpName(), c: mpMyCol() });
     }
     /* robots de los demás: aparecen, se mueven suave hacia su última posición y se van si se desconectan */
@@ -15676,13 +15679,16 @@ function buildBaseAEMX(){
     }
     for (k in MPG.map) if (!seen[k]) { mpDrop(MPG.map[k]); delete MPG.map[k]; }
     for (k in MPG.map) {
-      R = MPG.map[k]; a = Math.min(1, dt * 6);
+      R = MPG.map[k]; a = Math.min(1, dt * 8); var px = R.x, pz = R.z;
       if (Math.hypot(R.tx - R.x, R.tz - R.z) > 40) { R.x = R.tx; R.z = R.tz; R.y = R.ty; } /* teletransporte: sin cruzar el mapa */
       R.x += (R.tx - R.x) * a; R.z += (R.tz - R.z) * a; R.y += (R.ty - R.y) * a; R.yaw += mpWrap(R.tyaw - R.yaw) * a;
-      R.ph += dt * (2 + R.v * 2.2);
-      var sw = Math.min(0.6, R.v * 0.12), L = R.F.legs;
+      /* la caminata sigue al movimiento real que se ve en pantalla: si ya no avanza, deja de caminar enseguida */
+      var ms = dt > 0 ? Math.hypot(R.x - px, R.z - pz) / dt : 0; if (R.v < 0.3 && ms < 0.4) ms = 0;
+      R.sp = (R.sp || 0) + (ms - (R.sp || 0)) * Math.min(1, dt * 10);
+      R.ph += dt * (2 + R.sp * 2.2);
+      var sw = R.sp < 0.15 ? 0 : Math.min(0.6, R.sp * 0.12), L = R.F.legs;
       if (L && L.length === 2) for (var i = 0; i < 2; i++) { var s = Math.sin(R.ph + i * Math.PI) * sw; L[i].th.rotation.x = s; L[i].kn.rotation.x = Math.max(0, -s) * 1.1 + 0.1; L[i].ft.rotation.x = -(L[i].th.rotation.x + L[i].kn.rotation.x); }
-      R.F.g.position.set(R.x, R.y + Math.abs(Math.sin(R.ph)) * Math.min(0.05, R.v * 0.01), R.z); R.F.g.rotation.y = R.yaw;
+      R.F.g.position.set(R.x, R.y + Math.abs(Math.sin(R.ph)) * Math.min(0.05, R.sp * 0.01), R.z); R.F.g.rotation.y = R.yaw;
     }
   }
 
