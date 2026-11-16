@@ -15601,7 +15601,8 @@ function buildBaseAEMX(){
 
 
   /* ===== multijugador (fase 1): presencia de robots en Xibalba ===== */
-  var MPG = { map: {}, data: {}, sub: false, last: 0, lx: 1e9, lz: 1e9, ly: 1e9, btn: null, bt: 0, busy: false };
+  var MP_ZONE = 250; function mpZone(x, z) { return Math.floor(x / MP_ZONE) + '_' + Math.floor(z / MP_ZONE); }
+  var MPG = { subs: {}, zd: {}, subC: null, zk: null, map: {}, data: {}, sub: false, last: 0, lx: 1e9, lz: 1e9, ly: 1e9, btn: null, bt: 0, busy: false };
   var mpE = new THREE.Euler();
   function mpWrap(a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; }
   function mpLabel(txt) {
@@ -15691,23 +15692,40 @@ function buildBaseAEMX(){
   function mpStep(t, dt) {
     if (!GM.xib || !window.__mp || !bot) return;
     if (!MPG.btn) mpUI();
+    if (window.__mp.start) window.__mp.start(); /* aquí se conecta la base (solo en Xibalba) */
     mpLastStep(t, window.__mp.user);
     var U = window.__mp.user, now = Date.now(), k, d, R, seen = {}, n = 0, a;
     if (MPG.btn && t > MPG.bt) {
       MPG.bt = t + 0.5; mpPlace();
       for (k in MPG.map) n++;
-      MPG.btn.textContent = MPG.busy ? '🌐 Conectando…' : U ? '🌐 En línea' + (n ? ': ' + (n + 1) + ' robots' : '') : '🌐 Conectar multijugador';
+      MPG.btn.textContent = MPG.busy ? '🌐 Conectando…' : U ? '🌐 En línea' + (n ? ': ' + n + ' cerca' : '') : '🌐 Conectar multijugador';
       MPG.btn.style.cursor = U ? 'default' : 'pointer';
     }
     if (!U) return;
-    if (!MPG.sub) { MPG.sub = true; window.__mp.sub(function (v) { MPG.data = v || {}; }); }
+    var zk = mpZone(bot.x, bot.z), zx, zz, need = {}, kk;
+    /* escuchar solo mi zona y las 8 vecinas (al cambiar de zona se ajusta) */
+    if (MPG.subC !== zk) {
+      MPG.subC = zk; zx = Math.floor(bot.x / MP_ZONE); zz = Math.floor(bot.z / MP_ZONE);
+      for (var ix = -1; ix <= 1; ix++) for (var iz = -1; iz <= 1; iz++) need[(zx + ix) + '_' + (zz + iz)] = 1;
+      for (kk in MPG.subs) if (!need[kk]) { try { MPG.subs[kk](); } catch (e) { } delete MPG.subs[kk]; delete MPG.zd[kk]; }
+      for (kk in need) if (!MPG.subs[kk]) (function (q) { MPG.subs[q] = window.__mp.subZone(q, function (v) { MPG.zd[q] = v || {}; }); })(kk);
+    }
     /* publicar mi robot: ~4 por segundo si se mueve; si está quieto, cada 5 s (para seguir "en línea") */
     var mvNow = (bot.v || 0) > 0.3;
     if ((now - MPG.last > 250 && (Math.abs(bot.x - MPG.lx) > 0.05 || Math.abs(bot.z - MPG.lz) > 0.05 || Math.abs(bot.y - MPG.ly) > 0.05)) || (now - MPG.last > 100 && mvNow !== MPG.mv) || now - MPG.last > 5000) { /* al detenerse se avisa de inmediato */
       MPG.last = now; MPG.lx = bot.x; MPG.lz = bot.z; MPG.ly = bot.y; MPG.mv = mvNow;
-      window.__mp.pub({ x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), t: now, n: mpName(), c: mpMyCol() });
+      var po = { x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), t: now }, nm = mpName(), col = (now - (MPG.cT || 0) > 3000 || !MPG.sc) ? (MPG.cT = now, mpMyCol()) : MPG.sc;
+      var full = zk !== MPG.zk || nm !== MPG.sn || col !== MPG.sc; /* nombre y colores solo cuando cambian (o al entrar a otra zona) */
+      if (full) { po.n = nm; po.c = col; }
+      window.__mp.put(zk, po, full);
+      if (MPG.zk && MPG.zk !== zk) window.__mp.drop(MPG.zk);
+      MPG.zk = zk; MPG.sn = nm; MPG.sc = col;
     }
     /* robots de los demás: aparecen, se mueven suave hacia su última posición y se van si se desconectan */
+    /* juntar las zonas escuchadas (si alguien aparece en dos al cruzar el borde, gana el dato más nuevo) */
+    var all = {}, z2, k2, q2;
+    for (z2 in MPG.zd) for (k2 in MPG.zd[z2]) { q2 = MPG.zd[z2][k2]; if (q2 && (!all[k2] || (q2.t || 0) > (all[k2].t || 0))) all[k2] = q2; }
+    MPG.data = all;
     for (k in MPG.data) {
       if (k === U.uid) continue; d = MPG.data[k];
       if (!d || !isFinite(d.x) || !isFinite(d.z) || Math.abs(now - (d.t || 0)) > 60000) continue;
@@ -15753,6 +15771,7 @@ function buildBaseAEMX(){
   }
   function xsStep(t) {
     if (!GM.xib || !GM.rel || !bot || typeof ALN === 'undefined' || !ALN.start) return;
+    if (window.__mp && window.__mp.start) window.__mp.start();
     var n = xsNow(), H = Math.floor(n / 3600000), P, ok = false, R0, S = ALN.state ? ALN.state() : null, wh;
     if (XS2.curH >= 0 && !S) { XS2.curH = -1; XS2.endT = 0; } /* el evento de la hora ya se cerró en esta pantalla */
     wh = XS2.curH >= 0 ? XS2.curH : H; xsWatch(wh);
@@ -16191,7 +16210,7 @@ function buildBaseAEMX(){
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, signInWithPopup, signInWithCredential, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getDatabase, ref, get, set, onValue, onDisconnect } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+import { getDatabase, ref, get, set, update, remove, onValue, onDisconnect } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
 
 const app = initializeApp({
   apiKey: 'AIzaSyB-xx2PlBjvnHe0K7Bf1MspVqUlfjky0mk',
@@ -16214,12 +16233,21 @@ const mpApp = initializeApp({
   appId: '1:704926124802:web:6045f0530ec0425c8fd01b'
 }, 'mp');
 const mpAuth = getAuth(mpApp), mpDb = getDatabase(mpApp);
-let mpRef = null;
+/* la base de mictland-md solo se conecta al entrar a Xibalba (start): quien está en los demos o en la carga no ocupa conexión */
+let mpStarted = false, mpDisc = null;
 window.__mp = {
   user: null,
+  start: () => { if (mpStarted) return; mpStarted = true; onValue(ref(mpDb, '.info/serverTimeOffset'), (s) => { window.__mpOff = s.val() || 0; }, () => {}); },
   connect: async () => (await signInWithPopup(mpAuth, new GoogleAuthProvider())).user,
-  pub: (o) => { if (mpRef) set(mpRef, o).catch((e) => console.warn('MP pub', e.code || e.message)); },
-  sub: (cb) => onValue(ref(mpDb, 'mp/online'), (s) => cb(s.val() || {}), (e) => { console.warn('MP sub', e.code || e.message); cb({}); }),
+  /* presencia por zonas del mapa (mp/z/{zona}/{uid}): cada jugador solo escucha su zona y las 8 vecinas.
+     full = nodo completo (al cambiar de zona, nombre o colores); si no, solo se actualiza la posición */
+  put: (zk, o, full) => {
+    const u = mpAuth.currentUser; if (!u) return; const r = ref(mpDb, 'mp/z/' + zk + '/' + u.uid);
+    if (mpDisc !== zk) { onDisconnect(r).remove().catch(() => {}); mpDisc = zk; }
+    (full ? set(r, o) : update(r, o)).catch((e) => console.warn('MP put', e.code || e.message));
+  },
+  drop: (zk) => { const u = mpAuth.currentUser; if (!u) return; const r = ref(mpDb, 'mp/z/' + zk + '/' + u.uid); onDisconnect(r).cancel().catch(() => {}); remove(r).catch(() => {}); if (mpDisc === zk) mpDisc = null; },
+  subZone: (zk, cb) => onValue(ref(mpDb, 'mp/z/' + zk), (s) => cb(s.val() || {}), (e) => { console.warn('MP zona', e.code || e.message); cb({}); }),
   /* última ubicación por cuenta (sirve entre dispositivos); solo el dueño la lee y escribe */
   saveLast: (o) => { const u = mpAuth.currentUser; if (u) set(ref(mpDb, 'mp/last/' + u.uid), o).catch((e) => console.warn('MP last', e.code || e.message)); },
   /* fin compartido del evento de cada hora: el primero que lo termina queda registrado (las reglas solo aceptan la primera escritura) */
@@ -16229,10 +16257,8 @@ window.__mp = {
 };
 /* hora del servidor: diferencia entre el reloj de este dispositivo y el de Firebase (no requiere sesión) */
 window.__mpOff = 0;
-onValue(ref(mpDb, '.info/serverTimeOffset'), (s) => { window.__mpOff = s.val() || 0; }, () => {});
 onAuthStateChanged(mpAuth, (u) => {
-  window.__mp.user = u || null;
-  if (u) { mpRef = ref(mpDb, 'mp/online/' + u.uid); onDisconnect(mpRef).remove().catch(() => {}); } else mpRef = null;
+  window.__mp.user = u || null; mpDisc = null;
 });
 const gate = document.getElementById('gate');
 const btn = document.getElementById('gate-btn');
