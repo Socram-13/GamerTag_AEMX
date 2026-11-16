@@ -15651,9 +15651,40 @@ function buildBaseAEMX(){
     /* el botón va justo bajo la tarjeta del usuario; la barra de energía baja un renglón */
     var st = document.createElement('style'); st.textContent = '#xib .hpb { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 106px) !important; } @media (max-width: 700px) { #xib .hpb { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 162px) !important; } }'; document.head.appendChild(st);
   }
+  /* ===== última ubicación: al volver a entrar a Xibalba el robot aparece donde se quedó =====
+     se guarda en el navegador (cada 3 s) y en la cuenta de mictland-md (cada 15 s y al salir), solo en tierra firme del continente
+     (no en islas, azoteas, duelos ni dentro de una invasión) */
+  var MPL = { k: 'mict-last-pos', done: false, remote: false, moved: false, lt: 0, sT: 0, fT: 0, t0: null };
+  function mpLastOK() { return !!bot && bot.mode === 'walk' && !bot.isl && !bot.tpj && !DUEL && !bot.roofP && !invLock && landAt(bot.x, bot.z); }
+  function mpLastGo(p) {
+    var s = botFreeSpot(p.x, p.z); if (!s || Math.hypot(s[0] - p.x, s[1] - p.z) > 8) return false;
+    if (Math.hypot(s[0] - bot.x, s[1] - bot.z) < 3) return true;
+    bot.goal = null; bot.gtype = ''; bot.path = null; bot.tpj = { x: s[0], z: s[1], gx: s[0], gz: s[1], t: 0, done: false, back: true };
+    if (window.__xibMsg) window.__xibMsg('De vuelta donde te quedaste.'); return true;
+  }
+  function mpLastSave(force) {
+    if (!MPL.done || !mpLastOK()) return; var now = Date.now(), o = { x: +bot.x.toFixed(1), z: +bot.z.toFixed(1), t: now };
+    try { localStorage.setItem(MPL.k, JSON.stringify(o)); } catch (e) { }
+    if ((force || now - MPL.fT > 15000) && window.__mp && window.__mp.user && window.__mp.saveLast) { MPL.fT = now; window.__mp.saveLast(o); }
+  }
+  function mpLastStep(t, U) {
+    var p;
+    if (MPL.t0 === null) { MPL.t0 = t; var sv = function () { mpLastSave(true); }; window.addEventListener('pagehide', sv); document.addEventListener('visibilitychange', function () { if (document.hidden) sv(); }); }
+    if (!MPL.done) {
+      if (t < MPL.t0 + 1 || bot.mode !== 'walk' || bot.tpj) return;
+      MPL.done = true;
+      try { p = JSON.parse(localStorage.getItem(MPL.k) || 'null'); } catch (e) { p = null; }
+      if (p && isFinite(p.x) && isFinite(p.z)) { MPL.lt = p.t || 0; mpLastGo(p); }
+      return;
+    }
+    if (bot.gtype === 'man') MPL.moved = true; /* el jugador ya se movió: lo de la cuenta ya no lo jala */
+    if (U && !MPL.remote && window.__mp.loadLast) { MPL.remote = true; window.__mp.loadLast().then(function (r) { if (r && isFinite(r.x) && isFinite(r.z) && (r.t || 0) > MPL.lt + 1000 && !MPL.moved && mpLastOK()) mpLastGo(r); }); }
+    if (Date.now() - MPL.sT > 3000) { MPL.sT = Date.now(); mpLastSave(false); }
+  }
   function mpStep(t, dt) {
     if (!GM.xib || !window.__mp || !bot) return;
     if (!MPG.btn) mpUI();
+    mpLastStep(t, window.__mp.user);
     var U = window.__mp.user, now = Date.now(), k, d, R, seen = {}, n = 0, a;
     if (MPG.btn && t > MPG.bt) {
       MPG.bt = t + 0.5;
@@ -16136,7 +16167,10 @@ window.__mp = {
   user: null,
   connect: async () => (await signInWithPopup(mpAuth, new GoogleAuthProvider())).user,
   pub: (o) => { if (mpRef) set(mpRef, o).catch((e) => console.warn('MP pub', e.code || e.message)); },
-  sub: (cb) => onValue(ref(mpDb, 'mp/online'), (s) => cb(s.val() || {}), (e) => { console.warn('MP sub', e.code || e.message); cb({}); })
+  sub: (cb) => onValue(ref(mpDb, 'mp/online'), (s) => cb(s.val() || {}), (e) => { console.warn('MP sub', e.code || e.message); cb({}); }),
+  /* última ubicación por cuenta (sirve entre dispositivos); solo el dueño la lee y escribe */
+  saveLast: (o) => { const u = mpAuth.currentUser; if (u) set(ref(mpDb, 'mp/last/' + u.uid), o).catch((e) => console.warn('MP last', e.code || e.message)); },
+  loadLast: async () => { const u = mpAuth.currentUser; if (!u) return null; try { return (await get(ref(mpDb, 'mp/last/' + u.uid))).val(); } catch (e) { console.warn('MP last', e.code || e.message); return null; } }
 };
 onAuthStateChanged(mpAuth, (u) => {
   window.__mp.user = u || null;
