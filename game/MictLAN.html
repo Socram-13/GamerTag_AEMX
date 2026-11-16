@@ -15182,7 +15182,7 @@ function buildBaseAEMX(){
       try { disStep(dt, t); } catch (e) { disStep = function () {}; console.warn('Alien disfrazado desactivado:', e); }
       try { vilStep(dt, t); } catch (e) { vilStep = function () {}; console.warn('Aldea alien desactivada:', e); }
       if (!inv) {
-        if (t >= nextAt && bot && landAt) {
+        if (!GM.xib && t >= nextAt && bot && landAt) { /* en Xibalba manda el calendario por hora (xsStep) */
           names = Object.keys(statePolys).filter(function (n) { return statePolys[n] && statePolys[n].length && n !== lastName; });
           if (names.length) { nm = names[(Math.random() * names.length) | 0]; if (!start(nm, nextKind)) nextAt = t + 10; }
         }
@@ -15289,7 +15289,7 @@ function buildBaseAEMX(){
       }
       return false;
     }
-    return { isInf: function () { return !!(inv && inv.inf && !inv.end); }, entered: function () { return inv && inv.entered && !inv.end ? inv : null; }, cowAt: function (x, z) { var i, c, d, bd = 1e9, r = null; if (!inv || !inv.cows) return null; for (i = 0; i < inv.cows.length; i++) { c = inv.cows[i].g.position; d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; r = { x: c.x, z: c.z }; } } return r; }, peace: function () { return (peaceOn && !inv) ? Math.max(0, ufoHold - clock.elapsedTime) : 0; }, startHere: function (kd) { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm, kd) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6), zc = inv.inf && !m && !inv.end; if (inv.end && !mOn) return null; return { name: inv.name, inf: !!inv.inf, cp: !!(inv.inf && m), mx: mOn ? m.x : (zc ? inv.cx : null), mz: m ? m.z : (zc ? inv.cz : null), left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, hold: function () { nextAt = 1e12; }, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, orb: function (bx, bz) { var i, a, d, bd = 1e9, r = null; if (!inv || !inv.inf || inv.end) return null; for (i = 0; i < inv.al.length; i++) { a = inv.al[i]; if (!a.zb || a.s !== 'live') continue; d = Math.hypot(a.x - bx, a.z - bz); if (d < bd) { bd = d; r = a; } } if (!r) return null; if (bd >= 9 && cur && cur.zb && cur.s === 'live') r = cur; return { x: r.x, z: r.z }; }, watching: function () { return !!(inv && inv.inf && inv.met && inv.met.state === 'rest'); }, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, inf: !!inv.inf, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480 } : null; }, list: function () { return inv ? inv.al : []; } };
+    return { isInf: function () { return !!(inv && inv.inf && !inv.end); }, entered: function () { return inv && inv.entered && !inv.end ? inv : null; }, cowAt: function (x, z) { var i, c, d, bd = 1e9, r = null; if (!inv || !inv.cows) return null; for (i = 0; i < inv.cows.length; i++) { c = inv.cows[i].g.position; d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; r = { x: c.x, z: c.z }; } } return r; }, peace: function () { if (GM.xib) return (!inv && window.__xsLeft) ? window.__xsLeft() : 0; return (peaceOn && !inv) ? Math.max(0, ufoHold - clock.elapsedTime) : 0; }, startHere: function (kd) { var ks = Object.keys(statePolys), i, nm = null, best = 1e18, d, cx, cz; if (inv || !bot) return false; for (i = 0; i < ks.length; i++) if (inPoly(statePolys[ks[i]], bot.x, bot.z)) { nm = ks[i]; break; } if (!nm) { for (i = 0; i < ks.length; i++) { cx = 0; cz = 0; d = 0; statePolys[ks[i]].forEach(function (r) { r.forEach(function (q) { cx += q[0]; cz += q[1]; d++; }); }); if (d) { d = Math.hypot(cx / d - bot.x, cz / d - bot.z); if (d < best) { best = d; nm = ks[i]; } } } } return nm ? start(nm, kd) : false; }, info: function () { if (!inv) return null; var m = inv.met, mOn = !!m && (m.state !== 'dead' || m.deadT < 6), zc = inv.inf && !m && !inv.end; if (inv.end && !mOn) return null; return { name: inv.name, inf: !!inv.inf, cp: !!(inv.inf && m), mx: mOn ? m.x : (zc ? inv.cx : null), mz: m ? m.z : (zc ? inv.cz : null), left: 999, al: inv.al.filter(function (a) { return a.s === 'live'; }).map(function (a) { return [a.x, a.z]; }) }; }, ufoAppeared: ufoAppeared, hold: function () { nextAt = 1e12; }, disTalk: disTalk, disNear: disNear, dis: function () { return DIS; }, update: update, pick: pick, bolt: bolt, start: start, stop: stopNow, orb: function (bx, bz) { var i, a, d, bd = 1e9, r = null; if (!inv || !inv.inf || inv.end) return null; for (i = 0; i < inv.al.length; i++) { a = inv.al[i]; if (!a.zb || a.s !== 'live') continue; d = Math.hypot(a.x - bx, a.z - bz); if (d < bd) { bd = d; r = a; } } if (!r) return null; if (bd >= 9 && cur && cur.zb && cur.s === 'live') r = cur; return { x: r.x, z: r.z }; }, watching: function () { return !!(inv && inv.inf && inv.met && inv.met.state === 'rest'); }, rock: function () { return inv && !inv.end && inv.ph === 'rock' && inv.met && inv.met.state === 'rest' ? { x: inv.met.x, z: inv.met.z } : null; }, state: function () { return inv ? { name: inv.name, n: inv.al.length, live: inv.al.filter(function (a) { return a.s !== 'dying'; }).length, end: inv.end, inf: !!inv.inf, wk: inv.wk, entered: !!inv.entered, left: inv.entered ? Math.max(0, 480 - inv.tIn) : 480, to: !!inv.to, md: !!(inv.met && inv.met.state === 'dead') } : null; }, list: function () { return inv ? inv.al : []; } };
   })();
   window.__aemxAlien = ALN;
 
@@ -15733,6 +15733,48 @@ function buildBaseAEMX(){
     }
   }
 
+
+  /* ===== calendario de eventos de Xibalba: a cada hora en punto (hora del servidor de Firebase) empieza un evento de hasta 10 min.
+     Horas pares: invasión; impares: infección. El estado y la colocación (meteoro, aliens, focos) salen de un azar fijo por hora,
+     así todos los jugadores tienen el mismo evento en el mismo lugar; quien entra durante esos 10 min se une. ===== */
+  var XS2 = { doneH: -1, tryT: 0, curH: -1, kind: '', wH: -1, unW: null, ev: null, sent: false, endT: 0 }, XS_DUR = 10 * 60000;
+  function xsNow() { return Date.now() + (window.__mpOff || 0); }
+  function xsRng(seed) { var a = seed >>> 0; return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var q = Math.imul(a ^ a >>> 15, 1 | a); q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0) / 4294967296; }; }
+  function xsPlan(H) {
+    var r = xsRng((H * 2654435761) >>> 0), names = Object.keys(statePolys).filter(function (n) { return statePolys[n] && statePolys[n].length; }).sort();
+    r(); return { H: H, kind: H % 2 ? 'inf' : 'inv', name: names[(r() * names.length) | 0], seed: (r() * 4294967296) >>> 0 };
+  }
+  window.__xsLeft = function () { var n = xsNow(); return (3600000 - n % 3600000) / 1000; };
+  window.__xsPlan = function (H) { return xsPlan(H === undefined ? Math.floor(xsNow() / 3600000) : H); };
+  function xsWatch(H) { /* escucha si alguien ya terminó el evento de esa hora */
+    if (XS2.wH === H) return; if (XS2.unW) { try { XS2.unW(); } catch (e) { } XS2.unW = null; }
+    XS2.wH = H; XS2.ev = null;
+    if (window.__mp && window.__mp.user && window.__mp.evWatch) { XS2.unW = window.__mp.evWatch(H, function (v) { if (XS2.wH === H) XS2.ev = v || null; }); } else XS2.wH = -1;
+  }
+  function xsStep(t) {
+    if (!GM.xib || !GM.rel || !bot || typeof ALN === 'undefined' || !ALN.start) return;
+    var n = xsNow(), H = Math.floor(n / 3600000), P, ok = false, R0, S = ALN.state ? ALN.state() : null, wh;
+    if (XS2.curH >= 0 && !S) { XS2.curH = -1; XS2.endT = 0; } /* el evento de la hora ya se cerró en esta pantalla */
+    wh = XS2.curH >= 0 ? XS2.curH : H; xsWatch(wh);
+    /* fin compartido: otro jugador lo terminó -> los enemigos caen y se cierra aquí también */
+    if (XS2.ev && XS2.curH === wh && S && !S.end && !XS2.endT && !XS2.sent) {
+      var who = String(XS2.ev.n || 'Otro jugador'); if (window.__xibMsg) window.__xibMsg('¡' + who + ' terminó la ' + (XS2.kind === 'inf' ? 'infección' : 'invasión') + '!');
+      ALN.list().forEach(function (a) { if (a.s !== 'dying') { a.s = 'dying'; a.dy = 0; } }); XS2.endT = t + 2.5;
+    }
+    if (XS2.endT && t >= XS2.endT) { XS2.endT = 0; XS2.curH = -1; if (ALN.stop) ALN.stop(); return; }
+    /* lo terminé yo (no por tiempo): se registra para todos */
+    if (XS2.curH === wh && S && (S.end || S.md) && !S.to && !XS2.sent && !XS2.ev && window.__mp && window.__mp.user && window.__mp.evDone) {
+      XS2.sent = true; window.__mp.evDone(wh, { n: mpName(), t: n, k: XS2.kind });
+    }
+    if (n - H * 3600000 > XS_DUR || XS2.doneH === H || t < XS2.tryT) return;
+    if (XS2.ev && XS2.wH === H) { XS2.doneH = H; return; } /* ya lo terminó alguien antes de que yo entrara */
+    if (S) return; /* hay otro evento en curso (por ejemplo uno pedido con un comando): espera */
+    P = xsPlan(H); XS2.tryT = t + 10;
+    R0 = Math.random; Math.random = xsRng(P.seed);
+    try { ok = ALN.start(P.name, P.kind); } finally { Math.random = R0; }
+    if (ok) { XS2.doneH = H; XS2.curH = H; XS2.kind = P.kind; XS2.sent = false; xsWatch(H); if (window.__xibMsg) window.__xibMsg((P.kind === 'inf' ? '¡Infección' : '¡Invasión') + ' en ' + P.name + '!'); }
+  }
+
   function frame() {
     requestAnimationFrame(frame);
     if (document.hidden) return;
@@ -15901,6 +15943,7 @@ function buildBaseAEMX(){
     ufoSpotStep(t, dt);
     updateCar(t, dt);
     try { mpStep(t, dt); } catch (eMp) { mpStep = function () {}; console.warn('Multijugador desactivado:', eMp); }
+    try { xsStep(t); } catch (eXs) { xsStep = function () {}; console.warn('Calendario de eventos desactivado:', eXs); }
     try { pcfStep(t, dt); } catch (ePc) { pcfStep = function () {}; console.warn('Pollos desactivados:', ePc); }
     updateBot(t, dt); updateAstJoints(); if (DEB.length) duelDebrisTick(dt); clanWallsTick(dt);
     updateWanderer(t, dt);
@@ -16041,7 +16084,7 @@ function buildBaseAEMX(){
         (function () {
           var pc = document.getElementById('peaceCd'), ps = (typeof ALN !== 'undefined' && ALN.peace) ? ALN.peace() : 0, on = ps > 0.5 && !(S && !S.end), sc = on ? Math.ceil(ps) : 0, tp = on ? ('0' + ((sc / 60) | 0)).slice(-2) + ':' + ('0' + (sc % 60)).slice(-2) : '';
           if (on !== hud._pcOn) { hud._pcOn = on; pc.classList.toggle('on', on); }
-          if (tp !== hud._pcTx) { hud._pcTx = tp; pc.textContent = tp ? '☮ ' + tp : ''; }
+          if (tp !== hud._pcTx) { hud._pcTx = tp; pc.textContent = tp ? (GM.xib ? '⚠ ' : '☮ ') + tp : ''; }
           var soon = on && sc <= 60; if (soon !== hud._pcSoon) { hud._pcSoon = soon; pc.classList.toggle('soon', soon); }
         })();
         (function () {
@@ -16179,8 +16222,14 @@ window.__mp = {
   sub: (cb) => onValue(ref(mpDb, 'mp/online'), (s) => cb(s.val() || {}), (e) => { console.warn('MP sub', e.code || e.message); cb({}); }),
   /* última ubicación por cuenta (sirve entre dispositivos); solo el dueño la lee y escribe */
   saveLast: (o) => { const u = mpAuth.currentUser; if (u) set(ref(mpDb, 'mp/last/' + u.uid), o).catch((e) => console.warn('MP last', e.code || e.message)); },
+  /* fin compartido del evento de cada hora: el primero que lo termina queda registrado (las reglas solo aceptan la primera escritura) */
+  evWatch: (h, cb) => onValue(ref(mpDb, 'mp/ev/' + h), (s) => cb(s.val()), () => {}),
+  evDone: (h, o) => set(ref(mpDb, 'mp/ev/' + h), o).catch(() => {}),
   loadLast: async () => { const u = mpAuth.currentUser; if (!u) return null; try { return (await get(ref(mpDb, 'mp/last/' + u.uid))).val(); } catch (e) { console.warn('MP last', e.code || e.message); return null; } }
 };
+/* hora del servidor: diferencia entre el reloj de este dispositivo y el de Firebase (no requiere sesión) */
+window.__mpOff = 0;
+onValue(ref(mpDb, '.info/serverTimeOffset'), (s) => { window.__mpOff = s.val() || 0; }, () => {});
 onAuthStateChanged(mpAuth, (u) => {
   window.__mp.user = u || null;
   if (u) { mpRef = ref(mpDb, 'mp/online/' + u.uid); onDisconnect(mpRef).remove().catch(() => {}); } else mpRef = null;
