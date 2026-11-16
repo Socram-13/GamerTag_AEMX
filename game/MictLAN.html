@@ -9236,10 +9236,12 @@ function buildBaseAEMX(){
     if (v === undefined) { v = botFreeS(x, z); if (bfC.size > 150000) bfC.clear(); bfC.set(k, v); }
     return v;
   }
+  function junkLand(x, z) { return !!(JUNKC && polyLandAt && Math.abs(x - JUNKC.x) < 45 && Math.abs(z - JUNKC.z) < 45 && polyLandAt(x, z) && window.__junkIn && window.__junkIn(x, z)); }
+  function botLandOK(x, z) { return landAt(x, z) || junkLand(x, z); }
   function botFreeS(x, z) {
     if (COZ_BP && COZ_BP.on(x, z)) return true;
     for (var mbi = 0; mbi < monBlk.length; mbi++) if (Math.hypot(x - monBlk[mbi].x, z - monBlk[mbi].z) < monBlk[mbi].r) return false;
-    if (landAt && !(landAt(x, z) && landAt(x + 0.5, z) && landAt(x - 0.5, z) && landAt(x, z + 0.5) && landAt(x, z - 0.5))) return false;
+    if (landAt && !(botLandOK(x, z) && botLandOK(x + 0.5, z) && botLandOK(x - 0.5, z) && botLandOK(x, z + 0.5) && botLandOK(x, z - 0.5))) return false;
     if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false;
     return !botBld(x, z, 0) && !botVeg(x, z);
   }
@@ -11663,7 +11665,7 @@ function buildBaseAEMX(){
     if (botCrater(x, z)) return false;
     if (COZ_BP && COZ_BP.on(x, z)) return true;
     for (var i = 0; i < monBlk.length; i++) if (Math.hypot(x - monBlk[i].x, z - monBlk[i].z) < monBlk[i].r) return false;
-    if (landAt && !landAt(x, z) && !cozInIsl(x, z)) return false; /* la isla de la mansión tiene su propio suelo: se puede recorrer */
+    if (landAt && !landAt(x, z) && !cozInIsl(x, z) && !junkLand(x, z)) return false; /* la isla de la mansión tiene su propio suelo: se puede recorrer */
     if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false;
     return !xibBld(x, z) && !xibVeg(x, z);
   }
