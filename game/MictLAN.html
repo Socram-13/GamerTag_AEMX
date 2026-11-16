@@ -15598,6 +15598,94 @@ function buildBaseAEMX(){
     }
   }
 
+
+  /* ===== multijugador (fase 1): presencia de robots en Xibalba ===== */
+  var MPG = { map: {}, data: {}, sub: false, last: 0, lx: 1e9, lz: 1e9, ly: 1e9, btn: null, bt: 0, busy: false };
+  function mpWrap(a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; }
+  function mpLabel(txt) {
+    var c = document.createElement('canvas'), x, tx, sp; c.width = 256; c.height = 64; x = c.getContext('2d');
+    x.font = '700 30px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    var w = Math.min(250, x.measureText(txt).width + 28);
+    x.fillStyle = 'rgba(10,16,28,0.72)'; x.beginPath(); if (x.roundRect) x.roundRect(128 - w / 2, 10, w, 44, 22); else x.rect(128 - w / 2, 10, w, 44); x.fill();
+    x.fillStyle = '#7fe8ff'; x.fillText(txt, 128, 33);
+    tx = new THREE.CanvasTexture(c); sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false }));
+    sp.scale.set(2.4, 0.6, 1); sp.position.y = 2.05; sp.renderOrder = 5; return sp;
+  }
+  /* colores del jugador: "c" = "base,secundario,ojos" en hex (los del selector de la pantalla de carga); se arma la paleta igual que botPalApply */
+  function mpCol(s) { var m = /^([0-9a-f]{6}),([0-9a-f]{6}),([0-9a-f]{6})$/i.exec(s || ''); return m ? { base: '#' + m[1].toLowerCase(), sec: '#' + m[2].toLowerCase(), eye: '#' + m[3].toLowerCase() } : { base: BOT_PAL_DEF.base, sec: BOT_PAL_DEF.sec, eye: BOT_PAL_DEF.eye }; }
+  function mpPal(P) {
+    var std = P.base === BOT_PAL_DEF.base && P.sec === BOT_PAL_DEF.sec, stdE = P.eye === BOT_PAL_DEF.eye, ce = new THREE.Color(P.eye), wh = new THREE.Color(0xffffff);
+    var pal = { black: BKS.black.clone(), gray: BKS.gray.clone(), dark: BKS.dark.clone(), joint: BKS.joint.clone(), eyeMats: [], beams: [] };
+    pal.black.color.set(P.base); pal.gray.color.set(P.sec);
+    if (std) { pal.dark.color.setHex(0x0a0c0f); pal.joint.color.setHex(0x3a414b); } else { pal.dark.color.set(P.base).multiplyScalar(0.5); pal.joint.color.set(P.base).lerp(new THREE.Color(P.sec), 0.35); }
+    pal.eye = ce.getHex(); pal.eyeHi = stdE ? 0xc8ffe0 : ce.clone().lerp(wh, 0.7).getHex(); pal.flame = stdE ? 0x6dffc2 : ce.clone().lerp(wh, 0.35).getHex(); pal.flameHi = stdE ? 0x5ad8ff : ce.clone().lerp(wh, 0.6).getHex();
+    return pal;
+  }
+  function mpMyCol() { var P = window.__botColors ? window.__botColors.get() : BOT_PAL_DEF; return [P.base, P.sec, P.eye].map(function (h) { return String(h).replace('#', '').toLowerCase(); }).join(','); }
+  function mpMake(d) {
+    var F = makeBot(mpPal(mpCol(d.c))), i;
+    F.flames.forEach(function (fl) { fl.visible = false; }); if (F.beam) F.beam.visible = false;
+    for (i = 0; i < 2; i++) { F.arms[i].sh.quaternion.copy(F.arms[i].hs); F.arms[i].el.quaternion.copy(F.arms[i].he); } /* brazos en reposo, como el rival del duelo */
+    F.g.traverse(function (o) { o.raycast = function () {}; });
+    var R = { F: F, x: d.x, z: d.z, y: isFinite(d.y) ? d.y : botGround(d.x, d.z), yaw: d.yaw || 0, tx: d.x, tz: d.z, ty: d.y, tyaw: d.yaw || 0, v: 0, ph: 0, n: d.n || 'Jugador', c: d.c || '' };
+    R.lab = mpLabel(R.n); F.g.add(R.lab);
+    F.g.position.set(R.x, R.y, R.z); scene.add(F.g); return R;
+  }
+  function mpDrop(R) { scene.remove(R.F.g); if (R.lab) { R.lab.material.map.dispose(); R.lab.material.dispose(); } } /* las geometrías del robot son compartidas: no se liberan */
+  function mpName() { /* gamertag (como en la tarjeta del usuario); nunca el nombre real de Google */
+    if (MPG.nm) return MPG.nm; var u = (typeof RAW !== 'undefined' && RAW && AUTH && AUTH.uid) ? RAW[AUTH.uid] : null;
+    return (MPG.nm = String((MYP && MYP.name) || (u && u.username) || 'Jugador').trim().slice(0, 40) || 'Jugador');
+  }
+  function mpUI() {
+    var w = document.getElementById('xib'), b; if (!w) return;
+    b = document.createElement('button'); b.type = 'button'; b.className = 'xmp';
+    b.style.cssText = 'position:absolute;left:max(16px, env(safe-area-inset-left));top:calc(max(10px, env(safe-area-inset-top, 0px)) + ' + (innerWidth <= 700 ? 152 : 98) + 'px);pointer-events:auto;padding:7px 12px;border-radius:18px;border:1px solid rgba(63,216,255,0.7);background:rgba(10,16,28,0.78);color:#dff8ff;font:700 12px var(--f-body),sans-serif;cursor:pointer;z-index:5';
+    b.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    b.addEventListener('click', function (e) {
+      e.stopPropagation(); if (!window.__mp || window.__mp.user || MPG.busy) return;
+      MPG.busy = true; b.textContent = '🌐 Conectando…';
+      window.__mp.connect().then(function () { MPG.busy = false; }, function (er) { MPG.busy = false; if (window.__xibMsg) window.__xibMsg('No se pudo conectar: ' + (er && (er.code || er.message))); });
+    });
+    w.appendChild(b); MPG.btn = b;
+  }
+  function mpStep(t, dt) {
+    if (!GM.xib || !window.__mp || !bot) return;
+    if (!MPG.btn) mpUI();
+    var U = window.__mp.user, now = Date.now(), k, d, R, seen = {}, n = 0, a;
+    if (MPG.btn && t > MPG.bt) {
+      MPG.bt = t + 0.5;
+      for (k in MPG.map) n++;
+      MPG.btn.textContent = MPG.busy ? '🌐 Conectando…' : U ? '🌐 En línea' + (n ? ': ' + (n + 1) + ' robots' : '') : '🌐 Conectar multijugador';
+      MPG.btn.style.cursor = U ? 'default' : 'pointer';
+    }
+    if (!U) return;
+    if (!MPG.sub) { MPG.sub = true; window.__mp.sub(function (v) { MPG.data = v || {}; }); }
+    /* publicar mi robot: ~4 por segundo si se mueve; si está quieto, cada 5 s (para seguir "en línea") */
+    if ((now - MPG.last > 250 && (Math.abs(bot.x - MPG.lx) > 0.05 || Math.abs(bot.z - MPG.lz) > 0.05 || Math.abs(bot.y - MPG.ly) > 0.05)) || now - MPG.last > 5000) {
+      MPG.last = now; MPG.lx = bot.x; MPG.lz = bot.z; MPG.ly = bot.y;
+      window.__mp.pub({ x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), t: now, n: mpName(), c: mpMyCol() });
+    }
+    /* robots de los demás: aparecen, se mueven suave hacia su última posición y se van si se desconectan */
+    for (k in MPG.data) {
+      if (k === U.uid) continue; d = MPG.data[k];
+      if (!d || !isFinite(d.x) || !isFinite(d.z) || Math.abs(now - (d.t || 0)) > 60000) continue;
+      seen[k] = 1; R = MPG.map[k];
+      if (R && (d.c || '') !== R.c) { mpDrop(R); R = null; } /* cambió de colores: se vuelve a armar */
+      if (!R) R = MPG.map[k] = mpMake(d);
+      R.tx = d.x; R.tz = d.z; R.ty = isFinite(d.y) ? d.y : botGround(d.x, d.z); R.tyaw = d.yaw || 0; R.v = d.v || 0;
+    }
+    for (k in MPG.map) if (!seen[k]) { mpDrop(MPG.map[k]); delete MPG.map[k]; }
+    for (k in MPG.map) {
+      R = MPG.map[k]; a = Math.min(1, dt * 6);
+      if (Math.hypot(R.tx - R.x, R.tz - R.z) > 40) { R.x = R.tx; R.z = R.tz; R.y = R.ty; } /* teletransporte: sin cruzar el mapa */
+      R.x += (R.tx - R.x) * a; R.z += (R.tz - R.z) * a; R.y += (R.ty - R.y) * a; R.yaw += mpWrap(R.tyaw - R.yaw) * a;
+      R.ph += dt * (2 + R.v * 2.2);
+      var sw = Math.min(0.6, R.v * 0.12), L = R.F.legs;
+      if (L && L.length === 2) for (var i = 0; i < 2; i++) { var s = Math.sin(R.ph + i * Math.PI) * sw; L[i].th.rotation.x = s; L[i].kn.rotation.x = Math.max(0, -s) * 1.1 + 0.1; L[i].ft.rotation.x = -(L[i].th.rotation.x + L[i].kn.rotation.x); }
+      R.F.g.position.set(R.x, R.y + Math.abs(Math.sin(R.ph)) * Math.min(0.05, R.v * 0.01), R.z); R.F.g.rotation.y = R.yaw;
+    }
+  }
+
   function frame() {
     requestAnimationFrame(frame);
     if (document.hidden) return;
@@ -15765,6 +15853,7 @@ function buildBaseAEMX(){
     updateUfo(t, dt);
     ufoSpotStep(t, dt);
     updateCar(t, dt);
+    try { mpStep(t, dt); } catch (eMp) { mpStep = function () {}; console.warn('Multijugador desactivado:', eMp); }
     try { pcfStep(t, dt); } catch (ePc) { pcfStep = function () {}; console.warn('Pollos desactivados:', ePc); }
     updateBot(t, dt); updateAstJoints(); if (DEB.length) duelDebrisTick(dt); clanWallsTick(dt);
     updateWanderer(t, dt);
@@ -16011,8 +16100,8 @@ function buildBaseAEMX(){
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+import { getAuth, signInWithPopup, signInWithCredential, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getDatabase, ref, get, set, onValue, onDisconnect } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
 
 const app = initializeApp({
   apiKey: 'AIzaSyB-xx2PlBjvnHe0K7Bf1MspVqUlfjky0mk',
@@ -16024,6 +16113,28 @@ const app = initializeApp({
 const auth = getAuth(app);
 const db = getDatabase(app);
 window.__aemxAuth = auth;
+/* multijugador: proyecto propio mictland-md (los datos de GamerTag no se tocan) */
+const mpApp = initializeApp({
+  apiKey: 'AIzaSyCfQJ-DXUxpfqnt450qv9xRBVUH2DarjSo',
+  authDomain: 'mictland-md.firebaseapp.com',
+  databaseURL: 'https://mictland-md-default-rtdb.firebaseio.com',
+  projectId: 'mictland-md',
+  storageBucket: 'mictland-md.firebasestorage.app',
+  messagingSenderId: '704926124802',
+  appId: '1:704926124802:web:6045f0530ec0425c8fd01b'
+}, 'mp');
+const mpAuth = getAuth(mpApp), mpDb = getDatabase(mpApp);
+let mpRef = null;
+window.__mp = {
+  user: null,
+  connect: async () => (await signInWithPopup(mpAuth, new GoogleAuthProvider())).user,
+  pub: (o) => { if (mpRef) set(mpRef, o).catch((e) => console.warn('MP pub', e.code || e.message)); },
+  sub: (cb) => onValue(ref(mpDb, 'mp/online'), (s) => cb(s.val() || {}), (e) => { console.warn('MP sub', e.code || e.message); cb({}); })
+};
+onAuthStateChanged(mpAuth, (u) => {
+  window.__mp.user = u || null;
+  if (u) { mpRef = ref(mpDb, 'mp/online/' + u.uid); onDisconnect(mpRef).remove().catch(() => {}); } else mpRef = null;
+});
 const gate = document.getElementById('gate');
 const btn = document.getElementById('gate-btn');
 const msg = document.getElementById('gate-msg');
@@ -16137,7 +16248,10 @@ function showErr(t) { err.textContent = t; err.hidden = false; }
 
 btn.addEventListener('click', async () => {
   err.hidden = true;
-  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  try {
+    const r = await signInWithPopup(auth, new GoogleAuthProvider());
+    try { const c = GoogleAuthProvider.credentialFromResult(r); if (c) signInWithCredential(mpAuth, c).catch((e) => console.warn('MP login', e.code || e.message)); } catch (eC) { }
+  }
   catch (e) { showErr('No se pudo iniciar sesión: ' + (e.code || e.message)); }
 });
 
