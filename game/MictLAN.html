@@ -15602,6 +15602,7 @@ function buildBaseAEMX(){
 
   /* ===== multijugador (fase 1): presencia de robots en Xibalba ===== */
   var MPG = { map: {}, data: {}, sub: false, last: 0, lx: 1e9, lz: 1e9, ly: 1e9, btn: null, bt: 0, busy: false };
+  var mpE = new THREE.Euler();
   function mpWrap(a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; }
   function mpLabel(txt) {
     var c = document.createElement('canvas'), x, tx, sp; c.width = 256; c.height = 64; x = c.getContext('2d');
@@ -15626,7 +15627,7 @@ function buildBaseAEMX(){
   function mpMake(d) {
     var F = makeBot(mpPal(mpCol(d.c))), i;
     F.flames.forEach(function (fl) { fl.visible = false; }); if (F.beam) F.beam.visible = false;
-    for (i = 0; i < 2; i++) { F.arms[i].sh.quaternion.copy(F.arms[i].hs); F.arms[i].el.quaternion.copy(F.arms[i].he); } /* brazos en reposo, como el rival del duelo */
+    if (F.rifle) { F.rifle.rotation.order = 'YXZ'; F.rifle.position.set(0.14, 0.12, -0.4); F.rifle.rotation.set(-1.2, 0, 0); } /* rifle a la espalda, como el robot cuando no apunta */
     F.g.traverse(function (o) { o.raycast = function () {}; });
     var R = { F: F, x: d.x, z: d.z, y: isFinite(d.y) ? d.y : botGround(d.x, d.z), yaw: d.yaw || 0, tx: d.x, tz: d.z, ty: d.y, tyaw: d.yaw || 0, v: 0, ph: 0, n: d.n || 'Jugador', c: d.c || '' };
     R.lab = mpLabel(R.n); F.g.add(R.lab);
@@ -15636,6 +15637,13 @@ function buildBaseAEMX(){
   function mpName() { /* gamertag (como en la tarjeta del usuario); nunca el nombre real de Google */
     if (MPG.nm) return MPG.nm; var u = (typeof RAW !== 'undefined' && RAW && AUTH && AUTH.uid) ? RAW[AUTH.uid] : null;
     return (MPG.nm = String((MYP && MYP.name) || (u && u.username) || 'Jugador').trim().slice(0, 40) || 'Jugador');
+  }
+  /* el botón va justo bajo la tarjeta del usuario (se mide en pantalla: sirve en PC, celular vertical y horizontal); la barra de energía, debajo del botón */
+  function mpPlace() {
+    var me = document.getElementById('me'), b = MPG.btn, hp = document.querySelector('#xib .hpb'), r, y, rb;
+    if (!b || !me) return; r = me.getBoundingClientRect(); if (!r.height) return;
+    y = Math.round(r.bottom + 6); if (y !== MPG.py) { MPG.py = y; b.style.top = y + 'px'; b.style.left = Math.round(r.left) + 'px'; }
+    if (hp) { rb = b.getBoundingClientRect(); hp.style.setProperty('top', Math.round(rb.bottom + 6) + 'px', 'important'); hp.style.setProperty('left', Math.round(r.left) + 'px', 'important'); }
   }
   function mpUI() {
     var w = document.getElementById('xib'), b; if (!w) return;
@@ -15648,8 +15656,7 @@ function buildBaseAEMX(){
       window.__mp.connect().then(function () { MPG.busy = false; }, function (er) { MPG.busy = false; if (window.__xibMsg) window.__xibMsg('No se pudo conectar: ' + (er && (er.code || er.message))); });
     });
     w.appendChild(b); MPG.btn = b;
-    /* el botón va justo bajo la tarjeta del usuario; la barra de energía baja un renglón */
-    var st = document.createElement('style'); st.textContent = '#xib .hpb { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 106px) !important; } @media (max-width: 700px) { #xib .hpb { top: calc(max(10px, env(safe-area-inset-top, 0px)) + 162px) !important; } }'; document.head.appendChild(st);
+    mpPlace();
   }
   /* ===== última ubicación: al volver a entrar a Xibalba el robot aparece donde se quedó =====
      se guarda en el navegador (cada 3 s) y en la cuenta de mictland-md (cada 15 s y al salir), solo en tierra firme del continente
@@ -15687,7 +15694,7 @@ function buildBaseAEMX(){
     mpLastStep(t, window.__mp.user);
     var U = window.__mp.user, now = Date.now(), k, d, R, seen = {}, n = 0, a;
     if (MPG.btn && t > MPG.bt) {
-      MPG.bt = t + 0.5;
+      MPG.bt = t + 0.5; mpPlace();
       for (k in MPG.map) n++;
       MPG.btn.textContent = MPG.busy ? '🌐 Conectando…' : U ? '🌐 En línea' + (n ? ': ' + (n + 1) + ' robots' : '') : '🌐 Conectar multijugador';
       MPG.btn.style.cursor = U ? 'default' : 'pointer';
@@ -15720,6 +15727,8 @@ function buildBaseAEMX(){
       R.ph += dt * (2 + R.sp * 2.2);
       var sw = R.sp < 0.15 ? 0 : Math.min(0.6, R.sp * 0.12), L = R.F.legs;
       if (L && L.length === 2) for (var i = 0; i < 2; i++) { var s = Math.sin(R.ph + i * Math.PI) * sw; L[i].th.rotation.x = s; L[i].kn.rotation.x = Math.max(0, -s) * 1.1 + 0.1; L[i].ft.rotation.x = -(L[i].th.rotation.x + L[i].kn.rotation.x); }
+      /* brazos en reposo que se balancean al caminar (misma postura que el robot propio sin apuntar) */
+      for (var j = 0; j < 2 && R.F.arms; j++) { var fa = (j === 0 ? -1 : 1) * Math.sin(R.ph) * Math.min(0.85, 0.1 + R.sp * 0.1) * (R.sp > 0.15 ? 1 : 0); mpE.set(-fa, 0, (j === 0 ? -1 : 1) * 0.14); R.F.arms[j].sh.quaternion.setFromEuler(mpE); mpE.set(-(0.3 + Math.min(1.1, R.sp * 0.11) + 0.5 * Math.max(0, fa)), 0, 0); R.F.arms[j].el.quaternion.setFromEuler(mpE); }
       R.F.g.position.set(R.x, R.y + Math.abs(Math.sin(R.ph)) * Math.min(0.05, R.sp * 0.01), R.z); R.F.g.rotation.y = R.yaw;
     }
   }
