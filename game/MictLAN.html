@@ -10413,7 +10413,7 @@ function buildBaseAEMX(){
     var b = bot, L = [], d, o, nx, nz, nl, sp, sp2, an, i;
     for (i = 0; i < districts.length; i++) { d = districts[i]; o = corp ? d.corp : d.branch; if (o && o._bp) L.push([d, o]); }
     if (!b || !L.length) { window.__botSayQ = corp ? 'No hay corporativo en el mapa.' : 'No hay sucursales en el mapa.'; return false; }
-    if (DUEL || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI, una invasión o un duelo.'; return false; }
+    if (GM.xib ? (DUEL || invLock || b.mode === 'lift') : (DUEL || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift')) { window.__botSayQ = GM.xib ? (DUEL ? 'Ahora no puedo: estás en un duelo.' : 'Ahora no puedo: sal primero de la zona de invasión.') : 'Ahora no puedo: hay un OVNI, una invasión o un duelo.'; return false; }
     var it = L[botBldI++ % L.length]; d = it[0]; o = it[1]._bp;
     nx = o.x - d.cx; nz = o.z - d.cz; nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
     sp = botFreeSpot(o.x + nx * 6, o.z + nz * 6) || botFreeSpot(o.x - nx * 6, o.z - nz * 6) || botFreeSpot(o.x + 6, o.z);
@@ -10434,7 +10434,7 @@ function buildBaseAEMX(){
     for (i = 0; i < districts.length; i++) if (districts[i].print) pb = districts[i].print;
     if (!pb) { window.__botSayQ = 'No hay imprenta en el mapa.'; return false; }
     if (!b || window.__uvx) return false;
-    if (DUEL || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI, una invasión o un duelo.'; return false; }
+    if (GM.xib ? (DUEL || invLock || b.mode === 'lift') : (DUEL || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift')) { window.__botSayQ = GM.xib ? (DUEL ? 'Ahora no puedo: estás en un duelo.' : 'Ahora no puedo: sal primero de la zona de invasión.') : 'Ahora no puedo: hay un OVNI, una invasión o un duelo.'; return false; }
     pb.updateMatrixWorld(true); wp = pb.localToWorld(new THREE.Vector3(0, 0, 3.8));
     sp = botFree(wp.x, wp.z) ? [wp.x, wp.z] : botFreeSpot(wp.x, wp.z);
     if (!sp) return false;
@@ -10525,7 +10525,7 @@ function buildBaseAEMX(){
     var b = bot, g = (jk && JUNKC) ? JUNKC : geo(-110.97, 18.78), sp, sp2, an;
     if (jk && !JUNKC) return false;
     if (!b) return false;
-    if (DUEL || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift') { window.__botSayQ = 'Ahora no puedo: hay un OVNI, una invasión o un duelo.'; return false; }
+    if (GM.xib ? (DUEL || invLock || b.mode === 'lift') : (DUEL || !ufoDown() || (typeof ALN !== 'undefined' && ALN.state && ALN.state()) || invLock || b.mode === 'lift')) { window.__botSayQ = GM.xib ? (DUEL ? 'Ahora no puedo: estás en un duelo.' : 'Ahora no puedo: sal primero de la zona de invasión.') : 'Ahora no puedo: hay un OVNI, una invasión o un duelo.'; return false; }
     sp = botFreeSpot(g.x, g.z); if (!sp) return false;
     BM.mark('p', jk ? 'junk' : 'socorro');
     an = Math.random() * 6.283; sp2 = botFreeSpot(sp[0] + Math.cos(an) * 8, sp[1] + Math.sin(an) * 8) || sp;
@@ -11741,6 +11741,7 @@ function buildBaseAEMX(){
     if (XIB.hpEl) { var inf0 = typeof ALN !== 'undefined' && ALN && ALN.isInf && ALN.isInf(); XIB.hpEl.classList.toggle('on', !!inf0 || XIB.hp < 100); XIB.hpEl.classList.toggle('low', XIB.hp < 35); XIB.hpEl.querySelector('i').style.width = XIB.hp.toFixed(1) + '%'; }
     if (XIB.backEl) { var onI = !!(b.isl && !b.tpj); if (XIB.backOn !== onI) { XIB.backOn = onI; XIB.backEl.style.display = onI ? 'block' : 'none'; } }
     b.jTgt = null; /* sin la animación automática de revisar montículos: el robot no se agacha ni gira solo */
+    if (window.__botSayQ && window.__xibMsg) { window.__xibMsg(window.__botSayQ); window.__botSayQ = null; } /* avisos del robot (p. ej. al pedir un viaje) en el recuadro de ayuda */
     /* duelo: quieto en la entrada, cuenta regresiva y final; en la pelea, sin turbo y sin salir de la arena */
     if (DUEL && DUEL.ph !== 'fight') m = 0;
     if (DUEL) XIB.turbo = false;
