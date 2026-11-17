@@ -15642,12 +15642,27 @@ function buildBaseAEMX(){
     if (R.F.flames) for (i = 0; i < R.F.flames.length; i++) { var fl = R.F.flames[i]; fl.visible = R.flame > 0.03; if (fl.visible) fl.scale.set(0.6 + 0.6 * R.flame, 0.25 + 1.9 * R.flame * (0.85 + 0.15 * Math.sin(R.ph * 9 + performance.now() * 0.055 + i * 2)), 0.6 + 0.6 * R.flame); } /* propulsores como el robot propio */
   }
   function mpWrap(a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; }
-  function mpLabel(txt, col) {
+  /* rol: 1 = [GM] admin (por su correo, guardado como huella SHA-256), 2 = [MD] moderador (role 'moderator' en su ficha de GamerTag), 0 = jugador */
+  var MP_GM = '68c37c5bae3f71661d3e9048f867e243e201df86d7194aa17c53de1636c1812c', MP_RC = { 1: '#ff4d4d', 2: '#b77bff' };
+  function mpRole() {
+    if (MPG.role != null) return MPG.role;
+    var u = (typeof RAW !== 'undefined' && RAW && AUTH && AUTH.uid) ? RAW[AUTH.uid] : null, md = u && u.role === 'moderator' ? 2 : 0;
+    var em = AUTH && AUTH.email && AUTH.emailVerified !== false ? String(AUTH.email).trim().toLowerCase() : '';
+    if (!MPG.roleP) {
+      MPG.roleP = 1;
+      if (em && window.crypto && crypto.subtle && window.TextEncoder) crypto.subtle.digest('SHA-256', new TextEncoder().encode(em)).then(function (b) { var h = Array.from(new Uint8Array(b)).map(function (x) { return (x < 16 ? '0' : '') + x.toString(16); }).join(''); MPG.role = h === MP_GM ? 1 : md; }, function () { MPG.role = md; });
+      else MPG.role = md;
+    }
+    return MPG.role != null ? MPG.role : md;
+  }
+  /* nombre con etiqueta de rol; a nadie se le respeta un [GM]/[MD] escrito en su propio gamertag */
+  function mpTag(n, r) { n = String(n || 'Jugador').replace(/^\s*(\[(GM|MD)\]\s*)+/i, '') || 'Jugador'; return (r === 1 ? '[GM]' : r === 2 ? '[MD]' : '') + n; }
+  function mpLabel(txt, col, bd) {
     var c = document.createElement('canvas'), x, tx, sp; c.width = 256; c.height = 64; x = c.getContext('2d');
     x.font = '700 30px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
     var w = Math.min(250, x.measureText(txt).width + 28);
     x.fillStyle = 'rgba(10,16,28,0.72)'; x.beginPath(); if (x.roundRect) x.roundRect(128 - w / 2, 10, w, 44, 22); else x.rect(128 - w / 2, 10, w, 44); x.fill();
-    if (col) { x.strokeStyle = col; x.lineWidth = 3; x.stroke(); } /* el propio: con borde de su color */
+    if (bd) { x.strokeStyle = bd; x.lineWidth = 3; x.stroke(); } /* el propio: con borde dorado */
     x.fillStyle = col || '#7fe8ff'; x.fillText(txt, 128, 33);
     tx = new THREE.CanvasTexture(c); sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false }));
     sp.scale.set(1.6, 0.4, 1); sp.position.y = 2.5; sp.renderOrder = 5; return sp;
@@ -15668,8 +15683,8 @@ function buildBaseAEMX(){
     F.flames.forEach(function (fl) { fl.visible = false; }); if (F.beam) F.beam.visible = false;
     if (F.rifle) { F.rifle.rotation.order = 'YXZ'; F.rifle.position.set(0.14, 0.12, -0.4); F.rifle.rotation.set(-1.2, 0, 0); } /* rifle a la espalda, como el robot cuando no apunta */
     F.g.traverse(function (o) { o.raycast = function () {}; });
-    var R = { F: F, x: d.x, z: d.z, y: isFinite(d.y) ? d.y : botGround(d.x, d.z), yaw: d.yaw || 0, tx: d.x, tz: d.z, ty: d.y, tyaw: d.yaw || 0, v: 0, ph: 0, n: d.n || 'Jugador', c: d.c || '' };
-    R.lab = mpLabel(R.n); F.g.add(R.lab);
+    var R = { F: F, x: d.x, z: d.z, y: isFinite(d.y) ? d.y : botGround(d.x, d.z), yaw: d.yaw || 0, tx: d.x, tz: d.z, ty: d.y, tyaw: d.yaw || 0, v: 0, ph: 0, n: d.n || 'Jugador', c: d.c || '', r: (d.r === 1 || d.r === 2) ? d.r : 0 };
+    R.lab = mpLabel(mpTag(R.n, R.r), MP_RC[R.r]); F.g.add(R.lab);
     F.g.position.set(R.x, R.y, R.z); scene.add(F.g); return R;
   }
   function mpDrop(R) { scene.remove(R.F.g); if (R.lab) { R.lab.material.map.dispose(); R.lab.material.dispose(); } } /* las geometrías del robot son compartidas: no se liberan */
@@ -15731,10 +15746,10 @@ function buildBaseAEMX(){
     if (!GM.xib || !window.__mp || !bot) { if (MPG.myLab) MPG.myLab.visible = false; return; }
     if (!MPG.btn) mpUI();
     /* mi propio nombre sobre mi robot, en dorado (los demás van en celeste) */
-    var myN = mpName();
+    var myR = mpRole(), myN = mpTag(mpName(), myR);
     if (!MPG.myLab || MPG.myLabN !== myN || MPG.myLab.parent !== bot.g) {
       if (MPG.myLab) { if (MPG.myLab.parent) MPG.myLab.parent.remove(MPG.myLab); MPG.myLab.material.map.dispose(); MPG.myLab.material.dispose(); }
-      MPG.myLab = mpLabel(myN, '#ffd84a'); MPG.myLabN = myN; bot.g.add(MPG.myLab);
+      MPG.myLab = mpLabel(myN, MP_RC[myR] || '#ffd84a', '#ffd84a'); MPG.myLabN = myN; bot.g.add(MPG.myLab); /* GM rojo / MD morado; jugador dorado; siempre con borde dorado por ser el propio */
     }
     MPG.myLab.visible = true;
     if (window.__mp.start) window.__mp.start(); /* aquí se conecta la base (solo en Xibalba) */
@@ -15760,11 +15775,11 @@ function buildBaseAEMX(){
     if (tick || (now - MPG.last > 100 && (mvNow !== MPG.mv || fNow !== MPG.f)) || now - MPG.last > 5000) { MPG.f = fNow; /* al detenerse se avisa de inmediato */
       MPG.last = (tick && now - MPG.last < 350) ? MPG.last + 250 : now; /* ritmo fijo de 250 ms mientras camina (no se corre con cada cuadro) */ MPG.lx = bot.x; MPG.lz = bot.z; MPG.ly = bot.y; MPG.mv = mvNow;
       var po = { x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), f: fNow, t: now }, nm = mpName(), col = (now - (MPG.cT || 0) > 3000 || !MPG.sc) ? (MPG.cT = now, mpMyCol()) : MPG.sc;
-      var full = zk !== MPG.zk || nm !== MPG.sn || col !== MPG.sc; /* nombre y colores solo cuando cambian (o al entrar a otra zona) */
-      if (full) { po.n = nm; po.c = col; }
+      var full = zk !== MPG.zk || nm !== MPG.sn || col !== MPG.sc || myR !== MPG.sr; /* nombre, colores y rol solo cuando cambian (o al entrar a otra zona) */
+      if (full) { po.n = nm; po.c = col; if (myR) po.r = myR; }
       window.__mp.put(zk, po, full);
       if (MPG.zk && MPG.zk !== zk) window.__mp.drop(MPG.zk);
-      MPG.zk = zk; MPG.sn = nm; MPG.sc = col;
+      MPG.zk = zk; MPG.sn = nm; MPG.sc = col; MPG.sr = myR;
     }
     /* robots de los demás: aparecen, se mueven suave hacia su última posición y se van si se desconectan */
     /* juntar las zonas escuchadas (si alguien aparece en dos al cruzar el borde, gana el dato más nuevo) */
@@ -15777,6 +15792,11 @@ function buildBaseAEMX(){
       seen[k] = 1; R = MPG.map[k];
       if (R && (d.c || '') !== R.c) { mpDrop(R); R = null; } /* cambió de colores: se vuelve a armar */
       if (!R) R = MPG.map[k] = mpMake(d);
+      var dr = (d.r === 1 || d.r === 2) ? d.r : 0;
+      if ((d.n || 'Jugador') !== R.n || dr !== R.r) { /* cambió su nombre o su rol: nuevo letrero */
+        R.n = d.n || 'Jugador'; R.r = dr; R.F.g.remove(R.lab); R.lab.material.map.dispose(); R.lab.material.dispose();
+        R.lab = mpLabel(mpTag(R.n, R.r), MP_RC[R.r]); R.F.g.add(R.lab);
+      }
       R.v = d.v || 0;
       if (d.t !== R.lt) { /* dato nuevo: va al búfer con la hora en que lo mandó su dueño */
         R.lt = d.t; var sy = isFinite(d.y) ? d.y : botGround(d.x, d.z), lb = R.buf && R.buf[R.buf.length - 1], ofs = now - (d.t || now);
@@ -16334,7 +16354,7 @@ const mpApp = initializeApp({
 }, 'mp');
 const mpAuth = getAuth(mpApp), mpDb = getDatabase(mpApp);
 /* la base de mictland-md solo se conecta al entrar a Xibalba (start): quien está en los demos o en la carga no ocupa conexión */
-let mpStarted = false, mpDisc = null, mpNoF = false;
+let mpStarted = false, mpDisc = null, mpNo = {};
 window.__mp = {
   user: null,
   start: () => { if (mpStarted) return; mpStarted = true; onValue(ref(mpDb, '.info/serverTimeOffset'), (s) => { window.__mpOff = s.val() || 0; }, () => {}); },
@@ -16344,11 +16364,12 @@ window.__mp = {
   put: (zk, o, full) => {
     const u = mpAuth.currentUser; if (!u) return; const r = ref(mpDb, 'mp/z/' + zk + '/' + u.uid);
     if (mpDisc !== zk) { onDisconnect(r).remove().catch(() => {}); mpDisc = zk; }
-    if (mpNoF) delete o.f; /* las reglas del servidor aún no aceptan el campo de vuelo: se manda sin él */
-    (full ? set(r, o) : update(r, o)).catch((e) => {
-      if (!mpNoF && 'f' in o && /PERMISSION/i.test(String(e.code || e.message))) { mpNoF = true; delete o.f; (full ? set(r, o) : update(r, o)).catch(() => {}); return; }
+    for (const q in mpNo) delete o[q]; /* campos que las reglas del servidor aún no aceptan (rol, vuelo): se mandan sin ellos */
+    const go = () => (full ? set(r, o) : update(r, o)).catch((e) => {
+      if (/PERMISSION/i.test(String(e.code || e.message))) { const q = ['r', 'f'].find((k) => k in o && !mpNo[k]); if (q) { mpNo[q] = true; delete o[q]; go(); return; } }
       console.warn('MP put', e.code || e.message);
     });
+    go();
   },
   drop: (zk) => { const u = mpAuth.currentUser; if (!u) return; const r = ref(mpDb, 'mp/z/' + zk + '/' + u.uid); onDisconnect(r).cancel().catch(() => {}); remove(r).catch(() => {}); if (mpDisc === zk) mpDisc = null; },
   subZone: (zk, cb) => onValue(ref(mpDb, 'mp/z/' + zk), (s) => cb(s.val() || {}), (e) => { console.warn('MP zona', e.code || e.message); cb({}); }),
