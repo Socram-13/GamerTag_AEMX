@@ -11499,6 +11499,7 @@ function buildBaseAEMX(){
     if (b._sp) { b.head.rotation.x += b._sp * 0.12 * Math.sin(t * 7.3); b.head.rotation.y += b._sp * 0.22 * Math.sin(t * 3.1); }
     b.sitK = (b.sitK || 0) + (((b.sitOn && GM.xib) ? 1 : 0) - (b.sitK || 0)) * Math.min(1, dt * (b.sitOn ? 3 : 6));
     if (b.sitK > 0.002 || b.sitW) { if (b.sitK <= 0.002) b.sitK = 0; botSitApply(b, b.sitK, t, true); b.sitW = b.sitK > 0; }
+    botPong(b, dt, !!(GM.xib && b.pongOn));
 
     if (b.scanK > 0.3 && b.wk && !liftOn) {
 
@@ -11732,6 +11733,38 @@ function buildBaseAEMX(){
     if (F.flames) F.flames.forEach(function (f) { if (k > 0.5) f.visible = false; });
   }
   window.__botSitApply = botSitApply;
+  /* ===== ojos Pong: si el robot pasa un rato sin hacer nada, la pantalla de su cara se vuelve un Pong que juega solo
+     (dos raquetas del color de sus ojos y una pelota); al moverse vuelven los ojos ===== */
+  function botPong(F, dt, on) {
+    if (!F.eyes || !F.eyes.parent) return;
+    var P = F.pong;
+    if (!P) {
+      if (!on) return;
+      var cv = document.createElement('canvas'); cv.width = 48; cv.height = 32;
+      var tx = new THREE.CanvasTexture(cv); tx.magFilter = THREE.NearestFilter; tx.minFilter = THREE.NearestFilter;
+      var m = new THREE.Mesh(new THREE.PlaneGeometry(0.096, 0.064), new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0 }));
+      m.position.set(0, 0.07, 0.1125); m.raycast = function () { }; F.eyes.parent.add(m);
+      P = F.pong = { cv: cv, cx: cv.getContext('2d'), tx: tx, m: m, k: 0, bx: 24, by: 16, vx: 26, vy: 17, l: 16, r: 16, ac: 0 };
+    }
+    P.k += ((on ? 1 : 0) - P.k) * Math.min(1, dt * (on ? 2 : 8));
+    var vis = P.k > 0.02; P.m.visible = vis; P.m.material.opacity = P.k; F.eyes.visible = P.k < 0.5;
+    if (!vis) return;
+    P.ac += dt; if (P.ac < 1 / 30) return; var st = P.ac; P.ac = 0; /* 30 cuadros por segundo bastan */
+    /* física: la pelota rebota arriba y abajo; cada raqueta sigue a la pelota con algo de torpeza; si una falla, saque desde el centro */
+    P.bx += P.vx * st; P.by += P.vy * st;
+    if (P.by < 3) { P.by = 3; P.vy = Math.abs(P.vy); } if (P.by > 29) { P.by = 29; P.vy = -Math.abs(P.vy); }
+    var sp = 20 + 8 * Math.sin(P.bx * 0.3);
+    P.l += Math.max(-sp * st, Math.min(sp * st, P.by - P.l)); P.r += Math.max(-sp * st, Math.min(sp * st, P.by - P.r));
+    P.l = Math.max(5, Math.min(27, P.l)); P.r = Math.max(5, Math.min(27, P.r));
+    if (P.bx < 7 && P.vx < 0) { if (Math.abs(P.by - P.l) < 7) { P.bx = 7; P.vx = Math.abs(P.vx) * 1.04; P.vy += (P.by - P.l) * 2.5; } else if (P.bx < -2) { P.bx = 24; P.by = 16; P.vx = 26; P.vy = (Math.random() - 0.5) * 30; } }
+    if (P.bx > 41 && P.vx > 0) { if (Math.abs(P.by - P.r) < 7) { P.bx = 41; P.vx = -Math.abs(P.vx) * 1.04; P.vy += (P.by - P.r) * 2.5; } else if (P.bx > 50) { P.bx = 24; P.by = 16; P.vx = -26; P.vy = (Math.random() - 0.5) * 30; } }
+    if (Math.abs(P.vx) > 60) P.vx *= 0.8; P.vy = Math.max(-40, Math.min(40, P.vy));
+    var c = P.cx, col = '#' + (F.eyeMat ? F.eyeMat.color.getHexString() : '3dff7a');
+    c.clearRect(0, 0, 48, 32); c.fillStyle = col;
+    c.fillRect(1, Math.round(P.l) - 5, 4, 10); c.fillRect(43, Math.round(P.r) - 5, 4, 10); c.fillRect(Math.round(P.bx) - 2, Math.round(P.by) - 2, 4, 4); /* raquetas gruesas y pelota de 4 px, sin red al centro */
+    P.tx.needsUpdate = true;
+  }
+  window.__botPong = botPong;
   function xibSit(on) {
     var b = bot; on = !!on && !!b;
     if (on && (b.mode !== 'walk' || b.tpj || DUEL || (b.bh || 0) > 0.05 || b.boostT > 0 || XIB.stun > 0 || b.ball)) { if (window.__xibMsg) window.__xibMsg('Solo puedes sentarte quieto en el suelo.'); on = false; }
@@ -11831,6 +11864,9 @@ function buildBaseAEMX(){
     /* sentado: moverse, saltar, turbo o disparar lo levanta (y la acción sigue); mientras está sentado no camina */
     if (XIB.sit && (m > 0.15 || XIB.jump || XIB.turbo || XIB.fire || DUEL || b.mode !== 'walk' || b.tpj || (b.bh || 0) > 0.05 || b.boostT > 0 || XIB.stun > 0 || b.ball)) xibSit(false);
     b.sitOn = !!XIB.sit;
+    /* sin hacer nada por 30 s (sin moverse, saltar, turbo ni disparar): ojos Pong. Sentado no se activa */
+    if (m > 0.15 || XIB.jump || XIB.turbo || XIB.fire || XIB.sit || b.aiming || (b.v || 0) > 0.3 || b.mode !== 'walk' || b.tpj || (b.bh || 0) > 0.05 || XIB.stun > 0) XIB.actT = now;
+    b.pongOn = now - (XIB.actT === undefined ? (XIB.actT = now) : XIB.actT) > 30;
     if (XIB.sit) { m = 0; b.goal = null; b.gtype = ''; b.path = null; }
     /* duelo: quieto en la entrada, cuenta regresiva y final; en la pelea, sin turbo y sin salir de la arena */
     if (DUEL && DUEL.ph !== 'fight') m = 0;
@@ -15919,6 +15955,9 @@ function buildBaseAEMX(){
       /* sentado: la misma pose que el robot propio; se sienta y se levanta suave */
       R.sitK = (R.sitK || 0) + ((R.ps && R.sp < 0.5 ? 1 : 0) - (R.sitK || 0)) * Math.min(1, dt * (R.ps ? 3 : 6));
       if ((R.sitK > 0.002 || R.sitW) && window.__botSitApply) { if (R.sitK <= 0.002) R.sitK = 0; window.__botSitApply(R.F, R.sitK, t, false); R.sitW = R.sitK > 0; }
+      /* ojos Pong: si el otro robot lleva 30 s sin moverse y no está sentado (se ve aquí mismo, sin datos extra del servidor) */
+      R.idT = (R.sp < 0.05 && !R.fl && R.v < 0.3 && !R.ps) ? (R.idT || 0) + dt : 0;
+      if (window.__botPong) window.__botPong(R.F, dt, R.idT > 30);
       if (R.gk > 0.25 && R.fK < 0.2) { /* pies al piso al caminar (igual que el robot propio) */
         R.F.g.updateMatrixWorld(true); mpFb.setFromObject(R.F.legs[0].ft); var fy0 = mpFb.min.y; mpFb.setFromObject(R.F.legs[1].ft);
         var fdn = Math.max(0, Math.min(0.06, Math.min(fy0, mpFb.min.y) - R.y + 0.01)) * R.gk; R.bob = (R.bob || 0) + (fdn - (R.bob || 0)) * Math.min(1, dt * 3); R.F.g.position.y -= R.bob;
