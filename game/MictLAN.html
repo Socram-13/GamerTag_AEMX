@@ -363,6 +363,10 @@
   #xib .btns .fire { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: 78px; height: 78px; border-color: #ff5a5a; background: rgba(160,20,30,0.6); font-size: 12px; }
   #xib .btns .jump { grid-column: 1; grid-row: 2; }
   #xib .btns .turbo { grid-column: 1; grid-row: 1; border-color: #5ad8ff; }
+  #xib .btns { position: absolute; }
+  #xib .btns .sit { position: absolute; left: 8px; top: -60px; width: 50px; height: 50px; border-color: #b7c4d8; }
+  #xib .btns .sit svg { width: 22px; height: 22px; }
+  #xib .btns .sit span { font-size: 7px; }
   #xib .btns button.on { background: rgba(61,255,122,0.55); }
   #xib .btns .turbo.cd { opacity: 0.4; }
   #xib .hpb { position: absolute; left: max(16px, env(safe-area-inset-left)); top: calc(max(10px, env(safe-area-inset-top, 0px)) + 72px); display: none; align-items: center; gap: 6px; pointer-events: none; }
@@ -11487,6 +11491,8 @@ function buildBaseAEMX(){
     if (b.fr > 0.02) b.head.rotation.x += 0.12 * b.fr;
     if (b.jk > 0.02) { b.head.rotation.x += 0.2 * b.jk; b.head.rotation.y += 0.4 * b.jk * Math.sin(t * 1.5); } /* mira el montón y barre con la vista */
     if (b._sp) { b.head.rotation.x += b._sp * 0.12 * Math.sin(t * 7.3); b.head.rotation.y += b._sp * 0.22 * Math.sin(t * 3.1); }
+    b.sitK = (b.sitK || 0) + (((b.sitOn && GM.xib) ? 1 : 0) - (b.sitK || 0)) * Math.min(1, dt * (b.sitOn ? 3 : 6));
+    if (b.sitK > 0.002 || b.sitW) { if (b.sitK <= 0.002) b.sitK = 0; botSitApply(b, b.sitK, t, true); b.sitW = b.sitK > 0; }
 
     if (b.scanK > 0.3 && b.wk && !liftOn) {
 
@@ -11579,11 +11585,12 @@ function buildBaseAEMX(){
     w.innerHTML = '<div class="joy" aria-label="Joystick"><i></i></div><div class="btns">' +
       '<button type="button" class="turbo" aria-label="Turbo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5c1.2 3.6 5.6 5.9 5.6 11.4A5.6 5.6 0 0 1 6.4 13c0-2.3 1.1-4.1 2.7-5.5-.1 1.8.7 3.3 2.1 4 .3-3.3-.8-6.4.8-10z" fill="#ffb347"/><path d="M12 11.5c.6 1.8 2.8 2.9 2.8 5.6a2.8 2.8 0 0 1-5.6.1c0-1.4.8-2.4 1.8-3.2 0 .9.4 1.5 1 1.8.1-1.5-.5-3 0-4.3z" fill="#ffe680"/></svg><span>TURBO</span></button>' +
       '<button type="button" class="jump" aria-label="Salto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="15" cy="3.8" r="2.3" fill="#fff"/><path d="M13.8 7.2 10.6 12l3 2.2-1.9 5.6M10.6 12 6.3 11M13.8 8.6l3.6 3 3-1.9M4 22h6" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>SALTO</span></button>' +
-      '<button type="button" class="fire" aria-label="Disparo"><svg viewBox="0 0 24 24" aria-hidden="true"><g transform="rotate(45 12 12)"><path d="M12 1.8c2.3 1.7 3.1 4.2 3.1 6.8v5.6H8.9V8.6c0-2.6.8-5.1 3.1-6.8z" fill="#ffd36b"/><rect x="8.4" y="15" width="7.2" height="6.8" rx="1.1" fill="#d99a2b"/><rect x="8.4" y="14.2" width="7.2" height="1.6" fill="#7a5414"/></g></svg><span>DISPARO</span></button></div><div class="hint"></div>';
+      '<button type="button" class="fire" aria-label="Disparo"><svg viewBox="0 0 24 24" aria-hidden="true"><g transform="rotate(45 12 12)"><path d="M12 1.8c2.3 1.7 3.1 4.2 3.1 6.8v5.6H8.9V8.6c0-2.6.8-5.1 3.1-6.8z" fill="#ffd36b"/><rect x="8.4" y="15" width="7.2" height="6.8" rx="1.1" fill="#d99a2b"/><rect x="8.4" y="14.2" width="7.2" height="1.6" fill="#7a5414"/></g></svg><span>DISPARO</span></button>' +
+      '<button type="button" class="sit" aria-label="Sentarse"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="4" r="2.3" fill="#fff"/><path d="M8 7.5 7.4 14h6.4l3.4 6.5M7.4 14 3.5 19.5M8.2 9.5l5 1.6 2.8-3" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 21.5h20" stroke="#9aa4b8" stroke-width="1.6" stroke-linecap="round"/></svg><span>SENTARSE</span></button></div><div class="hint"></div>';
     stage.appendChild(w);
     var joy = w.querySelector('.joy'), kn = joy.querySelector('i'), jid = null, hint = w.querySelector('.hint');
     var pc = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
-    hint.textContent = pc ? 'WASD o flechas: mover · Shift: turbo · Espacio: salto · F: disparo' : 'Joystick: mover · arrastra la pantalla para girar la cámara';
+    hint.textContent = pc ? 'WASD o flechas: mover · Shift: turbo · Espacio: salto · F: disparo · C: sentarse' : 'Joystick: mover · arrastra la pantalla para girar la cámara';
     setTimeout(function () { hint.classList.add('off'); }, 9000);
     function jset(e) { var r = joy.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, dx = e.clientX - cx, dy = e.clientY - cy, R = r.width / 2, l = Math.hypot(dx, dy); if (l > R) { dx *= R / l; dy *= R / l; } XIB.jx = dx / R; XIB.jy = -dy / R; kn.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; }
     function jend() { jid = null; XIB.jx = 0; XIB.jy = 0; kn.style.transform = ''; }
@@ -11596,8 +11603,13 @@ function buildBaseAEMX(){
       ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) { b.addEventListener(ev, function () { if (key === 'fire') XIB.fire = false; b.classList.remove('on'); }); });
       b.addEventListener('contextmenu', function (e) { e.preventDefault(); }); return b; }
     hold('.fire', 'fire'); hold('.jump', 'jump'); XIB.tb = hold('.turbo', 'turbo');
+    /* botón Sentarse: se sienta en el suelo; otra vez (o moverse) lo levanta */
+    XIB.sitEl = w.querySelector('.sit');
+    XIB.sitEl.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); });
+    XIB.sitEl.addEventListener('click', function (e) { e.stopPropagation(); xibSit(!XIB.sit); });
+    XIB.sitEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     function typing() { var a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable); }
-    document.addEventListener('keydown', function (e) { if (typing()) return; var c = e.code; XIB.k[c] = true; if (c === 'Space') { XIB.jump = true; e.preventDefault(); } if (c === 'ShiftLeft' || c === 'ShiftRight') XIB.turbo = true; if (c === 'KeyF') XIB.fire = true; if (/^Arrow/.test(c)) e.preventDefault(); });
+    document.addEventListener('keydown', function (e) { if (typing()) return; var c = e.code; XIB.k[c] = true; if (c === 'Space') { XIB.jump = true; e.preventDefault(); } if (c === 'ShiftLeft' || c === 'ShiftRight') XIB.turbo = true; if (c === 'KeyF') XIB.fire = true; if (c === 'KeyC' && !e.repeat) xibSit(!XIB.sit); if (/^Arrow/.test(c)) e.preventDefault(); });
     document.addEventListener('keyup', function (e) { XIB.k[e.code] = false; if (e.code === 'KeyF') XIB.fire = false; });
     window.addEventListener('blur', function () { XIB.k = {}; XIB.fire = false; jend(); });
     /* cámara táctil propia: el dedo del joystick no cuenta. Un dedo fuera del joystick gira la cámara; dos dedos fuera del joystick, zoom.
@@ -11655,6 +11667,69 @@ function buildBaseAEMX(){
     document.getElementById('x-fight').addEventListener('click', function () { if (window.__botSayQ) { window.__xibMsg(window.__botSayQ); window.__botSayQ = null; } if (DUEL) deselect(); });
     /* en Xibalba no hay diálogos entre el robot y Aura: sin globos ni sonido de voz */
     if (AUD && AUD.talk) AUD.talk = function () { };
+  }
+  /* ===== pose Sentado (en el suelo), la misma del visor del robot: pierna derecha estirada, rodilla izquierda arriba con el brazo
+     izquierdo encima (palma hacia la pierna) y la mano derecha apoyada atrás con la palma en el suelo. La pose se calcula una vez por
+     robot (cadera al ras del suelo, palma tocando el suelo, antebrazo sobre la rodilla) y luego solo se mezcla con lo que haga el robot. ===== */
+  var BSIT = { th: [-1.6, -2.5], kn: [0.05, 1.77], ft: [0.15, 0.73], abre: [0.1, 0.12], cintura: -0.35, ladea: 0.3, tuerce: -0.4, cabeza: 0.3, shz: 0.15, el: 0, dedos: 0.12, sobre: -0.12, alto: 0.085, cuelga: 1.1, giroMano: -1.6 };
+  var bsB = new THREE.Box3(), bsT = new THREE.Box3(), bsQ = new THREE.Quaternion(), bsQ2 = new THREE.Quaternion(), bsM = new THREE.Matrix4(), bsX = new THREE.Vector3(), bsY = new THREE.Vector3(), bsZ = new THREE.Vector3(), bsK = new THREE.Vector3(), bsP = new THREE.Vector3(), bsS = new THREE.Vector3(), bsE = new THREE.Euler(0, 0, 0, 'XYZ');
+  function bsMin(list) { bsB.makeEmpty(); list.forEach(function (r) { r.traverse(function (o) { var p = o, ok = true; if (!o.isMesh || !o.material || o.material.transparent) return; while (p && ok) { if (!p.visible) ok = false; p = p.parent; } if (!ok) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); bsT.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); bsB.union(bsT); }); }); return bsB.min.y; }
+  function bsFloorArm(F, a, shx) { /* brazo derecho atrás: mano plana, palma al suelo y dedos hacia afuera */
+    a.sh.quaternion.setFromEuler(bsE.set(shx, 0, -BSIT.shz)); a.el.quaternion.setFromEuler(bsE.set(BSIT.el, 0, 0));
+    F.g.updateMatrixWorld(true); a.el.getWorldQuaternion(bsQ); F.g.getWorldQuaternion(bsQ2); bsQ.premultiply(bsQ2.invert());
+    bsX.set(0, -1, 0); bsY.set(1, 0, 0.45).normalize(); bsZ.crossVectors(bsX, bsY); bsM.makeBasis(bsX, bsY, bsZ); bsQ2.setFromRotationMatrix(bsM);
+    a.wr.quaternion.copy(bsQ.invert()).multiply(bsQ2);
+    a.fingers.forEach(function (f) { f.rotation.z = BSIT.dedos; }); a.knuckles.forEach(function (k) { k.rotation.z = BSIT.dedos; });
+    F.g.updateMatrixWorld(true); return bsMin([a.wr]); }
+  function bsKneeArm(F, a, x, y, z) { a.sh.quaternion.setFromEuler(bsE.set(x, y, BSIT.shz * 0.5)); a.el.quaternion.setFromEuler(bsE.set(z, 0, 0)); }
+  function botSitCalc(F) { /* guarda la pose destino de cada articulación (en el espacio del robot) */
+    var A = F.arms, L = F.legs, gy, m1, m2, lo, hi, m, k, best, bv, v, i, j, st0, x, y, z, sv = [];
+    if (!A || !A[0].fingers || !A[0].wr) return null;
+    var keep = [F.body, F.upper, F.head].concat(L.map(function (q) { return q.th; }), L.map(function (q) { return q.kn; }), L.map(function (q) { return q.ft; }), A.map(function (q) { return q.sh; }), A.map(function (q) { return q.el; }), A.map(function (q) { return q.wr; }));
+    keep.forEach(function (o) { sv.push([o.quaternion.clone(), o.position.clone()]); });
+    var base = { fi: A.map(function (a) { return a.fingers.map(function (f) { return f.rotation.z; }); }), kn: A.map(function (a) { return a.knuckles.map(function (f) { return f.rotation.z; }); }), th: A.map(function (a) { return a.thumb ? a.thumb.rotation.z : 0; }), wr: A.map(function (a) { return [a.wr.rotation.x, a.wr.rotation.z]; }) };
+    F.body.rotation.set(0, 0, 0); F.body.position.x = 0; F.upper.rotation.set(BSIT.cintura, BSIT.tuerce, BSIT.ladea);
+    L.forEach(function (q, i2) { var sx = i2 ? 1 : -1; q.th.rotation.set(BSIT.th[i2], 0, sx * BSIT.abre[i2]); q.kn.rotation.set(BSIT.kn[i2], 0, 0); q.ft.rotation.set(BSIT.ft[i2], 0, 0); });
+    var low = L.map(function (q) { return q.th; }); F.body.children.forEach(function (o) { if (o.isMesh) low.push(o); });
+    /* cadera al ras: se mide a dos alturas (el robot va escalado) */
+    F.body.position.y = 0.3; F.g.updateMatrixWorld(true); m1 = bsMin(low); F.body.position.y = 0.2; F.g.updateMatrixWorld(true); m2 = bsMin(low);
+    gy = F.g.getWorldPosition(bsP).y; F.body.position.y = 0.2 + (gy + 0.002 - m2) * 0.1 / Math.max(1e-4, m1 - m2); F.g.updateMatrixWorld(true);
+    /* mano derecha: el giro de hombro con la mano más baja y, de ahí hacia atrás, hasta que la palma apenas toca */
+    best = -0.6; bv = 1e9; for (k = 0; k <= 22; k++) { m = -0.6 + k * 0.1; v = bsFloorArm(F, A[0], m); if (v < bv) { bv = v; best = m; } }
+    if (bv >= gy + 0.002) bsFloorArm(F, A[0], best); else { lo = best; hi = 1.6; for (k = 0; k < 16; k++) { m = (lo + hi) / 2; if (bsFloorArm(F, A[0], m) < gy + 0.002) lo = m; else hi = m; } bsFloorArm(F, A[0], hi); }
+    /* brazo izquierdo: hombro y codo que dejan el antebrazo justo encima de la rodilla izquierda */
+    F.g.updateMatrixWorld(true); L[1].kn.getWorldPosition(bsK); F.g.getWorldScale(bsS); bsK.y += BSIT.alto * bsS.y;
+    var err = function (x2, y2, z2) { bsKneeArm(F, A[1], x2, y2, z2); F.g.updateMatrixWorld(true); bsP.set(0, BSIT.sobre, 0); A[1].el.localToWorld(bsP); return bsP.distanceToSquared(bsK); };
+    best = [0, 0, -1]; bv = 1e9;
+    for (i = -26; i <= 4; i++) for (j = -4; j <= 4; j++) for (k = -24; k <= 0; k += 2) { v = err(i * 0.1, j * 0.1, k * 0.1); if (v < bv) { bv = v; best = [i * 0.1, j * 0.1, k * 0.1]; } }
+    for (st0 = 0.05; st0 > 0.004; st0 /= 2) for (x = -2; x <= 2; x++) for (y = -2; y <= 2; y++) for (z = -2; z <= 2; z++) { v = err(best[0] + x * st0, best[1] + y * st0, best[2] + z * st0); if (v < bv) { bv = v; best = [best[0] + x * st0, best[1] + y * st0, best[2] + z * st0]; } }
+    bsKneeArm(F, A[1], best[0], best[1], best[2]); A[1].wr.rotation.set(BSIT.cuelga, BSIT.giroMano, 0);
+    var T = { q: keep.map(function (o) { return o.quaternion.clone(); }), by: F.body.position.y, base: base, o: keep };
+    keep.forEach(function (o, i2) { o.quaternion.copy(sv[i2][0]); o.position.copy(sv[i2][1]); }); F.g.updateMatrixWorld(true);
+    return T;
+  }
+  /* k: 0 = como lo deja su animación, 1 = sentado. own = robot propio (su animación ya reinicia cuerpo, torso y cabeza cada cuadro) */
+  function botSitApply(F, k, t, own) {
+    if (!F.sitT) { F.sitT = botSitCalc(F); if (!F.sitT) F.sitT = { none: true }; }
+    var T = F.sitT, A = F.arms, i; if (T.none) return;
+    if (!own) { F.body.position.set(0, 0.93, 0); F.body.rotation.set(0, 0, 0); F.upper.rotation.set(0, 0, 0); F.head.rotation.set(0, -0.3, 0); }
+    A.forEach(function (a, ai) { a.wr.rotation.x = T.base.wr[ai][0]; a.wr.rotation.z = T.base.wr[ai][1]; }); /* la animación solo toca el giro y de la muñeca */
+    for (i = 0; i < T.o.length; i++) if (T.o[i] !== F.body && T.o[i] !== F.head) T.o[i].quaternion.slerp(T.q[i], k);
+    F.body.quaternion.slerp(T.q[0], k); F.body.position.y += (T.by - F.body.position.y) * k; F.body.position.x *= 1 - k;
+    bsE.set(BSIT.cabeza + 0.04 * Math.sin(t * 0.9 + 1), 0.35 * Math.sin(t * 0.45), -0.8 * BSIT.ladea); bsQ.setFromEuler(bsE); F.head.quaternion.slerp(bsQ, k);
+    A.forEach(function (a, ai) { var sx = ai ? 1 : -1, fz = ai ? -0.55 : BSIT.dedos;
+      a.fingers.forEach(function (f, j) { f.rotation.z = T.base.fi[ai][j] + ((ai ? -0.55 : BSIT.dedos) - T.base.fi[ai][j]) * k; });
+      a.knuckles.forEach(function (f, j) { f.rotation.z = T.base.kn[ai][j] + ((ai ? -0.6 : BSIT.dedos) - T.base.kn[ai][j]) * k; });
+      if (a.thumb) a.thumb.rotation.z = T.base.th[ai] + ((ai ? -0.45 : T.base.th[ai]) - T.base.th[ai]) * k; });
+    if (F.flames) F.flames.forEach(function (f) { if (k > 0.5) f.visible = false; });
+  }
+  window.__botSitApply = botSitApply;
+  function xibSit(on) {
+    var b = bot; on = !!on && !!b;
+    if (on && (b.mode !== 'walk' || b.tpj || DUEL || (b.bh || 0) > 0.05 || b.boostT > 0 || XIB.stun > 0 || b.ball)) { if (window.__xibMsg) window.__xibMsg('Solo puedes sentarte quieto en el suelo.'); on = false; }
+    XIB.sit = on; if (b) { b.sitOn = on; if (on) { b.goal = null; b.gtype = ''; b.path = null; b.v = 0; } }
+    if (XIB.sitEl) { XIB.sitEl.classList.toggle('on', on); XIB.sitEl.querySelector('span').textContent = on ? 'LEVANTAR' : 'SENTARSE'; }
   }
   /* colisión del manejo manual: solo objetos reales (edificios a su tamaño, sin el margen de la IA; árboles, rocas, monumentos,
      cráteres, meteoro, volcán, agua y la pared de invasión). Sin límite de pendiente, para recorrer cerros, la isla y las ciudades. */
@@ -11746,6 +11821,10 @@ function buildBaseAEMX(){
     if (XIB.backEl) { var onI = !!(b.isl && !b.tpj); if (XIB.backOn !== onI) { XIB.backOn = onI; XIB.backEl.style.display = onI ? 'block' : 'none'; } }
     b.jTgt = null; /* sin la animación automática de revisar montículos: el robot no se agacha ni gira solo */
     if (window.__botSayQ && window.__xibMsg) { window.__xibMsg(window.__botSayQ); window.__botSayQ = null; } /* avisos del robot (p. ej. al pedir un viaje) en el recuadro de ayuda */
+    /* sentado: moverse, saltar, turbo o disparar lo levanta (y la acción sigue); mientras está sentado no camina */
+    if (XIB.sit && (m > 0.15 || XIB.jump || XIB.turbo || XIB.fire || DUEL || b.mode !== 'walk' || b.tpj || (b.bh || 0) > 0.05 || b.boostT > 0 || XIB.stun > 0 || b.ball)) xibSit(false);
+    b.sitOn = !!XIB.sit;
+    if (XIB.sit) { m = 0; b.goal = null; b.gtype = ''; b.path = null; }
     /* duelo: quieto en la entrada, cuenta regresiva y final; en la pelea, sin turbo y sin salir de la arena */
     if (DUEL && DUEL.ph !== 'fight') m = 0;
     if (DUEL) XIB.turbo = false;
@@ -15772,11 +15851,14 @@ function buildBaseAEMX(){
     }
     /* publicar mi robot: ~4 por segundo si se mueve; si está quieto, cada 5 s (para seguir "en línea") */
     var mvNow = (bot.v || 0) > 0.3, fNow = (bot.flame || 0) > 0.3 ? 2 : (bot.flyK || 0) > 0.5 ? 1 : 0, tick /* 0 en el piso, 1 volando, 2 con propulsores encendidos */ = now - MPG.last >= 250 && (Math.abs(bot.x - MPG.lx) > 0.05 || Math.abs(bot.z - MPG.lz) > 0.05 || Math.abs(bot.y - MPG.ly) > 0.05);
-    if (tick || (now - MPG.last > 100 && (mvNow !== MPG.mv || fNow !== MPG.f)) || now - MPG.last > 5000) { MPG.f = fNow; /* al detenerse se avisa de inmediato */
+    var pNow = bot.sitOn ? 1 : 0; /* 1 = sentado */
+    if (tick || (now - MPG.last > 100 && (mvNow !== MPG.mv || fNow !== MPG.f || pNow !== (MPG.sp || 0))) || now - MPG.last > 5000) { MPG.f = fNow; /* al detenerse se avisa de inmediato */
       MPG.last = (tick && now - MPG.last < 350) ? MPG.last + 250 : now; /* ritmo fijo de 250 ms mientras camina (no se corre con cada cuadro) */ MPG.lx = bot.x; MPG.lz = bot.z; MPG.ly = bot.y; MPG.mv = mvNow;
       var po = { x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), f: fNow, t: now }, nm = mpName(), col = (now - (MPG.cT || 0) > 3000 || !MPG.sc) ? (MPG.cT = now, mpMyCol()) : MPG.sc;
       var full = zk !== MPG.zk || nm !== MPG.sn || col !== MPG.sc || myR !== MPG.sr; /* nombre, colores y rol solo cuando cambian (o al entrar a otra zona) */
       if (full) { po.n = nm; po.c = col; if (myR) po.r = myR; }
+      if (pNow || (!full && MPG.sp)) po.p = pNow; /* sentado (1); al levantarse se manda 0 una vez */
+      MPG.sp = pNow;
       window.__mp.put(zk, po, full);
       if (MPG.zk && MPG.zk !== zk) window.__mp.drop(MPG.zk);
       MPG.zk = zk; MPG.sn = nm; MPG.sc = col; MPG.sr = myR;
@@ -15797,7 +15879,7 @@ function buildBaseAEMX(){
         R.n = d.n || 'Jugador'; R.r = dr; R.F.g.remove(R.lab); R.lab.material.map.dispose(); R.lab.material.dispose();
         R.lab = mpLabel(mpTag(R.n, R.r), MP_RC[R.r]); R.F.g.add(R.lab);
       }
-      R.v = d.v || 0;
+      R.v = d.v || 0; R.ps = d.p === 1; /* sentado */
       if (d.t !== R.lt) { /* dato nuevo: va al búfer con la hora en que lo mandó su dueño */
         R.lt = d.t; var sy = isFinite(d.y) ? d.y : botGround(d.x, d.z), lb = R.buf && R.buf[R.buf.length - 1], ofs = now - (d.t || now);
         if (!R.buf || (lb && (Math.hypot(d.x - lb.x, d.z - lb.z) > 40 || d.t < lb.t))) { R.buf = []; R.ofs = ofs; R.x = d.x; R.z = d.z; R.y = sy; R.yaw = d.yaw || 0; } /* nuevo o teletransporte: sin cruzar el mapa */
@@ -15827,6 +15909,9 @@ function buildBaseAEMX(){
       R.sp = (R.sp || 0) + (ms - (R.sp || 0)) * Math.min(1, dt * 10);
       mpAnim(R, dt);
       R.F.g.position.set(R.x, R.y, R.z); R.F.g.rotation.y = R.yaw;
+      /* sentado: la misma pose que el robot propio; se sienta y se levanta suave */
+      R.sitK = (R.sitK || 0) + ((R.ps && R.sp < 0.5 ? 1 : 0) - (R.sitK || 0)) * Math.min(1, dt * (R.ps ? 3 : 6));
+      if ((R.sitK > 0.002 || R.sitW) && window.__botSitApply) { if (R.sitK <= 0.002) R.sitK = 0; window.__botSitApply(R.F, R.sitK, t, false); R.sitW = R.sitK > 0; }
       if (R.gk > 0.25 && R.fK < 0.2) { /* pies al piso al caminar (igual que el robot propio) */
         R.F.g.updateMatrixWorld(true); mpFb.setFromObject(R.F.legs[0].ft); var fy0 = mpFb.min.y; mpFb.setFromObject(R.F.legs[1].ft);
         var fdn = Math.max(0, Math.min(0.06, Math.min(fy0, mpFb.min.y) - R.y + 0.01)) * R.gk; R.bob = (R.bob || 0) + (fdn - (R.bob || 0)) * Math.min(1, dt * 3); R.F.g.position.y -= R.bob;
@@ -16366,7 +16451,7 @@ window.__mp = {
     if (mpDisc !== zk) { onDisconnect(r).remove().catch(() => {}); mpDisc = zk; }
     for (const q in mpNo) delete o[q]; /* campos que las reglas del servidor aún no aceptan (rol, vuelo): se mandan sin ellos */
     const go = () => (full ? set(r, o) : update(r, o)).catch((e) => {
-      if (/PERMISSION/i.test(String(e.code || e.message))) { const q = ['r', 'f'].find((k) => k in o && !mpNo[k]); if (q) { mpNo[q] = true; delete o[q]; go(); return; } }
+      if (/PERMISSION/i.test(String(e.code || e.message))) { const q = ['p', 'r', 'f'].find((k) => k in o && !mpNo[k]); if (q) { mpNo[q] = true; delete o[q]; go(); return; } }
       console.warn('MP put', e.code || e.message);
     });
     go();
