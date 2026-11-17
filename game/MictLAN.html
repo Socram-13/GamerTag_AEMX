@@ -15642,12 +15642,13 @@ function buildBaseAEMX(){
     if (R.F.flames) for (i = 0; i < R.F.flames.length; i++) { var fl = R.F.flames[i]; fl.visible = R.flame > 0.03; if (fl.visible) fl.scale.set(0.6 + 0.6 * R.flame, 0.25 + 1.9 * R.flame * (0.85 + 0.15 * Math.sin(R.ph * 9 + performance.now() * 0.055 + i * 2)), 0.6 + 0.6 * R.flame); } /* propulsores como el robot propio */
   }
   function mpWrap(a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; }
-  function mpLabel(txt) {
+  function mpLabel(txt, col) {
     var c = document.createElement('canvas'), x, tx, sp; c.width = 256; c.height = 64; x = c.getContext('2d');
     x.font = '700 30px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
     var w = Math.min(250, x.measureText(txt).width + 28);
     x.fillStyle = 'rgba(10,16,28,0.72)'; x.beginPath(); if (x.roundRect) x.roundRect(128 - w / 2, 10, w, 44, 22); else x.rect(128 - w / 2, 10, w, 44); x.fill();
-    x.fillStyle = '#7fe8ff'; x.fillText(txt, 128, 33);
+    if (col) { x.strokeStyle = col; x.lineWidth = 3; x.stroke(); } /* el propio: con borde de su color */
+    x.fillStyle = col || '#7fe8ff'; x.fillText(txt, 128, 33);
     tx = new THREE.CanvasTexture(c); sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false }));
     sp.scale.set(2.4, 0.6, 1); sp.position.y = 2.6; sp.renderOrder = 5; return sp;
   }
@@ -15727,8 +15728,15 @@ function buildBaseAEMX(){
     if (Date.now() - MPL.sT > 3000) { MPL.sT = Date.now(); mpLastSave(false); }
   }
   function mpStep(t, dt) {
-    if (!GM.xib || !window.__mp || !bot) return;
+    if (!GM.xib || !window.__mp || !bot) { if (MPG.myLab) MPG.myLab.visible = false; return; }
     if (!MPG.btn) mpUI();
+    /* mi propio nombre sobre mi robot, en dorado (los demás van en celeste) */
+    var myN = mpName();
+    if (!MPG.myLab || MPG.myLabN !== myN || MPG.myLab.parent !== bot.g) {
+      if (MPG.myLab) { if (MPG.myLab.parent) MPG.myLab.parent.remove(MPG.myLab); MPG.myLab.material.map.dispose(); MPG.myLab.material.dispose(); }
+      MPG.myLab = mpLabel(myN, '#ffd84a'); MPG.myLabN = myN; bot.g.add(MPG.myLab);
+    }
+    MPG.myLab.visible = true;
     if (window.__mp.start) window.__mp.start(); /* aquí se conecta la base (solo en Xibalba) */
     mpLastStep(t, window.__mp.user);
     var U = window.__mp.user, now = Date.now(), k, d, R, seen = {}, n = 0, a;
