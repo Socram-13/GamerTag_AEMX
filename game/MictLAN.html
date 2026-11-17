@@ -16326,7 +16326,7 @@ const mpApp = initializeApp({
 }, 'mp');
 const mpAuth = getAuth(mpApp), mpDb = getDatabase(mpApp);
 /* la base de mictland-md solo se conecta al entrar a Xibalba (start): quien está en los demos o en la carga no ocupa conexión */
-let mpStarted = false, mpDisc = null;
+let mpStarted = false, mpDisc = null, mpNoF = false;
 window.__mp = {
   user: null,
   start: () => { if (mpStarted) return; mpStarted = true; onValue(ref(mpDb, '.info/serverTimeOffset'), (s) => { window.__mpOff = s.val() || 0; }, () => {}); },
@@ -16336,7 +16336,11 @@ window.__mp = {
   put: (zk, o, full) => {
     const u = mpAuth.currentUser; if (!u) return; const r = ref(mpDb, 'mp/z/' + zk + '/' + u.uid);
     if (mpDisc !== zk) { onDisconnect(r).remove().catch(() => {}); mpDisc = zk; }
-    (full ? set(r, o) : update(r, o)).catch((e) => console.warn('MP put', e.code || e.message));
+    if (mpNoF) delete o.f; /* las reglas del servidor aún no aceptan el campo de vuelo: se manda sin él */
+    (full ? set(r, o) : update(r, o)).catch((e) => {
+      if (!mpNoF && 'f' in o && /PERMISSION/i.test(String(e.code || e.message))) { mpNoF = true; delete o.f; (full ? set(r, o) : update(r, o)).catch(() => {}); return; }
+      console.warn('MP put', e.code || e.message);
+    });
   },
   drop: (zk) => { const u = mpAuth.currentUser; if (!u) return; const r = ref(mpDb, 'mp/z/' + zk + '/' + u.uid); onDisconnect(r).cancel().catch(() => {}); remove(r).catch(() => {}); if (mpDisc === zk) mpDisc = null; },
   subZone: (zk, cb) => onValue(ref(mpDb, 'mp/z/' + zk), (s) => cb(s.val() || {}), (e) => { console.warn('MP zona', e.code || e.message); cb({}); }),
