@@ -15749,7 +15749,7 @@ function buildBaseAEMX(){
     var myR = mpRole(), myN = mpTag(mpName(), myR);
     if (!MPG.myLab || MPG.myLabN !== myN || MPG.myLab.parent !== bot.g) {
       if (MPG.myLab) { if (MPG.myLab.parent) MPG.myLab.parent.remove(MPG.myLab); MPG.myLab.material.map.dispose(); MPG.myLab.material.dispose(); }
-      MPG.myLab = mpLabel(myN, MP_RC[myR] || '#ffd84a', '#ffd84a'); MPG.myLabN = myN; bot.g.add(MPG.myLab); /* GM rojo / MD morado; jugador dorado; siempre con borde dorado por ser el propio */
+      MPG.myLab = mpLabel(myN, MP_RC[myR] || '#ffd84a'); MPG.myLabN = myN; bot.g.add(MPG.myLab); /* GM rojo / MD morado; jugador en dorado; sin borde */
     }
     MPG.myLab.visible = true;
     if (window.__mp.start) window.__mp.start(); /* aquí se conecta la base (solo en Xibalba) */
