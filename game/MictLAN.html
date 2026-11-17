@@ -11744,7 +11744,7 @@ function buildBaseAEMX(){
       var tx = new THREE.CanvasTexture(cv); tx.magFilter = THREE.NearestFilter; tx.minFilter = THREE.NearestFilter;
       var m = new THREE.Mesh(new THREE.PlaneGeometry(0.096, 0.064), new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0 }));
       m.position.set(0, 0.07, 0.1125); m.raycast = function () { }; F.eyes.parent.add(m);
-      P = F.pong = { cv: cv, cx: cv.getContext('2d'), tx: tx, m: m, k: 0, bx: 24, by: 16, vx: 26, vy: 17, l: 16, r: 16, ac: 0 };
+      P = F.pong = { cv: cv, cx: cv.getContext('2d'), tx: tx, m: m, k: 0, bx: 24, by: 16, vx: 26, vy: 28, l: 16, r: 16, ac: 0 };
     }
     P.k += ((on ? 1 : 0) - P.k) * Math.min(1, dt * (on ? 2 : 8));
     var vis = P.k > 0.02; P.m.visible = vis; P.m.material.opacity = P.k; F.eyes.visible = P.k < 0.5;
@@ -11756,9 +11756,9 @@ function buildBaseAEMX(){
     var sp = 20 + 8 * Math.sin(P.bx * 0.3);
     P.l += Math.max(-sp * st, Math.min(sp * st, P.by - P.l)); P.r += Math.max(-sp * st, Math.min(sp * st, P.by - P.r));
     P.l = Math.max(5, Math.min(27, P.l)); P.r = Math.max(5, Math.min(27, P.r));
-    if (P.bx < 7 && P.vx < 0) { if (Math.abs(P.by - P.l) < 7) { P.bx = 7; P.vx = Math.abs(P.vx) * 1.04; P.vy += (P.by - P.l) * 2.5; } else if (P.bx < -2) { P.bx = 24; P.by = 16; P.vx = 26; P.vy = (Math.random() - 0.5) * 30; } }
-    if (P.bx > 41 && P.vx > 0) { if (Math.abs(P.by - P.r) < 7) { P.bx = 41; P.vx = -Math.abs(P.vx) * 1.04; P.vy += (P.by - P.r) * 2.5; } else if (P.bx > 50) { P.bx = 24; P.by = 16; P.vx = -26; P.vy = (Math.random() - 0.5) * 30; } }
-    if (Math.abs(P.vx) > 60) P.vx *= 0.8; P.vy = Math.max(-40, Math.min(40, P.vy));
+    if (P.bx < 7 && P.vx < 0) { if (Math.abs(P.by - P.l) < 7) { P.bx = 7; P.vx = Math.abs(P.vx) * 1.04; P.vy += (P.by - P.l) * 4; } else if (P.bx < -2) { P.bx = 24; P.by = 16; P.vx = 26; P.vy = (Math.random() < 0.5 ? -1 : 1) * (22 + Math.random() * 16); } }
+    if (P.bx > 41 && P.vx > 0) { if (Math.abs(P.by - P.r) < 7) { P.bx = 41; P.vx = -Math.abs(P.vx) * 1.04; P.vy += (P.by - P.r) * 4; } else if (P.bx > 50) { P.bx = 24; P.by = 16; P.vx = -26; P.vy = (Math.random() < 0.5 ? -1 : 1) * (22 + Math.random() * 16); } }
+    if (Math.abs(P.vx) > 60) P.vx *= 0.8; P.vy = Math.max(-44, Math.min(44, P.vy)); if (Math.abs(P.vy) < 16) P.vy = P.vy < 0 ? -16 : 16; /* siempre en diagonal, nunca plana */
     var c = P.cx, col = '#' + (F.eyeMat ? F.eyeMat.color.getHexString() : '3dff7a');
     c.clearRect(0, 0, 48, 32); c.fillStyle = col;
     c.fillRect(1, Math.round(P.l) - 5, 4, 10); c.fillRect(43, Math.round(P.r) - 5, 4, 10); c.fillRect(Math.round(P.bx) - 2, Math.round(P.by) - 2, 4, 4); /* raquetas gruesas y pelota de 4 px, sin red al centro */
