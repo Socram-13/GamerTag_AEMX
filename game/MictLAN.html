@@ -15614,7 +15614,33 @@ function buildBaseAEMX(){
   var MP_LAG = 350; /* ms: los demás robots se dibujan este tanto en el pasado, entre dos datos reales */
   var MP_ZONE = 250; function mpZone(x, z) { return Math.floor(x / MP_ZONE) + '_' + Math.floor(z / MP_ZONE); }
   var MPG = { subs: {}, zd: {}, subC: null, zk: null, map: {}, data: {}, sub: false, last: 0, lx: 1e9, lz: 1e9, ly: 1e9, btn: null, bt: 0, busy: false };
-  var mpE = new THREE.Euler();
+  var mpE = new THREE.Euler(), mpFb = new THREE.Box3();
+  /* misma animación que el robot propio (caminar, correr, volar), con la velocidad que se ve en pantalla */
+  function mpAnim(R, dt) {
+    var mv = R.sp > 0.3, i, la, sg, ang, am, kf, f, elf, sd, L = R.F.legs, A = R.F.arms;
+    R.gk = (R.gk || 0) + ((mv ? 1 : 0) - (R.gk || 0)) * Math.min(1, dt * 8);
+    R.fK = (R.fK || 0) + ((R.fl ? 1 : 0) - (R.fK || 0)) * Math.min(1, dt * 8);
+    R.runK = (R.runK || 0) + ((R.sp > 3.4 && !R.fl ? 1 : 0) - (R.runK || 0)) * Math.min(1, dt * 6);
+    am = Math.min(0.9, 0.28 + R.sp * 0.1); kf = Math.min(1.6, 0.45 + R.sp * 0.15);
+    if (mv) R.ph += dt * Math.max(3.0, Math.min(12, 3.1416 * R.sp / (1.44 * am)));
+    for (i = 0; L && i < 2; i++) {
+      la = -am * Math.sin(R.ph + i * Math.PI) * R.gk;
+      sg = kf * Math.max(0, Math.cos(R.ph + i * Math.PI)) * R.gk;
+      ang = -(la + sg) * 0.85 + sg * 0.55 + R.runK * (0.65 * sg + 0.6 * Math.max(0, la) / am);
+      la = la * (1 - R.fK) + 0.12 * R.fK; sg = sg * (1 - R.fK) + 0.05 * R.fK; ang = ang * (1 - R.fK) + 0.45 * R.fK;
+      L[i].th.rotation.x = la; L[i].kn.rotation.x = sg; L[i].ft.rotation.x = ang;
+    }
+    for (i = 0; A && i < 2; i++) {
+      sd = i === 0 ? -1 : 1;
+      f = sd * Math.sin(R.ph) * Math.min(0.85, 0.1 + R.sp * 0.1) * R.gk * (1 - R.fK);
+      elf = (0.3 + 1.1 * R.runK) * (1 - R.fK) + 0.12 * R.fK;
+      mpE.set(-f + 0.1 * R.fK, 0, sd * (0.14 + 0.26 * R.fK)); A[i].sh.quaternion.setFromEuler(mpE);
+      mpE.set(-(elf + 0.5 * Math.max(0, f)), 0, 0); A[i].el.quaternion.setFromEuler(mpE);
+      if (A[i].wr) A[i].wr.rotation.y = sd * 1.45 * R.fK; /* en vuelo: palmas hacia adelante */
+    }
+    R.flame = (R.flame || 0) + ((R.fl === 2 ? 0.9 : 0) - (R.flame || 0)) * Math.min(1, dt * 9);
+    if (R.F.flames) for (i = 0; i < R.F.flames.length; i++) { var fl = R.F.flames[i]; fl.visible = R.flame > 0.03; if (fl.visible) fl.scale.set(0.6 + 0.6 * R.flame, 0.25 + 1.9 * R.flame * (0.85 + 0.15 * Math.sin(R.ph * 9 + performance.now() * 0.055 + i * 2)), 0.6 + 0.6 * R.flame); } /* propulsores como el robot propio */
+  }
   function mpWrap(a) { while (a > Math.PI) a -= 6.2832; while (a < -Math.PI) a += 6.2832; return a; }
   function mpLabel(txt) {
     var c = document.createElement('canvas'), x, tx, sp; c.width = 256; c.height = 64; x = c.getContext('2d');
@@ -15722,10 +15748,10 @@ function buildBaseAEMX(){
       for (kk in need) if (!MPG.subs[kk]) (function (q) { MPG.subs[q] = window.__mp.subZone(q, function (v) { MPG.zd[q] = v || {}; }); })(kk);
     }
     /* publicar mi robot: ~4 por segundo si se mueve; si está quieto, cada 5 s (para seguir "en línea") */
-    var mvNow = (bot.v || 0) > 0.3, tick = now - MPG.last >= 250 && (Math.abs(bot.x - MPG.lx) > 0.05 || Math.abs(bot.z - MPG.lz) > 0.05 || Math.abs(bot.y - MPG.ly) > 0.05);
-    if (tick || (now - MPG.last > 100 && mvNow !== MPG.mv) || now - MPG.last > 5000) { /* al detenerse se avisa de inmediato */
+    var mvNow = (bot.v || 0) > 0.3, fNow = (bot.flame || 0) > 0.3 ? 2 : (bot.flyK || 0) > 0.5 ? 1 : 0, tick /* 0 en el piso, 1 volando, 2 con propulsores encendidos */ = now - MPG.last >= 250 && (Math.abs(bot.x - MPG.lx) > 0.05 || Math.abs(bot.z - MPG.lz) > 0.05 || Math.abs(bot.y - MPG.ly) > 0.05);
+    if (tick || (now - MPG.last > 100 && (mvNow !== MPG.mv || fNow !== MPG.f)) || now - MPG.last > 5000) { MPG.f = fNow; /* al detenerse se avisa de inmediato */
       MPG.last = (tick && now - MPG.last < 350) ? MPG.last + 250 : now; /* ritmo fijo de 250 ms mientras camina (no se corre con cada cuadro) */ MPG.lx = bot.x; MPG.lz = bot.z; MPG.ly = bot.y; MPG.mv = mvNow;
-      var po = { x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), t: now }, nm = mpName(), col = (now - (MPG.cT || 0) > 3000 || !MPG.sc) ? (MPG.cT = now, mpMyCol()) : MPG.sc;
+      var po = { x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), f: fNow, t: now }, nm = mpName(), col = (now - (MPG.cT || 0) > 3000 || !MPG.sc) ? (MPG.cT = now, mpMyCol()) : MPG.sc;
       var full = zk !== MPG.zk || nm !== MPG.sn || col !== MPG.sc; /* nombre y colores solo cuando cambian (o al entrar a otra zona) */
       if (full) { po.n = nm; po.c = col; }
       window.__mp.put(zk, po, full);
@@ -15748,7 +15774,7 @@ function buildBaseAEMX(){
         R.lt = d.t; var sy = isFinite(d.y) ? d.y : botGround(d.x, d.z), lb = R.buf && R.buf[R.buf.length - 1], ofs = now - (d.t || now);
         if (!R.buf || (lb && (Math.hypot(d.x - lb.x, d.z - lb.z) > 40 || d.t < lb.t))) { R.buf = []; R.ofs = ofs; R.x = d.x; R.z = d.z; R.y = sy; R.yaw = d.yaw || 0; } /* nuevo o teletransporte: sin cruzar el mapa */
         R.ofs = ofs < R.ofs ? ofs : R.ofs + (ofs - R.ofs) * 0.05; /* reloj del otro jugador frente al mío: sigue al paquete más rápido, se ajusta despacio */
-        R.buf.push({ t: d.t, x: d.x, z: d.z, y: sy, yaw: d.yaw || 0 }); if (R.buf.length > 12) R.buf.shift();
+        R.buf.push({ t: d.t, x: d.x, z: d.z, y: sy, yaw: d.yaw || 0, f: d.f || 0 }); if (R.buf.length > 12) R.buf.shift();
       }
     }
     for (k in MPG.map) if (!seen[k]) { mpDrop(MPG.map[k]); delete MPG.map[k]; }
@@ -15758,10 +15784,10 @@ function buildBaseAEMX(){
       if (B && B.length) {
         rt = now - R.ofs - MP_LAG;
         for (i0 = B.length - 1; i0 > 0 && B[i0 - 1].t > rt; i0--);
-        if (rt <= B[0].t) { s0 = B[0]; tx = s0.x; tz = s0.z; ty = s0.y; tyw = s0.yaw; }
-        else if (i0 < B.length && B[i0].t >= rt && i0 > 0) { s0 = B[i0 - 1]; s1 = B[i0]; f = (rt - s0.t) / Math.max(1, s1.t - s0.t); tx = s0.x + (s1.x - s0.x) * f; tz = s0.z + (s1.z - s0.z) * f; ty = s0.y + (s1.y - s0.y) * f; tyw = s0.yaw + mpWrap(s1.yaw - s0.yaw) * f; }
+        if (rt <= B[0].t) { s0 = B[0]; tx = s0.x; tz = s0.z; ty = s0.y; tyw = s0.yaw; R.fl = s0.f; }
+        else if (i0 < B.length && B[i0].t >= rt && i0 > 0) { s0 = B[i0 - 1]; s1 = B[i0]; R.fl = s0.f; f = (rt - s0.t) / Math.max(1, s1.t - s0.t); tx = s0.x + (s1.x - s0.x) * f; tz = s0.z + (s1.z - s0.z) * f; ty = s0.y + (s1.y - s0.y) * f; tyw = s0.yaw + mpWrap(s1.yaw - s0.yaw) * f; }
         else { /* llegó tarde el siguiente dato: sigue un poco con la última velocidad (máx. 0.3 s) y espera */
-          s1 = B[B.length - 1]; s0 = B.length > 1 ? B[B.length - 2] : s1; ex = Math.min(300, rt - s1.t); f = (s1.t > s0.t && R.v >= 0.3) ? ex / (s1.t - s0.t) : 0;
+          s1 = B[B.length - 1]; s0 = B.length > 1 ? B[B.length - 2] : s1; R.fl = s1.f; ex = Math.min(300, rt - s1.t); f = (s1.t > s0.t && R.v >= 0.3) ? ex / (s1.t - s0.t) : 0;
           tx = s1.x + (s1.x - s0.x) * f; tz = s1.z + (s1.z - s0.z) * f; ty = s1.y; tyw = s1.yaw;
         }
         a = Math.min(1, dt * 18); /* solo alisa el último tramo */
@@ -15771,12 +15797,12 @@ function buildBaseAEMX(){
       /* la caminata sigue al movimiento real que se ve en pantalla: si ya no avanza, deja de caminar enseguida */
       var ms = dt > 0 ? Math.hypot(R.x - px, R.z - pz) / dt : 0; if (R.v < 0.3 && ms < 0.4) ms = 0;
       R.sp = (R.sp || 0) + (ms - (R.sp || 0)) * Math.min(1, dt * 10);
-      R.ph += dt * (2 + R.sp * 2.2);
-      var sw = R.sp < 0.15 ? 0 : Math.min(0.6, R.sp * 0.12), L = R.F.legs;
-      if (L && L.length === 2) for (var i = 0; i < 2; i++) { var s = Math.sin(R.ph + i * Math.PI) * sw; L[i].th.rotation.x = s; L[i].kn.rotation.x = Math.max(0, -s) * 1.1 + 0.1; L[i].ft.rotation.x = -(L[i].th.rotation.x + L[i].kn.rotation.x); }
-      /* brazos en reposo que se balancean al caminar (misma postura que el robot propio sin apuntar) */
-      for (var j = 0; j < 2 && R.F.arms; j++) { var fa = (j === 0 ? -1 : 1) * Math.sin(R.ph) * Math.min(0.85, 0.1 + R.sp * 0.1) * (R.sp > 0.15 ? 1 : 0); mpE.set(-fa, 0, (j === 0 ? -1 : 1) * 0.14); R.F.arms[j].sh.quaternion.setFromEuler(mpE); mpE.set(-(0.3 + Math.min(1.1, R.sp * 0.11) + 0.5 * Math.max(0, fa)), 0, 0); R.F.arms[j].el.quaternion.setFromEuler(mpE); }
-      R.F.g.position.set(R.x, R.y + Math.abs(Math.sin(R.ph)) * Math.min(0.05, R.sp * 0.01), R.z); R.F.g.rotation.y = R.yaw;
+      mpAnim(R, dt);
+      R.F.g.position.set(R.x, R.y, R.z); R.F.g.rotation.y = R.yaw;
+      if (R.gk > 0.25 && R.fK < 0.2) { /* pies al piso al caminar (igual que el robot propio) */
+        R.F.g.updateMatrixWorld(true); mpFb.setFromObject(R.F.legs[0].ft); var fy0 = mpFb.min.y; mpFb.setFromObject(R.F.legs[1].ft);
+        var fdn = Math.max(0, Math.min(0.06, Math.min(fy0, mpFb.min.y) - R.y + 0.01)) * R.gk; R.bob = (R.bob || 0) + (fdn - (R.bob || 0)) * Math.min(1, dt * 3); R.F.g.position.y -= R.bob;
+      } else R.bob = 0;
     }
   }
 
