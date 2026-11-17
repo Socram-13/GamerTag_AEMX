@@ -15650,7 +15650,7 @@ function buildBaseAEMX(){
     if (col) { x.strokeStyle = col; x.lineWidth = 3; x.stroke(); } /* el propio: con borde de su color */
     x.fillStyle = col || '#7fe8ff'; x.fillText(txt, 128, 33);
     tx = new THREE.CanvasTexture(c); sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false }));
-    sp.scale.set(2.4, 0.6, 1); sp.position.y = 2.6; sp.renderOrder = 5; return sp;
+    sp.scale.set(1.6, 0.4, 1); sp.position.y = 2.5; sp.renderOrder = 5; return sp;
   }
   /* colores del jugador: "c" = "base,secundario,ojos" en hex (los del selector de la pantalla de carga); se arma la paleta igual que botPalApply */
   function mpCol(s) { var m = /^([0-9a-f]{6}),([0-9a-f]{6}),([0-9a-f]{6})$/i.exec(s || ''); return m ? { base: '#' + m[1].toLowerCase(), sec: '#' + m[2].toLowerCase(), eye: '#' + m[3].toLowerCase() } : { base: BOT_PAL_DEF.base, sec: BOT_PAL_DEF.sec, eye: BOT_PAL_DEF.eye }; }
