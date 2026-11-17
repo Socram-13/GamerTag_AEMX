@@ -364,12 +364,13 @@
   #xib .btns .jump { grid-column: 1; grid-row: 2; }
   #xib .btns .turbo { grid-column: 1; grid-row: 1; border-color: #5ad8ff; }
   /* Sentarse: aparte de los botones de batalla, abajo al centro */
-  #xib .sit { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--xib-up, 0px)); width: 58px; height: 58px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 50%; border: 2px solid rgba(183,196,216,0.6); background: rgba(10,16,28,0.55); color: #fff; font: 700 7.5px var(--f-body), sans-serif; letter-spacing: 0.06em; pointer-events: auto; touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
-  #xib .sit svg { width: 24px; height: 24px; pointer-events: none; }
+  #xib .sit { position: absolute; right: calc(max(16px, env(safe-area-inset-right)) + 150px); bottom: max(10px, env(safe-area-inset-bottom)); width: 46px; height: 46px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 50%; border: 2px solid rgba(183,196,216,0.6); background: rgba(10,16,28,0.55); color: #fff; font: 700 6.5px var(--f-body), sans-serif; letter-spacing: 0.06em; pointer-events: auto; touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  #xib .sit svg { width: 19px; height: 19px; pointer-events: none; }
   #xib .sit span { pointer-events: none; }
   #xib .sit.on { background: rgba(61,255,122,0.45); border-color: #3dff7a; }
-  /* celular: a la izquierda, justo arriba del joystick, lejos de SALTO */
-  @media (max-width: 700px) { #xib .sit { left: max(18px, env(safe-area-inset-left)); transform: none; bottom: calc(max(26px, env(safe-area-inset-bottom)) + 186px); } .stage.gm-xib #xib .hint { bottom: 284px; } }
+  /* abajo de la pantalla, lo más a la derecha que dejan los botones de batalla (que no se mueven): en PC justo a la izquierda de su columna;
+     en celular cabe debajo de ellos, en la esquina */
+  @media (max-width: 700px) { #xib .sit { right: max(16px, env(safe-area-inset-right)); bottom: max(6px, env(safe-area-inset-bottom)); } }
   /* en Xibalba no hay diálogos entre Aura y el robot: sin la flecha que ocultaba ese chat */
   .stage.gm-xib #b-chat { display: none !important; }
   #xib .btns button.on { background: rgba(61,255,122,0.55); }
