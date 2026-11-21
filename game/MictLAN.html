@@ -393,6 +393,12 @@
   #xib .dron.on { background: rgba(61,255,122,0.45); border-color: #3dff7a; }
   #xib .dron.cd { opacity: 0.45; }
   @media (max-width: 700px) { #xib .dron { right: calc(max(16px, env(safe-area-inset-right)) + 52px); bottom: max(6px, env(safe-area-inset-bottom)); } }
+  #xib .rover { position: absolute; right: calc(max(16px, env(safe-area-inset-right)) + 254px); bottom: max(10px, env(safe-area-inset-bottom)); width: 46px; height: 46px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 50%; border: 2px solid rgba(255,211,107,0.65); background: rgba(10,16,28,0.55); color: #fff; font: 700 6.5px var(--f-body), sans-serif; letter-spacing: 0.06em; pointer-events: auto; touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  #xib .rover svg { width: 22px; height: 22px; pointer-events: none; }
+  #xib .rover span { pointer-events: none; }
+  #xib .rover.near { background: rgba(255,211,107,0.35); }
+  #xib .rover.on { background: rgba(61,255,122,0.45); border-color: #3dff7a; }
+  @media (max-width: 700px) { #xib .rover { right: calc(max(16px, env(safe-area-inset-right)) + 98px); bottom: max(6px, env(safe-area-inset-bottom)); } }
   #xib .dbat { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px); display: none; align-items: center; gap: 6px; pointer-events: none; }
   #xib .dbat.on { display: flex; }
   #xib .dbat b { font: 700 10px var(--f-body), sans-serif; letter-spacing: 0.12em; color: #c8ffd6; text-shadow: 0 0 4px rgba(0,0,0,0.8); }
@@ -7113,7 +7119,7 @@ function buildBaseAEMX(){
 
   var q = document.getElementById('q'), resEl = document.getElementById('res'), matches = [];
   function choose(m) {
-    if (GM.xib) { if (m.kind === 'p') select(m.p); resEl.hidden = true; q.value = ''; q.blur(); return; }
+    if (GM.xib) { if (m.kind === 'p') select(m.p); else if (m.kind === 'rv' && window.__rvLocate) window.__rvLocate(); resEl.hidden = true; q.value = ''; q.blur(); return; }
     ufoFollow = false; carFollow = false; wandFollow = false; auraFollow = false; botFollow = false; turretCam = false;
     if (m.kind === 'u') {
       if (ufo) {
@@ -7188,7 +7194,8 @@ function buildBaseAEMX(){
     players.forEach(function (p) {
       if (matches.length < 6 && (p.name.toLowerCase().indexOf(v) > -1 || p.city.toLowerCase().indexOf(v) > -1)) matches.push({ kind: 'p', p: p, label: '' + p.name, sub: p.city });
     });
-    if (GM.xib) matches = matches.filter(function (m) { return m.kind === 'p'; });
+    if (GM.xib && window.__rvMatch) { var rvm = window.__rvMatch(v); if (rvm) matches.unshift(rvm); }
+    if (GM.xib) matches = matches.filter(function (m) { return m.kind === 'p' || m.kind === 'rv'; });
     matches = matches.slice(0, 6);
     if (!matches.length) {
       var none = el('li');
@@ -11698,6 +11705,7 @@ function buildBaseAEMX(){
     b.sitK = (b.sitK || 0) + (((b.sitOn && GM.xib) ? 1 : 0) - (b.sitK || 0)) * Math.min(1, dt * (b.sitOn ? 3 : 6));
     if (b.sitK > 0.002 || b.sitW) { if (b.sitK <= 0.002) b.sitK = 0; botSitApply(b, b.sitK, t, true); b.sitW = b.sitK > 0; }
     botPong(b, dt, !!(GM.xib && b.pongOn));
+    if (GM.xib && RVX.on && RVX.R && b === bot) rvSeat(b, RVX.R); /* manejando: sentado en el rover */
 
     if (b.scanK > 0.3 && b.wk && !liftOn) {
 
@@ -11793,11 +11801,12 @@ function buildBaseAEMX(){
       '<button type="button" class="fire" aria-label="Disparo"><svg viewBox="0 0 24 24" aria-hidden="true"><g transform="rotate(45 12 12)"><path d="M12 1.8c2.3 1.7 3.1 4.2 3.1 6.8v5.6H8.9V8.6c0-2.6.8-5.1 3.1-6.8z" fill="#ffd36b"/><rect x="8.4" y="15" width="7.2" height="6.8" rx="1.1" fill="#d99a2b"/><rect x="8.4" y="14.2" width="7.2" height="1.6" fill="#7a5414"/></g></svg><span>DISPARO</span></button></div>' +
       '<button type="button" class="sit" aria-label="Sentarse"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="4" r="2.3" fill="#fff"/><path d="M8 7.5 7.4 14h6.4l3.4 6.5M7.4 14 3.5 19.5M8.2 9.5l5 1.6 2.8-3" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 21.5h20" stroke="#9aa4b8" stroke-width="1.6" stroke-linecap="round"/></svg><span>SENTARSE</span></button>' +
       '<button type="button" class="dron" aria-label="Dron"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="10" width="7" height="4" rx="1.2" fill="#fff"/><path d="M8.5 11 4.5 7M15.5 11l4-4M8.5 13l-4 4M15.5 13l4 4" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><g fill="none" stroke="#3dff7a" stroke-width="1.4"><ellipse cx="4.5" cy="7" rx="3" ry="1.1"/><ellipse cx="19.5" cy="7" rx="3" ry="1.1"/><ellipse cx="4.5" cy="17" rx="3" ry="1.1"/><ellipse cx="19.5" cy="17" rx="3" ry="1.1"/></g><path d="M12 14v4" stroke="#9aa4b8" stroke-width="1.4"/></svg><span>DRON</span></button>' +
+      '<button type="button" class="rover" aria-label="Rover"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15.5V12l2-1 2.5-4h8l2.5 4 3 1v3.5z" fill="#ffd36b"/><path d="M8.3 8h6.9l1.6 3H6.6z" fill="#0b1220"/><circle cx="7" cy="16.5" r="2.6" fill="#1b1d21" stroke="#fff" stroke-width="1.4"/><circle cx="17" cy="16.5" r="2.6" fill="#1b1d21" stroke="#fff" stroke-width="1.4"/></svg><span>ROVER</span></button>' +
       '<div class="dbat"><b>DRON</b><span><i></i></span></div><div class="hint"></div>';
     stage.appendChild(w);
     var joy = w.querySelector('.joy'), kn = joy.querySelector('i'), jid = null, hint = w.querySelector('.hint');
     var pc = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
-    hint.textContent = pc ? 'WASD o flechas: mover · Shift: turbo · Espacio: salto · F: disparo · C: sentarse · G: dron' : 'Joystick: mover · arrastra la pantalla para girar la cámara';
+    hint.textContent = pc ? 'WASD o flechas: mover · Shift: turbo · Espacio: salto · F: disparo · C: sentarse · G: dron · V: rover' : 'Joystick: mover · arrastra la pantalla para girar la cámara';
     setTimeout(function () { hint.classList.add('off'); }, 9000);
     function jset(e) { var r = joy.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, dx = e.clientX - cx, dy = e.clientY - cy, R = r.width / 2, l = Math.hypot(dx, dy); if (l > R) { dx *= R / l; dy *= R / l; } XIB.jx = dx / R; XIB.jy = -dy / R; kn.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; }
     function jend() { jid = null; XIB.jx = 0; XIB.jy = 0; kn.style.transform = ''; }
@@ -11820,8 +11829,12 @@ function buildBaseAEMX(){
     XIB.drEl.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); });
     XIB.drEl.addEventListener('click', function (e) { e.stopPropagation(); xibDron(); });
     XIB.drEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    XIB.rvEl = w.querySelector('.rover');
+    XIB.rvEl.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); });
+    XIB.rvEl.addEventListener('click', function (e) { e.stopPropagation(); xibRover(); });
+    XIB.rvEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     function typing() { var a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable); }
-    document.addEventListener('keydown', function (e) { if (typing()) return; var c = e.code; XIB.k[c] = true; if (c === 'Space') { XIB.jump = true; e.preventDefault(); } if (c === 'ShiftLeft' || c === 'ShiftRight') XIB.turbo = true; if (c === 'KeyF') XIB.fire = true; if (c === 'KeyC' && !e.repeat) xibSit(!XIB.sit); if (c === 'KeyG' && !e.repeat) xibDron(); if (/^Arrow/.test(c)) e.preventDefault(); });
+    document.addEventListener('keydown', function (e) { if (typing()) return; var c = e.code; XIB.k[c] = true; if (c === 'Space') { XIB.jump = true; e.preventDefault(); } if (c === 'ShiftLeft' || c === 'ShiftRight') XIB.turbo = true; if (c === 'KeyF') XIB.fire = true; if (c === 'KeyC' && !e.repeat) xibSit(!XIB.sit); if (c === 'KeyG' && !e.repeat) xibDron(); if (c === 'KeyV' && !e.repeat) xibRover(); if (/^Arrow/.test(c)) e.preventDefault(); });
     document.addEventListener('keyup', function (e) { XIB.k[e.code] = false; if (e.code === 'KeyF') XIB.fire = false; });
     window.addEventListener('blur', function () { XIB.k = {}; XIB.fire = false; jend(); });
     /* cámara táctil propia: el dedo del joystick no cuenta. Un dedo fuera del joystick gira la cámara; dos dedos fuera del joystick, zoom.
@@ -11970,6 +11983,272 @@ function buildBaseAEMX(){
     P.tx.needsUpdate = true;
   }
   window.__botPong = botPong;
+  /* ===== Rover propio del robot (diseño original): buggy de exploración de 4 ruedas con jaula antivuelco, asiento para el robot,
+     volante, parrilla trasera con antena y luces del color de los ojos. makeRover(pal) con pal = { base, sec, eye } (hex '#rrggbb').
+     Unidades del mundo: el robot mide ~0.7; el rover ~1.6 de largo, ~1.1 de ancho. Mira hacia +z. ===== */
+  function makeRover(pal) {
+    var g = new THREE.Group(), body = new THREE.Group(), R = { g: g, body: body, wheels: [], mats: {} }, m, i, s;
+    var L = function (c) { return new THREE.MeshLambertMaterial({ color: c }); };
+    var mBase = new THREE.MeshLambertMaterial({ color: pal.base, side: THREE.DoubleSide }), mSec = L(pal.sec), mDark = L(0x16181c), mTire = L(0x1b1d21), mJoint = L(0x3a414b), mSeat = L(0x24272d), mGlass = new THREE.MeshLambertMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.35 });
+    var mEye = new THREE.MeshBasicMaterial({ color: pal.eye }), mGlow = new THREE.MeshBasicMaterial({ color: pal.eye, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false });
+    R.mats = { base: mBase, sec: mSec, eye: mEye, glow: mGlow }; R.eyeHex = pal.eye;
+    var box = function (mt, w, h, d, x, y, z, par, rx, ry, rz) { var q = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mt); q.position.set(x, y, z); if (rx || ry || rz) q.rotation.set(rx || 0, ry || 0, rz || 0); (par || body).add(q); return q; };
+    var cyl = function (mt, r1, r2, h, x, y, z, par, rx, ry, rz, seg) { var q = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg || 12), mt); q.position.set(x, y, z); q.rotation.set(rx || 0, ry || 0, rz || 0); (par || body).add(q); return q; };
+    var tube = function (mt, pts, r, par) { var q = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(function (p) { return new THREE.Vector3(p[0], p[1], p[2]); })), 24, r, 6, false), mt); (par || body).add(q); return q; };
+    g.add(body); body.scale.setScalar(0.78); /* a escala del robot (0.7 de alto): ~1.25 de largo */
+    /* chasis: tina baja, piso oscuro y nariz en cuña */
+    box(mDark, 0.78, 0.04, 1.34, 0, 0.19, -0.02); /* panza */
+    box(mBase, 0.86, 0.17, 0.26, 0, 0.36, -0.54); /* bloque trasero */
+    box(mBase, 0.86, 0.17, 0.26, 0, 0.36, 0.42); /* bloque delantero */
+    box(mBase, 0.8, 0.12, 0.34, 0, 0.36, 0.66, null, 0.32); /* nariz inclinada */
+    box(mSec, 0.74, 0.04, 0.3, 0, 0.43, 0.62, null, 0.32); /* placa clara de la nariz */
+    for (s = -1; s <= 1; s += 2) { box(mBase, 0.07, 0.26, 0.7, s * 0.395, 0.315, -0.06); box(mSec, 0.09, 0.05, 1.24, s * 0.405, 0.455, -0.06); } /* costados de la cabina y su borde */
+    box(mSec, 0.72, 0.05, 0.26, 0, 0.455, 0.42); box(mSec, 0.72, 0.05, 0.26, 0, 0.455, -0.54); /* borde delantero y trasero */
+    box(mDark, 0.72, 0.045, 0.7, 0, 0.215, -0.06); /* piso de la cabina, hundido: ahí van los pies del robot */
+    for (i = -2; i <= 2; i++) box(mJoint, 0.7, 0.006, 0.025, 0, 0.24, -0.06 + i * 0.13); /* antiderrapante */
+    /* tiras de luz a los lados y luz por debajo */
+    for (s = -1; s <= 1; s += 2) { box(mEye, 0.012, 0.025, 1.0, s * 0.433, 0.33, -0.06); box(mSec, 0.02, 0.09, 0.5, s * 0.44, 0.38, -0.08); }
+    m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.4), mGlow); m.rotation.x = -Math.PI / 2; m.position.set(0, 0.02, -0.04); body.add(m); R.under = m;
+    /* faros y defensa; en la niebla los faros se encienden (lente blanca y haz de luz) */
+    var mLamp = new THREE.MeshBasicMaterial({ color: pal.eye }), mBeam = new THREE.MeshBasicMaterial({ color: 0xfff6dc, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    R.mats.lamp = mLamp; R.mats.beam = mBeam; R.beams = [];
+    for (s = -1; s <= 1; s += 2) {
+      box(mDark, 0.14, 0.08, 0.05, s * 0.25, 0.4, 0.8); box(mLamp, 0.1, 0.045, 0.02, s * 0.25, 0.4, 0.83);
+      var cb = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.6, 18, 1, true), mBeam); cb.rotation.x = -Math.PI / 2; cb.position.set(s * 0.25, 0.4, 0.84 + 1.3); cb.visible = false; cb.raycast = function () {}; body.add(cb); R.beams.push(cb); /* haz que se abre hacia adelante */
+    }
+    box(mLamp, 0.4, 0.03, 0.02, 0, 0.33, 0.885); /* tira de luz en la defensa */
+    box(mJoint, 0.82, 0.05, 0.06, 0, 0.27, 0.86); box(mJoint, 0.05, 0.12, 0.05, -0.3, 0.3, 0.83); box(mJoint, 0.05, 0.12, 0.05, 0.3, 0.3, 0.83);
+    /* salpicaderas sobre las ruedas */
+    [[0.52, 0.48], [-0.52, 0.48], [0.52, -0.5], [-0.52, -0.5]].forEach(function (p) {
+      var f = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.24, 14, 1, true, 0, Math.PI), mBase); f.rotation.z = Math.PI / 2; f.position.set(p[0], 0.24, p[1]); body.add(f); /* arco sobre la rueda */
+      box(mSec, 0.24, 0.02, 0.1, p[0], 0.53, p[1]);
+    });
+    /* asiento del robot y volante */
+    /* asiento tipo cubo: riel, cojín con costados levantados, respaldo envolvente, cabecera con hueco y arnés */
+    var seatG = new THREE.Group(); seatG.position.set(0, 0.4, -0.15); body.add(seatG); /* asiento a su altura de siempre; el piso de la cabina va hundido */
+    box(mJoint, 0.24, 0.16, 0.26, 0, 0.3175, -0.13); /* base del asiento sobre el piso hundido */
+    var mSeat2 = L(0x2f333b), mStitch = new THREE.MeshBasicMaterial({ color: pal.sec });
+    R.mats.stitch = mStitch;
+    box(mJoint, 0.3, 0.03, 0.34, 0, 0.0, 0.02, seatG); /* riel del asiento */
+    box(mSeat, 0.3, 0.06, 0.32, 0, 0.045, 0.02, seatG); /* cojín */
+    box(mSeat2, 0.22, 0.012, 0.26, 0, 0.081, 0.03, seatG); /* centro acolchado */
+    for (s = -1; s <= 1; s += 2) {
+      box(mSeat, 0.06, 0.1, 0.32, s * 0.17, 0.07, 0.02, seatG, 0, 0, s * 0.18); /* costados del cojín */
+      box(mSeat, 0.07, 0.32, 0.08, s * 0.165, 0.23, -0.15, seatG, -0.12, s * 0.25, 0); /* costados del respaldo (envuelven) */
+      box(mStitch, 0.006, 0.26, 0.006, s * 0.11, 0.22, -0.115, seatG, -0.12); /* costuras del color secundario */
+    }
+    box(mSeat, 0.28, 0.36, 0.06, 0, 0.22, -0.17, seatG, -0.12); /* respaldo (más bajo) */
+    box(mSeat2, 0.2, 0.26, 0.012, 0, 0.2, -0.138, seatG, -0.12); /* centro acolchado del respaldo */
+    box(mSeat, 0.22, 0.12, 0.07, 0, 0.45, -0.19, seatG, -0.12); /* cabecera */
+    box(mDark, 0.07, 0.045, 0.08, 0, 0.45, -0.19, seatG, -0.12); /* hueco de la cabecera */
+    for (s = -1; s <= 1; s += 2) box(mEye, 0.03, 0.24, 0.008, s * 0.065, 0.24, -0.128, seatG, -0.12); /* arnés del color de los ojos */
+    box(mJoint, 0.06, 0.04, 0.012, 0, 0.17, -0.128, seatG, -0.12); /* hebilla */
+    R.seat = { y: 0.475 * 0.78, z: -0.2 * 0.78 }; /* tope del cojín; la espalda del robot contra el respaldo (en el espacio de g) */
+    R.floor = 0.2375 * 0.78; /* piso hundido de la cabina, donde apoyan los pies */
+    var col = new THREE.Group(); col.position.set(0, 0.52, 0.36); col.rotation.x = -1.42; body.add(col); /* columna que sale del tablero; el volante queda frente al pecho del robot */
+    cyl(mJoint, 0.02, 0.02, 0.32, 0, 0.16, 0, col);
+    var wh = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.014, 6, 18), mDark); wh.position.set(0, 0.32, 0); wh.rotation.x = Math.PI / 2; col.add(wh); R.wheelSteer = wh;
+    box(mEye, 0.05, 0.006, 0.03, 0, 0.322, 0.0, col); /* marca al centro del volante */
+    R.wheelPos = new THREE.Vector3(0, 0.32, 0); R.col = col;
+    box(mDark, 0.5, 0.1, 0.06, 0, 0.52, 0.42, null, -0.5); /* tablero */
+    box(mEye, 0.16, 0.035, 0.01, 0, 0.545, 0.43, null, -0.5); /* pantalla del tablero */
+    box(mGlass, 0.6, 0.34, 0.02, 0, 0.74, 0.35, null, -0.64); /* parabrisas: sube por los postes delanteros, inclinado como ellos */
+    box(mSec, 0.62, 0.025, 0.035, 0, 0.6, 0.455, null, -0.64); /* marco inferior del parabrisas */
+    /* jaula antivuelco de barras rectas (sección cuadrada), alta: la cabeza del robot pasa por debajo */
+    var bA = new THREE.Vector3(), bB = new THREE.Vector3(), bU = new THREE.Vector3(0, 1, 0);
+    var bar = function (a, b, t, mt) { bA.set(a[0], a[1], a[2]); bB.set(b[0], b[1], b[2]); var d = bB.clone().sub(bA), l = d.length(), q = new THREE.Mesh(new THREE.BoxGeometry(t, l + t, t), mt || mSec); q.position.copy(bA).add(bB).multiplyScalar(0.5); q.quaternion.setFromUnitVectors(bU, d.normalize()); body.add(q); return q; };
+    var RT = 1.1, ZR = -0.44, ZF = 0.08; /* techo más bajo: justo arriba de la cabeza del robot sentado */
+    for (s = -1; s <= 1; s += 2) {
+      bar([s * 0.37, 0.46, ZR], [s * 0.37, RT, ZR], 0.05); /* poste trasero */
+      bar([s * 0.37, RT, ZR], [s * 0.34, RT, ZF], 0.045); /* larguero del techo */
+      bar([s * 0.34, RT, ZF], [s * 0.3, 0.58, 0.47], 0.045); /* poste delantero inclinado hacia la nariz */
+      bar([s * 0.37, 0.72, ZR], [s * 0.36, 0.5, -0.1], 0.035); /* tirante lateral */
+      box(mJoint, 0.08, 0.03, 0.08, s * 0.37, 0.47, ZR); box(mJoint, 0.08, 0.03, 0.08, s * 0.3, 0.58, 0.47); /* bases atornilladas */
+    }
+    bar([-0.37, RT, ZR], [0.37, RT, ZR], 0.05); bar([-0.34, RT, ZF], [0.34, RT, ZF], 0.045); /* travesaños arriba */
+    bar([-0.37, 0.82, ZR], [0.37, 0.82, ZR], 0.04); bar([-0.37, RT, ZR], [0.37, 0.82, ZR], 0.03); /* barra media y diagonal trasera */
+    box(mBase, 0.78, 0.03, 0.6, 0, RT + 0.035, (ZR + ZF) / 2); /* techo contra la lluvia */
+    box(mSec, 0.8, 0.012, 0.62, 0, RT + 0.056, (ZR + ZF) / 2); /* orilla clara del techo */
+    for (i = -1; i <= 1; i += 2) box(mJoint, 0.025, 0.02, 0.6, i * 0.2, RT + 0.07, (ZR + ZF) / 2); /* nervaduras */
+    box(mEye, 0.5, 0.025, 0.04, 0, RT + 0.075, ZF + 0.02); /* barra de luces del techo */
+    for (i = -1; i <= 1; i++) box(mDark, 0.07, 0.04, 0.05, i * 0.17, RT + 0.075, ZF + 0.05);
+    /* logo S13: a los dos costados, en el cofre y atrás en la caja de herramientas */
+    if (typeof s13Decal === 'function') {
+      for (s = -1; s <= 1; s += 2) { m = s13Decal(s, 0.17, 0, 0); m.position.set(s * 0.452, 0.38, -0.08); body.add(m); }
+      m = s13Decal(1, 0.2, 0, 0); m.rotation.set(-1.25, 0, 0); m.position.set(0, 0.452, 0.628); body.add(m);
+      m = s13Decal(1, 0.11, 0, 0); m.rotation.set(0, Math.PI, 0); m.position.set(0.12, 0.58, -0.692); body.add(m);
+    }
+    /* parrilla trasera con antena */
+    box(mJoint, 0.7, 0.03, 0.3, 0, 0.5, -0.58); for (i = -2; i <= 2; i++) box(mJoint, 0.02, 0.06, 0.3, i * 0.15, 0.53, -0.58);
+    box(mBase, 0.3, 0.12, 0.18, 0.12, 0.58, -0.6); /* caja de herramientas */
+    cyl(mJoint, 0.008, 0.008, 0.55, -0.28, 0.78, -0.62); m = new THREE.Mesh(new THREE.SphereGeometry(0.025, 10, 8), mEye); m.position.set(-0.28, 1.06, -0.62); body.add(m); R.beacon = m;
+    for (s = -1; s <= 1; s += 2) box(mEye, 0.09, 0.04, 0.015, s * 0.3, 0.38, -0.68); /* calaveras */
+    /* ruedas con suspensión */
+    [[0.52, 0.48, 1], [-0.52, 0.48, 1], [0.52, -0.5, 0], [-0.52, -0.5, 0]].forEach(function (p) {
+      var piv = new THREE.Group(); piv.position.set(p[0], 0.22, p[1]); body.add(piv);
+      var spin = new THREE.Group(); piv.add(spin);
+      var t = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.2, 20), mTire); t.rotation.z = Math.PI / 2; spin.add(t);
+      for (i = 0; i < 16; i++) { var lug = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.022, 0.05), mDark); var a = i / 16 * Math.PI * 2; lug.position.set((i % 2 ? 0.03 : -0.03), Math.cos(a) * 0.222, Math.sin(a) * 0.222); lug.rotation.x = -a; spin.add(lug); } /* tacos de la llanta, alternados */
+      var rim = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.205, 16), mSec); rim.rotation.z = Math.PI / 2; spin.add(rim);
+      var cap = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.21, 10), mEye); cap.rotation.z = Math.PI / 2; spin.add(cap);
+      for (i = 0; i < 5; i++) { var sp = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.02, 0.17), mJoint); sp.rotation.x = i / 5 * Math.PI; spin.add(sp); } /* rayos del rin */
+      box(mJoint, Math.abs(p[0]) - 0.36, 0.035, 0.05, (p[0] > 0 ? 1 : -1) * (0.36 + (Math.abs(p[0]) - 0.36) / 2), 0.25, p[1]); /* brazo de suspensión */
+      R.wheels.push({ piv: piv, spin: spin, front: !!p[2] });
+    });
+    g.traverse(function (o) { if (o.isMesh && !o.material.transparent && o.material !== mEye) o.castShadow = true; });
+    return R;
+  }
+  function roverPaint(R, pal) { R.mats.base.color.set(pal.base); R.mats.sec.color.set(pal.sec); R.mats.eye.color.set(pal.eye); R.mats.glow.color.set(pal.eye); if (R.mats.stitch) R.mats.stitch.color.set(pal.sec); R.eyeHex = pal.eye; if (R.mats.lamp) roverLights(R, false, 0, pal.eye); }
+  function roverLights(R, on, dt, eye) { /* faros: se encienden suave en la niebla (lente casi blanca y haz visible) y se apagan al salir */
+    R.lk = (R.lk || 0) + ((on ? 1 : 0) - (R.lk || 0)) * Math.min(1, (dt || 0.016) * 3);
+    var k = R.lk, i; R.mats.lamp.color.set(eye || R.eyeHex || '#ffffff').lerp(new THREE.Color(0xfffbe8), k * 0.85);
+    R.mats.beam.opacity = 0.04 * k; /* haz tenue: se nota en la niebla sin tapar la vista */ for (i = 0; i < R.beams.length; i++) R.beams[i].visible = k > 0.02;
+  }
+  function roverPose(R, t, dt, sp, steer) { /* sp: velocidad (m/s); steer: giro del volante (-1..1) */
+    var i, w; R.ang = (R.ang || 0) + sp * dt / 0.22;
+    for (i = 0; i < R.wheels.length; i++) { w = R.wheels[i]; w.spin.rotation.x = R.ang; w.piv.rotation.y = w.front ? steer * 0.45 : 0; }
+    if (R.wheelSteer) R.wheelSteer.rotation.z = -steer * 1.6;
+    R.body.position.y = 0.006 * Math.sin(t * 13) * Math.min(1, Math.abs(sp) / 3); /* vibración al andar */
+    if (R.beacon) R.beacon.material.color && (R.beacon.visible = Math.sin(t * 5) > -0.3);
+  }
+
+  /* ===== rover propio en Xibalba ===== */
+  var RVX = { R: null, on: false, x: 0, z: 0, y: 0, yaw: 0, v: 0, st: 0, pt: 0, rl: 0, offY: null, ang: null, blink: 0, sT: 0, fT: 0, pk: '' };
+  window.__RVX = RVX;
+  var rvV = new THREE.Vector3(), rvV2 = new THREE.Vector3(), rvE = new THREE.Euler(), rvBx = new THREE.Box3(), rvBt = new THREE.Box3();
+  function rvPal() { var P = window.__botColors ? window.__botColors.get() : BOT_PAL_DEF; return { base: P.base, sec: P.sec, eye: P.eye }; }
+  function rvFree(x, z) { /* rover: sin edificios, árboles, agua, cráteres, monumentos, volcán ni zona de invasión cerrada */
+    var i; if (!plyLand(x, z) || xibBld(x, z) || xibVeg(x, z) || botCrater(x, z)) return false;
+    if (invLock && invOut(x, z)) return false; if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false;
+    for (i = 0; i < monBlk.length; i++) if (Math.hypot(x - monBlk[i].x, z - monBlk[i].z) < monBlk[i].r) return false;
+    return !pilBlock(x, z);
+  }
+  window.__rvWhy = function (x, z) { return { tierra: plyLand(x, z), edificio: xibBld(x, z), arbol: xibVeg(x, z), crater: botCrater(x, z), invasion: !!(invLock && invOut(x, z)), pilar: pilBlock(x, z), mon: monBlk.filter(function (m) { return Math.hypot(x - m.x, z - m.z) < m.r; }).map(function (m) { return [+(m.x - x).toFixed(1), +(m.z - z).toFixed(1), m.r]; }).join('|'), volcan: !!(VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) }; };
+  function rvFits(x, z, yaw) { var s = Math.sin(yaw), c = Math.cos(yaw), k, p = [[0, 0], [0.34, 0.55], [-0.34, 0.55], [0.34, -0.55], [-0.34, -0.55]]; for (k = 0; k < p.length; k++) if (!rvFree(x + p[k][0] * c + p[k][1] * s, z - p[k][0] * s + p[k][1] * c)) return false; return true; }
+  function rvGarage(b) { /* junto al edificio del jugador; si no tiene, junto al robot */
+    var cx = (MYP && isFinite(MYP.x)) ? MYP.x : b.x, cz = (MYP && isFinite(MYP.z)) ? MYP.z : b.z, r, k, a, x, z;
+    for (r = 4; r <= 40; r += 1.5) for (k = 0; k < 16; k++) { a = k / 16 * 6.2832; x = cx + Math.sin(a) * r; z = cz + Math.cos(a) * r; if (rvFits(x, z, a) && rvFits(x + Math.sin(a) * 2, z + Math.cos(a) * 2, a) && rvFits(x + Math.sin(a) * 4, z + Math.cos(a) * 4, a)) return { x: x, z: z, yaw: a }; } /* con camino libre al frente para arrancar */
+    return { x: b.x + 2, z: b.z, yaw: 0 };
+  }
+  function rvGy(x, z, yRef) { /* suelo del rover: carretera y puente si va arriba; terreno si pasa por debajo del puente */
+    var d; if (rdHigh(x, z)) { d = trailY(x, z) - 0.04; return (yRef > d - 0.9) ? d : Math.max(0, terrainH(x, z)); }
+    return botGround(x, z);
+  }
+  function rvSave(remote) {
+    var o = { x: +RVX.x.toFixed(1), z: +RVX.z.toFixed(1), yaw: +RVX.yaw.toFixed(2), t: Date.now() };
+    try { localStorage.setItem('mict-rover', JSON.stringify(o)); } catch (e) { }
+    if (remote && window.__mp && window.__mp.user && window.__mp.saveRover) window.__mp.saveRover(o);
+  }
+  function rvEnsure(b) {
+    if (RVX.R) return;
+    var R = RVX.R = makeRover(rvPal()); R.g.traverse(function (o) { o.raycast = function () { }; }); scene.add(R.g); RVX.pk = JSON.stringify(rvPal());
+    var s = null; try { s = JSON.parse(localStorage.getItem('mict-rover') || 'null'); } catch (e) { s = null; }
+    if (!(s && isFinite(s.x) && rvFits(s.x, s.z, s.yaw || 0))) s = rvGarage(b);
+    RVX.x = s.x; RVX.z = s.z; RVX.yaw = s.yaw || 0; RVX.lt = s.t || 0; RVX.y = rvGy(RVX.x, RVX.z, 0);
+    window.addEventListener('pagehide', function () { rvSave(true); });
+  }
+  function rvRemoteLoad() { /* lo guardado en la cuenta (otro dispositivo) gana si es más nuevo y nadie lo ha movido aquí */
+    if (RVX.rl || !window.__mp || !window.__mp.user || !window.__mp.loadRover) return; RVX.rl = 1;
+    window.__mp.loadRover().then(function (r) { if (r && isFinite(r.x) && isFinite(r.z) && (r.t || 0) > (RVX.lt || 0) + 1000 && !RVX.on && !RVX.moved && rvFits(r.x, r.z, r.yaw || 0)) { RVX.x = r.x; RVX.z = r.z; RVX.yaw = r.yaw || 0; RVX.y = rvGy(r.x, r.z, 0); } });
+  }
+  function rvLowY(list) { rvBx.makeEmpty(); list.forEach(function (r) { r.traverse(function (o) { if (!o.isMesh || !o.material || o.material.transparent) return; if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); rvBt.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); rvBx.union(rvBt); }); }); return rvBx.min.y; }
+  function rvPoseRobot(F, ang) { /* robot sentado manejando: muslos al frente, espinillas abajo, manos al volante */
+    F.body.rotation.set(0, 0, 0); F.body.position.set(0, 0.93, 0); F.upper.rotation.set(0.05, 0, 0); F.head.rotation.set(-0.05, 0, 0);
+    F.legs.forEach(function (q, i) { var sx = i ? 1 : -1; q.th.rotation.set(-1.5, 0, sx * 0.13); q.kn.rotation.set(1.55, 0, 0); q.ft.rotation.set(0.05, 0, 0); });
+    F.arms.forEach(function (a, i) { var sx = i ? 1 : -1, p = (ang && ang[i]) || [-1.1, 0, -0.7]; a.sh.quaternion.setFromEuler(rvE.set(p[0], p[1], sx * 0.12)); a.el.quaternion.setFromEuler(rvE.set(p[2], 0, 0));
+      if (a.wr) a.wr.rotation.set(0, sx * 0.4, 0); if (a.fingers) a.fingers.forEach(function (f) { f.rotation.z = -sx * 1.1; }); if (a.knuckles) a.knuckles.forEach(function (k) { k.rotation.z = -sx * 1.2; }); if (a.thumb) a.thumb.rotation.z = -sx * 0.6; });
+    if (F.rifle) F.rifle.visible = false;
+  }
+  function rvCalib(F, R) { /* una vez: altura del robot (pies en el piso hundido) y hombros/codos que llevan las manos al volante */
+    R.g.updateMatrixWorld(true); rvPoseRobot(F, RVX.ang);
+    rvV.set(0, 0, R.seat.z); R.g.localToWorld(rvV); F.g.position.copy(rvV); F.g.quaternion.copy(R.g.quaternion); F.g.updateMatrixWorld(true);
+    var low = F.legs.map(function (q) { return q.th; }); F.body.children.forEach(function (o) { if (o.isMesh) low.push(o); });
+    rvV2.set(0, R.floor, 0); R.g.localToWorld(rvV2); var d = rvV2.y - rvLowY(low) + 0.005; RVX.offY = d; F.g.position.y += d; F.g.updateMatrixWorld(true);
+    if (!RVX.ang) { RVX.ang = []; F.arms.forEach(function (a, i) { var sx = i ? 1 : -1, tg = R.col.localToWorld(new THREE.Vector3(sx * 0.085, 0.32, 0)), best = [-1.1, 0, -0.7], bv = 1e9, x, y, z, v, st;
+      var err = function (x2, y2, z2) { a.sh.quaternion.setFromEuler(rvE.set(x2, y2, sx * 0.12)); a.el.quaternion.setFromEuler(rvE.set(z2, 0, 0)); F.g.updateMatrixWorld(true); a.wr.getWorldPosition(rvV); return rvV.distanceToSquared(tg); };
+      for (x = -26; x <= 2; x += 2) for (y = -6; y <= 6; y += 2) for (z = -24; z <= 0; z += 2) { v = err(x * 0.1, y * 0.1, z * 0.1); if (v < bv) { bv = v; best = [x * 0.1, y * 0.1, z * 0.1]; } }
+      for (st = 0.1; st > 0.005; st /= 2) for (x = -1; x <= 1; x++) for (y = -1; y <= 1; y++) for (z = -1; z <= 1; z++) { v = err(best[0] + x * st, best[1] + y * st, best[2] + z * st); if (v < bv) { bv = v; best = [best[0] + x * st, best[1] + y * st, best[2] + z * st]; } }
+      RVX.ang[i] = best; }); }
+    window.__rvAng = RVX.ang; window.__rvOff = RVX.offY;
+  }
+  function rvPlace(R, x, y, z, yaw, pitch, roll) { R.g.rotation.order = 'YXZ'; R.g.position.set(x, y, z); R.g.rotation.set(-pitch, yaw, roll); }
+  function rvSeat(F, R) { /* cada cuadro, después de la animación: robot en el asiento */
+    if (RVX.offY === null) rvCalib(F, R);
+    rvPoseRobot(F, RVX.ang); R.g.updateMatrixWorld(true);
+    rvV.set(0, RVX.offY, R.seat.z); R.g.localToWorld(rvV); F.g.position.copy(rvV); F.g.quaternion.copy(R.g.quaternion);
+  }
+  window.__rvSeatRemote = function (F, R) { if (RVX.offY === null) { var keep = RVX.ang; rvCalib(F, R); } rvPoseRobot(F, RVX.ang); R.g.updateMatrixWorld(true); rvV.set(0, RVX.offY, R.seat.z); R.g.localToWorld(rvV); F.g.position.copy(rvV); F.g.quaternion.copy(R.g.quaternion); };
+  function rvCompass(dx, dz) { var a = Math.atan2(dx, -dz), k = Math.round(((a + 6.2832) % 6.2832) / 0.7854) % 8; return ['al norte', 'al noreste', 'al este', 'al sureste', 'al sur', 'al suroeste', 'al oeste', 'al noroeste'][k]; }
+  function xibRover() {
+    var b = bot, now = clock.elapsedTime, msg = window.__xibMsg || function () { }, R, d, s, c, k, p, x, z, q;
+    if (!b || !GM.xib) return; rvEnsure(b); R = RVX.R;
+    if (RVX.on) { /* bajar: al lado del asiento (izquierda, derecha, atrás o adelante) */
+      s = Math.sin(RVX.yaw); c = Math.cos(RVX.yaw); p = [[0.85, 0], [-0.85, 0], [0, -1.1], [0, 1.1]];
+      for (k = 0; k < p.length; k++) { x = RVX.x + p[k][0] * c + p[k][1] * s; z = RVX.z - p[k][0] * s + p[k][1] * c; if (rvFree(x, z)) break; }
+      if (k >= p.length) { q = botFreeSpot(RVX.x, RVX.z); if (q) { x = q[0]; z = q[1]; } }
+      RVX.on = false; RVX.v = 0; b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z);
+      roverLights(R, false, 1); rvSave(true); msg('Rover estacionado. Lo verás en el minimapa.'); return;
+    }
+    d = Math.hypot(b.x - RVX.x, b.z - RVX.z);
+    if (d > 2.6) { RVX.blink = now + 6; msg('Tu rover está a ' + Math.round(d) + ' m ' + rvCompass(RVX.x - b.x, RVX.z - b.z) + '. Míralo en el minimapa.'); return; }
+    if (DUEL || XIB.stun > 0 || b.mode !== 'walk' || b.tpj || b.roofP || b.ball || (b.bh || 0) > 0.05) { msg(DUEL ? 'Ahora no: estás en un duelo.' : 'Párate junto al rover para subir.'); return; }
+    if (XIB.sit) xibSit(false);
+    RVX.on = true; RVX.moved = true; RVX.v = 0; RVX.st = 0; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.v = 0;
+    if (RVX.pk !== JSON.stringify(rvPal())) { RVX.pk = JSON.stringify(rvPal()); roverPaint(R, rvPal()); }
+    msg('¡A manejar! Joystick: acelerar y girar · ROVER otra vez para bajar.');
+  }
+  function rvUI(b, now) {
+    if (!XIB.rvEl || !b) return; var near = !RVX.on && RVX.R && Math.hypot(b.x - RVX.x, b.z - RVX.z) < 2.6, st = RVX.on ? 'on' : near ? 'near' : '';
+    if (st !== XIB.rvSt) { XIB.rvSt = st; XIB.rvEl.classList.toggle('on', RVX.on); XIB.rvEl.classList.toggle('near', !!near); XIB.rvEl.querySelector('span').textContent = RVX.on ? 'BAJAR' : near ? 'SUBIR' : 'ROVER'; }
+  }
+  function rvTick(b, now, dt) { /* el rover estacionado: en su lugar, sobre el suelo, con las ruedas quietas */
+    rvEnsure(b); rvRemoteLoad(); var R = RVX.R;
+    if (!RVX.on) { RVX.y += (rvGy(RVX.x, RVX.z, RVX.y) - RVX.y) * Math.min(1, dt * 8); rvTilt(dt); rvPlace(R, RVX.x, RVX.y, RVX.z, RVX.yaw, RVX.pt, RVX.ro); roverPose(R, now, dt, 0, 0); }
+    R.g.visible = true;
+  }
+  function rvTilt(dt) { /* inclinación según el suelo bajo las cuatro ruedas */
+    var s = Math.sin(RVX.yaw), c = Math.cos(RVX.yaw), hf = rvGy(RVX.x + s * 0.4, RVX.z + c * 0.4, RVX.y), hb = rvGy(RVX.x - s * 0.4, RVX.z - c * 0.4, RVX.y), hl = rvGy(RVX.x + c * 0.36, RVX.z - s * 0.36, RVX.y), hr = rvGy(RVX.x - c * 0.36, RVX.z + s * 0.36, RVX.y);
+    RVX.pt = (RVX.pt || 0) + (Math.max(-0.5, Math.min(0.5, Math.atan2(hf - hb, 0.8))) - (RVX.pt || 0)) * Math.min(1, dt * 8);
+    RVX.ro = (RVX.ro || 0) + (Math.max(-0.4, Math.min(0.4, Math.atan2(hl - hr, 0.72))) - (RVX.ro || 0)) * Math.min(1, dt * 8);
+    return (hf + hb + hl + hr) / 4;
+  }
+  function rvDrive(b, now, dt) { /* manejo: arriba/abajo acelera o da reversa; izquierda/derecha gira el volante */
+    var K = XIB.k, ix = XIB.jx, iy = XIB.jy, R = RVX.R, onRoad, vmax, tv, nx, nz, gy;
+    if (K.KeyW || K.ArrowUp) iy += 1; if (K.KeyS || K.ArrowDown) iy -= 1; if (K.KeyD || K.ArrowRight) ix += 1; if (K.KeyA || K.ArrowLeft) ix -= 1;
+    iy = Math.max(-1, Math.min(1, iy)); ix = Math.max(-1, Math.min(1, ix));
+    if (DUEL || XIB.stun > 0) { xibRover(); return; }
+    onRoad = trailNear(RVX.x, RVX.z, 2.3); vmax = onRoad ? 9 : 5.5;
+    tv = iy > 0.1 ? iy * vmax : iy < -0.1 ? iy * 3 : 0;
+    RVX.v += (tv - RVX.v) * Math.min(1, dt * (Math.abs(tv) > Math.abs(RVX.v) ? 1.6 : 3));
+    RVX.st += (ix - RVX.st) * Math.min(1, dt * 5);
+    RVX.yaw -= RVX.st * Math.sign(RVX.v) * Math.min(1.7, Math.abs(RVX.v) * 0.45) * dt; /* gira como coche: sin avanzar no gira; máximo ~100°/s */
+    nx = RVX.x + Math.sin(RVX.yaw) * RVX.v * dt; nz = RVX.z + Math.cos(RVX.yaw) * RVX.v * dt;
+    if (rvFits(nx, nz, RVX.yaw)) { RVX.x = nx; RVX.z = nz; }
+    else { if (Math.abs(RVX.v) > 3) AUD.servo(bkMuz.set(RVX.x, RVX.y + 0.5, RVX.z)); RVX.v *= -0.25; } /* choque: rebota un poco */
+    gy = rvTilt(dt); RVX.y += (gy - RVX.y) * Math.min(1, dt * 10);
+    rvPlace(R, RVX.x, RVX.y, RVX.z, RVX.yaw, RVX.pt, RVX.ro); roverPose(R, now, dt, RVX.v, RVX.st);
+    roverLights(R, !!(WX && WX.fogAt && WX.fogAt(RVX.x, RVX.z)), dt);
+    /* el robot va con el rover: su posición es la del rover (cámara, minimapa y multijugador) */
+    b.x = RVX.x; b.z = RVX.z; b.y = RVX.y; b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0;
+    b.fireT = Math.max(b.fireT || 0, 0.3); b.xfT = 0.3; XIB.jump = false; XIB.turbo = false; XIB.sit = false;
+    if (now - RVX.sT > 3) { RVX.sT = now; rvSave(now - RVX.fT > 15); if (now - RVX.fT > 15) RVX.fT = now; }
+  }
+  /* minimapa: ícono del rover; si está fuera, flecha en el borde con la distancia */
+  window.__rvMini = function (Pm, g2, R0) {
+    var b = bot; if (!GM.xib || !RVX.R || RVX.on || !b) return;
+    var p = Pm(RVX.x, RVX.z), px = p[0], py = p[1], dd = Math.hypot(px - R0, py - R0), out = dd > R0 - 16, k, now = clock.elapsedTime, bl = now < RVX.blink && Math.sin(now * 10) < 0;
+    if (out) { px = R0 + (px - R0) * (R0 - 16) / dd; py = R0 + (py - R0) * (R0 - 16) / dd; }
+    if (bl) return;
+    g2.save(); g2.translate(px, py);
+    if (out) { k = Math.atan2(py - R0, px - R0); g2.rotate(k); g2.fillStyle = '#ffd36b'; g2.beginPath(); g2.moveTo(14, 0); g2.lineTo(2, -8); g2.lineTo(2, 8); g2.closePath(); g2.fill(); g2.rotate(-k); }
+    g2.fillStyle = '#0b1220'; g2.strokeStyle = '#ffd36b'; g2.lineWidth = 3; g2.beginPath(); g2.arc(0, 0, 11, 0, 6.2832); g2.fill(); g2.stroke();
+    g2.fillStyle = '#ffd36b'; g2.fillRect(-7, -3, 14, 5); g2.fillRect(-4, -6, 8, 3); g2.beginPath(); g2.arc(-4, 3, 2.4, 0, 6.2832); g2.arc(4, 3, 2.4, 0, 6.2832); g2.fill();
+    if (out) { g2.font = '700 18px system-ui, sans-serif'; g2.textAlign = 'center'; g2.fillStyle = '#fff'; g2.strokeStyle = 'rgba(0,0,0,0.7)'; g2.lineWidth = 4; var tx = Math.round(Math.hypot(RVX.x - b.x, RVX.z - b.z)) + ' m', ty = py > R0 ? -16 : 28; g2.strokeText(tx, 0, ty); g2.fillText(tx, 0, ty); }
+    g2.restore();
+  };
+  /* buscador: "rover" → Mi rover */
+  window.__rvMatch = function (v) { if (!GM.xib || !RVX.R || !bot || v.length < 2 || !('rover'.indexOf(v) === 0 || 'mi rover'.indexOf(v) === 0 || 'carro'.indexOf(v) === 0)) return null; return { kind: 'rv', label: '🚙 Mi rover', sub: RVX.on ? 'manejando' : Math.round(Math.hypot(RVX.x - bot.x, RVX.z - bot.z)) + ' m' }; };
+  window.__rvLocate = function () { var b = bot; if (!b || !RVX.R) return; if (RVX.on) { if (window.__xibMsg) window.__xibMsg('Ya vas en tu rover.'); return; } RVX.blink = clock.elapsedTime + 6; if (window.__xibMsg) window.__xibMsg('Tu rover está a ' + Math.round(Math.hypot(RVX.x - b.x, RVX.z - b.z)) + ' m ' + rvCompass(RVX.x - b.x, RVX.z - b.z) + '.'); };
   /* ===== dron de Xibalba ===== */
   var DRB = 60; /* segundos de batería */
   function xibDronOn(b) { return !!(b && b.mode === 'lift' && b.lift && b.lift.type === 'xib'); }
@@ -11989,6 +12268,7 @@ function buildBaseAEMX(){
       if (!plyLand(botDrone.x, botDrone.z)) { msg('Aquí no puedo soltarte: estás sobre el mar.'); return; }
       xibDronEnd(now, false); return;
     }
+    if (RVX.on) { msg('Primero bájate del rover.'); return; }
     if (now < (XIB.drCD || 0)) { msg('El dron se está recargando: ' + Math.ceil(XIB.drCD - now) + ' s.'); return; }
     if (DUEL || invLock || XIB.stun > 0 || b.tpj || b.mode !== 'walk' || b.ball) { msg(DUEL ? 'Ahora no: estás en un duelo.' : invLock ? 'Ahora no: sal primero de la zona de invasión.' : 'Ahora no puede venir el dron.'); return; }
     if (XIB.sit) xibSit(false);
@@ -12139,7 +12419,8 @@ function buildBaseAEMX(){
     return null;
   }
   function xibSteer(b, now, dt) {
-    xibDronUI(b, now);
+    xibDronUI(b, now); rvTick(b, now, dt); rvUI(b, now);
+    if (RVX.on) { rvDrive(b, now, dt); return; }
     var K = XIB.k, ix = XIB.jx, iy = XIB.jy, kb = false, m, cy, dir, far;
     if (K.KeyW || K.ArrowUp) { iy += 1; kb = true; } if (K.KeyS || K.ArrowDown) { iy -= 1; kb = true; }
     if (K.KeyD || K.ArrowRight) { ix += 1; kb = true; } if (K.KeyA || K.ArrowLeft) { ix -= 1; kb = true; }
@@ -16306,7 +16587,7 @@ function buildBaseAEMX(){
     R.lab = mpLabel(mpTag(R.n, R.r), MP_RC[R.r]); F.g.add(R.lab);
     F.g.position.set(R.x, R.y, R.z); scene.add(F.g); return R;
   }
-  function mpDrop(R) { scene.remove(R.F.g); if (R.drn) scene.remove(R.drn.g); if (R.lab) { R.lab.material.map.dispose(); R.lab.material.dispose(); } } /* las geometrías del robot son compartidas: no se liberan */
+  function mpDrop(R) { scene.remove(R.F.g); if (R.drn) scene.remove(R.drn.g); if (R.rvm) scene.remove(R.rvm.g); if (R.lab) { R.lab.material.map.dispose(); R.lab.material.dispose(); } } /* las geometrías del robot son compartidas: no se liberan */
   function mpName() { /* gamertag (como en la tarjeta del usuario); nunca el nombre real de Google */
     if (MPG.nm) return MPG.nm; var u = (typeof RAW !== 'undefined' && RAW && AUTH && AUTH.uid) ? RAW[AUTH.uid] : null;
     return (MPG.nm = String((MYP && MYP.name) || (u && u.username) || 'Jugador').trim().slice(0, 40) || 'Jugador');
@@ -16393,7 +16674,9 @@ function buildBaseAEMX(){
     var mvNow = (bot.v || 0) > 0.3, fNow = (bot.flame || 0) > 0.3 ? 2 : (bot.flyK || 0) > 0.5 ? 1 : 0, tick /* 0 en el piso, 1 volando, 2 con propulsores encendidos */ = now - MPG.last >= 250 && (Math.abs(bot.x - MPG.lx) > 0.05 || Math.abs(bot.z - MPG.lz) > 0.05 || Math.abs(bot.y - MPG.ly) > 0.05);
     var pNow = bot.sitOn ? 1 : 0; /* 1 = sentado */
     var dNow = (bot.mode === 'lift' && bot.lift && bot.lift.type === 'xib' && bot.lift.ph >= 1) ? 1 : 0; /* 1 = colgado del dron */
-    if (tick || (now - MPG.last > 100 && (mvNow !== MPG.mv || fNow !== MPG.f || pNow !== (MPG.sp || 0) || dNow !== (MPG.sd || 0))) || now - MPG.last > 5000) { MPG.f = fNow; /* al detenerse se avisa de inmediato */
+    var rvNow = (window.__RVX && window.__RVX.on) ? 1 : 0; /* 1 = manejando su rover */
+    if (rvNow) mvNow = Math.abs(window.__RVX.v) > 0.3;
+    if (tick || (now - MPG.last > 100 && (mvNow !== MPG.mv || fNow !== MPG.f || pNow !== (MPG.sp || 0) || dNow !== (MPG.sd || 0) || rvNow !== (MPG.srv || 0))) || now - MPG.last > 5000) { MPG.f = fNow; /* al detenerse se avisa de inmediato */
       MPG.last = (tick && now - MPG.last < 350) ? MPG.last + 250 : now; /* ritmo fijo de 250 ms mientras camina (no se corre con cada cuadro) */ MPG.lx = bot.x; MPG.lz = bot.z; MPG.ly = bot.y; MPG.mv = mvNow;
       var po = { x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), f: fNow, t: now }, nm = mpName(), col = (now - (MPG.cT || 0) > 3000 || !MPG.sc) ? (MPG.cT = now, mpMyCol()) : MPG.sc;
       var full = zk !== MPG.zk || nm !== MPG.sn || col !== MPG.sc || myR !== MPG.sr; /* nombre, colores y rol solo cuando cambian (o al entrar a otra zona) */
@@ -16402,6 +16685,8 @@ function buildBaseAEMX(){
       MPG.sp = pNow;
       if (dNow || (!full && MPG.sd)) po.d = dNow; /* dron (1); al soltarse se manda 0 una vez */
       MPG.sd = dNow;
+      if (rvNow || (!full && MPG.srv)) po.rv = rvNow; /* rover (1); al bajarse se manda 0 una vez */
+      MPG.srv = rvNow;
       window.__mp.put(zk, po, full);
       if (MPG.zk && MPG.zk !== zk) window.__mp.drop(MPG.zk);
       MPG.zk = zk; MPG.sn = nm; MPG.sc = col; MPG.sr = myR;
@@ -16422,7 +16707,7 @@ function buildBaseAEMX(){
         R.n = d.n || 'Jugador'; R.r = dr; R.F.g.remove(R.lab); R.lab.material.map.dispose(); R.lab.material.dispose();
         R.lab = mpLabel(mpTag(R.n, R.r), MP_RC[R.r]); R.F.g.add(R.lab);
       }
-      R.v = d.v || 0; R.ps = d.p === 1; /* sentado */ R.dn = d.d === 1; /* colgado del dron */
+      R.v = d.v || 0; R.ps = d.p === 1; /* sentado */ R.dn = d.d === 1; /* colgado del dron */ R.rvo = d.rv === 1; /* en su rover */
       if (d.t !== R.lt) { /* dato nuevo: va al búfer con la hora en que lo mandó su dueño */
         R.lt = d.t; var sy = isFinite(d.y) ? d.y : botGround(d.x, d.z), lb = R.buf && R.buf[R.buf.length - 1], ofs = now - (d.t || now);
         if (!R.buf || (lb && (Math.hypot(d.x - lb.x, d.z - lb.z) > 40 || d.t < lb.t))) { R.buf = []; R.ofs = ofs; R.x = d.x; R.z = d.z; R.y = sy; R.yaw = d.yaw || 0; } /* nuevo o teletransporte: sin cruzar el mapa */
@@ -16459,6 +16744,14 @@ function buildBaseAEMX(){
         for (dq = 0; dq < 4; dq++) Dq.rots[dq].rotation.y += dt * 60;
         if (R.F.arms) for (dq = 0; dq < 2; dq++) { mpE.set(-2.95, 0, (dq ? 1 : -1) * 0.12); R.F.arms[dq].sh.quaternion.setFromEuler(mpE); mpE.set(-0.15, 0, 0); R.F.arms[dq].el.quaternion.setFromEuler(mpE); }
       } else if (R.drn) R.drn.g.visible = false;
+      /* en su rover: el rover con sus colores y el robot sentado manejando */
+      if (R.rvo && typeof makeRover === 'function' && window.__rvSeatRemote) {
+        if (!R.rvm || R.rvmC !== R.c) { if (R.rvm) scene.remove(R.rvm.g); R.rvm = makeRover(mpCol(R.c)); R.rvm.g.traverse(function (o) { o.raycast = function () {}; }); scene.add(R.rvm.g); R.rvmC = R.c; }
+        R.rvm.g.visible = true; R.rvm.g.rotation.order = 'YXZ'; R.rvm.g.position.set(R.x, R.y, R.z); R.rvm.g.rotation.set(0, R.yaw, 0);
+        R.rvSp = (R.rvSp || 0) + ((R.v || 0) - (R.rvSp || 0)) * Math.min(1, dt * 4); roverPose(R.rvm, t, dt, R.rvSp, 0);
+        roverLights(R.rvm, !!(WX && WX.fogAt && WX.fogAt(R.x, R.z)), dt);
+        window.__rvSeatRemote(R.F, R.rvm);
+      } else if (R.rvm) R.rvm.g.visible = false;
       /* sentado: la misma pose que el robot propio; se sienta y se levanta suave */
       R.sitK = (R.sitK || 0) + ((R.ps && R.sp < 0.5 ? 1 : 0) - (R.sitK || 0)) * Math.min(1, dt * (R.ps ? 3 : 6));
       if ((R.sitK > 0.002 || R.sitW) && window.__botSitApply) { if (R.sitK <= 0.002) R.sitK = 0; window.__botSitApply(R.F, R.sitK, t, false); R.sitW = R.sitK > 0; }
@@ -16895,6 +17188,7 @@ function buildBaseAEMX(){
         if (ufo && ufo.g && ufo.g.visible && !ufoDown()) { dot(ufo.x, ufo.z, 8, '#5dff7a', false); g.strokeStyle = '#d7ffe0'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, 11, 0, 6.2832); g.stroke(); }
         for (i = 0; i < L.length; i++) { e = L[i]; if (e.s === 'live' || e.s === 'spawn') { n++; if (e.s === 'live') dot(e.x, e.z, 5, ZI ? '#7dff4a' : '#ff4a4a'); } }
         if (rk) dot(rk.x, rk.z, 10, '#ff9a2a', true);
+        if (window.__rvMini) window.__rvMini(function (x, z) { P(x, z); return [px, py]; }, g, R);
         g.restore();
         g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(R, R - 13); g.lineTo(R + 9, R + 10); g.lineTo(R, R + 5); g.lineTo(R - 9, R + 10); g.closePath(); g.fill(); g.strokeStyle = '#0b5a7a'; g.lineWidth = 2; g.stroke();
         var tt = nm ? (n > 0 ? (ZI ? 'Zombis: ' : 'Aliens: ') + n : (rk ? 'Meteorito' : ZI ? 'Infección' : 'Invasión')) : 'Mapa';
@@ -17005,7 +17299,7 @@ window.__mp = {
     if (mpDisc !== zk) { onDisconnect(r).remove().catch(() => {}); mpDisc = zk; }
     for (const q in mpNo) delete o[q]; /* campos que las reglas del servidor aún no aceptan (rol, vuelo): se mandan sin ellos */
     const go = () => (full ? set(r, o) : update(r, o)).catch((e) => {
-      if (/PERMISSION/i.test(String(e.code || e.message))) { const q = ['d', 'p', 'r', 'f'].find((k) => k in o && !mpNo[k]); if (q) { mpNo[q] = true; delete o[q]; go(); return; } }
+      if (/PERMISSION/i.test(String(e.code || e.message))) { const q = ['rv', 'd', 'p', 'r', 'f'].find((k) => k in o && !mpNo[k]); if (q) { mpNo[q] = true; delete o[q]; go(); return; } }
       console.warn('MP put', e.code || e.message);
     });
     go();
@@ -17017,7 +17311,10 @@ window.__mp = {
   /* fin compartido del evento de cada hora: el primero que lo termina queda registrado (las reglas solo aceptan la primera escritura) */
   evWatch: (h, cb) => onValue(ref(mpDb, 'mp/ev/' + h), (s) => cb(s.val()), () => {}),
   evDone: (h, o) => set(ref(mpDb, 'mp/ev/' + h), o).catch(() => {}),
-  loadLast: async () => { const u = mpAuth.currentUser; if (!u) return null; try { return (await get(ref(mpDb, 'mp/last/' + u.uid))).val(); } catch (e) { console.warn('MP last', e.code || e.message); return null; } }
+  loadLast: async () => { const u = mpAuth.currentUser; if (!u) return null; try { return (await get(ref(mpDb, 'mp/last/' + u.uid))).val(); } catch (e) { console.warn('MP last', e.code || e.message); return null; } },
+  /* dónde quedó estacionado el rover propio; solo el dueño lo lee y escribe */
+  saveRover: (o) => { const u = mpAuth.currentUser; if (u) set(ref(mpDb, 'mp/rover/' + u.uid), o).catch((e) => console.warn('MP rover', e.code || e.message)); },
+  loadRover: async () => { const u = mpAuth.currentUser; if (!u) return null; try { return (await get(ref(mpDb, 'mp/rover/' + u.uid))).val(); } catch (e) { console.warn('MP rover', e.code || e.message); return null; } }
 };
 /* hora del servidor: diferencia entre el reloj de este dispositivo y el de Firebase (no requiere sesión) */
 window.__mpOff = 0;
