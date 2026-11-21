@@ -11888,7 +11888,7 @@ function buildBaseAEMX(){
   var xibHits = [];
   function xibRM(p) { /* piezas sólidas del edificio; la torre S13 y las tiendas tienen el raycast apagado, así que se prueba cada pieza directamente */
     if (p._rm && p._rmR === p._broot) return p._rm;
-    var l = []; p._broot.traverse(function (o) { var m = o.material; if (o.isMesh && !o.isInstancedMesh && o.geometry && !(m && (m.blending === THREE.AdditiveBlending || m.depthWrite === false))) l.push(o); });
+    var l = []; p._broot.traverse(function (o) { var m = o.material; if (o.isMesh && !o.isInstancedMesh && o.geometry && o.geometry.type !== 'TorusGeometry' && !(m && (m.blending === THREE.AdditiveBlending || m.depthWrite === false))) l.push(o); }); /* fuera los aros decorativos (en el Palacio giran: el robot caía) */
     p._rmR = p._broot; return (p._rm = l);
   }
   function xibRoofAt(p, x, y0, z, far) {
@@ -11906,9 +11906,10 @@ function buildBaseAEMX(){
     for (d = 0.5; d <= 1.6 && !p; d += 0.25) p = xibBldP(b.x + Math.sin(a) * d, b.z + Math.cos(a) * d);
     if (!p || !p._broot || (p.noRoof && p.topY < 2) || p._duel) return false; /* sucursales S13, UVXpress y el palacio también; fuera solo las casas de campaña */
     top = BASE + (p.topY || 6) + 30;
-    for (i = 1; i <= 24; i++) { d = 0.6 + i * 0.35; x = b.x + Math.sin(a) * d; z = b.z + Math.cos(a) * d; y = xibRoofAt(p, x, top, z, 80); if (y !== null && y > b.y + 1.2) { x += Math.sin(a) * 0.5; z += Math.cos(a) * 0.5; y = xibRoofAt(p, x, top, z, 80); if (y === null) return false; break; } }
-    if (i > 24 || y === null) return false;
-    b.rp = { p: p, cx: b.x, cz: b.z, lx: x, lz: z, roofY: y }; b.ju = null; b.goal = null; b.gtype = ''; b.path = null; b.mode = 'jetUp'; b.jph = 0; b.v = 0; b.bh = 0; b.bvy = 0;
+    var nI = b.roofP ? 6 : 24; /* desde una azotea: solo un muro pegado (otra parte más alta del edificio, como la torre del Palacio desde su balcón) */
+    for (i = 1; i <= nI; i++) { d = 0.6 + i * 0.35; x = b.x + Math.sin(a) * d; z = b.z + Math.cos(a) * d; y = xibRoofAt(p, x, top, z, 80); if (y !== null && y > b.y + 1.2) { x += Math.sin(a) * 0.5; z += Math.cos(a) * 0.5; y = xibRoofAt(p, x, top, z, 80); if (y === null) return false; break; } }
+    if (i > nI || y === null) return false;
+    b.roofP = null; b.rp = { p: p, cx: b.x, cz: b.z, lx: x, lz: z, roofY: y }; b.ju = null; b.goal = null; b.gtype = ''; b.path = null; b.mode = 'jetUp'; b.jph = 0; b.v = 0; b.bh = 0; b.bvy = 0;
     AUD.shot(bkMuz.set(b.x, b.y + 1, b.z)); return true;
   }
   function xibRoofTick(b) { /* altura del techo bajo el robot; si ya no hay techo, cae al suelo */
@@ -11964,7 +11965,7 @@ function buildBaseAEMX(){
     /* apuntar y disparar nunca frena al robot: dispara mientras camina o corre */
     xibRoofTick(b);
     if (b.roofP) XIB.turbo = false;
-    if (XIB.jump && !b.roofP && !DUEL && b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && xibClimb(b)) { XIB.jump = false; return; }
+    if (XIB.jump && !DUEL && b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && xibClimb(b)) { XIB.jump = false; return; }
     if (XIB.jump) { XIB.jump = false; if (b.mode === 'walk' && (b.bh || 0) <= 0.05 && !b.ball && b.boostT <= 0 && !b.scan) { b.bh = 0.06; b.bvy = 6.5; b.xj = true; AUD.servo(bkMuz.set(b.x, b.y + 0.6, b.z)); } }
     if (XIB.tb) XIB.tb.classList.toggle('cd', b.boostCD > 0 || b.boostT > 0);
     /* el jugador manda: sin recorridos, visitas ni escenas automáticas */
