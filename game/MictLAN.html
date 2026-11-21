@@ -12231,7 +12231,7 @@ function buildBaseAEMX(){
       fxSpawn(x + (Math.random() - 0.5) * 0.12, gy + 0.06, z + (Math.random() - 0.5) * 0.12, -s * sp * 0.12 + (Math.random() - 0.5) * 0.4, 0.35 + Math.random() * 0.4, -c * sp * 0.12 + (Math.random() - 0.5) * 0.4, 0.7 + Math.random() * 0.5, 0.07, 0.32 + Math.min(0.25, sp * 0.012), col, onRoad ? 0.22 : 0.42, false);
     }
   }
-  var RVN = { dur: 3, cd: 8, mul: 1.6 }; /* nitro: 3 s a 1.6 veces la velocidad; se recarga en 8 s */
+  var RVN = { dur: 5, cd: 8, mul: 2.2 }; /* nitro: 5 s a 2.2 veces la velocidad; se recarga en 8 s */
   function rvNitroFx(R, k, t) { /* llamas de los escapes traseros, del color de los ojos */
     if (!R.nfl) {
       R.nfl = []; var mt = new THREE.MeshBasicMaterial({ color: rvPal().eye, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), mc = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), s, q, c, ex;
