@@ -15864,7 +15864,7 @@ function buildBaseAEMX(){
 
   /* ===== Fauna: un pterodáctilo sobre Chihuahua. Vuela en vueltas amplias (aletea y planea), de vez en cuando baja a posarse
      fuera de la ciudad y grazna; si el robot se acerca, despega. Escala 0.75: envergadura ~2.7 junto al robot (~0.7). ===== */
-  var PTR = { init: false, P: null, S: 0.75 };
+  var PTR = { init: false, P: null, S: 1.5 }; /* escala 1.5: envergadura ~5.4, posado ~1.4 de alto (el doble del robot) */
   function ptrIn(x, z) { return PTR.R && botInRings(PTR.R, x, z); }
   function ptrPick(r) { /* punto dentro de Chihuahua a menos de r del centro */
     var k, a, d, x, z;
@@ -15888,9 +15888,14 @@ function buildBaseAEMX(){
       for (k = 0; k < 200 && !ptrIn(PTR.cx, PTR.cz); k++) { x = b[0] + Math.random() * (b[2] - b[0]); z = b[1] + Math.random() * (b[3] - b[1]); if (botInRings(R, x, z)) { PTR.cx = x; PTR.cz = z; } }
     }
     var P = PTR.P = makePtero(); P.g.scale.setScalar(PTR.S); P.g.rotation.order = 'YXZ'; P.g.traverse(function (o) { o.raycast = function () {}; });
-    var s = ptrPick(60); P.x = s[0]; P.z = s[1]; P.alt = 18; P.y = botGround(P.x, P.z) + P.alt; P.yaw = Math.random() * 6.28; P.roll = 0; P.pitch = 0;
+    var s = ptrPick(60); P.x = s[0]; P.z = s[1]; P.alt = 9; P.y = botGround(P.x, P.z) + P.alt; P.yaw = Math.random() * 6.28; P.roll = 0; P.pitch = 0;
     P.st = 'vuelo'; P.wp = ptrPick(110); P.landT = 35 + Math.random() * 30; P.flapT = 3; P.flap = true; P.scrT = 10 + Math.random() * 15; P.T = 0; P.cry = 0;
     P.g.position.set(P.x, P.y, P.z); scene.add(P.g);
+  }
+  function ptrRoof(x, z) { /* altura del edificio más alto bajo (o junto a) este punto, para pasar por encima y no atravesarlo */
+    var l = (typeof botObs !== 'undefined' && botObs) ? botObs[Math.floor(x / BOT_CELL) + ',' + Math.floor(z / BOT_CELL)] : null, i, p, h = -1e9;
+    if (l) for (i = 0; i < l.length; i++) { p = l[i]; if (!p.sunk && x > p._x0 - 3 && x < p._x1 + 3 && z > p._z0 - 3 && z < p._z1 + 3) h = Math.max(h, BASE + (p.topY || 6)); }
+    return h;
   }
   function ptrCry(d) { /* graznido: chillido áspero que baja de tono; respeta el botón de sonido */
     var C = typeof pcsCtx === 'function' ? pcsCtx() : null, now, out, v, p;
@@ -15917,7 +15922,7 @@ function buildBaseAEMX(){
       if (P.st === 'vuelo') {
         if (dd < 14 || !ptrIn(P.x, P.z) && dd < 60) P.wp = ptrPick(110);
         P.flapT -= dt; if (P.flapT <= 0) { P.flap = !P.flap; P.flapT = P.flap ? 2 + Math.random() * 2 : 3 + Math.random() * 4; }
-        tY = gy + P.alt + 2 * Math.sin(t * 0.3);
+        tY = Math.max(gy + P.alt + 1.5 * Math.sin(t * 0.3), ptrRoof(P.x + Math.sin(P.yaw) * 8, P.z + Math.cos(P.yaw) * 8) + 4, ptrRoof(P.x, P.z) + 4);
         P.landT -= dt; if (P.landT <= 0) { var q = ptrLand(); if (q) { P.st = 'baja'; P.wp = q; } else P.landT = 20; }
         P.scrT -= dt; if (P.scrT <= 0) { P.scrT = 15 + Math.random() * 20; P.cry = 1.2; ptrCry(dc); }
       } else { /* baja: la altura se reduce con la distancia que falta */
@@ -15925,13 +15930,13 @@ function buildBaseAEMX(){
         P.flap = dd < 6;
         if (dd < 0.6) { P.st = 'posado'; P.x = P.wp[0]; P.z = P.wp[1]; P.T = 0; P.stay = 14 + Math.random() * 10; P.roll = 0; }
       }
-      if (P.st !== 'posado') { P.pitch += (Math.max(-0.35, Math.min(0.35, (P.y - tY) * 0.08)) - P.pitch) * Math.min(1, dt * 2); P.y += (tY - P.y) * Math.min(1, dt * (P.st === 'baja' ? 1.6 : 0.6)); }
+      if (P.st !== 'posado') { P.pitch += (Math.max(-0.35, Math.min(0.35, (P.y - tY) * 0.08)) - P.pitch) * Math.min(1, dt * 2); P.y += (tY - P.y) * Math.min(1, dt * (P.st === 'baja' || tY > P.y + 1 ? 1.6 : 0.6)); } /* sube rápido si viene un edificio */
       mode = P.cry > 0 ? 'graznar_vuelo' : (P.flap ? 'volar' : 'planear');
     } else if (P.st === 'posado') {
       P.y = botGround(P.x, P.z); P.pitch *= 0.8; P.roll *= 0.8;
       mode = P.cry > 0 ? 'graznar' : 'posado';
       if (P.T > 3 && Math.random() < dt * 0.12 && P.cry <= 0) { P.cry = 1.6; ptrCry(dc); }
-      if (db < 5 || P.T > P.stay) { P.st = 'sube'; P.T = 0; P.cry = 1.0; ptrCry(dc); if (B && db < 5) P.yaw = Math.atan2(P.x - B.x, P.z - B.z); }
+      if (db < 7 || P.T > P.stay) { P.st = 'sube'; P.T = 0; P.cry = 1.0; ptrCry(dc); if (B && db < 7) P.yaw = Math.atan2(P.x - B.x, P.z - B.z); }
     } else { /* sube: despega aleteando hasta su altura y vuelve a volar */
       P.x += Math.sin(P.yaw) * 3.5 * dt; P.z += Math.cos(P.yaw) * 3.5 * dt;
       gy = botGround(P.x, P.z); P.y += Math.min(4.5 * dt, Math.max(0, gy + P.alt - P.y)); P.pitch += (-0.3 - P.pitch) * Math.min(1, dt * 3);
