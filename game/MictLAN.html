@@ -12189,14 +12189,14 @@ function buildBaseAEMX(){
       s = Math.sin(RVX.yaw); c = Math.cos(RVX.yaw); p = [[0.85, 0], [-0.85, 0], [0, -1.1], [0, 1.1]];
       for (k = 0; k < p.length; k++) { x = RVX.x + p[k][0] * c + p[k][1] * s; z = RVX.z - p[k][0] * s + p[k][1] * c; if (rvFree(x, z)) break; }
       if (k >= p.length) { q = botFreeSpot(RVX.x, RVX.z); if (q) { x = q[0]; z = q[1]; } }
-      RVX.on = false; RVX.v = 0; RVX.nT = 0; RVX.nk = 0; rvNitroFx(R, 0, 0); if (XIB.tb) XIB.tb.classList.remove('on'); b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z); if (b.rifle) b.rifle.visible = true; /* vuelve a mostrar el arma */
+      RVX.on = false; RVX.v = 0; RVX.air = false; RVX.vy = 0; RVX.gyP = null; RVX.nT = 0; RVX.nk = 0; rvNitroFx(R, 0, 0); if (XIB.tb) XIB.tb.classList.remove('on'); b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z); if (b.rifle) b.rifle.visible = true; /* vuelve a mostrar el arma */
       roverLights(R, false, 1); rvSave(true); msg('Rover estacionado. Lo verás en el minimapa.'); return;
     }
     d = Math.hypot(b.x - RVX.x, b.z - RVX.z);
     if (d > 2.6) { RVX.blink = now + 6; msg('Tu rover está a ' + Math.round(d) + ' m ' + rvCompass(RVX.x - b.x, RVX.z - b.z) + '. Míralo en el minimapa.'); return; }
     if (DUEL || XIB.stun > 0 || b.mode !== 'walk' || b.tpj || b.roofP || b.ball || (b.bh || 0) > 0.05) { msg(DUEL ? 'Ahora no: estás en un duelo.' : 'Párate junto al rover para subir.'); return; }
     if (XIB.sit) xibSit(false);
-    RVX.on = true; RVX.moved = true; RVX.v = 0; RVX.st = 0; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.v = 0;
+    RVX.on = true; RVX.moved = true; RVX.v = 0; RVX.air = false; RVX.vy = 0; RVX.gyP = null; RVX.st = 0; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.v = 0;
     if (RVX.pk !== JSON.stringify(rvPal())) { RVX.pk = JSON.stringify(rvPal()); roverPaint(R, rvPal()); }
     msg('¡A manejar! Joystick hacia donde quieras ir · TURBO: nitro · ROVER otra vez para bajar.');
   }
@@ -12231,6 +12231,7 @@ function buildBaseAEMX(){
       fxSpawn(x + (Math.random() - 0.5) * 0.12, gy + 0.06, z + (Math.random() - 0.5) * 0.12, -s * sp * 0.12 + (Math.random() - 0.5) * 0.4, 0.35 + Math.random() * 0.4, -c * sp * 0.12 + (Math.random() - 0.5) * 0.4, 0.7 + Math.random() * 0.5, 0.07, 0.32 + Math.min(0.25, sp * 0.012), col, onRoad ? 0.22 : 0.42, false);
     }
   }
+  var RVG = 15; /* gravedad del rover en el aire */
   var RVN = { dur: 5, cd: 8, mul: 2.2 }; /* nitro: 5 s a 2.2 veces la velocidad; se recarga en 8 s */
   function rvNitroFx(R, k, t) { /* llamas de los escapes traseros, del color de los ojos */
     if (!R.nfl) {
@@ -12273,7 +12274,17 @@ function buildBaseAEMX(){
       if (rvFits(nx, nz, RVX.yaw)) { RVX.x = nx; RVX.z = nz; }
       else { if (Math.abs(RVX.v) > 3) AUD.servo(bkMuz.set(RVX.x, RVX.y + 0.5, RVX.z)); RVX.v *= -0.25; break; } /* choque: rebota un poco */
     }
-    gy = rvTilt(dt); RVX.y = gy > RVX.y ? gy : RVX.y + (gy - RVX.y) * Math.min(1, dt * 12); /* al subir, de inmediato (nunca se hunde); al bajar, suave */
+    /* altura: pegado al suelo, pero si viene subiendo rápido y el suelo cae (cresta, borde), despega y vuela según su velocidad */
+    gy = rvTilt(dt); var gv = (RVX.gyP == null || dt <= 0) ? 0 : (gy - RVX.gyP) / dt, sp = Math.abs(RVX.v); RVX.gyP = gy;
+    if (!RVX.air && RVX.y + (RVX.vy || 0) * dt - gy > 0.04 && sp > 6) { RVX.air = true; RVX.apt = RVX.pt; } /* despega */
+    if (RVX.air) {
+      RVX.vy -= RVG * dt; RVX.y += RVX.vy * dt;
+      RVX.apt += (Math.max(-0.6, Math.min(0.6, Math.atan2(RVX.vy, Math.max(3, sp)) * (RVX.v < 0 ? -1 : 1))) - RVX.apt) * Math.min(1, dt * 3); RVX.pt = RVX.apt; /* en el aire la nariz sigue la trayectoria */
+      if (RVX.y <= gy) { /* aterriza */
+        if (RVX.vy < -5) { AUD.servo(bkMuz.set(RVX.x, RVX.y + 0.3, RVX.z)); RVX.v *= 0.9; RVX.dT = 0; }
+        RVX.y = gy; RVX.air = false; RVX.vy = 0;
+      }
+    } else { RVX.y = gy; RVX.vy = Math.max(-20, Math.min(10, sp * 0.55, gv)); } /* en el suelo: lleva la velocidad vertical de la pendiente (más rápido, más impulso) */
     rvPlace(R, RVX.x, RVX.y, RVX.z, RVX.yaw, RVX.pt, RVX.ro); roverPose(R, now, dt, RVX.v, RVX.st);
     rvDust(R, dt, onRoad); rvNitroFx(R, RVX.nk || 0, now);
     roverLights(R, !!(WX && WX.fogAt && WX.fogAt(RVX.x, RVX.z)), dt);
