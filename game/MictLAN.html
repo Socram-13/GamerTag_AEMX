@@ -3974,6 +3974,24 @@ window.startMap = function (RAW, AUTH) {
       (trailGrid[k] || (trailGrid[k] = [])).push(seg);
     }
   }
+  var RDG = {}; /* tramos de carretera con su altura: celda de 4 -> [x0, z0, x1, z1, h0, h1] */
+  function rdAdd(x0, z0, x1, z1, h0, h1) {
+    var s = [x0, z0, x1, z1, h0, h1], a, b, ia = Math.floor(Math.min(x0, x1) / 4) - 1, ib = Math.floor(Math.max(x0, x1) / 4) + 1, ja = Math.floor(Math.min(z0, z1) / 4) - 1, jb = Math.floor(Math.max(z0, z1) / 4) + 1;
+    for (a = ia; a <= ib; a++) for (b = ja; b <= jb; b++) (RDG[a + ',' + b] || (RDG[a + ',' + b] = [])).push(s);
+  }
+  function roadH(x, z, r) { /* altura del perfil del tramo más cercano (a menos de r), o null */
+    var l = RDG[Math.floor(x / 4) + ',' + Math.floor(z / 4)], i, s, dx, dz, l2, t, d, best = null, bd = r * r;
+    if (!l) return null;
+    for (i = 0; i < l.length; i++) {
+      s = l[i]; dx = s[2] - s[0]; dz = s[3] - s[1]; l2 = dx * dx + dz * dz;
+      t = l2 > 0 ? ((x - s[0]) * dx + (z - s[1]) * dz) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+      d = (x - s[0] - t * dx) * (x - s[0] - t * dx) + (z - s[1] - t * dz) * (z - s[1] - t * dz);
+      if (d < bd) { bd = d; best = s[4] + (s[5] - s[4]) * t; }
+    }
+    return best;
+  }
+  function rdY(x, z) { var r = roadH(x, z, 2.6); return r !== null ? r : terrainH(x, z); } /* suelo del vehículo */
+  function trailY(x, z) { var c = rdY(x, z); return 0.012 + c + Math.min(0.08, c * 0.8) + 0.04; } /* sobre la carretera (o el sendero) */
   function trailNear(x, z, r) {
     var ix = Math.floor(x / 4), iz = Math.floor(z / 4), a, b, l, i, s, dx, dz, l2, t, px, pz;
     for (a = -1; a <= 1; a++) for (b = -1; b <= 1; b++) {
@@ -4059,7 +4077,7 @@ window.startMap = function (RAW, AUTH) {
     }
     return c;
   }
-  function rmxTH(x, z) { var d = 2; return Math.max(terrainH(x, z), terrainH(x + d, z), terrainH(x - d, z), terrainH(x, z + d), terrainH(x, z - d)); }
+  function rmxTH(x, z) { var rr = roadH(x, z, TRAIL_W); if (rr !== null) return rr; var d = 2; return Math.max(terrainH(x, z), terrainH(x + d, z), terrainH(x - d, z), terrainH(x, z + d), terrainH(x, z - d)); }
   function trailRibbon(list, width, y, base, jit, rg) {
     var pos = [], colr = [], idx = [], n = 0, li, pts, i, p, q, r0, tx, tz, l, nx, nz, c, j;
     for (li = 0; li < list.length; li++) {
@@ -4367,6 +4385,63 @@ window.startMap = function (RAW, AUTH) {
       arcsOf(+ck, base, inf.nn).forEach(function (r) { ringDash.push(r); });
       arcsOf(+ck, base, inf.nn, true).forEach(function (r) { ringBand.push(r); });
     });
+    (function () { /* ===== perfil suave de cada carretera, taludes y puentes ===== */
+      var GR = 0.15, HW = TRAIL_W / 2 + 0.3, pos = [], col = [], idx = [], nv = 0, pil = [], cE = new THREE.Color(0x5a4a35), cE2 = new THREE.Color(0x6b5a40), cB = new THREE.Color(0x8a8f96);
+      lines2.forEach(function (L) {
+        var n = L.length, s = [0], tm = [], nx = [], nz = [], mm = [], h = [], i, k, d, a, b, w, q, sum, cnt;
+        if (n < 2) return;
+        for (i = 0; i < n; i++) {
+          a = L[Math.max(0, i - 1)]; b = L[Math.min(n - 1, i + 1)]; d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+          nx[i] = -(b[1] - a[1]) / d; nz[i] = (b[0] - a[0]) / d;
+          if (i) s[i] = s[i - 1] + Math.hypot(L[i][0] - L[i - 1][0], L[i][1] - L[i - 1][1]);
+          tm[i] = Math.max(terrainH(L[i][0], L[i][1]), terrainH(L[i][0] + nx[i] * HW, L[i][1] + nz[i] * HW), terrainH(L[i][0] - nx[i] * HW, L[i][1] - nz[i] * HW)); /* lo más alto de su ancho */
+        }
+        for (i = 0; i < n; i++) { w = -1e9; for (k = -2; k <= 2; k++) w = Math.max(w, tm[Math.max(0, Math.min(n - 1, i + k))]); mm[i] = w; } /* sin hundirse entre puntos */
+        for (i = 0; i < n; i++) { sum = 0; cnt = 0; for (k = -4; k <= 4; k++) { q = i + k; if (q < 0 || q >= n) continue; sum += mm[q]; cnt++; } h[i] = Math.max(sum / cnt, tm[i] + 0.02); } /* suavizado */
+        for (i = 1; i < n; i++) h[i] = Math.max(h[i], h[i - 1] - GR * (s[i] - s[i - 1])); /* pendiente máxima: solo se rellena, nunca se corta */
+        for (i = n - 2; i >= 0; i--) h[i] = Math.max(h[i], h[i + 1] - GR * (s[i + 1] - s[i]));
+        for (i = 1; i < n; i++) rdAdd(L[i - 1][0], L[i - 1][1], L[i][0], L[i][1], h[i - 1], h[i]);
+        [1, -1].forEach(function (sd) { /* un lado: talud de tierra hasta el suelo, o costado de concreto si es puente */
+          var pbr = null;
+          for (i = 0; i < n; i++) {
+            var ex = L[i][0] + nx[i] * HW * sd, ez = L[i][1] + nz[i] * HW * sd, ty = h[i] + 0.008 + Math.min(0.08, h[i] * 0.8), gc = terrainH(L[i][0], L[i][1]), br = h[i] - gc > 2, e = Math.max(0, h[i] - terrainH(ex, ez)), o, bx, bz, by, cc;
+            if (br) { bx = ex; bz = ez; by = ty - 0.4; cc = cB; }
+            else { o = e * 1.5; bx = ex + nx[i] * o * sd; bz = ez + nz[i] * o * sd; by = Math.min(ty, terrainH(bx, bz)) - 0.03; cc = e > 0.6 ? cE2 : cE; }
+            pos.push(ex, ty, ez, bx, by, bz); col.push(cc.r, cc.g, cc.b, cc.r * 0.8, cc.g * 0.8, cc.b * 0.8);
+            if (i > 0 && br === pbr) idx.push(nv - 2, nv - 1, nv, nv - 1, nv + 1, nv); /* entre puente y talud no se une (sin cuñas) */
+            pbr = br; nv += 2;
+          }
+        });
+        (function () { /* losa bajo el puente: cierra por debajo entre los dos costados */
+          var pb = false, i2, br2, yb, v0;
+          for (i2 = 0; i2 < n; i2++) {
+            br2 = h[i2] - terrainH(L[i2][0], L[i2][1]) > 2; yb = h[i2] + 0.008 + Math.min(0.08, h[i2] * 0.8) - 0.4;
+            pos.push(L[i2][0] + nx[i2] * HW, yb, L[i2][1] + nz[i2] * HW, L[i2][0] - nx[i2] * HW, yb, L[i2][1] - nz[i2] * HW);
+            col.push(cB.r * 0.75, cB.g * 0.75, cB.b * 0.75, cB.r * 0.75, cB.g * 0.75, cB.b * 0.75);
+            if (i2 > 0 && br2 && pb) idx.push(nv - 2, nv - 1, nv, nv - 1, nv + 1, nv);
+            pb = br2; nv += 2;
+          }
+        })();
+        for (i = 0; i < n; i += 2) { var gc2 = terrainH(L[i][0], L[i][1]); if (h[i] - gc2 > 2) pil.push([L[i][0], gc2, L[i][1], h[i] - 0.5 - gc2, Math.atan2(nx[i], nz[i]), h[i]]); } /* pilares bajo el puente */
+      });
+      if (idx.length) {
+        var gS = new THREE.BufferGeometry();
+        gS.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        gS.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+        gS.setIndex(idx); gS.computeVertexNormals();
+        var mS = new THREE.Mesh(gS, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -0.5, polygonOffsetUnits: -0.5 }));
+        mS.raycast = function () {}; mS.frustumCulled = false; mS.name = 'taludes'; scene.add(mS);
+      }
+      if (pil.length) {
+        var pm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), pil.length), pd = new THREE.Object3D();
+        pil.forEach(function (q2, j) { pd.position.set(q2[0], q2[1] + q2[3] / 2, q2[2]); pd.rotation.set(0, q2[4], 0); pd.scale.set(0.6, q2[3], TRAIL_W * 0.7); /* pilar a lo ancho de la calle */ pd.updateMatrix(); pm.setMatrixAt(j, pd.matrix); });
+        pm.instanceMatrix.needsUpdate = true; pm.raycast = function () {}; pm.frustumCulled = false; pm.name = 'pilares'; scene.add(pm);
+        /* cabezal sobre cada pilar: viga atravesada de lado a lado bajo la calle */
+        var cm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0x7c828a }), pil.length);
+        pil.forEach(function (q2, j) { var top = q2[5] + 0.008 + Math.min(0.08, q2[5] * 0.8) - 0.4; pd.position.set(q2[0], top - 0.2, q2[2]); pd.rotation.set(0, q2[4], 0); pd.scale.set(0.9, 0.4, HW * 2 + 0.2); pd.updateMatrix(); cm.setMatrixAt(j, pd.matrix); });
+        cm.instanceMatrix.needsUpdate = true; cm.raycast = function () {}; cm.frustumCulled = false; cm.name = 'cabezales'; scene.add(cm);
+      }
+    })();
     var bMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -0.8, polygonOffsetUnits: -0.8 });
     var tMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1.2, polygonOffsetUnits: -1.2 });
     var bm = new THREE.Mesh(trailRibbon(lines2, TRAIL_W + 0.6, 0.008, 'grass', 0.05, rg), bMat);
@@ -4441,7 +4516,7 @@ window.startMap = function (RAW, AUTH) {
           if (jn) continue;
           gnt.push([px, pz]);
           nmA = names[sa - 1]; nmB = names[sb - 1];
-          g = new THREE.Group(); yaw = Math.atan2(dx, dz); y0 = Math.max(0, terrainH(px, pz));
+          g = new THREE.Group(); yaw = Math.atan2(dx, dz); y0 = Math.max(0, rdY(px, pz));
           g.position.set(px, y0, pz); g.rotation.y = yaw;
           [-3.15, 3.15].forEach(function (lx) { m4 = new THREE.Mesh(gPostGeo, gPostMat); m4.position.set(lx, 2.4, 0); g.add(m4); });
           m4 = new THREE.Mesh(gBeamGeo, gPostMat); m4.position.set(0, 4.7, 0); g.add(m4);
@@ -8519,11 +8594,11 @@ function buildBaseAEMX(){
         if (Math.abs(tx) + Math.abs(tz) > 1e-6) car.yaw += nAng(Math.atan2(tx, tz) - car.yaw) * Math.min(1, dt * 6);
       }
     }
-    car.gy = terrainH(car.x, car.z);
+    car.gy = rdY(car.x, car.z);
     car.g.position.set(car.x, car.gy + 0.07 + 0.02 * Math.abs(Math.sin(t * 9)) * (car.v / CAR_SPEED), car.z);
     car.g.rotation.order = 'YXZ';
     car.g.rotation.y = car.yaw;
-    var pitchT = -Math.atan2(terrainH(car.x + Math.sin(car.yaw) * 0.6, car.z + Math.cos(car.yaw) * 0.6) - terrainH(car.x - Math.sin(car.yaw) * 0.6, car.z - Math.cos(car.yaw) * 0.6), 1.2);
+    var pitchT = -Math.atan2(rdY(car.x + Math.sin(car.yaw) * 0.6, car.z + Math.cos(car.yaw) * 0.6) - rdY(car.x - Math.sin(car.yaw) * 0.6, car.z - Math.cos(car.yaw) * 0.6), 1.2);
     car.pitch = (car.pitch || 0) + (pitchT - (car.pitch || 0)) * Math.min(1, dt * 8);
     car.g.rotation.x = car.pitch;
     for (i = 0; i < car.wheels.length; i++) car.wheels[i].rotation.x += car.v * dt / 0.3 / 0.75;
@@ -9269,7 +9344,7 @@ function buildBaseAEMX(){
         if (botHexIn(dx, dz, 3.6)) return Math.max(h, 0.14);
       }
     }
-    if (trailNear(x, z, 1.9)) { c = terrainH(x, z); h = Math.max(h, 0.012 + c + Math.min(0.08, c * 0.8) + 0.04); }
+    if (trailNear(x, z, 1.9)) h = Math.max(h, trailY(x, z));
     return h;
   }
 
@@ -12148,7 +12223,7 @@ function buildBaseAEMX(){
       gs.g.position.set(gx, Math.max(0, terrainH(gx, gz)) + 0.14 + 0.05 * Math.sin(t * 4 + i * 1.6) + Math.max(0, Math.min(0.08, terrainH(gx, gz) * 0.8)), gz);
     }
     gy = Math.max(0, terrainH(x, z)) + 0.06;
-    u = terrainH(x, z); u = 0.012 + u + Math.min(0.08, u * 0.8) + 0.04;
+    u = trailY(x, z);
     if (u > gy) gy = u;
     a.g.rotation.y = W.yaw;
     a.g.position.set(x, gy + hopY + Math.abs(Math.sin(t * 3)) * 0.03, z);
@@ -13321,7 +13396,7 @@ function buildBaseAEMX(){
       }
       A.off += ((A.dodge ? A.side * 2.6 : (A.offT || 0)) - A.off) * Math.min(1, dt * 6);
       var tox = nx * A.off, toz = nz * A.off; if (A.ox === undefined) { A.ox = tox; A.oz = toz; } A.ox += (tox - A.ox) * Math.min(1, dt * 3.5); A.oz += (toz - A.oz) * Math.min(1, dt * 3.5); /* desplazamiento lateral en el mundo: sin saltos al cambiar de tramo */ A.x = bx + A.ox; A.z = bz + A.oz;
-      u = terrainH(A.x, A.z); gy = Math.max(0, u) + 0.06; u = 0.012 + u + Math.min(0.08, u * 0.8) + 0.04; if (u > gy) gy = u; A.y = gy;
+      u = terrainH(A.x, A.z); gy = Math.max(0, u) + 0.06; u = trailY(A.x, A.z); if (u > gy) gy = u; A.y = gy;
 
       A.evCD -= dt;
       if (A.evCD <= 0 && BN && !HF && !HFW) {
@@ -13609,7 +13684,7 @@ function buildBaseAEMX(){
     }
     L.off += (L.offT - L.off) * Math.min(1, dt * 5);
     L.x = bx + nx * L.off; L.z = bz + nz * L.off;
-    u = terrainH(L.x, L.z); L.y = Math.max(0, u) + 0.06; u = 0.012 + u + Math.min(0.08, u * 0.8) + 0.04; if (u > L.y) L.y = u;
+    u = terrainH(L.x, L.z); L.y = Math.max(0, u) + 0.06; u = trailY(L.x, L.z); if (u > L.y) L.y = u;
 
     if (L.goUntil && t < L.goUntil && bot && !bot.tpj) {
       dd = Math.hypot(bot.x - L.x, bot.z - L.z);
