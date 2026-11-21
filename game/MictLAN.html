@@ -11809,7 +11809,18 @@ function buildBaseAEMX(){
   }
   /* ---- azoteas: el robot sube con SALTO junto a un muro y camina sobre el techo; al pasar el borde, cae ---- */
   var xibRC = new THREE.Raycaster(), xibDn = new THREE.Vector3(0, -1, 0), xibO = new THREE.Vector3();
-  function xibRoofAt(p, x, y0, z, far) { xibRC.set(xibO.set(x, y0, z), xibDn); xibRC.far = far; var h = xibRC.intersectObject(p._broot, true); return h.length ? h[0].point.y : null; }
+  var xibHits = [];
+  function xibRM(p) { /* piezas sólidas del edificio; la torre S13 y las tiendas tienen el raycast apagado, así que se prueba cada pieza directamente */
+    if (p._rm && p._rmR === p._broot) return p._rm;
+    var l = []; p._broot.traverse(function (o) { var m = o.material; if (o.isMesh && !o.isInstancedMesh && o.geometry && !(m && (m.blending === THREE.AdditiveBlending || m.depthWrite === false))) l.push(o); });
+    p._rmR = p._broot; return (p._rm = l);
+  }
+  function xibRoofAt(p, x, y0, z, far) {
+    var l = xibRM(p), i, y = null; xibRC.set(xibO.set(x, y0, z), xibDn); xibRC.far = far; xibHits.length = 0;
+    for (i = 0; i < l.length; i++) if (l[i].visible) THREE.Mesh.prototype.raycast.call(l[i], xibRC, xibHits);
+    for (i = 0; i < xibHits.length; i++) if (y === null || xibHits[i].point.y > y) y = xibHits[i].point.y;
+    return y;
+  }
   function xibRoofOK(x, z) { /* sobre el techo: libre si hay techo a la altura (o el borde, para caer); un muro más alto bloquea */
     var R = bot.roofP, y = xibRoofAt(R.p, x, bot.y + 0.7, z, 3);
     return y === null || y <= bot.y + 0.5;
@@ -11817,7 +11828,7 @@ function buildBaseAEMX(){
   function xibClimb(b) { /* SALTO pegado a un edificio: salto con propulsores hasta su azotea */
     var a = b.yaw, d, x, z, p = null, i, y, top;
     for (d = 0.5; d <= 1.6 && !p; d += 0.25) p = xibBldP(b.x + Math.sin(a) * d, b.z + Math.cos(a) * d);
-    if (!p || !p._broot || p.noRoof || p.isPres || p._duel) return false;
+    if (!p || !p._broot || (p.noRoof && p.topY < 2) || p._duel) return false; /* sucursales S13, UVXpress y el palacio también; fuera solo las casas de campaña */
     top = BASE + (p.topY || 6) + 30;
     for (i = 1; i <= 24; i++) { d = 0.6 + i * 0.35; x = b.x + Math.sin(a) * d; z = b.z + Math.cos(a) * d; y = xibRoofAt(p, x, top, z, 80); if (y !== null && y > b.y + 1.2) { x += Math.sin(a) * 0.5; z += Math.cos(a) * 0.5; y = xibRoofAt(p, x, top, z, 80); if (y === null) return false; break; } }
     if (i > 24 || y === null) return false;
@@ -15731,6 +15742,207 @@ function buildBaseAEMX(){
     }
   }
 
+  /* ===== Pterodáctilo de MictLAND. makePtero() -> P; pteroPose(P, t, modo, dt), modo: 'volar' | 'planear' | 'posado' | 'graznar'.
+     Unidades del modelo: envergadura ~3.6, del pico a la cola ~1.4; mira hacia +z. Alas y patas se calculan por puntos (membrana que se estira
+     del borde de ataque hasta la pata). ===== */
+  var PT_N = 9; /* puntos a lo largo de cada ala */
+  function makePtero() {
+    var g = new THREE.Group(), body = new THREE.Group(), P = { g: g, body: body, sides: [], ph: 0, fold: 0, A: 0, open: 0, look: 0 };
+    var M = function (c, e) { return new THREE.MeshLambertMaterial({ color: c, emissive: e || 0x000000, flatShading: true }); };
+    var mBack = M(0x6b5a4b, 0x0e0b08), mBelly = M(0xcdbb9c, 0x15120c), mCrest = M(0xc8402c, 0x2a0a04), mCrestB = M(0x5a4a3e, 0x0c0907), mBeak = M(0x8c7a67, 0x100c09), mBone = M(0x4e4034, 0x0a0806), mClaw = M(0x2a211b);
+    var mMem = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x120d09, side: THREE.DoubleSide, flatShading: true }); /* membrana ámbar (se ve a contraluz) */
+    var mEye = new THREE.MeshBasicMaterial({ color: 0x120c08 }), mIris = new THREE.MeshBasicMaterial({ color: 0xe0a030 });
+    var m, i, s, sg = function (r, a, b) { return new THREE.SphereGeometry(r, a || 10, b || 8); };
+    g.add(body);
+    /* torso delgado y vientre claro */
+    m = new THREE.Mesh(sg(0.09), mBack); m.scale.set(1.0, 0.95, 2.7); body.add(m);
+    m = new THREE.Mesh(sg(0.085), mBelly); m.scale.set(0.9, 0.85, 2.4); m.position.set(0, -0.022, 0.02); body.add(m);
+    m = new THREE.Mesh(sg(0.07), mBack); m.scale.set(1.25, 1, 1.2); m.position.set(0, 0.02, 0.15); body.add(m); /* hombros */
+    m = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.2, 5), mBack); m.rotation.x = -Math.PI / 2; m.position.set(0, 0.0, -0.33); body.add(m); /* cola corta */
+    /* cuello largo y cabeza */
+    var neck = new THREE.Group(); neck.position.set(0, 0.04, 0.2); body.add(neck); P.neck = neck;
+    m = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.042, 0.32, 7), mBack); m.rotation.x = Math.PI / 2; m.position.z = 0.15; neck.add(m);
+    m = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.032, 0.3, 7), mBelly); m.rotation.x = Math.PI / 2; m.position.set(0, -0.011, 0.15); neck.add(m);
+    var head = new THREE.Group(); head.position.z = 0.32; neck.add(head); P.head = head;
+    m = new THREE.Mesh(sg(0.05), mBack); m.scale.set(0.8, 0.95, 1.4); head.add(m);
+    m = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.48, 6), mBeak); m.rotation.x = Math.PI / 2 + 0.03; m.scale.set(0.7, 1, 1); m.position.set(0, 0.0, 0.28); head.add(m); /* pico superior */
+    var jaw = new THREE.Group(); jaw.position.set(0, -0.02, 0.04); head.add(jaw); P.jaw = jaw;
+    m = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.43, 6), mBeak); m.rotation.x = Math.PI / 2 - 0.045; m.scale.set(0.68, 1, 0.8); m.position.set(0, 0.0, 0.215); jaw.add(m); /* mandíbula */
+    m = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.05, 0.24, 4), mCrestB); m.rotation.x = -Math.PI / 2 + 0.35; m.scale.set(0.13, 1, 1); m.position.set(0, 0.06, -0.1); head.add(m); /* base de la cresta (hacia atrás y arriba) */
+    m = new THREE.Mesh(new THREE.ConeGeometry(0.034, 0.26, 4), mCrest); m.rotation.x = -Math.PI / 2 + 0.35; m.scale.set(0.13, 1, 1); m.position.set(0, 0.145, -0.335); head.add(m); /* punta roja de la cresta, pegada a la base */
+    for (s = -1; s <= 1; s += 2) {
+      m = new THREE.Mesh(sg(0.012, 8, 6), mIris); m.position.set(s * 0.036, 0.018, 0.03); head.add(m);
+      m = new THREE.Mesh(sg(0.0065, 6, 5), mEye); m.position.set(s * 0.046, 0.019, 0.033); head.add(m);
+    }
+    /* alas (huesos + membrana de 3 filas: borde de ataque oscuro, centro y borde de salida claro) y patas, una por lado */
+    var cyl = new THREE.CylinderGeometry(1, 1, 1, 5), cone = new THREE.ConeGeometry(1, 1, 4);
+    for (s = -1; s <= 1; s += 2) {
+      var S = { s: s, bones: [], legs: [], claws: [], toes: [] }, k, j, geo = new THREE.BufferGeometry(), idx = [], col = [], c = new THREE.Color();
+      for (k = 0; k < 3; k++) { m = new THREE.Mesh(cyl, mBone); body.add(m); S.bones.push(m); }
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(PT_N * 3 * 3), 3));
+      for (j = 0; j < 3; j++) for (k = 0; k < PT_N; k++) { c.set(j === 0 ? 0x5a493b : j === 1 ? 0x75614f : 0x907b66); /* tonos del cuerpo: más oscuro al frente, más claro atrás */ if (k === 2 || k === 5) c.multiplyScalar(0.86); /* venas tenues */ col.push(c.r, c.g, c.b); }
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      for (j = 0; j < 2; j++) for (k = 0; k < PT_N - 1; k++) { var a0 = j * PT_N + k, b0 = a0 + PT_N; idx.push(a0, a0 + 1, b0, a0 + 1, b0 + 1, b0); }
+      geo.setIndex(idx);
+      S.mem = new THREE.Mesh(geo, mMem); S.mem.frustumCulled = false; body.add(S.mem);
+      for (k = 0; k < 2; k++) { m = new THREE.Mesh(cyl, k ? mBack : mBelly); body.add(m); S.legs.push(m); }
+      for (k = 0; k < 3; k++) { m = new THREE.Mesh(cone, mClaw); m.scale.set(0.007, 0.05, 0.007); body.add(m); S.claws.push(m); } /* garras de la mano */
+      for (k = 0; k < 3; k++) { m = new THREE.Mesh(cone, mClaw); m.scale.set(0.008, 0.06, 0.008); body.add(m); S.toes.push(m); } /* garras del pie */
+      P.sides.push(S);
+    }
+    P.mats = [mBack, mBelly, mCrest, mCrestB, mBeak, mBone, mClaw, mMem, mEye, mIris];
+    return P;
+  }
+  var PTV = { up: new THREE.Vector3(0, 1, 0), d: new THREE.Vector3(), c: new THREE.Vector3(), q: new THREE.Vector3(), inv: new THREE.Matrix4().makeRotationX(-0.42).setPosition(0, 0.36, 0).invert() };
+  function ptBone(m, A, B, r) { /* cilindro (o cono) de A a B */
+    PTV.d.subVectors(B, A); var l = PTV.d.length() || 1e-4; m.position.addVectors(A, B).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(PTV.up, PTV.d.multiplyScalar(1 / l)); m.scale.set(r, l, r);
+  }
+  function ptSeg(o, s, du, dv, th) { return o.set(s * du * Math.cos(th), du * Math.sin(th), dv); }
+  function ptLine(o, pts, u) { /* punto a la fracción u (por longitud) de la línea S-E-W-T */
+    var L = [], tot = 0, i, d; for (i = 0; i < 3; i++) { d = pts[i].distanceTo(pts[i + 1]); L.push(d); tot += d; }
+    d = u * tot; for (i = 0; i < 3; i++) { if (d <= L[i] || i === 2) return o.copy(pts[i]).lerp(pts[i + 1], Math.min(1, d / (L[i] || 1e-4))); d -= L[i]; }
+  }
+  function pteroPose(P, t, modo, dt) {
+    var sit = modo === 'posado' || modo === 'graznar', tA = (modo === 'volar' || modo === 'graznar_vuelo') ? 0.6 : modo === 'planear' ? 0.05 : 0, f, a1, a2, a3, dih, i, k, S, s, p, u, w;
+    dt = Math.min(0.1, dt || 0.016);
+    P.fold += ((sit ? 1 : 0) - P.fold) * Math.min(1, dt * 2.6); f = P.fold;
+    P.A += (tA - P.A) * Math.min(1, dt * 3);
+    P.ph += dt * (tA > 0.3 ? 6.4 : 1.4);
+    P.open += ((modo === 'graznar' || modo === 'graznar_vuelo' ?0.55 + 0.45 * Math.abs(Math.sin(t * 8)) : 0) - P.open) * Math.min(1, dt * 12);
+    dih = modo === 'planear' ? 0.12 : 0.06;
+    a1 = P.A * Math.sin(P.ph) + dih; a2 = P.A * 1.1 * Math.sin(P.ph - 0.35) + dih; a3 = P.A * 1.3 * Math.sin(P.ph - 0.7) + dih * 0.5;
+    var B = P.body, sp = P.P || (P.P = { S: new THREE.Vector3(), E: new THREE.Vector3(), W: new THREE.Vector3(), T: new THREE.Vector3(), H: new THREE.Vector3(), x: new THREE.Vector3(), y: new THREE.Vector3(), K: new THREE.Vector3(), F: new THREE.Vector3(), Hp: new THREE.Vector3(), L: new THREE.Vector3() });
+    for (i = 0; i < 2; i++) {
+      S = P.sides[i]; s = S.s;
+      sp.S.set(s * 0.07, 0.045, 0.14);
+      /* ala abierta: brazo, antebrazo y dedo largo, con el aleteo desfasado; el dedo va un poco hacia atrás */
+      sp.E.copy(sp.S).add(ptSeg(sp.x, s, 0.34, -0.05, a1));
+      sp.W.copy(sp.E).add(ptSeg(sp.x, s, 0.34, 0.07, a2));
+      sp.T.copy(sp.W).add(ptSeg(sp.x, s, 1.12, -0.36, a3));
+      /* patas: cuelgan hacia abajo y atrás al volar; bajo el cuerpo al posarse (puntos del suelo pasados al cuerpo) */
+      sp.Hp.set(s * 0.05, -0.05, -0.15);
+      sp.K.set(s * 0.08, -0.14, -0.25).lerp(sp.x.set(s * 0.1, 0.17, -0.1).applyMatrix4(PTV.inv), f);
+      sp.F.set(s * 0.1, -0.27, -0.36).lerp(sp.x.set(s * 0.1, 0, -0.2).applyMatrix4(PTV.inv), f);
+      if (f > 0.001) { /* ala plegada: la muñeca apoya en el suelo y el dedo largo corre junto al costado */
+        sp.E.lerp(sp.x.set(s * 0.17, 0.21, 0.0).applyMatrix4(PTV.inv), f);
+        sp.W.lerp(sp.x.set(s * 0.18, 0.0, 0.2).applyMatrix4(PTV.inv), f);
+        sp.T.lerp(sp.x.set(s * 0.2, 0.42, -0.36).applyMatrix4(PTV.inv), f);
+      }
+      sp.H.copy(sp.Hp).lerp(sp.K, 0.75); /* la membrana termina en la pata, junto a la rodilla */
+      /* membrana: fila 0 = borde de ataque; fila 2 = borde de salida curvo (de la pata a la punta) */
+      p = S.mem.geometry.attributes.position; var pts = [sp.S, sp.E, sp.W, sp.T];
+      for (k = 0; k < PT_N; k++) {
+        u = k / (PT_N - 1); ptLine(sp.L, pts, u);
+        w = Math.sin(Math.PI * Math.pow(u, 0.8)) * (0.12 + 0.05 * (1 - f)); /* qué tanto se curva hacia dentro el borde de salida */
+        sp.y.copy(sp.H).lerp(sp.T, Math.pow(u, 1.15)); sp.y.z += w; sp.y.y += (sp.L.y - sp.y.y) * 0.15 * Math.sin(Math.PI * u);
+        p.setXYZ(k, sp.L.x, sp.L.y, sp.L.z);
+        p.setXYZ(2 * PT_N + k, sp.y.x, sp.y.y, sp.y.z);
+        p.setXYZ(PT_N + k, (sp.L.x + sp.y.x) / 2, (sp.L.y + sp.y.y) / 2 - 0.012 * (1 - f) * Math.sin(Math.PI * u), (sp.L.z + sp.y.z) / 2); /* panza de la membrana */
+      }
+      p.needsUpdate = true; S.mem.geometry.computeVertexNormals();
+      ptBone(S.bones[0], sp.S, sp.E, 0.021); ptBone(S.bones[1], sp.E, sp.W, 0.017); ptBone(S.bones[2], sp.W, sp.T, 0.01);
+      /* tres garras en la muñeca, hacia el frente */
+      for (k = 0; k < 3; k++) { sp.x.copy(sp.W); sp.x.x += s * (k - 1) * 0.012; sp.y.copy(sp.x); sp.y.z += 0.05; sp.y.y += 0.02 - k * 0.015; ptBone(S.claws[k], sp.x, sp.y, 0.007); }
+      ptBone(S.legs[0], sp.Hp, sp.K, 0.022); ptBone(S.legs[1], sp.K, sp.F, 0.013);
+      /* garras del pie: hacia atrás y abajo al volar, al frente sobre el suelo al posarse */
+      for (k = 0; k < 3; k++) { sp.x.copy(sp.F); sp.y.set(sp.F.x + s * (k - 1) * 0.02, sp.F.y - 0.05 * (1 - f) + 0.0 * f, sp.F.z + 0.02 + 0.05 * f); ptBone(S.toes[k], sp.x, sp.y, 0.008); }
+      S.wy = [sp.W.x, sp.W.y, sp.W.z, sp.F.x, sp.F.y, sp.F.z];
+    }
+    /* cuerpo: sube y baja con el aleteo; posado, se inclina con la cabeza en alto */
+    B.rotation.x = -0.42 * f + (1 - f) * (0.04 * Math.sin(P.ph + 1.2) - 0.05);
+    B.rotation.z = (1 - f) * (modo === 'planear' ? 0.05 * Math.sin(t * 0.7) : 0);
+    P.look += ((sit ? Math.sin(t * 0.45) * 0.7 * (Math.sin(t * 0.17) > -0.2 ? 1 : 0) : 0) - P.look) * Math.min(1, dt * 2);
+    P.neck.rotation.set(-0.35 * f - (modo === 'graznar' ? 0.3 : 0) + (1 - f) * 0.02, P.look, 0);
+    P.head.rotation.set(0.6 * f + (modo === 'graznar' ? 0.1 : 0) + (1 - f) * 0.1, 0, 0);
+    P.jaw.rotation.x = P.open * 0.5;
+    /* altura: en vuelo el centro es el origen; posado, las patas y las muñecas tocan el suelo (y = 0) */
+    B.position.y = 0; B.updateMatrix();
+    var lo = 1e9; P.sides.forEach(function (S2) { var q = S2.wy; [[q[0], q[1], q[2]], [q[3], q[4] - 0.008, q[5]]].forEach(function (v) { PTV.c.set(v[0], v[1], v[2]).applyMatrix4(B.matrix); if (PTV.c.y < lo) lo = PTV.c.y; }); });
+    B.position.y = f * -lo - (1 - f) * P.A * 0.05 * Math.sin(P.ph);
+  }
+
+  /* ===== Fauna: un pterodáctilo sobre Chihuahua. Vuela en vueltas amplias (aletea y planea), de vez en cuando baja a posarse
+     fuera de la ciudad y grazna; si el robot se acerca, despega. Escala 0.75: envergadura ~2.7 junto al robot (~0.7). ===== */
+  var PTR = { init: false, P: null, S: 0.75 };
+  function ptrIn(x, z) { return PTR.R && botInRings(PTR.R, x, z); }
+  function ptrPick(r) { /* punto dentro de Chihuahua a menos de r del centro */
+    var k, a, d, x, z;
+    for (k = 0; k < 30; k++) { a = Math.random() * 6.2832; d = Math.sqrt(Math.random()) * r; x = PTR.cx + Math.sin(a) * d; z = PTR.cz + Math.cos(a) * d; if (ptrIn(x, z)) return [x, z]; }
+    return [PTR.cx, PTR.cz];
+  }
+  function ptrLand() { /* lugar para posarse: tierra libre, fuera de la ciudad */
+    var k, q;
+    for (k = 0; k < 40; k++) { q = ptrPick(90); if (landAt(q[0], q[1]) && botFree(q[0], q[1]) && botFree(q[0] + 1, q[1]) && botFree(q[0] - 1, q[1]) && botCityDist(q[0], q[1]) > 6) return q; }
+    return null;
+  }
+  function ptrInit() {
+    var R = statePolys['Chihuahua'], d, b = [1e9, 1e9, -1e9, -1e9], k, x, z;
+    PTR.init = true; if (!R || !R.length) return;
+    PTR.R = R;
+    d = districts.filter(function (q) { return q.name === 'Chihuahua'; })[0];
+    if (d && ptrIn(d.cx, d.cz)) { PTR.cx = d.cx; PTR.cz = d.cz; }
+    else { /* sin ciudad: el centro del estado (un punto dentro, cerca del centro de su caja) */
+      R.forEach(function (r) { r.forEach(function (c) { b[0] = Math.min(b[0], c[0]); b[1] = Math.min(b[1], c[1]); b[2] = Math.max(b[2], c[0]); b[3] = Math.max(b[3], c[1]); }); });
+      PTR.cx = (b[0] + b[2]) / 2; PTR.cz = (b[1] + b[3]) / 2;
+      for (k = 0; k < 200 && !ptrIn(PTR.cx, PTR.cz); k++) { x = b[0] + Math.random() * (b[2] - b[0]); z = b[1] + Math.random() * (b[3] - b[1]); if (botInRings(R, x, z)) { PTR.cx = x; PTR.cz = z; } }
+    }
+    var P = PTR.P = makePtero(); P.g.scale.setScalar(PTR.S); P.g.rotation.order = 'YXZ'; P.g.traverse(function (o) { o.raycast = function () {}; });
+    var s = ptrPick(60); P.x = s[0]; P.z = s[1]; P.alt = 18; P.y = botGround(P.x, P.z) + P.alt; P.yaw = Math.random() * 6.28; P.roll = 0; P.pitch = 0;
+    P.st = 'vuelo'; P.wp = ptrPick(110); P.landT = 35 + Math.random() * 30; P.flapT = 3; P.flap = true; P.scrT = 10 + Math.random() * 15; P.T = 0; P.cry = 0;
+    P.g.position.set(P.x, P.y, P.z); scene.add(P.g);
+  }
+  function ptrCry(d) { /* graznido: chillido áspero que baja de tono; respeta el botón de sonido */
+    var C = typeof pcsCtx === 'function' ? pcsCtx() : null, now, out, v, p;
+    if (!C || !pcsOn() || d > 70) return;
+    now = C.currentTime; v = 0.2 * Math.pow(1 - d / 70, 1.4); out = C.createGain(); out.connect(C.destination); p = 0.9 + Math.random() * 0.2;
+    pcsTone(C, out, 'sawtooth', 1500 * p, 820 * p, now, 0.42, v, 2.2); pcsTone(C, out, 'square', 1150 * p, 700 * p, now + 0.03, 0.36, v * 0.45, 3);
+    pcsTone(C, out, 'sawtooth', 1300 * p, 900 * p, now + 0.5, 0.25, v * 0.6, 2.5);
+  }
+  function ptrStep(t, dt) {
+    if (!PTR.init) { if (bot && typeof landAt === 'function' && Object.keys(statePolys).length) ptrInit(); return; }
+    var P = PTR.P; if (!P) return;
+    dt = Math.min(0.1, dt);
+    var cp = camera.position, dc = Math.hypot(P.x - cp.x, P.z - cp.z), B = bot, db = B ? Math.hypot(B.x - P.x, B.z - P.z) : 999, gy, w, dd, turn, sp, mode, tY;
+    P.g.visible = dc < 420;
+    P.T += dt;
+    if (P.st === 'vuelo' || P.st === 'baja') {
+      /* rumbo hacia el punto de paso, girando suave (se inclina en las vueltas) */
+      dd = Math.hypot(P.wp[0] - P.x, P.wp[1] - P.z); w = Math.atan2(P.wp[0] - P.x, P.wp[1] - P.z);
+      turn = Math.max(-0.7, Math.min(0.7, nAng(w - P.yaw) * 1.2)); if (P.st === 'baja' && dd < 14) turn = nAng(w - P.yaw) * 3;
+      P.yaw += turn * dt; P.roll += (-turn * 0.6 - P.roll) * Math.min(1, dt * 2);
+      sp = P.st === 'baja' ? Math.max(1.2, Math.min(7, dd * 0.5)) : 7.5;
+      P.x += Math.sin(P.yaw) * sp * dt; P.z += Math.cos(P.yaw) * sp * dt;
+      gy = botGround(P.x, P.z);
+      if (P.st === 'vuelo') {
+        if (dd < 14 || !ptrIn(P.x, P.z) && dd < 60) P.wp = ptrPick(110);
+        P.flapT -= dt; if (P.flapT <= 0) { P.flap = !P.flap; P.flapT = P.flap ? 2 + Math.random() * 2 : 3 + Math.random() * 4; }
+        tY = gy + P.alt + 2 * Math.sin(t * 0.3);
+        P.landT -= dt; if (P.landT <= 0) { var q = ptrLand(); if (q) { P.st = 'baja'; P.wp = q; } else P.landT = 20; }
+        P.scrT -= dt; if (P.scrT <= 0) { P.scrT = 15 + Math.random() * 20; P.cry = 1.2; ptrCry(dc); }
+      } else { /* baja: la altura se reduce con la distancia que falta */
+        tY = botGround(P.wp[0], P.wp[1]) + Math.min(P.alt, dd * 0.45);
+        P.flap = dd < 6;
+        if (dd < 0.6) { P.st = 'posado'; P.x = P.wp[0]; P.z = P.wp[1]; P.T = 0; P.stay = 14 + Math.random() * 10; P.roll = 0; }
+      }
+      if (P.st !== 'posado') { P.pitch += (Math.max(-0.35, Math.min(0.35, (P.y - tY) * 0.08)) - P.pitch) * Math.min(1, dt * 2); P.y += (tY - P.y) * Math.min(1, dt * (P.st === 'baja' ? 1.6 : 0.6)); }
+      mode = P.cry > 0 ? 'graznar_vuelo' : (P.flap ? 'volar' : 'planear');
+    } else if (P.st === 'posado') {
+      P.y = botGround(P.x, P.z); P.pitch *= 0.8; P.roll *= 0.8;
+      mode = P.cry > 0 ? 'graznar' : 'posado';
+      if (P.T > 3 && Math.random() < dt * 0.12 && P.cry <= 0) { P.cry = 1.6; ptrCry(dc); }
+      if (db < 5 || P.T > P.stay) { P.st = 'sube'; P.T = 0; P.cry = 1.0; ptrCry(dc); if (B && db < 5) P.yaw = Math.atan2(P.x - B.x, P.z - B.z); }
+    } else { /* sube: despega aleteando hasta su altura y vuelve a volar */
+      P.x += Math.sin(P.yaw) * 3.5 * dt; P.z += Math.cos(P.yaw) * 3.5 * dt;
+      gy = botGround(P.x, P.z); P.y += Math.min(4.5 * dt, Math.max(0, gy + P.alt - P.y)); P.pitch += (-0.3 - P.pitch) * Math.min(1, dt * 3);
+      mode = P.cry > 0 ? 'graznar_vuelo' : 'volar';
+      if (P.y > gy + P.alt - 1) { P.st = 'vuelo'; P.wp = ptrPick(110); P.landT = 50 + Math.random() * 40; }
+    }
+    P.cry -= dt;
+    P.g.position.set(P.x, P.y, P.z); P.g.rotation.set(P.pitch, P.yaw, P.roll);
+    if (dc < 160) pteroPose(P, t, mode, dt); /* solo de cerca se anima */
+  }
+
 
   /* ===== multijugador (fase 1): presencia de robots en Xibalba ===== */
   var MP_LAG = 350; /* ms: los demás robots se dibujan este tanto en el pasado, entre dos datos reales */
@@ -16214,6 +16426,7 @@ function buildBaseAEMX(){
     try { mpStep(t, dt); } catch (eMp) { mpStep = function () {}; console.warn('Multijugador desactivado:', eMp); }
     try { wxStep(t); } catch (eWx) { wxStep = function () {}; console.warn('Clima sincronizado desactivado:', eWx); }
     try { xsStep(t); } catch (eXs) { xsStep = function () {}; console.warn('Calendario de eventos desactivado:', eXs); }
+    try { ptrStep(t, dt); } catch (ePt) { ptrStep = function () {}; console.warn('Pterodáctilo desactivado:', ePt); }
     try { pcfStep(t, dt); } catch (ePc) { pcfStep = function () {}; console.warn('Pollos desactivados:', ePc); }
     updateBot(t, dt); updateAstJoints(); if (DEB.length) duelDebrisTick(dt); clanWallsTick(dt);
     updateWanderer(t, dt);
