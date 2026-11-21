@@ -3990,6 +3990,23 @@ window.startMap = function (RAW, AUTH) {
     }
     return best;
   }
+  function rdSlope(x, z) { /* superficie del talud de tierra junto a la carretera (pendiente 1:1.5), o -1e9 si no hay; los puentes no tienen talud */
+    var ix = Math.floor(x / 4), iz = Math.floor(z / 4), a, c, l, i, s, dx, dz, l2, t, d, px, pz, h, best = -1e9, HWs = TRAIL_W / 2 + 0.3;
+    for (a = -1; a <= 1; a++) for (c = -1; c <= 1; c++) {
+      l = RDG[(ix + a) + ',' + (iz + c)]; if (!l) continue;
+      for (i = 0; i < l.length; i++) {
+        s = l[i]; dx = s[2] - s[0]; dz = s[3] - s[1]; l2 = dx * dx + dz * dz;
+        t = l2 > 0 ? ((x - s[0]) * dx + (z - s[1]) * dz) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+        px = s[0] + t * dx; pz = s[1] + t * dz; d = Math.hypot(x - px, z - pz);
+        if (d > HWs + 4) continue;
+        h = s[4] + (s[5] - s[4]) * t;
+        if (h - terrainH(px, pz) > 2) continue; /* puente: sin talud */
+        h = h + 0.05 - Math.max(0, d - HWs) / 1.5;
+        if (h > best) best = h;
+      }
+    }
+    return best;
+  }
   function rdY(x, z) { var r = roadH(x, z, 2.6); return r !== null ? r : terrainH(x, z); } /* suelo del vehículo */
   function rdHigh(x, z) { var r = roadH(x, z, 2.6); return r !== null && r - terrainH(x, z) > 2; } /* tramo de puente: debajo hay espacio libre */
   function rdGround(b) { /* suelo del robot: bajo un puente pisa el terreno; si ya iba sobre el puente, sigue arriba */
@@ -9358,6 +9375,7 @@ function buildBaseAEMX(){
       }
     }
     if (trailNear(x, z, 1.9) && !rdHigh(x, z)) h = Math.max(h, trailY(x, z)); /* bajo un puente el suelo es el terreno */
+    h = Math.max(h, rdSlope(x, z)); /* los taludes de tierra a los lados de la carretera se pisan */
     return h;
   }
 
