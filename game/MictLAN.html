@@ -12189,7 +12189,7 @@ function buildBaseAEMX(){
       s = Math.sin(RVX.yaw); c = Math.cos(RVX.yaw); p = [[0.85, 0], [-0.85, 0], [0, -1.1], [0, 1.1]];
       for (k = 0; k < p.length; k++) { x = RVX.x + p[k][0] * c + p[k][1] * s; z = RVX.z - p[k][0] * s + p[k][1] * c; if (rvFree(x, z)) break; }
       if (k >= p.length) { q = botFreeSpot(RVX.x, RVX.z); if (q) { x = q[0]; z = q[1]; } }
-      RVX.on = false; RVX.v = 0; b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z);
+      RVX.on = false; RVX.v = 0; RVX.nT = 0; RVX.nk = 0; rvNitroFx(R, 0, 0); if (XIB.tb) XIB.tb.classList.remove('on'); b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z);
       roverLights(R, false, 1); rvSave(true); msg('Rover estacionado. Lo verás en el minimapa.'); return;
     }
     d = Math.hypot(b.x - RVX.x, b.z - RVX.z);
@@ -12198,7 +12198,7 @@ function buildBaseAEMX(){
     if (XIB.sit) xibSit(false);
     RVX.on = true; RVX.moved = true; RVX.v = 0; RVX.st = 0; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.v = 0;
     if (RVX.pk !== JSON.stringify(rvPal())) { RVX.pk = JSON.stringify(rvPal()); roverPaint(R, rvPal()); }
-    msg('¡A manejar! Mueve el joystick hacia donde quieras ir · ROVER otra vez para bajar.');
+    msg('¡A manejar! Joystick hacia donde quieras ir · TURBO: nitro · ROVER otra vez para bajar.');
   }
   function rvUI(b, now) {
     if (!XIB.rvEl || !b) return; var near = !RVX.on && RVX.R && Math.hypot(b.x - RVX.x, b.z - RVX.z) < 2.6, st = RVX.on ? 'on' : near ? 'near' : '';
@@ -12231,11 +12231,32 @@ function buildBaseAEMX(){
       fxSpawn(x + (Math.random() - 0.5) * 0.12, gy + 0.06, z + (Math.random() - 0.5) * 0.12, -s * sp * 0.12 + (Math.random() - 0.5) * 0.4, 0.35 + Math.random() * 0.4, -c * sp * 0.12 + (Math.random() - 0.5) * 0.4, 0.7 + Math.random() * 0.5, 0.07, 0.32 + Math.min(0.25, sp * 0.012), col, onRoad ? 0.22 : 0.42, false);
     }
   }
+  var RVN = { dur: 3, cd: 8, mul: 1.6 }; /* nitro: 3 s a 1.6 veces la velocidad; se recarga en 8 s */
+  function rvNitroFx(R, k, t) { /* llamas de los escapes traseros, del color de los ojos */
+    if (!R.nfl) {
+      R.nfl = []; var mt = new THREE.MeshBasicMaterial({ color: rvPal().eye, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), mc = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), s, q, c, ex;
+      for (s = -1; s <= 1; s += 2) {
+        ex = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.1, 10), new THREE.MeshLambertMaterial({ color: 0x3a414b })); ex.rotation.x = Math.PI / 2; ex.position.set(s * 0.2, 0.3, -0.72); R.body.add(ex); /* tubo de escape */
+        q = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.9, 12, 1, true), mt); q.rotation.x = -Math.PI / 2; q.position.set(s * 0.2, 0.3, -0.98); q.raycast = function () { }; R.body.add(q);
+        c = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.5, 10, 1, true), mc); c.rotation.x = -Math.PI / 2; c.position.set(s * 0.2, 0.3, -0.87); c.raycast = function () { }; R.body.add(c);
+        R.nfl.push(q, c);
+      }
+      R.nflM = mt;
+    }
+    R.nflM.color.set(rvPal().eye);
+    R.nfl.forEach(function (q, i) { q.visible = k > 0.03; var j = 0.85 + 0.3 * Math.sin(t * 60 + i * 1.7); q.scale.set(1, k * j, 1); q.position.z = (i % 2 ? -0.74 - 0.25 * k * j : -0.74 - 0.45 * k * j); }); /* la base de cada llama queda en el escape y crece hacia atrás */
+  }
   function rvDrive(b, now, dt) { /* manejo: arriba/abajo acelera o da reversa; izquierda/derecha gira el volante */
     var K = XIB.k, ix = XIB.jx, iy = XIB.jy, R = RVX.R, onRoad, vmax, tv, nx, nz, gy;
     if (K.KeyW || K.ArrowUp) iy += 1; if (K.KeyS || K.ArrowDown) iy -= 1; if (K.KeyD || K.ArrowRight) ix += 1; if (K.KeyA || K.ArrowLeft) ix -= 1;
     if (DUEL || XIB.stun > 0) { xibRover(); return; }
     onRoad = trailNear(RVX.x, RVX.z, 2.3); vmax = onRoad ? 24 : 15; /* el robot corre a 10: el rover le gana (en carretera más del doble) */
+    /* nitro con el botón TURBO (Shift): solo si va avanzando y está recargado */
+    if (XIB.turbo) { XIB.turbo = false; if ((RVX.nT || 0) <= 0 && (RVX.nCD || 0) <= 0 && Math.abs(RVX.v) > 2) { RVX.nT = RVN.dur; AUD.shot(bkMuz.set(RVX.x, RVX.y + 0.5, RVX.z)); } }
+    if ((RVX.nT || 0) > 0) { RVX.nT -= dt; if (RVX.nT <= 0) { RVX.nT = 0; RVX.nCD = RVN.cd; } } else if ((RVX.nCD || 0) > 0) RVX.nCD -= dt;
+    RVX.nk = (RVX.nk || 0) + (((RVX.nT || 0) > 0 ? 1 : 0) - (RVX.nk || 0)) * Math.min(1, dt * 8);
+    vmax *= 1 + (RVN.mul - 1) * RVX.nk;
+    if (XIB.tb) { XIB.tb.classList.toggle('cd', (RVX.nCD || 0) > 0 || (RVX.nT || 0) > 0); XIB.tb.classList.toggle('on', (RVX.nT || 0) > 0); }
     /* como el robot: el joystick (o WASD) marca hacia dónde ir según la cámara; el rover gira hacia allá y acelera según cuánto se empuje */
     var m = Math.min(1, Math.hypot(ix, iy)), cyw, dir, diff = 0, rate;
     if (m > 0.12) {
@@ -12244,7 +12265,7 @@ function buildBaseAEMX(){
       RVX.yaw += Math.max(-rate * dt, Math.min(rate * dt, diff));
       tv = m * vmax * Math.max(0.2, Math.cos(diff)); /* frena en las curvas cerradas y sale acelerando */
     } else tv = 0;
-    RVX.v += (tv - RVX.v) * Math.min(1, dt * (tv > RVX.v ? 1.1 : 2.5));
+    RVX.v += (tv - RVX.v) * Math.min(1, dt * (tv > RVX.v ? (RVX.nk > 0.5 ? 2.4 : 1.1) : 2.5)); /* con nitro empuja más fuerte */
     RVX.st += (Math.max(-1, Math.min(1, diff * 1.5)) - RVX.st) * Math.min(1, dt * 6); /* el volante y las ruedas giran hacia donde va (mismo sentido que el giro del rover) */
     var nst = Math.max(1, Math.ceil(Math.abs(RVX.v) * dt / 0.35)), si, sd = RVX.v * dt / nst; /* a alta velocidad avanza en pasos cortos: no atraviesa árboles ni postes */
     for (si = 0; si < nst; si++) {
@@ -12254,11 +12275,11 @@ function buildBaseAEMX(){
     }
     gy = rvTilt(dt); RVX.y = gy > RVX.y ? gy : RVX.y + (gy - RVX.y) * Math.min(1, dt * 12); /* al subir, de inmediato (nunca se hunde); al bajar, suave */
     rvPlace(R, RVX.x, RVX.y, RVX.z, RVX.yaw, RVX.pt, RVX.ro); roverPose(R, now, dt, RVX.v, RVX.st);
-    rvDust(R, dt, onRoad);
+    rvDust(R, dt, onRoad); rvNitroFx(R, RVX.nk || 0, now);
     roverLights(R, !!(WX && WX.fogAt && WX.fogAt(RVX.x, RVX.z)), dt);
     /* el robot va con el rover: su posición es la del rover (cámara, minimapa y multijugador) */
     b.x = RVX.x; b.z = RVX.z; b.y = RVX.y; b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0;
-    b.fireT = Math.max(b.fireT || 0, 0.3); b.xfT = 0.3; XIB.jump = false; XIB.turbo = false; XIB.sit = false;
+    b.fireT = Math.max(b.fireT || 0, 0.3); b.xfT = 0.3; XIB.jump = false; XIB.sit = false;
     if (now - RVX.sT > 3) { RVX.sT = now; rvSave(now - RVX.fT > 15); if (now - RVX.fT > 15) RVX.fT = now; }
   }
   /* minimapa: ícono del rover; si está fuera, flecha en el borde con la distancia */
