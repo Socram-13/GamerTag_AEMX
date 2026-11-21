@@ -3225,7 +3225,7 @@ window.startMap = function (RAW, AUTH) {
         filled[k] = 1;
         if (isSand) {
           var qs = Math.min(G, 2 * (edge + 0.1) / 1.4142);
-          sandList.push({ x: x, z: z, y: Math.max(0, terrainH(x, z)) + 0.07, s: Math.max(0.2, qs), c: c });
+          sandList.push({ x: x, z: z, y: Math.max(0, terrainH(x, z)) + 0.005, s: Math.max(0.2, qs), c: c });
         } else list.push({ x: x, z: z, y: cy, c: c, s: Math.max(0.2, Math.min(G, 2 * (edge + 0.1) / 1.4142)) });
       }
 
@@ -9301,6 +9301,17 @@ function buildBaseAEMX(){
     return false;
   }
   var bfC = new Map();
+  function plyLand(x, z) { /* tierra adentro: la cuadrícula (rápida); en la costa: el contorno exacto que se ve */
+    if (!landAt) return true;
+    if (landAt(x, z) && landAt(x + 8, z) && landAt(x - 8, z) && landAt(x, z + 8) && landAt(x, z - 8)) return true;
+    return polyLandAt ? polyLandAt(x, z) : landAt(x, z);
+  }
+  function plyFree(x, z) { /* como botFree, pero con la orilla exacta (para los pollos) */
+    if (botFree(x, z)) return true;
+    if (!(plyLand(x, z) && plyLand(x + 0.5, z) && plyLand(x - 0.5, z) && plyLand(x, z + 0.5) && plyLand(x, z - 0.5))) return false;
+    if (botCrater(x, z) || (invLock && invOut(x, z))) return false;
+    return !botBld(x, z, 0) && !botVeg(x, z);
+  }
   function botFree(x, z) {
     var k, v;
     if (invLock && invOut(x, z)) return false;
@@ -11845,7 +11856,7 @@ function buildBaseAEMX(){
     if (botCrater(x, z)) return false;
     if (COZ_BP && COZ_BP.on(x, z)) return true;
     for (var i = 0; i < monBlk.length; i++) if (Math.hypot(x - monBlk[i].x, z - monBlk[i].z) < monBlk[i].r) return false;
-    if (landAt && !landAt(x, z) && !cozInIsl(x, z) && !junkLand(x, z)) return false; /* la isla de la mansión tiene su propio suelo: se puede recorrer */
+    if (landAt && !plyLand(x, z) && !cozInIsl(x, z) && !junkLand(x, z)) return false; /* la isla de la mansión tiene su propio suelo: se puede recorrer */
     if (VOLC && Math.hypot(x - VOLC.x, z - VOLC.z) < VOLC.R + 1) return false;
     return !xibBld(x, z) && !xibVeg(x, z);
   }
@@ -15799,7 +15810,7 @@ function buildBaseAEMX(){
         if (Math.hypot(P.tx - P.x, P.tz - P.z) < 0.25) { P.st = 'quieto'; P.T = 1 + Math.random() * 2; }
         else {
           nx = P.x + Math.sin(P.yaw) * sp * dt; nz = P.z + Math.cos(P.yaw) * sp * dt;
-          if (landAt(nx, nz) && botFree(nx, nz)) { P.x = nx; P.z = nz; } else if (P.st === 'correr') { P.side = P.side || (Math.random() < 0.5 ? 1 : -1); P.yaw += P.side * 1.3; P.tx = P.x + Math.sin(P.yaw) * 5; P.tz = P.z + Math.cos(P.yaw) * 5; } else P.T = 0; /* al huir, si topa con agua u obstáculo, rodea */
+          if (plyLand(nx, nz) && plyFree(nx, nz)) { P.x = nx; P.z = nz; } else if (P.st === 'correr') { P.side = P.side || (Math.random() < 0.5 ? 1 : -1); P.yaw += P.side * 1.3; P.tx = P.x + Math.sin(P.yaw) * 5; P.tz = P.z + Math.cos(P.yaw) * 5; } else P.T = 0; /* al huir, si topa con agua u obstáculo, rodea */
         }
       }
       P.g.position.set(P.x, botGround(P.x, P.z), P.z); P.g.rotation.y = P.yaw;
