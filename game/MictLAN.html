@@ -12195,7 +12195,7 @@ function buildBaseAEMX(){
     if (XIB.sit) xibSit(false);
     RVX.on = true; RVX.moved = true; RVX.v = 0; RVX.st = 0; b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0; b.v = 0;
     if (RVX.pk !== JSON.stringify(rvPal())) { RVX.pk = JSON.stringify(rvPal()); roverPaint(R, rvPal()); }
-    msg('¡A manejar! Joystick: acelerar y girar · ROVER otra vez para bajar.');
+    msg('¡A manejar! Mueve el joystick hacia donde quieras ir · ROVER otra vez para bajar.');
   }
   function rvUI(b, now) {
     if (!XIB.rvEl || !b) return; var near = !RVX.on && RVX.R && Math.hypot(b.x - RVX.x, b.z - RVX.z) < 2.6, st = RVX.on ? 'on' : near ? 'near' : '';
@@ -12215,16 +12215,24 @@ function buildBaseAEMX(){
   function rvDrive(b, now, dt) { /* manejo: arriba/abajo acelera o da reversa; izquierda/derecha gira el volante */
     var K = XIB.k, ix = XIB.jx, iy = XIB.jy, R = RVX.R, onRoad, vmax, tv, nx, nz, gy;
     if (K.KeyW || K.ArrowUp) iy += 1; if (K.KeyS || K.ArrowDown) iy -= 1; if (K.KeyD || K.ArrowRight) ix += 1; if (K.KeyA || K.ArrowLeft) ix -= 1;
-    iy = Math.max(-1, Math.min(1, iy)); ix = Math.max(-1, Math.min(1, ix));
     if (DUEL || XIB.stun > 0) { xibRover(); return; }
-    onRoad = trailNear(RVX.x, RVX.z, 2.3); vmax = onRoad ? 9 : 5.5;
-    tv = iy > 0.1 ? iy * vmax : iy < -0.1 ? iy * 3 : 0;
-    RVX.v += (tv - RVX.v) * Math.min(1, dt * (Math.abs(tv) > Math.abs(RVX.v) ? 1.6 : 3));
-    RVX.st += (ix - RVX.st) * Math.min(1, dt * 5);
-    RVX.yaw -= RVX.st * Math.sign(RVX.v) * Math.min(1.7, Math.abs(RVX.v) * 0.45) * dt; /* gira como coche: sin avanzar no gira; máximo ~100°/s */
-    nx = RVX.x + Math.sin(RVX.yaw) * RVX.v * dt; nz = RVX.z + Math.cos(RVX.yaw) * RVX.v * dt;
-    if (rvFits(nx, nz, RVX.yaw)) { RVX.x = nx; RVX.z = nz; }
-    else { if (Math.abs(RVX.v) > 3) AUD.servo(bkMuz.set(RVX.x, RVX.y + 0.5, RVX.z)); RVX.v *= -0.25; } /* choque: rebota un poco */
+    onRoad = trailNear(RVX.x, RVX.z, 2.3); vmax = onRoad ? 24 : 15; /* el robot corre a 10: el rover le gana (en carretera más del doble) */
+    /* como el robot: el joystick (o WASD) marca hacia dónde ir según la cámara; el rover gira hacia allá y acelera según cuánto se empuje */
+    var m = Math.min(1, Math.hypot(ix, iy)), cyw, dir, diff = 0, rate;
+    if (m > 0.12) {
+      cyw = Math.atan2(controls.target.x - camera.position.x, controls.target.z - camera.position.z); dir = cyw - Math.atan2(ix, iy);
+      diff = nAng(dir - RVX.yaw); rate = 1.3 + Math.min(1.2, Math.abs(RVX.v) * 0.08); /* gira aunque vaya despacio; más ágil con velocidad */
+      RVX.yaw += Math.max(-rate * dt, Math.min(rate * dt, diff));
+      tv = m * vmax * Math.max(0.2, Math.cos(diff)); /* frena en las curvas cerradas y sale acelerando */
+    } else tv = 0;
+    RVX.v += (tv - RVX.v) * Math.min(1, dt * (tv > RVX.v ? 1.1 : 2.5));
+    RVX.st += (Math.max(-1, Math.min(1, -diff * 1.5)) - RVX.st) * Math.min(1, dt * 6); /* el volante y las ruedas giran hacia donde va */
+    var nst = Math.max(1, Math.ceil(Math.abs(RVX.v) * dt / 0.35)), si, sd = RVX.v * dt / nst; /* a alta velocidad avanza en pasos cortos: no atraviesa árboles ni postes */
+    for (si = 0; si < nst; si++) {
+      nx = RVX.x + Math.sin(RVX.yaw) * sd; nz = RVX.z + Math.cos(RVX.yaw) * sd;
+      if (rvFits(nx, nz, RVX.yaw)) { RVX.x = nx; RVX.z = nz; }
+      else { if (Math.abs(RVX.v) > 3) AUD.servo(bkMuz.set(RVX.x, RVX.y + 0.5, RVX.z)); RVX.v *= -0.25; break; } /* choque: rebota un poco */
+    }
     gy = rvTilt(dt); RVX.y += (gy - RVX.y) * Math.min(1, dt * 10);
     rvPlace(R, RVX.x, RVX.y, RVX.z, RVX.yaw, RVX.pt, RVX.ro); roverPose(R, now, dt, RVX.v, RVX.st);
     roverLights(R, !!(WX && WX.fogAt && WX.fogAt(RVX.x, RVX.z)), dt);
