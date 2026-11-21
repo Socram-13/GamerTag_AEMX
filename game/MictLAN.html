@@ -12189,7 +12189,7 @@ function buildBaseAEMX(){
       s = Math.sin(RVX.yaw); c = Math.cos(RVX.yaw); p = [[0.85, 0], [-0.85, 0], [0, -1.1], [0, 1.1]];
       for (k = 0; k < p.length; k++) { x = RVX.x + p[k][0] * c + p[k][1] * s; z = RVX.z - p[k][0] * s + p[k][1] * c; if (rvFree(x, z)) break; }
       if (k >= p.length) { q = botFreeSpot(RVX.x, RVX.z); if (q) { x = q[0]; z = q[1]; } }
-      RVX.on = false; RVX.v = 0; RVX.nT = 0; RVX.nk = 0; rvNitroFx(R, 0, 0); if (XIB.tb) XIB.tb.classList.remove('on'); b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z);
+      RVX.on = false; RVX.v = 0; RVX.nT = 0; RVX.nk = 0; rvNitroFx(R, 0, 0); if (XIB.tb) XIB.tb.classList.remove('on'); b.x = x; b.z = z; b.y = botGround(x, z); b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.g.position.set(b.x, b.y, b.z); if (b.rifle) b.rifle.visible = true; /* vuelve a mostrar el arma */
       roverLights(R, false, 1); rvSave(true); msg('Rover estacionado. Lo verás en el minimapa.'); return;
     }
     d = Math.hypot(b.x - RVX.x, b.z - RVX.z);
@@ -16800,7 +16800,7 @@ function buildBaseAEMX(){
         R.rvSp = (R.rvSp || 0) + ((R.v || 0) - (R.rvSp || 0)) * Math.min(1, dt * 4); roverPose(R.rvm, t, dt, R.rvSp, 0);
         roverLights(R.rvm, !!(WX && WX.fogAt && WX.fogAt(R.x, R.z)), dt);
         window.__rvSeatRemote(R.F, R.rvm);
-      } else if (R.rvm) R.rvm.g.visible = false;
+      } else if (R.rvm && R.rvm.g.visible) { R.rvm.g.visible = false; if (R.F.rifle) R.F.rifle.visible = true; } /* bajó del rover: vuelve el arma */
       /* sentado: la misma pose que el robot propio; se sienta y se levanta suave */
       R.sitK = (R.sitK || 0) + ((R.ps && R.sp < 0.5 ? 1 : 0) - (R.sitK || 0)) * Math.min(1, dt * (R.ps ? 3 : 6));
       if ((R.sitK > 0.002 || R.sitW) && window.__botSitApply) { if (R.sitK <= 0.002) R.sitK = 0; window.__botSitApply(R.F, R.sitK, t, false); R.sitW = R.sitK > 0; }
