@@ -11705,7 +11705,7 @@ function buildBaseAEMX(){
     b.sitK = (b.sitK || 0) + (((b.sitOn && GM.xib) ? 1 : 0) - (b.sitK || 0)) * Math.min(1, dt * (b.sitOn ? 3 : 6));
     if (b.sitK > 0.002 || b.sitW) { if (b.sitK <= 0.002) b.sitK = 0; botSitApply(b, b.sitK, t, true); b.sitW = b.sitK > 0; }
     botPong(b, dt, !!(GM.xib && b.pongOn));
-    if (GM.xib && RVX.on && RVX.R && b === bot) rvSeat(b, RVX.R); /* manejando: sentado en el rover */
+    if (GM.xib && RVX.on && RVX.R && b === bot) { rvSeat(b, RVX.R); if (b.fxo) { b.fxo.fk = 0; b.fxo.beam.visible = false; } } /* manejando: sentado en el rover, con la lámpara apagada (alumbran los faros) */
 
     if (b.scanK > 0.3 && b.wk && !liftOn) {
 
@@ -11989,7 +11989,7 @@ function buildBaseAEMX(){
   function makeRover(pal) {
     var g = new THREE.Group(), body = new THREE.Group(), R = { g: g, body: body, wheels: [], mats: {} }, m, i, s;
     var L = function (c) { return new THREE.MeshLambertMaterial({ color: c }); };
-    var mBase = new THREE.MeshLambertMaterial({ color: pal.base, side: THREE.DoubleSide }), mSec = L(pal.sec), mDark = L(0x16181c), mTire = L(0x1b1d21), mJoint = L(0x3a414b), mSeat = L(0x24272d), mGlass = new THREE.MeshLambertMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.35 });
+    var mBase = new THREE.MeshLambertMaterial({ color: pal.base, side: THREE.DoubleSide }), mSec = L(pal.sec), mDark = L(0x16181c), mTire = L(0x1b1d21), mJoint = L(0x3a414b), mSeat = L(0x24272d), mGlass = new THREE.MeshLambertMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.35, depthWrite: false }); /* sin escribir profundidad: no tapa la luz de la lámpara del robot */
     var mEye = new THREE.MeshBasicMaterial({ color: pal.eye }), mGlow = new THREE.MeshBasicMaterial({ color: pal.eye, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false });
     R.mats = { base: mBase, sec: mSec, eye: mEye, glow: mGlow }; R.eyeHex = pal.eye;
     var box = function (mt, w, h, d, x, y, z, par, rx, ry, rz) { var q = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mt); q.position.set(x, y, z); if (rx || ry || rz) q.rotation.set(rx || 0, ry || 0, rz || 0); (par || body).add(q); return q; };
@@ -12010,11 +12010,14 @@ function buildBaseAEMX(){
     for (s = -1; s <= 1; s += 2) { box(mEye, 0.012, 0.025, 1.0, s * 0.433, 0.33, -0.06); box(mSec, 0.02, 0.09, 0.5, s * 0.44, 0.38, -0.08); }
     m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.4), mGlow); m.rotation.x = -Math.PI / 2; m.position.set(0, 0.02, -0.04); body.add(m); R.under = m;
     /* faros y defensa; en la niebla los faros se encienden (lente blanca y haz de luz) */
-    var mLamp = new THREE.MeshBasicMaterial({ color: pal.eye }), mBeam = new THREE.MeshBasicMaterial({ color: 0xfff6dc, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    var mLamp = new THREE.MeshBasicMaterial({ color: pal.eye }), mBeam = new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
     R.mats.lamp = mLamp; R.mats.beam = mBeam; R.beams = [];
+    /* haz largo como el de la lámpara del robot: cono de 34 de largo que se desvanece hacia la punta (en unidades del cuerpo, que va a escala 0.78) */
+    var BL = 34, bg = new THREE.ConeGeometry(4.2, BL, 20, 1, true); bg.rotateX(-Math.PI / 2); bg.translate(0, 0, BL / 2);
+    (function () { var ps = bg.attributes.position, cs = new Float32Array(ps.count * 3), q, tt; for (q = 0; q < ps.count; q++) { tt = Math.max(0, 1 - ps.getZ(q) / BL); tt *= tt; cs[q * 3] = tt; cs[q * 3 + 1] = tt * 0.96; cs[q * 3 + 2] = tt * 0.82; } bg.setAttribute('color', new THREE.BufferAttribute(cs, 3)); })();
     for (s = -1; s <= 1; s += 2) {
       box(mDark, 0.14, 0.08, 0.05, s * 0.25, 0.4, 0.8); box(mLamp, 0.1, 0.045, 0.02, s * 0.25, 0.4, 0.83);
-      var cb = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.6, 18, 1, true), mBeam); cb.rotation.x = -Math.PI / 2; cb.position.set(s * 0.25, 0.4, 0.84 + 1.3); cb.visible = false; cb.raycast = function () {}; body.add(cb); R.beams.push(cb); /* haz que se abre hacia adelante */
+      var cb = new THREE.Mesh(bg, mBeam); cb.rotation.x = 0.14; cb.position.set(s * 0.25, 0.4, 0.84); cb.visible = false; cb.raycast = function () {}; cb.frustumCulled = false; body.add(cb); R.beams.push(cb); /* haz hacia adelante, apenas inclinado al suelo */
     }
     box(mLamp, 0.4, 0.03, 0.02, 0, 0.33, 0.885); /* tira de luz en la defensa */
     box(mJoint, 0.82, 0.05, 0.06, 0, 0.27, 0.86); box(mJoint, 0.05, 0.12, 0.05, -0.3, 0.3, 0.83); box(mJoint, 0.05, 0.12, 0.05, 0.3, 0.3, 0.83);
@@ -12102,7 +12105,7 @@ function buildBaseAEMX(){
   function roverLights(R, on, dt, eye) { /* faros: se encienden suave en la niebla (lente casi blanca y haz visible) y se apagan al salir */
     R.lk = (R.lk || 0) + ((on ? 1 : 0) - (R.lk || 0)) * Math.min(1, (dt || 0.016) * 3);
     var k = R.lk, i; R.mats.lamp.color.set(eye || R.eyeHex || '#ffffff').lerp(new THREE.Color(0xfffbe8), k * 0.85);
-    R.mats.beam.opacity = 0.04 * k; /* haz tenue: se nota en la niebla sin tapar la vista */ for (i = 0; i < R.beams.length; i++) R.beams[i].visible = k > 0.02;
+    R.mats.beam.opacity = 0.2 * k; /* el color se desvanece hacia la punta: cerca brilla, lejos se apaga */ /* haz tenue: se nota en la niebla sin tapar la vista */ for (i = 0; i < R.beams.length; i++) R.beams[i].visible = k > 0.02;
   }
   function roverPose(R, t, dt, sp, steer) { /* sp: velocidad (m/s); steer: giro del volante (-1..1) */
     var i, w; R.ang = (R.ang || 0) + sp * dt / 0.22;
@@ -12203,14 +12206,30 @@ function buildBaseAEMX(){
   }
   function rvTick(b, now, dt) { /* el rover estacionado: en su lugar, sobre el suelo, con las ruedas quietas */
     rvEnsure(b); rvRemoteLoad(); var R = RVX.R;
-    if (!RVX.on) { RVX.y += (rvGy(RVX.x, RVX.z, RVX.y) - RVX.y) * Math.min(1, dt * 8); rvTilt(dt); rvPlace(R, RVX.x, RVX.y, RVX.z, RVX.yaw, RVX.pt, RVX.ro); roverPose(R, now, dt, 0, 0); }
+    if (!RVX.on) { RVX.y = rvTilt(dt); rvPlace(R, RVX.x, RVX.y, RVX.z, RVX.yaw, RVX.pt, RVX.ro); roverPose(R, now, dt, 0, 0); }
     R.g.visible = true;
   }
-  function rvTilt(dt) { /* inclinación según el suelo bajo las cuatro ruedas */
-    var s = Math.sin(RVX.yaw), c = Math.cos(RVX.yaw), hf = rvGy(RVX.x + s * 0.4, RVX.z + c * 0.4, RVX.y), hb = rvGy(RVX.x - s * 0.4, RVX.z - c * 0.4, RVX.y), hl = rvGy(RVX.x + c * 0.36, RVX.z - s * 0.36, RVX.y), hr = rvGy(RVX.x - c * 0.36, RVX.z + s * 0.36, RVX.y);
-    RVX.pt = (RVX.pt || 0) + (Math.max(-0.5, Math.min(0.5, Math.atan2(hf - hb, 0.8))) - (RVX.pt || 0)) * Math.min(1, dt * 8);
-    RVX.ro = (RVX.ro || 0) + (Math.max(-0.4, Math.min(0.4, Math.atan2(hl - hr, 0.72))) - (RVX.ro || 0)) * Math.min(1, dt * 8);
-    return (hf + hb + hl + hr) / 4;
+  var RVW = [[0.406, 0.38], [-0.406, 0.38], [0.406, -0.38], [-0.406, -0.38]]; /* donde apoya cada llanta (izq/der, adelante/atrás) */
+  function rvTilt(dt) { /* inclinación según el suelo bajo las cuatro llantas; devuelve la altura que deja ninguna llanta hundida */
+    var s = Math.sin(RVX.yaw), c = Math.cos(RVX.yaw), h = [], i, q, hf, hb, hl, hr, y, pen = -1e9, py;
+    for (i = 0; i < 4; i++) { q = RVW[i]; h[i] = rvGy(RVX.x + q[0] * c + q[1] * s, RVX.z - q[0] * s + q[1] * c, RVX.y); }
+    hf = (h[0] + h[1]) / 2; hb = (h[2] + h[3]) / 2; hl = (h[0] + h[2]) / 2; hr = (h[1] + h[3]) / 2;
+    RVX.pt = (RVX.pt || 0) + (Math.max(-0.75, Math.min(0.75, Math.atan2(hf - hb, 0.76))) - (RVX.pt || 0)) * Math.min(1, dt * 14);
+    RVX.ro = (RVX.ro || 0) + (Math.max(-0.6, Math.min(0.6, Math.atan2(hl - hr, 0.81))) - (RVX.ro || 0)) * Math.min(1, dt * 14);
+    y = (h[0] + h[1] + h[2] + h[3]) / 4;
+    for (i = 0; i < 4; i++) { q = RVW[i]; py = y + Math.tan(RVX.pt) * q[1] + Math.tan(RVX.ro) * q[0]; pen = Math.max(pen, h[i] - py); } /* si una llanta quedaría bajo el suelo, sube el rover lo necesario */
+    return y + Math.max(0, pen);
+  }
+  function rvDust(R, dt, onRoad) { /* estelas de polvo detrás de las llantas traseras: más con velocidad, poco en el asfalto */
+    var sp = Math.abs(RVX.v), s, c, k, q, x, z, gy, col;
+    if (sp < 1.5 || Math.hypot(camera.position.x - RVX.x, camera.position.z - RVX.z) > 90) return;
+    RVX.dT = (RVX.dT || 0) - dt; if (RVX.dT > 0) return;
+    RVX.dT = (onRoad ? 0.11 : 0.035) * Math.max(0.5, 8 / Math.max(8, sp));
+    s = Math.sin(RVX.yaw); c = Math.cos(RVX.yaw); col = onRoad ? 0x8f8a84 : (RVX.dCol || 0xb59a72);
+    for (k = 2; k < 4; k++) {
+      q = RVW[k]; x = RVX.x + q[0] * c + (q[1] - 0.12) * s; z = RVX.z - q[0] * s + (q[1] - 0.12) * c; gy = rvGy(x, z, RVX.y);
+      fxSpawn(x + (Math.random() - 0.5) * 0.12, gy + 0.06, z + (Math.random() - 0.5) * 0.12, -s * sp * 0.12 + (Math.random() - 0.5) * 0.4, 0.35 + Math.random() * 0.4, -c * sp * 0.12 + (Math.random() - 0.5) * 0.4, 0.7 + Math.random() * 0.5, 0.07, 0.32 + Math.min(0.25, sp * 0.012), col, onRoad ? 0.22 : 0.42, false);
+    }
   }
   function rvDrive(b, now, dt) { /* manejo: arriba/abajo acelera o da reversa; izquierda/derecha gira el volante */
     var K = XIB.k, ix = XIB.jx, iy = XIB.jy, R = RVX.R, onRoad, vmax, tv, nx, nz, gy;
@@ -12226,15 +12245,16 @@ function buildBaseAEMX(){
       tv = m * vmax * Math.max(0.2, Math.cos(diff)); /* frena en las curvas cerradas y sale acelerando */
     } else tv = 0;
     RVX.v += (tv - RVX.v) * Math.min(1, dt * (tv > RVX.v ? 1.1 : 2.5));
-    RVX.st += (Math.max(-1, Math.min(1, -diff * 1.5)) - RVX.st) * Math.min(1, dt * 6); /* el volante y las ruedas giran hacia donde va */
+    RVX.st += (Math.max(-1, Math.min(1, diff * 1.5)) - RVX.st) * Math.min(1, dt * 6); /* el volante y las ruedas giran hacia donde va (mismo sentido que el giro del rover) */
     var nst = Math.max(1, Math.ceil(Math.abs(RVX.v) * dt / 0.35)), si, sd = RVX.v * dt / nst; /* a alta velocidad avanza en pasos cortos: no atraviesa árboles ni postes */
     for (si = 0; si < nst; si++) {
       nx = RVX.x + Math.sin(RVX.yaw) * sd; nz = RVX.z + Math.cos(RVX.yaw) * sd;
       if (rvFits(nx, nz, RVX.yaw)) { RVX.x = nx; RVX.z = nz; }
       else { if (Math.abs(RVX.v) > 3) AUD.servo(bkMuz.set(RVX.x, RVX.y + 0.5, RVX.z)); RVX.v *= -0.25; break; } /* choque: rebota un poco */
     }
-    gy = rvTilt(dt); RVX.y += (gy - RVX.y) * Math.min(1, dt * 10);
+    gy = rvTilt(dt); RVX.y = gy > RVX.y ? gy : RVX.y + (gy - RVX.y) * Math.min(1, dt * 12); /* al subir, de inmediato (nunca se hunde); al bajar, suave */
     rvPlace(R, RVX.x, RVX.y, RVX.z, RVX.yaw, RVX.pt, RVX.ro); roverPose(R, now, dt, RVX.v, RVX.st);
+    rvDust(R, dt, onRoad);
     roverLights(R, !!(WX && WX.fogAt && WX.fogAt(RVX.x, RVX.z)), dt);
     /* el robot va con el rover: su posición es la del rover (cámara, minimapa y multijugador) */
     b.x = RVX.x; b.z = RVX.z; b.y = RVX.y; b.yaw = RVX.yaw; b.v = 0; b.bh = 0; b.bvy = 0; b.goal = null; b.gtype = ''; b.path = null; b.idle = 1; b.boostT = 0;
