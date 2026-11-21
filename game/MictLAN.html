@@ -387,6 +387,20 @@
   @keyframes xibHit { 0% { opacity: 1; } 100% { opacity: 0; } }
   #xib .hint { position: absolute; left: 50%; bottom: 222px; transform: translateX(-50%); background: rgba(10,16,28,0.72); color: #dfffe9; font: 600 13px var(--f-body), sans-serif; padding: 7px 14px; border-radius: 8px; white-space: nowrap; transition: opacity 1s; }
   #xib .hint.off { opacity: 0; }
+  #xib .dron { position: absolute; right: calc(max(16px, env(safe-area-inset-right)) + 202px); bottom: max(10px, env(safe-area-inset-bottom)); width: 46px; height: 46px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 50%; border: 2px solid rgba(61,255,122,0.6); background: rgba(10,16,28,0.55); color: #fff; font: 700 6.5px var(--f-body), sans-serif; letter-spacing: 0.06em; pointer-events: auto; touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  #xib .dron svg { width: 21px; height: 21px; pointer-events: none; }
+  #xib .dron span { pointer-events: none; }
+  #xib .dron.on { background: rgba(61,255,122,0.45); border-color: #3dff7a; }
+  #xib .dron.cd { opacity: 0.45; }
+  @media (max-width: 700px) { #xib .dron { right: calc(max(16px, env(safe-area-inset-right)) + 52px); bottom: max(6px, env(safe-area-inset-bottom)); } }
+  #xib .dbat { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px); display: none; align-items: center; gap: 6px; pointer-events: none; }
+  #xib .dbat.on { display: flex; }
+  #xib .dbat b { font: 700 10px var(--f-body), sans-serif; letter-spacing: 0.12em; color: #c8ffd6; text-shadow: 0 0 4px rgba(0,0,0,0.8); }
+  #xib .dbat span { display: block; width: 160px; height: 9px; border-radius: 6px; background: rgba(10,16,28,0.65); border: 1px solid rgba(61,255,122,0.55); overflow: hidden; }
+  #xib .dbat i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #3dff7a, #b8ff5a); }
+  #xib .dbat.mid i { background: linear-gradient(90deg, #ffd23d, #ffb347); }
+  #xib .dbat.low i { background: linear-gradient(90deg, #ff4a4a, #ff9a5a); }
+  #xib .dbat.res b { color: #ff9a8a; }
   @media (hover: hover) and (pointer: fine) { #xib .joy { display: none; } }
   #gate .gt-modes button:hover { transform: translateY(-2px); box-shadow: 0 0 18px rgba(255,228,77,0.5); }
   #gate .gt-modes b { display: block; font: 800 16px 'GtOxa', var(--f-body), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -11433,8 +11447,8 @@ function buildBaseAEMX(){
       var Lf = b.lift, Dr = botDrone, ldx, ldz, ld, lsp, lhc, lc;
       b.v = 0; b.air += (0 - b.air) * Math.min(1, dt * 6); Lf.t += dt;
       if (Lf.ph === 0) {
-        b.y += (botGround(b.x, b.z) - b.y) * Math.min(1, dt * 14);
-        b.yaw += nAng(Math.atan2(Lf.dx - b.x, Lf.dz - b.z) - b.yaw) * Math.min(1, dt * 2);
+        b.y += ((b.roofP ? b.roofP.y : botGround(b.x, b.z)) - b.y) * Math.min(1, dt * 14);
+        if (Lf.type !== 'xib') b.yaw += nAng(Math.atan2(Lf.dx - b.x, Lf.dz - b.z) - b.yaw) * Math.min(1, dt * 2);
         ldx = b.x - Dr.x; ldz = b.z - Dr.z; ld = Math.hypot(ldx, ldz);
         lsp = Math.min(ld, 26 * dt); if (ld > 0.01) { Dr.x += ldx / ld * lsp; Dr.z += ldz / ld * lsp; }
         Dr.y += (b.y + BOT_HANG + 4 - Dr.y) * Math.min(1, dt * 1.5);
@@ -11446,6 +11460,8 @@ function buildBaseAEMX(){
         Dr.x = b.x + Math.cos(b.yaw) * 0.115; Dr.z = b.z - Math.sin(b.yaw) * 0.115;
         Dr.y -= 3.5 * dt;
         if (Dr.y <= b.y + BOT_HANG) { Dr.y = b.y + BOT_HANG; Lf.ph = 2; Lf.t = 0; }
+      } else if (Lf.type === 'xib') {
+        if (GM.xib) xibDronFly(b, Lf, Dr, now, dt); else botLiftEnd(now, null);
       } else {
         ldx = Lf.dx - Dr.x; ldz = Lf.dz - Dr.z; ld = Math.hypot(ldx, ldz);
         lsp = Lf.type === 'sea' ? 20 : 15;
@@ -11775,11 +11791,13 @@ function buildBaseAEMX(){
       '<button type="button" class="turbo" aria-label="Turbo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5c1.2 3.6 5.6 5.9 5.6 11.4A5.6 5.6 0 0 1 6.4 13c0-2.3 1.1-4.1 2.7-5.5-.1 1.8.7 3.3 2.1 4 .3-3.3-.8-6.4.8-10z" fill="#ffb347"/><path d="M12 11.5c.6 1.8 2.8 2.9 2.8 5.6a2.8 2.8 0 0 1-5.6.1c0-1.4.8-2.4 1.8-3.2 0 .9.4 1.5 1 1.8.1-1.5-.5-3 0-4.3z" fill="#ffe680"/></svg><span>TURBO</span></button>' +
       '<button type="button" class="jump" aria-label="Salto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="15" cy="3.8" r="2.3" fill="#fff"/><path d="M13.8 7.2 10.6 12l3 2.2-1.9 5.6M10.6 12 6.3 11M13.8 8.6l3.6 3 3-1.9M4 22h6" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>SALTO</span></button>' +
       '<button type="button" class="fire" aria-label="Disparo"><svg viewBox="0 0 24 24" aria-hidden="true"><g transform="rotate(45 12 12)"><path d="M12 1.8c2.3 1.7 3.1 4.2 3.1 6.8v5.6H8.9V8.6c0-2.6.8-5.1 3.1-6.8z" fill="#ffd36b"/><rect x="8.4" y="15" width="7.2" height="6.8" rx="1.1" fill="#d99a2b"/><rect x="8.4" y="14.2" width="7.2" height="1.6" fill="#7a5414"/></g></svg><span>DISPARO</span></button></div>' +
-      '<button type="button" class="sit" aria-label="Sentarse"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="4" r="2.3" fill="#fff"/><path d="M8 7.5 7.4 14h6.4l3.4 6.5M7.4 14 3.5 19.5M8.2 9.5l5 1.6 2.8-3" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 21.5h20" stroke="#9aa4b8" stroke-width="1.6" stroke-linecap="round"/></svg><span>SENTARSE</span></button><div class="hint"></div>';
+      '<button type="button" class="sit" aria-label="Sentarse"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="4" r="2.3" fill="#fff"/><path d="M8 7.5 7.4 14h6.4l3.4 6.5M7.4 14 3.5 19.5M8.2 9.5l5 1.6 2.8-3" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 21.5h20" stroke="#9aa4b8" stroke-width="1.6" stroke-linecap="round"/></svg><span>SENTARSE</span></button>' +
+      '<button type="button" class="dron" aria-label="Dron"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="10" width="7" height="4" rx="1.2" fill="#fff"/><path d="M8.5 11 4.5 7M15.5 11l4-4M8.5 13l-4 4M15.5 13l4 4" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><g fill="none" stroke="#3dff7a" stroke-width="1.4"><ellipse cx="4.5" cy="7" rx="3" ry="1.1"/><ellipse cx="19.5" cy="7" rx="3" ry="1.1"/><ellipse cx="4.5" cy="17" rx="3" ry="1.1"/><ellipse cx="19.5" cy="17" rx="3" ry="1.1"/></g><path d="M12 14v4" stroke="#9aa4b8" stroke-width="1.4"/></svg><span>DRON</span></button>' +
+      '<div class="dbat"><b>DRON</b><span><i></i></span></div><div class="hint"></div>';
     stage.appendChild(w);
     var joy = w.querySelector('.joy'), kn = joy.querySelector('i'), jid = null, hint = w.querySelector('.hint');
     var pc = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
-    hint.textContent = pc ? 'WASD o flechas: mover · Shift: turbo · Espacio: salto · F: disparo · C: sentarse' : 'Joystick: mover · arrastra la pantalla para girar la cámara';
+    hint.textContent = pc ? 'WASD o flechas: mover · Shift: turbo · Espacio: salto · F: disparo · C: sentarse · G: dron' : 'Joystick: mover · arrastra la pantalla para girar la cámara';
     setTimeout(function () { hint.classList.add('off'); }, 9000);
     function jset(e) { var r = joy.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, dx = e.clientX - cx, dy = e.clientY - cy, R = r.width / 2, l = Math.hypot(dx, dy); if (l > R) { dx *= R / l; dy *= R / l; } XIB.jx = dx / R; XIB.jy = -dy / R; kn.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; }
     function jend() { jid = null; XIB.jx = 0; XIB.jy = 0; kn.style.transform = ''; }
@@ -11797,8 +11815,13 @@ function buildBaseAEMX(){
     XIB.sitEl.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); });
     XIB.sitEl.addEventListener('click', function (e) { e.stopPropagation(); xibSit(!XIB.sit); });
     XIB.sitEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    /* botón DRON: llamar / soltarse */
+    XIB.drEl = w.querySelector('.dron'); XIB.dbEl = w.querySelector('.dbat'); XIB.jb = w.querySelector('.btns .jump');
+    XIB.drEl.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); });
+    XIB.drEl.addEventListener('click', function (e) { e.stopPropagation(); xibDron(); });
+    XIB.drEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     function typing() { var a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable); }
-    document.addEventListener('keydown', function (e) { if (typing()) return; var c = e.code; XIB.k[c] = true; if (c === 'Space') { XIB.jump = true; e.preventDefault(); } if (c === 'ShiftLeft' || c === 'ShiftRight') XIB.turbo = true; if (c === 'KeyF') XIB.fire = true; if (c === 'KeyC' && !e.repeat) xibSit(!XIB.sit); if (/^Arrow/.test(c)) e.preventDefault(); });
+    document.addEventListener('keydown', function (e) { if (typing()) return; var c = e.code; XIB.k[c] = true; if (c === 'Space') { XIB.jump = true; e.preventDefault(); } if (c === 'ShiftLeft' || c === 'ShiftRight') XIB.turbo = true; if (c === 'KeyF') XIB.fire = true; if (c === 'KeyC' && !e.repeat) xibSit(!XIB.sit); if (c === 'KeyG' && !e.repeat) xibDron(); if (/^Arrow/.test(c)) e.preventDefault(); });
     document.addEventListener('keyup', function (e) { XIB.k[e.code] = false; if (e.code === 'KeyF') XIB.fire = false; });
     window.addEventListener('blur', function () { XIB.k = {}; XIB.fire = false; jend(); });
     /* cámara táctil propia: el dedo del joystick no cuenta. Un dedo fuera del joystick gira la cámara; dos dedos fuera del joystick, zoom.
@@ -11947,6 +11970,78 @@ function buildBaseAEMX(){
     P.tx.needsUpdate = true;
   }
   window.__botPong = botPong;
+  /* ===== dron de Xibalba ===== */
+  var DRB = 60; /* segundos de batería */
+  function xibDronOn(b) { return !!(b && b.mode === 'lift' && b.lift && b.lift.type === 'xib'); }
+  function xibDronEnd(now, res) {
+    var b = bot, p = xibBldP(b.x, b.z), ry = (p && p._broot) ? xibRoofAt(p, b.x, b.y + 0.3, b.z, 60) : null;
+    b.roofP = null; botLiftEnd(now, null); b.v = 0; b.goal = null; b.gtype = '';
+    if (ry !== null && ry < b.y) { b.roofP = { p: p, y: ry }; b.bh = Math.max(0, b.y - ry); } /* soltarse sobre un edificio: cae a su azotea */
+    XIB.drCD = Math.max(XIB.drCD || 0, now + (res ? 90 : 30));
+    if (XIB.dbEl) XIB.dbEl.className = 'dbat';
+  }
+  function xibDron() {
+    var b = bot, now = clock.elapsedTime, L = b && b.lift, msg = window.__xibMsg || function () { };
+    if (!b || !GM.xib) return;
+    if (xibDronOn(b)) {
+      if (L.res || L.down) return; /* en reserva o bajando: no se puede soltar */
+      if (L.ph < 2) { xibDronEnd(now, false); XIB.drCD = now + 5; return; } /* se cancela antes de que te levante */
+      if (!plyLand(botDrone.x, botDrone.z)) { msg('Aquí no puedo soltarte: estás sobre el mar.'); return; }
+      xibDronEnd(now, false); return;
+    }
+    if (now < (XIB.drCD || 0)) { msg('El dron se está recargando: ' + Math.ceil(XIB.drCD - now) + ' s.'); return; }
+    if (DUEL || invLock || XIB.stun > 0 || b.tpj || b.mode !== 'walk' || b.ball) { msg(DUEL ? 'Ahora no: estás en un duelo.' : invLock ? 'Ahora no: sal primero de la zona de invasión.' : 'Ahora no puede venir el dron.'); return; }
+    if (XIB.sit) xibSit(false);
+    b.goal = null; b.gtype = ''; b.path = null; b.boostT = 0;
+    botStartLift(b.x, b.z, 'xib', null); b.lift.bat = DRB; b.lift.alt = 7; b.lift.vx = 0; b.lift.vz = 0; b.lift.bp = 0; XIB.drWarn = 0;
+    msg('Llamando al dron… DRON otra vez para soltarte.');
+  }
+  function xibDronUI(b, now) { /* botón y barra cuando no vuela */
+    if (!XIB.drEl) return; var fly = xibDronOn(b);
+    XIB.drEl.classList.toggle('on', fly); XIB.drEl.classList.toggle('cd', !fly && now < (XIB.drCD || 0));
+    if (!fly && XIB.dbEl && XIB.dbEl.classList.contains('on')) XIB.dbEl.className = 'dbat';
+  }
+  function xibCoast(x, z) { /* punto de tierra libre más cercano (anillos crecientes) */
+    var r, k, a, px, pz;
+    for (r = 4; r <= 600; r += 4) for (k = 0; k < 24; k++) { a = k / 24 * 6.2832; px = x + Math.sin(a) * r; pz = z + Math.cos(a) * r; if (plyLand(px, pz) && plyLand(px + 2, pz) && plyLand(px - 2, pz) && botFree(px, pz)) return [px, pz]; }
+    return null;
+  }
+  function xibDronFly(b, Lf, Dr, now, dt) { /* vuelo manejado (fase 2), reserva y descenso */
+    var K = XIB.k, ix = XIB.jx, iy = XIB.jy, m, cy, dir, tvx = 0, tvz = 0, up, dn, ax, az, sl, hmin, gy, ty, pct, msg = window.__xibMsg || function () { }, q;
+    if (Lf.ph2 !== 1) { Lf.ph2 = 1; b.roofP = null; }
+    XIB.jump = false; b.fireT = Math.max(b.fireT || 0, 0.3); b.xfT = 0.3; /* colgado no dispara */
+    if (K.KeyW || K.ArrowUp) iy += 1; if (K.KeyS || K.ArrowDown) iy -= 1; if (K.KeyD || K.ArrowRight) ix += 1; if (K.KeyA || K.ArrowLeft) ix -= 1;
+    m = Math.min(1, Math.hypot(ix, iy));
+    if (Lf.res) { /* reserva: solo hacia la costa */
+      ax = Lf.dx - Dr.x; az = Lf.dz - Dr.z; sl = Math.hypot(ax, az);
+      if (sl < 1.5) Lf.down = true; else { tvx = ax / sl * 9; tvz = az / sl * 9; b.yaw += nAng(Math.atan2(ax, az) - b.yaw) * Math.min(1, dt * 3); }
+      Lf.alt = 6;
+    } else if (!Lf.down) {
+      Lf.bat -= dt;
+      up = !!(K.Space || (XIB.jb && XIB.jb.classList.contains('on'))); dn = !!XIB.fire;
+      Lf.alt = Math.max(2.5, Math.min(25, Lf.alt + ((up ? 1 : 0) - (dn ? 1 : 0)) * 5 * dt));
+      if (m > 0.1) { cy = Math.atan2(controls.target.x - camera.position.x, controls.target.z - camera.position.z); dir = cy - Math.atan2(ix, iy); tvx = Math.sin(dir) * 14 * m; tvz = Math.cos(dir) * 14 * m; b.yaw += nAng(dir - b.yaw) * Math.min(1, dt * 3); }
+      pct = Lf.bat / DRB;
+      if (pct <= 0.25 && XIB.drWarn < 1) { XIB.drWarn = 1; msg('Batería baja: busca tierra.'); }
+      if (pct <= 0.10 && XIB.drWarn < 2) { XIB.drWarn = 2; msg('¡Batería casi agotada!'); }
+      Lf.bp -= dt; if (pct <= 0.25 && Lf.bp <= 0) { Lf.bp = pct <= 0.10 ? 0.35 : 1; AUD.beep(bkMuz.set(b.x, b.y + 0.8, b.z)); }
+      if (Lf.bat <= 0) {
+        if (plyLand(Dr.x, Dr.z)) { Lf.down = true; msg('Sin batería: el dron te deja aquí.'); }
+        else { q = xibCoast(Dr.x, Dr.z); if (q) { Lf.res = true; Lf.dx = q[0]; Lf.dz = q[1]; XIB.drCD = now + 90; msg('Reserva de emergencia: te llevo a la costa.'); } else { xibDronEnd(now, true); return; } }
+      }
+    }
+    if (Lf.down) { tvx = 0; tvz = 0; Lf.alt = 0.15; }
+    Lf.vx += (tvx - Lf.vx) * Math.min(1, dt * 2); Lf.vz += (tvz - Lf.vz) * Math.min(1, dt * 2);
+    Dr.x += Lf.vx * dt; Dr.z += Lf.vz * dt;
+    sl = Math.hypot(Lf.vx, Lf.vz); ax = sl > 0.5 ? Lf.vx / sl * 6 : 0; az = sl > 0.5 ? Lf.vz / sl * 6 : 0;
+    gy = botGround(Dr.x, Dr.z);
+    hmin = Math.max(gy, botGround(Dr.x + ax, Dr.z + az), ptrRoof(Dr.x, Dr.z), ptrRoof(Dr.x + ax, Dr.z + az)) + BOT_HANG + (Lf.down ? 0.1 : 1.0); /* no choca con cerros ni edificios */
+    ty = Math.max(gy + Lf.alt + BOT_HANG, hmin);
+    Dr.y += (ty - Dr.y) * Math.min(1, dt * (ty > Dr.y ? 3 : Lf.down ? 2.2 : 1.5));
+    b.x = Dr.x - Math.cos(b.yaw) * 0.115; b.z = Dr.z + Math.sin(b.yaw) * 0.115; b.y = Dr.y - BOT_HANG;
+    if (XIB.dbEl) { pct = Math.max(0, Lf.bat / DRB); XIB.dbEl.className = 'dbat on' + (Lf.res ? ' res low' : pct <= 0.10 ? ' low' : pct <= 0.25 ? ' mid' : ''); XIB.dbEl.querySelector('i').style.width = (Lf.res ? 0 : pct * 100).toFixed(1) + '%'; XIB.dbEl.querySelector('b').textContent = Lf.res ? 'RESERVA' : 'DRON'; }
+    if (Lf.down && b.y - Math.max(gy, ptrRoof(b.x, b.z)) < 0.35) xibDronEnd(now, !!Lf.res); /* tocó suelo (o azotea) */
+  }
   function xibSit(on) {
     var b = bot; on = !!on && !!b;
     if (on && (b.mode !== 'walk' || b.tpj || DUEL || (b.bh || 0) > 0.05 || b.boostT > 0 || XIB.stun > 0 || b.ball)) { if (window.__xibMsg) window.__xibMsg('Solo puedes sentarte quieto en el suelo.'); on = false; }
@@ -12044,6 +12139,7 @@ function buildBaseAEMX(){
     return null;
   }
   function xibSteer(b, now, dt) {
+    xibDronUI(b, now);
     var K = XIB.k, ix = XIB.jx, iy = XIB.jy, kb = false, m, cy, dir, far;
     if (K.KeyW || K.ArrowUp) { iy += 1; kb = true; } if (K.KeyS || K.ArrowDown) { iy -= 1; kb = true; }
     if (K.KeyD || K.ArrowRight) { ix += 1; kb = true; } if (K.KeyA || K.ArrowLeft) { ix -= 1; kb = true; }
@@ -16210,7 +16306,7 @@ function buildBaseAEMX(){
     R.lab = mpLabel(mpTag(R.n, R.r), MP_RC[R.r]); F.g.add(R.lab);
     F.g.position.set(R.x, R.y, R.z); scene.add(F.g); return R;
   }
-  function mpDrop(R) { scene.remove(R.F.g); if (R.lab) { R.lab.material.map.dispose(); R.lab.material.dispose(); } } /* las geometrías del robot son compartidas: no se liberan */
+  function mpDrop(R) { scene.remove(R.F.g); if (R.drn) scene.remove(R.drn.g); if (R.lab) { R.lab.material.map.dispose(); R.lab.material.dispose(); } } /* las geometrías del robot son compartidas: no se liberan */
   function mpName() { /* gamertag (como en la tarjeta del usuario); nunca el nombre real de Google */
     if (MPG.nm) return MPG.nm; var u = (typeof RAW !== 'undefined' && RAW && AUTH && AUTH.uid) ? RAW[AUTH.uid] : null;
     return (MPG.nm = String((MYP && MYP.name) || (u && u.username) || 'Jugador').trim().slice(0, 40) || 'Jugador');
@@ -16296,13 +16392,16 @@ function buildBaseAEMX(){
     /* publicar mi robot: ~4 por segundo si se mueve; si está quieto, cada 5 s (para seguir "en línea") */
     var mvNow = (bot.v || 0) > 0.3, fNow = (bot.flame || 0) > 0.3 ? 2 : (bot.flyK || 0) > 0.5 ? 1 : 0, tick /* 0 en el piso, 1 volando, 2 con propulsores encendidos */ = now - MPG.last >= 250 && (Math.abs(bot.x - MPG.lx) > 0.05 || Math.abs(bot.z - MPG.lz) > 0.05 || Math.abs(bot.y - MPG.ly) > 0.05);
     var pNow = bot.sitOn ? 1 : 0; /* 1 = sentado */
-    if (tick || (now - MPG.last > 100 && (mvNow !== MPG.mv || fNow !== MPG.f || pNow !== (MPG.sp || 0))) || now - MPG.last > 5000) { MPG.f = fNow; /* al detenerse se avisa de inmediato */
+    var dNow = (bot.mode === 'lift' && bot.lift && bot.lift.type === 'xib' && bot.lift.ph >= 1) ? 1 : 0; /* 1 = colgado del dron */
+    if (tick || (now - MPG.last > 100 && (mvNow !== MPG.mv || fNow !== MPG.f || pNow !== (MPG.sp || 0) || dNow !== (MPG.sd || 0))) || now - MPG.last > 5000) { MPG.f = fNow; /* al detenerse se avisa de inmediato */
       MPG.last = (tick && now - MPG.last < 350) ? MPG.last + 250 : now; /* ritmo fijo de 250 ms mientras camina (no se corre con cada cuadro) */ MPG.lx = bot.x; MPG.lz = bot.z; MPG.ly = bot.y; MPG.mv = mvNow;
       var po = { x: +bot.x.toFixed(2), z: +bot.z.toFixed(2), y: +bot.y.toFixed(2), yaw: +(bot.yaw || 0).toFixed(2), v: +(bot.v || 0).toFixed(1), f: fNow, t: now }, nm = mpName(), col = (now - (MPG.cT || 0) > 3000 || !MPG.sc) ? (MPG.cT = now, mpMyCol()) : MPG.sc;
       var full = zk !== MPG.zk || nm !== MPG.sn || col !== MPG.sc || myR !== MPG.sr; /* nombre, colores y rol solo cuando cambian (o al entrar a otra zona) */
       if (full) { po.n = nm; po.c = col; if (myR) po.r = myR; }
       if (pNow || (!full && MPG.sp)) po.p = pNow; /* sentado (1); al levantarse se manda 0 una vez */
       MPG.sp = pNow;
+      if (dNow || (!full && MPG.sd)) po.d = dNow; /* dron (1); al soltarse se manda 0 una vez */
+      MPG.sd = dNow;
       window.__mp.put(zk, po, full);
       if (MPG.zk && MPG.zk !== zk) window.__mp.drop(MPG.zk);
       MPG.zk = zk; MPG.sn = nm; MPG.sc = col; MPG.sr = myR;
@@ -16323,7 +16422,7 @@ function buildBaseAEMX(){
         R.n = d.n || 'Jugador'; R.r = dr; R.F.g.remove(R.lab); R.lab.material.map.dispose(); R.lab.material.dispose();
         R.lab = mpLabel(mpTag(R.n, R.r), MP_RC[R.r]); R.F.g.add(R.lab);
       }
-      R.v = d.v || 0; R.ps = d.p === 1; /* sentado */
+      R.v = d.v || 0; R.ps = d.p === 1; /* sentado */ R.dn = d.d === 1; /* colgado del dron */
       if (d.t !== R.lt) { /* dato nuevo: va al búfer con la hora en que lo mandó su dueño */
         R.lt = d.t; var sy = isFinite(d.y) ? d.y : botGround(d.x, d.z), lb = R.buf && R.buf[R.buf.length - 1], ofs = now - (d.t || now);
         if (!R.buf || (lb && (Math.hypot(d.x - lb.x, d.z - lb.z) > 40 || d.t < lb.t))) { R.buf = []; R.ofs = ofs; R.x = d.x; R.z = d.z; R.y = sy; R.yaw = d.yaw || 0; } /* nuevo o teletransporte: sin cruzar el mapa */
@@ -16353,6 +16452,13 @@ function buildBaseAEMX(){
       R.sp = (R.sp || 0) + (ms - (R.sp || 0)) * Math.min(1, dt * 10);
       mpAnim(R, dt);
       R.F.g.position.set(R.x, R.y, R.z); R.F.g.rotation.y = R.yaw;
+      /* colgado del dron: el dron arriba y los brazos sujetándolo */
+      if (R.dn && typeof botMakeDrone === 'function') {
+        if (!R.drn) R.drn = botMakeDrone();
+        var Dq = R.drn, dq; Dq.g.visible = true; Dq.g.position.set(R.x + Math.cos(R.yaw) * 0.115, R.y + BOT_HANG, R.z - Math.sin(R.yaw) * 0.115); Dq.g.rotation.y = R.yaw;
+        for (dq = 0; dq < 4; dq++) Dq.rots[dq].rotation.y += dt * 60;
+        if (R.F.arms) for (dq = 0; dq < 2; dq++) { mpE.set(-2.95, 0, (dq ? 1 : -1) * 0.12); R.F.arms[dq].sh.quaternion.setFromEuler(mpE); mpE.set(-0.15, 0, 0); R.F.arms[dq].el.quaternion.setFromEuler(mpE); }
+      } else if (R.drn) R.drn.g.visible = false;
       /* sentado: la misma pose que el robot propio; se sienta y se levanta suave */
       R.sitK = (R.sitK || 0) + ((R.ps && R.sp < 0.5 ? 1 : 0) - (R.sitK || 0)) * Math.min(1, dt * (R.ps ? 3 : 6));
       if ((R.sitK > 0.002 || R.sitW) && window.__botSitApply) { if (R.sitK <= 0.002) R.sitK = 0; window.__botSitApply(R.F, R.sitK, t, false); R.sitW = R.sitK > 0; }
@@ -16899,7 +17005,7 @@ window.__mp = {
     if (mpDisc !== zk) { onDisconnect(r).remove().catch(() => {}); mpDisc = zk; }
     for (const q in mpNo) delete o[q]; /* campos que las reglas del servidor aún no aceptan (rol, vuelo): se mandan sin ellos */
     const go = () => (full ? set(r, o) : update(r, o)).catch((e) => {
-      if (/PERMISSION/i.test(String(e.code || e.message))) { const q = ['p', 'r', 'f'].find((k) => k in o && !mpNo[k]); if (q) { mpNo[q] = true; delete o[q]; go(); return; } }
+      if (/PERMISSION/i.test(String(e.code || e.message))) { const q = ['d', 'p', 'r', 'f'].find((k) => k in o && !mpNo[k]); if (q) { mpNo[q] = true; delete o[q]; go(); return; } }
       console.warn('MP put', e.code || e.message);
     });
     go();
