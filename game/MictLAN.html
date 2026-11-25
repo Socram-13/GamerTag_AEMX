@@ -9463,6 +9463,7 @@ function buildBaseAEMX(){
     }
     if (trailNear(x, z, 1.9) && !rdHigh(x, z)) h = Math.max(h, trailY(x, z)); /* bajo un puente el suelo es el terreno */
     h = Math.max(h, rdSlope(x, z)); /* los taludes de tierra a los lados de la carretera se pisan */
+    var cmL = window.__cem; if (cmL && cmL.ok) h += cmL.lift(x, z, h);
     return h;
   }
 
@@ -9573,14 +9574,14 @@ function buildBaseAEMX(){
     (function () {
       var S = 1.0, nx = Math.ceil((B[1] - B[0]) / S), nz = Math.ceil((B[3] - B[2]) / S), i, j, P = [], C = [], hv = [], lv = [], sand = new THREE.Color(0x8b6b48), grass = new THREE.Color(0x3a3a2a), c = new THREE.Color();
       for (j = 0; j <= nz; j++) for (i = 0; i <= nx; i++) { var x = B[0] + i * S, z = B[2] + j * S, h = H(x, z); hv.push(h); lv.push(1); /* sin landAt (es de celdas de 8 m): la orilla la da la altura */ }
-      function V(i, j) { var k = j * (nx + 1) + i, x = B[0] + i * S, z = B[2] + j * S, h = hv[k], t = Math.max(0, Math.min(1, (h - 0.12) / 0.5)), n = 0.75 + 0.35 * (0.5 + 0.5 * Math.sin(x * 0.9 + z * 0.4) * Math.sin(z * 0.7 - x * 0.3)) + (rnd() - 0.5) * 0.12; c.copy(sand).lerp(grass, t * (0.85 + 0.15 * Math.sin(x * 0.21 + z * 0.17))); P.push(x, h + 0.08, z); C.push(c.r * n, c.g * n, c.b * n); }
+      function V(i, j) { var k = j * (nx + 1) + i, x = B[0] + i * S, z = B[2] + j * S, h = hv[k], t = Math.max(0, Math.min(1, (h - 0.12) / 0.5)), n = 0.75 + 0.35 * (0.5 + 0.5 * Math.sin(x * 0.9 + z * 0.4) * Math.sin(z * 0.7 - x * 0.3)) + (rnd() - 0.5) * 0.12; c.copy(sand).lerp(grass, t * (0.85 + 0.15 * Math.sin(x * 0.21 + z * 0.17))); P.push(x, h + 0.06, z); C.push(c.r * n, c.g * n, c.b * n); }
       for (j = 0; j < nz; j++) for (i = 0; i < nx; i++) {
         var k = j * (nx + 1) + i; if (!(lv[k] && lv[k + 1] && lv[k + nx + 1] && lv[k + nx + 2])) continue;
         if (Math.min(hv[k], hv[k + 1], hv[k + nx + 1], hv[k + nx + 2]) < 0.1) continue;
         V(i, j); V(i, j + 1); V(i + 1, j); V(i + 1, j); V(i, j + 1); V(i + 1, j + 1);
       }
       var ge = new THREE.BufferGeometry(); ge.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); ge.setAttribute('color', new THREE.BufferAttribute(new Float32Array(C), 3)); ge.computeVertexNormals();
-      var m = new THREE.Mesh(ge, new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.receiveShadow = true; m.raycast = function () {}; G.add(m);
+      var m = new THREE.Mesh(ge, new THREE.MeshLambertMaterial({ vertexColors: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 })); m.renderOrder = 1; m.receiveShadow = true; m.raycast = function () {}; G.add(m); /* sin escribir profundidad: los caminos y la plaza (dibujados después) siempre quedan encima */
     })();
 
     /* ---- caminos: 4 principales desde la plaza (anchos) y una cuadrícula de secundarios cada 13 m ---- */
@@ -9594,7 +9595,7 @@ function buildBaseAEMX(){
         for (t = -60; t <= 60; t += st) {
           var u = L[0] === 'u' ? t : L[1], v = L[0] === 'u' ? L[1] : t, pc = W(u, v), ok = okL(pc[0], pc[1], 0.18) && Math.hypot(u, v) > 5.1;
           if (!ok) { prev = null; continue; }
-          var la = L[0] === 'u' ? W(u, v - w) : W(u - w, v), lb = L[0] === 'u' ? W(u, v + w) : W(u + w, v), cur = [la, lb, H(la[0], la[1]) + 0.15, H(lb[0], lb[1]) + 0.15];
+          var la = L[0] === 'u' ? W(u, v - w) : W(u - w, v), lb = L[0] === 'u' ? W(u, v + w) : W(u + w, v), cur = [la, lb, H(la[0], la[1]) + 0.06, H(lb[0], lb[1]) + 0.06];
           if (prev) {
             var n = 0.85 + rnd() * 0.25; c.copy(base).lerp(dark, rnd() * 0.5);
             [[prev[0], prev[2]], [cur[0], cur[2]], [prev[1], prev[3]], [prev[1], prev[3]], [cur[0], cur[2]], [cur[1], cur[3]]].forEach(function (q) { P.push(q[0][0], q[1], q[0][1]); C.push(c.r * n, c.g * n, c.b * n); });
@@ -9604,7 +9605,7 @@ function buildBaseAEMX(){
       });
       var ge = new THREE.BufferGeometry(); ge.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); ge.setAttribute('color', new THREE.BufferAttribute(new Float32Array(C), 3)); ge.computeVertexNormals();
       var nm = ge.attributes.normal; for (var i = 0; i < nm.count; i++) if (nm.getY(i) < 0) nm.setXYZ(i, -nm.getX(i), -nm.getY(i), -nm.getZ(i));
-      var m = new THREE.Mesh(ge, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); m.receiveShadow = true; m.raycast = function () {}; G.add(m);
+      var m = new THREE.Mesh(ge, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -10 })); m.renderOrder = 2; m.receiveShadow = true; m.raycast = function () {}; G.add(m);
     })();
 
     /* ---- plaza empedrada alrededor del ángel ---- */
@@ -9614,11 +9615,11 @@ function buildBaseAEMX(){
         var r0 = i * RR / 10, r1 = (i + 1) * RR / 10, a0 = j / NA * 6.2832, a1 = (j + 1) / NA * 6.2832, n = 0.8 + rnd() * 0.3;
         c.setHex(0x77716a).multiplyScalar(n);
         var q = [[r0, a0], [r1, a0], [r0, a1], [r0, a1], [r1, a0], [r1, a1]];
-        q.forEach(function (o) { var x = A.x + Math.sin(o[1]) * o[0], z = A.z + Math.cos(o[1]) * o[0]; P.push(x, H(x, z) + 0.12, z); C.push(c.r, c.g, c.b); });
+        q.forEach(function (o) { var x = A.x + Math.sin(o[1]) * o[0], z = A.z + Math.cos(o[1]) * o[0]; P.push(x, H(x, z) + 0.07, z); C.push(c.r, c.g, c.b); });
       }
       var ge = new THREE.BufferGeometry(); ge.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); ge.setAttribute('color', new THREE.BufferAttribute(new Float32Array(C), 3)); ge.computeVertexNormals();
       var nm = ge.attributes.normal; for (i = 0; i < nm.count; i++) if (nm.getY(i) < 0) nm.setXYZ(i, -nm.getX(i), -nm.getY(i), -nm.getZ(i));
-      var m = new THREE.Mesh(ge, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); m.receiveShadow = true; m.raycast = function () {}; G.add(m);
+      var m = new THREE.Mesh(ge, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -10 })); m.renderOrder = 2; m.receiveShadow = true; m.raycast = function () {}; G.add(m);
     })();
 
     /* ---- reja de hierro alrededor de la plaza, con 4 puertas en los caminos ---- */
@@ -9734,9 +9735,19 @@ function buildBaseAEMX(){
     seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); sky.material.uniforms.uFogK.value = Math.max(sky.material.uniforms.uFogK.value, 0.45 * k);
     starsA.material.opacity *= (1 - 0.5 * k); starsB.material.opacity *= (1 - 0.5 * k);
   };
+  CEM.lift = function (x, z, h) { /* el robot pisa sobre el pasto, los caminos y la plaza (no los atraviesa) */
+    var B = CEM.box; if (!(x > B[0] && x < B[1] && z > B[2] && z < B[3]) || h < 0.1) return 0;
+    if (Math.hypot(x - ANGP.x, z - ANGP.z) < 5.1) return 0.07;
+    return 0.06 * Math.min(1, (h - 0.1) / 0.15);
+  };
   window.__cem = CEM;
+  /* pasos de tierra entre la Isla Tiburón y la costa de Sonora: se pueden caminar donde se ve tierra sobre el agua */
+  var TIB_PASO = [[-1490, -1462, -900, -886], [-1478, -1462, -872, -852]];
+  function tibPaso(x, z) { for (var i = 0; i < TIB_PASO.length; i++) { var b = TIB_PASO[i]; if (x > b[0] && x < b[1] && z > b[2] && z < b[3]) return terrainH(x, z) > -0.3; } return false; }
+  window.__tibPaso = tibPaso;
   function plyLand(x, z) { /* tierra adentro: la cuadrícula (rápida); en la costa: el contorno exacto que se ve */
     if (!landAt) return true;
+    if (tibPaso(x, z)) return true;
     if (landAt(x, z) && landAt(x + 8, z) && landAt(x - 8, z) && landAt(x, z + 8) && landAt(x, z - 8)) return true;
     return polyLandAt ? polyLandAt(x, z) : landAt(x, z);
   }
@@ -9757,7 +9768,7 @@ function buildBaseAEMX(){
     return v;
   }
   function junkLand(x, z) { return !!(JUNKC && polyLandAt && Math.abs(x - JUNKC.x) < 45 && Math.abs(z - JUNKC.z) < 45 && polyLandAt(x, z) && window.__junkIn && window.__junkIn(x, z)); }
-  function botLandOK(x, z) { return landAt(x, z) || junkLand(x, z); }
+  function botLandOK(x, z) { return landAt(x, z) || junkLand(x, z) || tibPaso(x, z); }
   function botFreeS(x, z) {
     if (COZ_BP && COZ_BP.on(x, z)) return true;
     for (var mbi = 0; mbi < monBlk.length; mbi++) if (Math.hypot(x - monBlk[mbi].x, z - monBlk[mbi].z) < monBlk[mbi].r) return false;
