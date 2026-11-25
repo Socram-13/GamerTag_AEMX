@@ -9622,6 +9622,7 @@ function buildBaseAEMX(){
       var m = new THREE.Mesh(ge, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -10 })); m.renderOrder = 2; m.receiveShadow = true; m.raycast = function () {}; G.add(m);
     })();
 
+    var FR = new Float32Array(360);   /* radio de la reja de la isla por grado, desde el ángel */
     /* ---- reja de hierro alrededor de la plaza, con 4 puertas en los caminos ---- */
     (function () {
       var iron = 0x1d1d20, bar = merge([part(BX(0.035, 1.05, 0.035), MX(0, 0.525, 0), iron), part(CY(0, 0.04, 0.12, 4), MX(0, 1.11, 0), iron), part(BX(0.27, 0.035, 0.035), MX(0, 0.92, 0), iron), part(BX(0.27, 0.035, 0.035), MX(0, 0.2, 0), iron)]);   /* travesaños a lo largo del círculo (eje x local) */
@@ -9634,8 +9635,34 @@ function buildBaseAEMX(){
         Lb.push({ m: MX(x, H(x, z) - 0.02, z, tilt, a, 0), c: 0xffffff }); if (i % 2 === 0) blk.push([x, z, 0.2, 'cmF']);
       }
       for (i = 0; i < 4; i++) [-1, 1].forEach(function (sg) { var a = A.yaw + i * 1.5708 + sg * (gate + 0.02), x = A.x + Math.sin(a) * RF, z = A.z + Math.cos(a) * RF; Lp.push({ m: MX(x, H(x, z) - 0.02, z, 0, a, 0), c: 0xffffff }); blk.push([x, z, 0.3, 'cmF']); });
+
+      /* ---- la misma reja alrededor de toda la isla, 1.2 m tierra adentro de la orilla; puertas en los 2 pasos de tierra y en los 4 caminos principales ---- */
+      var raw = [], k, r, a2;
+      for (i = 0; i < 360; i++) { a2 = i / 360 * 6.2832; for (r = 6; r < 75; r += 0.5) if (!okL(A.x + Math.sin(a2) * r, A.z + Math.cos(a2) * r, 0.15)) break; raw.push(r); }
+      for (i = 0; i < 360; i++) { var mn = 1e9; for (k = -3; k <= 3; k++) mn = Math.min(mn, raw[(i + k + 360) % 360]); FR[i] = mn; }
+      var sm = []; for (i = 0; i < 360; i++) { var sum = 0; for (k = -2; k <= 2; k++) sum += FR[(i + k + 360) % 360]; sm.push(Math.max(7, sum / 5 - 1.2)); } for (i = 0; i < 360; i++) FR[i] = sm[i];
+      var PP = []; for (i = 0; i < 360; i++) { a2 = i / 360 * 6.2832; PP.push([A.x + Math.sin(a2) * FR[i], A.z + Math.cos(a2) * FR[i]]); }
+      function nearestPP(x, z) { var b = 0, bd = 1e9; PP.forEach(function (p, j) { var d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; b = j; } }); return PP[b]; }
+      var GT = [[nearestPP(-1486, -893), 2.4], [nearestPP(-1474, -864), 2.4]];   /* pasos de tierra (norte y este) */
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var e = W(d[0] * 80, d[1] * 80), ang = Math.atan2(e[0] - A.x, e[1] - A.z); if (ang < 0) ang += 6.2832; GT.push([PP[Math.round(ang / 6.2832 * 360) % 360], 1.3]); });   /* donde llegan los caminos principales */
+      function inGate(x, z) { for (var g = 0; g < GT.length; g++) if (Math.hypot(x - GT[g][0][0], z - GT[g][0][1]) < GT[g][1]) return true; return false; }
+      var acc = 0, wasGap = true, lastPost = -99, run = 0;
+      for (i = 0; i < 360; i++) {
+        var p0 = PP[i], p1 = PP[(i + 1) % 360], dx = p1[0] - p0[0], dz = p1[1] - p0[1], sl = Math.hypot(dx, dz), yawF = Math.atan2(-dz, dx), s;
+        for (s = acc; s < sl; s += 0.27) {
+          var x = p0[0] + dx * s / sl, z = p0[1] + dz * s / sl, gp = inGate(x, z) || !okL(x, z, 0.1);
+          run += 0.27;
+          if (gp) { if (!wasGap) { Lp.push({ m: MX(x, H(x, z) - 0.02, z, 0, yawF, 0), c: 0xffffff }); blk.push([x, z, 0.3, 'cmF']); } wasGap = true; continue; }
+          if (wasGap || run - lastPost > 12) { Lp.push({ m: MX(x, H(x, z) - 0.02, z, 0, yawF, 0), c: 0xffffff }); blk.push([x, z, 0.3, 'cmF']); lastPost = run; wasGap = false; continue; }
+          Lb.push({ m: MX(x, H(x, z) - 0.02, z, (rnd() - 0.5) * 0.06, yawF, 0), c: 0xffffff }); if (Math.round(run / 0.27) % 2 === 0) blk.push([x, z, 0.2, 'cmF']);
+        }
+        acc = s - sl;
+      }
+      CEM.gates = GT.map(function (g) { return g[0]; }); CEM.fr = FR;
       inst(bar, new THREE.MeshLambertMaterial({ vertexColors: true }), Lb, true); inst(post, stoneM, Lp, true);
     })();
+    function fenceR(x, z) { var a = Math.atan2(x - A.x, z - A.z); if (a < 0) a += 6.2832; return FR[Math.floor(a / 6.2832 * 360) % 360]; }
+    function inFence(x, z, mg) { return Math.hypot(x - A.x, z - A.z) < fenceR(x, z) - mg; }
 
     /* ---- mausoleos en el centro de algunas manzanas ---- */
     var MZ = [];
@@ -9644,7 +9671,7 @@ function buildBaseAEMX(){
         part(BX(0.82, 1.35, 0.06), MX(0, 0.98, 1.46), 0x0e0d0d), part(CY(0.1, 0.12, 1.9, 8), MX(-0.75, 1.25, 1.6), 0x847d74), part(CY(0.1, 0.12, 1.9, 8), MX(0.75, 1.25, 1.6), 0x847d74),
         part(BX(2.3, 0.18, 0.5), MX(0, 2.25, 1.55), 0x6b655d), part(BX(0.08, 0.5, 0.08), MX(0, 3.35, 1.45), 0x5a544e), part(BX(0.3, 0.08, 0.08), MX(0, 3.45, 1.45), 0x5a544e)]);
       var cand = [], i, j;
-      for (i = -3; i <= 3; i++) for (j = -3; j <= 3; j++) { var u = (i + 0.5) * PS, v = (j + 0.5) * PS; if (Math.hypot(u, v) < 12) continue; var p = W(u, v); if (okL(p[0], p[1], 0.3) && okL.apply(null, W(u + 2.5, v).concat(0.2)) && okL.apply(null, W(u - 2.5, v).concat(0.2)) && okL.apply(null, W(u, v + 2.5).concat(0.2)) && okL.apply(null, W(u, v - 2.5).concat(0.2))) cand.push([u, v]); }
+      for (i = -3; i <= 3; i++) for (j = -3; j <= 3; j++) { var u = (i + 0.5) * PS, v = (j + 0.5) * PS; if (Math.hypot(u, v) < 12) continue; var p = W(u, v); if (inFence(p[0], p[1], 3) && okL(p[0], p[1], 0.3) && okL.apply(null, W(u + 2.5, v).concat(0.2)) && okL.apply(null, W(u - 2.5, v).concat(0.2)) && okL.apply(null, W(u, v + 2.5).concat(0.2)) && okL.apply(null, W(u, v - 2.5).concat(0.2))) cand.push([u, v]); }
       for (i = cand.length - 1; i > 0; i--) { j = Math.floor(rnd() * (i + 1)); var t = cand[i]; cand[i] = cand[j]; cand[j] = t; }
       cand.slice(0, 7).forEach(function (c) { var p = W(c[0], c[1]), fy = A.yaw + (Math.abs(c[0]) > Math.abs(c[1]) ? (c[0] > 0 ? Math.PI : 0) : (c[1] > 0 ? -Math.PI / 2 : Math.PI / 2)); /* la puerta mira hacia el ángel */
         var hs = [H(p[0], p[1]), H(p[0] + 1.3, p[1]), H(p[0] - 1.3, p[1]), H(p[0], p[1] + 1.3), H(p[0], p[1] - 1.3)]; MZ.push({ m: MX(p[0], Math.min.apply(null, hs) - 0.05, p[1], 0, fy, 0), c: 0xffffff, u: c[0], v: c[1] }); monBlk.push({ x: p[0], z: p[1], r: 1.9 }); });
@@ -9660,7 +9687,7 @@ function buildBaseAEMX(){
       var gt = merge(L), n = Math.round(46 * Q), tries = 0;
       while (TR.length < n && tries++ < 900) {
         var L2 = PL[Math.floor(rnd() * PL.length)], t = (rnd() - 0.5) * 110, side = rnd() < 0.5 ? -1 : 1, off = L2[2] / 2 + 0.6 + rnd() * 0.5, u = L2[0] === 'u' ? t : L2[1] + side * off, v = L2[0] === 'u' ? L2[1] + side * off : t, p = W(u, v);
-        if (Math.hypot(u, v) < 7 || !okL(p[0], p[1], 0.25) || nearMz(u, v, 3.2)) continue;
+        if (Math.hypot(u, v) < 7 || !okL(p[0], p[1], 0.25) || !inFence(p[0], p[1], 1.0) || nearMz(u, v, 3.2)) continue;
         if (TR.some(function (o) { return Math.hypot(o.u - u, o.v - v) < 5; })) continue;
         var s = 0.9 + rnd() * 0.8; TR.push({ m: MX(p[0], H(p[0], p[1]) - 0.05, p[1], (rnd() - 0.5) * 0.15, rnd() * 6.28, (rnd() - 0.5) * 0.15, s, s * (0.9 + rnd() * 0.3), s), c: 0xffffff, u: u, v: v }); blk.push([p[0], p[1], 0.16 * s, 'cmA']);
       }
@@ -9671,7 +9698,7 @@ function buildBaseAEMX(){
     var LAMP = [];
     (function () {
       var iron = 0x1b1b1e, gl = merge([part(BX(0.07, 1.7, 0.07), MX(0, 0.85, 0), iron), part(BX(0.22, 0.05, 0.22), MX(0, 1.72, 0), iron), part(BX(0.16, 0.24, 0.16), MX(0, 1.86, 0), 0x2a2620), part(CY(0, 0.16, 0.14, 4), MX(0, 2.05, 0, 0, 0.785, 0), iron)]), L = [];
-      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { for (var t = 7, sd = 1; t < 60; t += 6.5, sd = -sd) { var u = d[0] * t + (d[1] ? sd * 1.25 : 0), v = d[1] * t + (d[0] ? sd * 1.25 : 0), p = W(u, v); if (!okL(p[0], p[1], 0.25)) break; var y = H(p[0], p[1]); L.push({ m: MX(p[0], y - 0.03, p[1], 0, A.yaw, 0), c: 0xffffff }); LAMP.push(p[0], y + 1.86, p[1]); blk.push([p[0], p[1], 0.12, 'cmL']); } });
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { for (var t = 7, sd = 1; t < 60; t += 6.5, sd = -sd) { var u = d[0] * t + (d[1] ? sd * 1.25 : 0), v = d[1] * t + (d[0] ? sd * 1.25 : 0), p = W(u, v); if (!okL(p[0], p[1], 0.25) || !inFence(p[0], p[1], 0.6)) break; var y = H(p[0], p[1]); L.push({ m: MX(p[0], y - 0.03, p[1], 0, A.yaw, 0), c: 0xffffff }); LAMP.push(p[0], y + 1.86, p[1]); blk.push([p[0], p[1], 0.12, 'cmL']); } });
       inst(gl, stoneM, L, true);
     })();
 
@@ -9689,7 +9716,7 @@ function buildBaseAEMX(){
         if (Math.hypot(u, v) < 7.2 || nearPath(u, v, 0.45) || nearPath(uc + 0.7, v, 0.45) || nearMz(u, v, 2.6)) continue;
         if (TR.some(function (o) { return Math.hypot(o.u - u, o.v - v) < 1.1 || Math.hypot(o.u - uc, o.v - v) < 1.0; })) continue;
         var ju = (rnd() - 0.5) * 0.25, jv = (rnd() - 0.5) * 0.2, p = W(u + ju, v + jv), pm = W(uc + ju, v + jv);
-        if (!okL(p[0], p[1], 0.2) || !okL(pm[0], pm[1], 0.18) || !okL.apply(null, W(uc + 0.8, v).concat(0.15))) continue;
+        if (!inFence(p[0], p[1], 0.7) || !inFence(pm[0], pm[1], 1.4) || !okL(p[0], p[1], 0.2) || !okL(pm[0], pm[1], 0.18) || !okL.apply(null, W(uc + 0.8, v).concat(0.15))) continue;
         var den = 0.86 + 0.2 * Math.sin(u * 0.19 + 1.3) * Math.sin(v * 0.23 - 0.4); if (rnd() > den) continue;
         var y = H(p[0], p[1]), r = rnd(), lean = (rnd() - 0.5) * 0.18 + (rnd() < 0.12 ? (rnd() < 0.5 ? -1 : 1) * (0.25 + rnd() * 0.2) : 0), roll = (rnd() - 0.5) * 0.12, yy = A.yaw + Math.PI + (rnd() - 0.5) * 0.14;
         var g0 = 0.42 + rnd() * 0.14, gC = new THREE.Color(g0 * 1.02, g0, g0 * 0.95); if (rnd() < 0.3) gC.lerp(new THREE.Color(0x4c5a3a), 0.35); /* musgo */
@@ -9708,9 +9735,9 @@ function buildBaseAEMX(){
     CEM.cand = CND.length ? pts(CND, 0xffa63d, 0.45, true, 0.9) : null;
     CEM.lamp = LAMP.length ? pts(LAMP, 0xffc46b, 1.6, true, 0.85) : null;
     (function () {
-      var M = [], n = Math.round(260 * Q), tries = 0;
-      while (M.length < n * 3 && tries++ < 4000) { var x = B[0] + rnd() * (B[1] - B[0]), z = B[2] + rnd() * (B[3] - B[2]); if (!okL(x, z, 0.12)) continue; M.push(x, H(x, z) + 0.35 + rnd() * 0.6, z); }
-      CEM.mist = pts(M, 0x8d969c, 7, false, 0.16); CEM.mist.renderOrder = 2;
+      var M = [], n = Math.round(420 * Q), tries = 0;
+      while (M.length < n * 3 && tries++ < 4000) { var x = B[0] + rnd() * (B[1] - B[0]), z = B[2] + rnd() * (B[3] - B[2]); if (!okL(x, z, 0.12)) continue; M.push(x, H(x, z) + 0.3 + rnd() * 2.0, z); }
+      CEM.mist = pts(M, 0x8d969c, 10, false, 0.2); CEM.mist.renderOrder = 2;
     })();
 
     /* ---- colisión: en la cuadrícula de vegetación del robot ---- */
@@ -9726,12 +9753,12 @@ function buildBaseAEMX(){
     if (!CEM.g.visible) return;
     if (CEM.cand) { CEM.cand.material.opacity = 0.75 + 0.25 * Math.sin(t * 17) * Math.sin(t * 7.3); CEM.cand.material.size = 0.42 + 0.06 * Math.sin(t * 11.1); }
     if (CEM.lamp) CEM.lamp.material.opacity = 0.7 + 0.15 * Math.sin(t * 5.3) * Math.sin(t * 2.1);
-    if (CEM.mist) { CEM.mist.position.x = Math.sin(t * 0.05) * 3; CEM.mist.position.z = Math.cos(t * 0.04) * 3; CEM.mist.material.opacity = 0.13 + 0.04 * Math.sin(t * 0.3); }
+    if (CEM.mist) { CEM.mist.position.x = Math.sin(t * 0.05) * 3; CEM.mist.position.z = Math.cos(t * 0.04) * 3; CEM.mist.material.opacity = 0.17 + 0.05 * Math.sin(t * 0.3); }
   }
   window.__cemFog = function () { /* niebla oscura de cementerio cuando la cámara está en la isla */
     var k = CEM.k; if (!(k > 0.001)) return;
     if (!CEM.fc) CEM.fc = new THREE.Color(0x1c2024);
-    scene.fog.density += (0.034 - scene.fog.density) * k * 0.9; scene.fog.color.lerp(CEM.fc, k * 0.85);
+    if (scene.fog.density < 0.034 * k) scene.fog.density = 0.034 * k; scene.fog.color.lerp(CEM.fc, k * 0.6); /* la niebla del juego (isla = zona de niebla) más gris y oscura */
     seaU.uFogD.value = scene.fog.density; seaU.uFogC.value.copy(scene.fog.color); sky.material.uniforms.uFogK.value = Math.max(sky.material.uniforms.uFogK.value, 0.45 * k);
     starsA.material.opacity *= (1 - 0.5 * k); starsB.material.opacity *= (1 - 0.5 * k);
   };
@@ -9745,6 +9772,7 @@ function buildBaseAEMX(){
   var TIB_PASO = [[-1490, -1462, -900, -886], [-1478, -1462, -872, -852]];
   function tibPaso(x, z) { for (var i = 0; i < TIB_PASO.length; i++) { var b = TIB_PASO[i]; if (x > b[0] && x < b[1] && z > b[2] && z < b[3]) return terrainH(x, z) > -0.3; } return false; }
   window.__tibPaso = tibPaso;
+  window.__tibFog = function (x, z) { return x > -1534 && x < -1462 && z > -906 && z < -814; };   /* toda la isla es zona de niebla */
   function plyLand(x, z) { /* tierra adentro: la cuadrícula (rápida); en la costa: el contorno exacto que se ve */
     if (!landAt) return true;
     if (tibPaso(x, z)) return true;
@@ -15221,6 +15249,7 @@ function buildBaseAEMX(){
     }
     function fogAtRaw(x, z) {
       var i, d, fe;
+      if (window.__tibFog && window.__tibFog(x, z)) return true;
       for (i = 0; i < fogEvents.length; i++) { fe = fogEvents[i]; if (Math.hypot(x - fe.d.cx, z - fe.d.cz) < 64) return true; }
       for (i = 0; i < districts.length; i++) {
         d = districts[i]; if (d.list.length) continue;
