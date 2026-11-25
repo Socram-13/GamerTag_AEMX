@@ -12040,7 +12040,7 @@ function buildBaseAEMX(){
       b.fxo.bulb.position.set(0, b.lamp ? b.lamp.bulb[1] : 0.19, b.lamp ? b.lamp.bulb[2] : 0.1); if (b.lamp) b.fxo.bulb.scale.set(b.lamp.bulbS[0], b.lamp.bulbS[1], b.lamp.bulbS[2]); noRay(b.fxo.bulb); b.head.add(b.fxo.bulb);
     }
     var FXo = b.fxo, onGnd = (b.mode === 'walk' || b.mode === 'perch') && b.shell.visible, fxBase = onGnd ? b.y - (b.bh || 0) : 0, fxFl = onGnd ? Math.max(0, 1 - (b.bh || 0) / 1.5) * (1 - bk) : 0, fxI;
-    FXo.fk += (((b.inFog || b.inJunk) && onGnd ? 1 : 0) - FXo.fk) * Math.min(1, dt * 1.5);
+    FXo.fk += (((b.inFog || b.inJunk) && onGnd && !(window.__tibFog && window.__tibFog(b.x, b.z)) ? 1 : 0) - FXo.fk) * Math.min(1, dt * 1.5);
     FXo.beam.material.opacity = 0.55 * FXo.fk * (0.95 + 0.05 * Math.sin(t * 9)); FXo.beam.visible = FXo.fk > 0.02;
     FXo.blob.visible = onGnd; FXo.blob.position.set(b.x, fxBase + 0.03, b.z); FXo.blob.scale.setScalar(0.75 * (1 + (b.bh || 0) * 0.05)); FXo.blob.material.opacity = 0.5 / (1 + (b.bh || 0) * 0.3);
     b.head.rotation.x = -b.aimPitch - b.lean;
