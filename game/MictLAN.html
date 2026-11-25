@@ -9695,11 +9695,26 @@ function buildBaseAEMX(){
     })();
 
     /* ---- faroles a lo largo de los 4 caminos principales ---- */
-    var LAMP = [];
+    var LAMP = [], LPOOL = [];
     (function () {
-      var iron = 0x1b1b1e, gl = merge([part(BX(0.07, 1.7, 0.07), MX(0, 0.85, 0), iron), part(BX(0.22, 0.05, 0.22), MX(0, 1.72, 0), iron), part(BX(0.16, 0.24, 0.16), MX(0, 1.86, 0), 0x2a2620), part(CY(0, 0.16, 0.14, 4), MX(0, 2.05, 0, 0, 0.785, 0), iron)]), L = [];
-      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { for (var t = 7, sd = 1; t < 60; t += 6.5, sd = -sd) { var u = d[0] * t + (d[1] ? sd * 1.25 : 0), v = d[1] * t + (d[0] ? sd * 1.25 : 0), p = W(u, v); if (!okL(p[0], p[1], 0.25) || !inFence(p[0], p[1], 0.6)) break; var y = H(p[0], p[1]); L.push({ m: MX(p[0], y - 0.03, p[1], 0, A.yaw, 0), c: 0xffffff }); LAMP.push(p[0], y + 1.86, p[1]); blk.push([p[0], p[1], 0.12, 'cmL']); } });
-      inst(gl, stoneM, L, true);
+      /* farol de hierro forjado: base octagonal, poste con anillos, brazo con volutas y linterna de 4 vidrios con techo y remate */
+      var iron = 0x1b1b1e, ir2 = 0x2a2a2e, q45 = 0.785, LY = 2.42, Lp = [
+        part(CY(0.17, 0.21, 0.22, 8), MX(0, 0.11, 0), 0x45423e), part(CY(0.12, 0.16, 0.14, 8), MX(0, 0.29, 0), iron), part(CY(0.08, 0.11, 0.1, 8), MX(0, 0.41, 0), ir2),
+        part(CY(0.042, 0.058, 1.62, 8), MX(0, 1.27, 0), iron), part(CY(0.075, 0.075, 0.045, 8), MX(0, 0.62, 0), ir2), part(CY(0.07, 0.07, 0.04, 8), MX(0, 1.55, 0), ir2),
+        part(CY(0.1, 0.05, 0.12, 8), MX(0, 2.12, 0), iron), part(CY(0.06, 0.1, 0.06, 8), MX(0, 2.2, 0), ir2),
+        part(CY(0.15, 0.11, 0.05, 4), MX(0, 2.255, 0, 0, q45, 0), iron),
+        part(CY(0.02, 0.2, 0.22, 4), MX(0, 2.74, 0, 0, q45, 0), iron), part(CY(0.03, 0.03, 0.06, 6), MX(0, 2.86, 0), ir2), part(new THREE.SphereGeometry(0.045, 8, 6), MX(0, 2.92, 0), ir2), part(CY(0, 0.018, 0.12, 4), MX(0, 3.01, 0), iron)
+      ];
+      [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(function (s) { Lp.push(part(BX(0.022, 0.42, 0.022), MX(s[0] * 0.105, LY, s[1] * 0.105), iron)); });   /* marco de la linterna */
+      [-1, 1].forEach(function (s) { Lp.push(part(new THREE.TorusGeometry(0.09, 0.012, 4, 10, Math.PI * 1.3), MX(s * 0.1, 1.98, 0, 0, 0, s > 0 ? -0.6 : Math.PI - 0.6 + 0.0), iron)); });   /* volutas bajo la linterna */
+      var gl = merge(Lp), glass = merge([part(BX(0.19, 0.38, 0.19), MX(0, LY, 0), 0xffffff)]), L = [], LG = [];
+      var glassM = new THREE.MeshBasicMaterial({ color: 0xffc46b, vertexColors: true, fog: false, transparent: true, opacity: 0.92 });
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { for (var t = 7, sd = 1; t < 60; t += 6.5, sd = -sd) { var u = d[0] * t + (d[1] ? sd * 1.25 : 0), v = d[1] * t + (d[0] ? sd * 1.25 : 0), p = W(u, v); if (!okL(p[0], p[1], 0.25) || !inFence(p[0], p[1], 0.6)) break; var y = H(p[0], p[1]); L.push({ m: MX(p[0], y - 0.03, p[1], 0, A.yaw, 0), c: 0xffffff }); LG.push({ m: MX(p[0], y - 0.03, p[1], 0, A.yaw, 0), c: 0xffffff }); LAMP.push(p[0], y + LY - 0.03, p[1]); LPOOL.push([p[0], y, p[1]]); blk.push([p[0], p[1], 0.14, 'cmL']); } });
+      inst(gl, stoneM, L, true); CEM.glass = inst(glass, glassM, LG, false); if (CEM.glass) CEM.glass.castShadow = false;
+      /* charco de luz cálida en el suelo bajo cada farol */
+      if (LPOOL.length) { var pc = document.createElement('canvas'); pc.width = pc.height = 64; var px = pc.getContext('2d'), pg = px.createRadialGradient(32, 32, 0, 32, 32, 32); pg.addColorStop(0, 'rgba(255,255,255,0.9)'); pg.addColorStop(0.5, 'rgba(255,255,255,0.3)'); pg.addColorStop(1, 'rgba(255,255,255,0)'); px.fillStyle = pg; px.fillRect(0, 0, 64, 64);
+        var pm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(pc), color: 0xffb35a, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -16 }), pgeo = new THREE.PlaneGeometry(4.4, 4.4); pgeo.rotateX(-Math.PI / 2);
+        var PI = new THREE.InstancedMesh(pgeo, pm, LPOOL.length); LPOOL.forEach(function (q, i) { PI.setMatrixAt(i, MX(q[0], q[1] + 0.09, q[2])); }); PI.instanceMatrix.needsUpdate = true; pgeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(A.x, 1, A.z), 70); PI.renderOrder = 3; PI.raycast = function () {}; G.add(PI); CEM.pool = PI; }
     })();
 
     /* ---- tumbas en filas dentro de las manzanas ---- */
@@ -9752,7 +9767,7 @@ function buildBaseAEMX(){
     CEM.k += ((d < 48 ? 1 : d > 90 ? 0 : (90 - d) / 42) - CEM.k) * Math.min(1, dt * 1.5);
     if (!CEM.g.visible) return;
     if (CEM.cand) { CEM.cand.material.opacity = 0.75 + 0.25 * Math.sin(t * 17) * Math.sin(t * 7.3); CEM.cand.material.size = 0.42 + 0.06 * Math.sin(t * 11.1); }
-    if (CEM.lamp) CEM.lamp.material.opacity = 0.7 + 0.15 * Math.sin(t * 5.3) * Math.sin(t * 2.1);
+    if (CEM.lamp) { var lf = Math.sin(t * 5.3) * Math.sin(t * 2.1) + 0.3 * Math.sin(t * 23.7); CEM.lamp.material.opacity = 0.7 + 0.15 * lf; if (CEM.glass) CEM.glass.material.opacity = 0.85 + 0.1 * lf; if (CEM.pool) CEM.pool.material.opacity = 0.3 + 0.06 * lf; }
     if (CEM.mist) { CEM.mist.position.x = Math.sin(t * 0.05) * 3; CEM.mist.position.z = Math.cos(t * 0.04) * 3; CEM.mist.material.opacity = 0.17 + 0.05 * Math.sin(t * 0.3); }
   }
   window.__cemFog = function () { /* niebla oscura de cementerio cuando la cámara está en la isla */
@@ -16972,7 +16987,7 @@ function buildBaseAEMX(){
     x.fillStyle = 'rgba(10,16,28,0.72)'; x.beginPath(); if (x.roundRect) x.roundRect(128 - w / 2, 10, w, 44, 22); else x.rect(128 - w / 2, 10, w, 44); x.fill();
     if (bd) { x.strokeStyle = bd; x.lineWidth = 3; x.stroke(); } /* el propio: con borde dorado */
     x.fillStyle = col || '#7fe8ff'; x.fillText(txt, 128, 33);
-    tx = new THREE.CanvasTexture(c); sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false }));
+    tx = new THREE.CanvasTexture(c); sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, fog: false })); /* sin niebla: el nombre se lee aunque haya niebla densa (cementerio) */
     sp.scale.set(1.1, 0.275, 1); sp.position.y = 2.4; sp.renderOrder = 5; return sp;
   }
   /* colores del jugador: "c" = "base,secundario,ojos" en hex (los del selector de la pantalla de carga); se arma la paleta igual que botPalApply */
